@@ -34,6 +34,10 @@
 #include "axis.h"
 #include "cmd.h"
 
+MSG_Q_ID msgMoveCW = NULL;		/* control the tMoveCW task */
+MSG_Q_ID msgMoveCWAbort = NULL;		/*  "   "   "    "  "   "   */
+SEM_ID semMoveCWBusy = NULL;		/*  "   "   "    "  "   "   */
+
 /*****************************************************************************/
 /*
  * Create the task and message queue for the counterweights
@@ -1375,10 +1379,18 @@ cw_data_collection(void)
   if(cw_ADC128F1 != -1) {
      for(ii = 0; ii < NUMBER_CW; ii++) {
 	ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
-	if ((adc&0x800) == 0x800) {
-	   sdssdc.weight[ii].pos = adc | 0xF000;
+	
+	if(semTake(semSDSSDC, 60) == ERROR) {
+	   TRACE(2, "cw_data_collection failed to take semSDSSDC: %s",
+							   strerror(errno), 0);
 	} else {
-	   sdssdc.weight[ii].pos = adc & 0xFFF;
+	   if((adc & 0x800) == 0x800) {
+	      sdssdc.weight[ii].pos = adc | 0xF000;
+	   } else {
+	      sdssdc.weight[ii].pos = adc & 0xFFF;
+	   }
+	   
+	   semGive(semSDSSDC);
 	}
      }
   }
