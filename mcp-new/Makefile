@@ -32,7 +32,7 @@ LFLAGS = -r
 OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
 display.o umbilical.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
-tagname.o
+tagname.o brakes.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
