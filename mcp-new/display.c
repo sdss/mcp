@@ -182,7 +182,7 @@ static void PrintMenuBanner()
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie Briegel        \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
-  printf("      //   //   //       //       //                                           \n");
+  printf("      //   //   //       //       //      Tag: %-20s            \n", "$Name$");
   printf("     //   //   //       //       //                                            \n");
   printf("//////  ///////    //////   //////                                             \n");  
   printf("Time Since Boot: %5.2f Days               Date:     \n",
