@@ -2,13 +2,6 @@ shellPromptSet ("mcp->")
 tyBackspaceSet(0x7F)
 hostAdd ("oper","192.41.211.171")
 #
-# OK, this routing entry (use the router to get to the
-# other half of the cockamamie APO merged subnet that we
-# are physically on) is somehow getting added during boot.
-# It keeps us from being able to broadcast to our own network.
-# Delete it.
-# routeDelete("192.41.211.160", "192.41.211.161")
-#
 routeAdd("0", "192.41.211.1")
 #routeAdd("192.41.211.160", "192.41.211.166")
 #
@@ -16,6 +9,7 @@ netDevCreate("galileo:","galileo",0)
 #nfsMount ("galileo","/export/apotop/visitor1","/vxdsp")
 # get to the version root
 cd "/home/rhl/mcp"
+#
 ld < ip/ipOctalSerial.o
 ld < ip/mv162IndPackInit.o
 ld < ip/systran/dio316.out
@@ -26,13 +20,11 @@ ld < ip/systran/did48.out
 ld < ip/acromag/ip480.out
 ld < util/utiltim.out
 ld < util/timer.o
-#ld < /home/briegel/mcp/mcp/util/vxt.mv167.o
 ld < /p/vx_tools/v2_11/lib/vxt.mv167.o
-#ld < /home/briegel/mcp/mcp/util/muruser.m68040.o
 ld < /p/murmur_client_vx/v1_18/lib/muruser.m68040.o
-#mur_send_text("Klink! Who ees thees man?!")
 #
 # Allen-Bradley SLC504
+#
 ld < ab/dhp.out
 # change from default 57Kb to 115Kb
 #DHP_baud=0x1
@@ -44,14 +36,8 @@ vmeinst (0x1000, 0x0e0000, 0x00, "ab/sddhp.bin")
 #vmeinst (0x1000, 0x0e0000, 0x00, "sdudhp.bin") 
 #230Kb
 dhpd (10,0xe000,"chasb")
-#tests************************
-#sbslc (4,7,150,10,10,0xe000,"cb")
-#rdslc (4,7,0,110,10,0xe000,"cb")
-#rdslc (4,7,110,50,10,0xe000,"cb")
-#slc_read_blok (4,3,0x85,0,malloc(24*2),24)
 #
 ld < mcp-new/mcpnew.out
-#ld < /home/rhl/mcp/mcp-new/mcpnew.out
 #BCAST_Enable=0
 #SM_COPY=0
 rebootHookAdd (ip_shutdown)
@@ -100,8 +86,6 @@ dbgInit
 date
 DIO316_initialize(0xFFF58000,0xB0)
 tm_setup_wd()
-# switch for testing new mcpnew
-###...taskPrioritySet(period (1,tm_amp_engage),47)
 taskSpawn "ampMgt",45,0,1000,tm_amp_mgt
 start_tm_TCC()
 taskSpawn "taskTrg",100,8,10000,taskTrg
