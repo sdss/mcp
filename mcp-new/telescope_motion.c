@@ -304,6 +304,14 @@ void tm_set_sample_rate (unsigned short rate)
 	printf("\r\n Sample Rate=%d",(unsigned short)dsp_sample_rate());
 	semGive(semMEI);
 }
+void tm_reset_integrator (unsigned short axis)
+{
+	extern SEM_ID semMEI;
+
+	semTake(semMEI,WAIT_FOREVER);
+	reset_integrator (axis);
+	semGive(semMEI);
+}
 void tm_set_pos (int axis,int pos)
 {
 	extern SEM_ID semMEI;

@@ -252,7 +252,11 @@ char *init_cmd(char *cmd)
   tm_controller_run (axis_select<<1);
   tm_controller_run (axis_select<<1);
   tm_controller_run (axis_select<<1);
-  v_move(axis_select<<1,(double)0,(double)5000);
+  if (semTake (semMEI,60)!=ERROR)
+  {
+    v_move(axis_select<<1,(double)0,(double)5000);
+    semGive (semMEI);
+  }
   axis_queue[axis_select].active=axis_queue[axis_select].end;
   axis_queue[axis_select].active=NULL;
 
@@ -523,6 +527,7 @@ void start_frame(int axis,double time)
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
      time-=sdss_get_time();
+     printf("\r\nDwell frames left=%d",tm_frames_to_execute(axis));
      dsp_dwell (axis<<1,time);
 /*
      set_gate(axis<<1);
@@ -1497,6 +1502,7 @@ void tm_latch()
   extern int barcode_serial();
   int fididx;
   int status;
+  static char flag=TRUE;
 /*  unsigned char int_bit;
 */
   init_fiducial();
@@ -1534,7 +1540,7 @@ void tm_latch()
 	    (float)latchpos[latchidx].pos2);
           fididx = barcode_serial(3);	/* backwards from what you would think */
 	  fididx = barcode_serial(3);
-	  if (fididx!=-1)
+	  if ((fididx>=0)&&(fididx<24))
 	  {
 	    if (latchpos[latchidx].pos1>24)
 		fididx += 24;
@@ -1568,8 +1574,14 @@ void tm_latch()
 /*          printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",latchpos[latchidx].axis,
 	    (float)latchpos[latchidx].pos1,
 	    (float)latchpos[latchidx].pos2);*/
-          fididx = barcode_serial(2);
-	  fididx = barcode_serial(2);
+	  /*
+           *fididx = barcode_serial(2);
+	   *fididx = barcode_serial(2);
+	   */
+	  if(flag) {
+	    fididx=1;
+	    flag=0;
+	  } 
 	  if (fididx!=-1)
 	  {
 	    fididx--;
@@ -1582,13 +1594,13 @@ void tm_latch()
 	      alt_fiducial[fididx].poserr=alt_fiducial[fididx].mark-
 		alt_fiducial_position[fididx];
 	      alt_fiducial[fididx].markvalid=TRUE;
+              if (fididx==fiducial[1].index)
+              {
+                fiducial[1].mark=alt_fiducial[fididx].mark;
+                fiducial[1].markvalid=TRUE;
+              }
+	      fiducialidx[1]=fididx;
 	    }
-            if (fididx==fiducial[1].index)
-            {
-              fiducial[1].mark=alt_fiducial[fididx].mark;
-              fiducial[1].markvalid=TRUE;
-            }
-	    fiducialidx[1]=fididx;
 	  }
 	}
         if (int_bit&INSTRUMENT_INT)
