@@ -359,6 +359,16 @@ value; currently these are:
    <TR> <TD> Rotator  <TD ALIGN=right> 83 <TD ALIGN=right> 40168185 </TR>
 </TABLE>
 
+<DT> -error
+<DD>
+Use the position in the fiducial table as the `mean' value, so what's
+plotted is the error relative to the fiducial table.  There's also an
+option <CODE>-fiducialtable</CODE> to specify which fiducial table
+should be used (e.g. <CODE>-error -fiducialtable /p/mcp/mcpVersion/%s.dat</CODE>,
+where <CODE>%s</CODE> will be replaced by e.g. "rot";
+<CODE>-fiducialtable mcpVersion</CODE> is also permitted) If you don't specify
+a table the one current when the data was <EM>taken</EM> will be used.
+
 <DT> -reset
 <DD>
 The middle encoder encountered in each sweep in the axis position is found
@@ -390,12 +400,12 @@ plotted (see above).
 
 <DT> -time1 <t1>
 <DD>
-Discard all measurements taken after <t1>; see <CODE>-time0</CODE>
-for the meaning of small values of <t1>.
+Discard all measurements taken after t1; see <CODE>-time0</CODE>
+for the meaning of small values of t1.
 
 <DT> -updown
 <DD>
-Analyse the encoder positions measured when the telescope wa moving up and down
+Analyse the encoder positions measured when the telescope was moving up and down
 (or clockwise and anticlockwise) separately.  The mean `up' and `down'
 values are then averaged together.
 
