@@ -28,11 +28,11 @@ cd "/p/mcpbase"
 #
 # Load Ron's tracing tools from vx_tools
 #
-ld < vx_tools/lib/vxt.mv167.o
+ld < vx_tools/lib/vxt.mv162.o
 #
 # Load murmur
 #
-ld < vx_tools/objects/dvx_var_dvx.mv167.o
+ld < vx_tools/objects/dvx_var_dvx.mv162.o
 ld < murmur_client_vx/lib/muruser.m68040.o
 #
 # Load taskSwitchHook utils for the use of the tracer
@@ -40,7 +40,7 @@ ld < murmur_client_vx/lib/muruser.m68040.o
 ld < util/dscTrace.o
 trace_limPerTimPeriod = 30	/* control throttling of murmur messages */
 #
-# Initialize MVME167 VMEchip2 tick timer 2 for use as a rolling micro-
+# Initialize MVME162 VMEchip2 tick timer 2 for use as a rolling micro-
 # second timer for trace (and for the clk2Read and clk2Diff macros).
 #
 clk2Stop()			/* VMEchip2 tick timer 2 */
@@ -106,6 +106,7 @@ traceOn 3, 31,31		/* trace task deletion */
 taskSpawn "tIdleTask", 255, 0, 1000, idle
 # RHL
 #ld < util/timerTask.o
+#timer_debug = 2
 # n.b. timerStart has too small a stack
 #timerStart
 taskSpawn "tTimerTask", 5, 0, 7000, timerTask, 0,0
