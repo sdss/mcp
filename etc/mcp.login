@@ -189,27 +189,6 @@ ipsdss_ini
 serverSetSym
 set_rot_state -1
 ffs_enable 1		/* enable the Flat Field Screen */
-tm_set_coeffs 0,0,160
-tm_set_coeffs 0,1,6
-tm_set_coeffs 0,2,1500
-tm_set_coeffs 0,7,18000
-tm_set_coeffs 0,8,-4
-tm_set_coeffs 0,9,0
-tm_set_coeffs 2,0,120
-tm_set_coeffs 2,1,6
-tm_set_coeffs 2,2,1200
-tm_set_coeffs 2,7,10000
-tm_set_coeffs 2,8,-4
-tm_set_coeffs 4,0,120
-tm_set_coeffs 4,1,12
-tm_set_coeffs 4,2,600
-tm_set_coeffs 4,4,0
-tm_set_coeffs 4,7,12000
-tm_set_coeffs 4,9,0
-tm_set_coeffs 4,8,-5
-tm_print_coeffs 0
-tm_print_coeffs 2
-tm_print_coeffs 4
 
 dbgInit
 date
