@@ -107,7 +107,19 @@ struct CW {
 	short pos;
 	short status;
 };
-
+struct PVT_M68K {
+	long position;
+	long velocity;
+	long time;
+};
+struct PVT {
+	short position_hi;
+	short position_lo;
+	short velocity_hi;
+	short velocity_lo;
+	short time_hi;
+	short time_lo;
+};
 struct B10_1 {
 	unsigned : 11;
 	unsigned mcp_umbilical_off_on_cmd: 1;	/* bit 20 on=1, off=0 */
@@ -557,7 +569,7 @@ struct AB_SLC500 {
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	3
+#define SDSS_FRAME_VERSION	4
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;
@@ -566,6 +578,10 @@ struct SDSS_FRAME {
 	struct IL inst;
 	struct CW weight[4];
 	struct AB_SLC500 status;
+	struct PVT tccmove[3];
+	struct PVT tccpmove[3];
+	struct PVT pvt[3];
+	unsigned long sdsstime;
 	unsigned long ascii_len;
 #define ASCII_LEN	80
 	unsigned char ascii[ASCII_LEN];
