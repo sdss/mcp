@@ -70,6 +70,24 @@ iack_cmd(char *cmd)			/* NOTUSED */
 
 /*****************************************************************************/
 /*
+ * Reset the MCP board and maybe the whole VME crate
+ */
+static char *
+sys_reset_cmd(char *args)
+{
+   int reset_crate = 0;
+   
+   if(sscanf(args, "%d", &reset_crate) != 1) {
+      return("SYS.RESET: Please specify 0/1");
+   }
+
+   sysReset(reset_crate);
+
+   return("");
+}
+
+/*****************************************************************************/
+/*
  * Deal with logging commands
  *
  * vxWorks fflush doesn't seem to work, at least on NFS filesystems,
@@ -238,6 +256,8 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
    define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0, 0, "");
    define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0, 0, "");
    define_cmd("VERSION",      version_cmd,   0, 0, 0, 0, "");
+   define_cmd("SYS.RESET",    sys_reset_cmd, 1, 0, 0, 1,
+	      "Reset the MCP. If the argument is true, reset the whole crate");
 
    return 0;
 }
@@ -249,7 +269,7 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
 void
 define_cmd(char *name,			/* name of command */
 	   char *(*addr)(char *),	/* function to call */
-	   int narg,			/* number of arguments */
+	   int narg,			/* number of arguments (< 0: vararg) */
 	   int need_sem,		/* does this cmd require semCmdPort? */
 	   int may_take,		/* may this cmd take semCmdPort? */
 	   int murmur,			/* should cmd be echoed to murmur? */
