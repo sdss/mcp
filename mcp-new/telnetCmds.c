@@ -36,6 +36,39 @@
 SEM_ID semCmdPort = NULL;		/* semaphore to control permission
 					   to axis motions etc. */
 
+char semCmdPortOwner[41] = "";		/* name of owner of semCmdPort */
+
+int
+take_semCmdPort(int timeout,		/* timeout, in ticks */
+		char *id)		/* name of new owner of semaphore */
+{
+   const int ret = semTake(semCmdPort, timeout);
+   
+   if(ret != ERROR) {
+      strncpy(semCmdPortOwner, id, sizeof(semCmdPortOwner) - 1);
+   }
+
+   return(ret);
+}
+
+int
+give_semCmdPort(int force)		/* force the giving? */
+{
+   int ret;
+
+   if(force) {
+      if((ret = semMGiveForce(semCmdPort)) != ERROR) {
+	 semCmdPortOwner[0] = '\0';
+      }
+   } else {
+      if((ret = semGive(semCmdPort)) != ERROR) {
+	 semCmdPortOwner[0] = '\0';
+      }
+   }
+   
+   return(ret);
+}
+
 /*****************************************************************************/
 /*
  * The task that does the work of reading commands and executing them
@@ -53,7 +86,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    const int port = ntohs(client->sin_port); /* the port they connected on */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
-   char uname[20] = "";			/* user name of connected process */
+   char uname[41] = "(telnet)";		/* user name of connected process */
 
    sprintf(buff, "connected\n");
    if(write(fd, buff, strlen(buff)) == -1) {
@@ -65,7 +98,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    
    taskVarAdd(0, &client_pid);
 
-   TRACE(16, "PID %d: Above fioRdString", client_pid, 0);
    for(;;) {
       errno = 0;
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
@@ -90,28 +122,41 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  * Maybe execute command
  */
       if(strncmp(cmd, "USER.ID", 7) == 0) {
-	 if(strcmp(cmd, "USER.ID") == 0) {
-	    sprintf(buff, "User %s PID %d", uname, client_pid);
+	 int pid;
+	 switch (sscanf(cmd, "USER.ID %s %d", buff, &pid)) {
+	  case -1:
+	  case 0:
+	    sprintf(buff, "User %s", uname);
 	    reply = buff;
-	 } else if(sscanf(cmd, "USER.ID %s %d", uname, &client_pid) == 2) {
-	    for(ptr = uname; *ptr != '\0'; ptr++) {
+	    break;
+	  case 2:
+	    client_pid = pid;
+	    for(ptr = buff; *ptr != '\0'; ptr++) {
 	       if(isupper(*ptr)) { *ptr = tolower(*ptr); }
+	    }
+	    sprintf(uname, "%s:%d", buff, client_pid);
+
+	    if(strlen(uname) >= sizeof(uname)) {
+	       TRACE(0, "User name is too long: %s (max %d)",
+		     uname, sizeof(uname));
 	    }
 	    
 	    reply = "Read userid/pid";
-	 } else {
+	    break;
+	  default:
 	    reply = "Garbled USER.ID command";
+	    break;
 	 }
       } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
 	 TRACE(5, "PID %d: command SEM.TAKE", client_pid, 0);
 
-	 (void)semTake(semCmdPort,60);
+	 (void)take_semCmdPort(60, uname);
 
 	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
 	    reply = "took semaphore";
 	 } else {
-	    sprintf(buff, "Unable to take semaphore: %s",
-		    strerror(errno));
+	    sprintf(buff, "Unable to take semaphore owner %s: %s",
+		    semCmdPortOwner, strerror(errno));
 	    reply = buff;
 	 }
       } else if(strncmp(cmd, "SEM.STEAL", 8) == 0) {
@@ -119,8 +164,8 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 reply = NULL;
 	 
 	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
-	    (void)semMGiveForce(semCmdPort);
-	    (void)semTake(semCmdPort, 60);
+	    (void)give_semCmdPort(1);
+	    (void)take_semCmdPort(60, uname);
 	 }
 
 	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
@@ -139,13 +184,13 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
 	 (void)sscanf(cmd, "SEM.GIVE %d", &force);
 
-	 (void)semGive(semCmdPort);
+	 (void)give_semCmdPort(0);
 
 	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
 	    reply = "gave semaphore";
 	 } else {
 	    if(force) {
-	       (void)semMGiveForce(semCmdPort);
+	       (void)give_semCmdPort(1);
 	    }
 
 	    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
@@ -158,14 +203,17 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       } else if(strncmp(cmd, "SEM.SHOW", 8) == 0) {
 	 int full;
 	 if(sscanf(cmd, "SEM.SHOW %d", &full) == 1 && full) {
+	    if(*semCmdPortOwner != '\0') {
+	       printf("Owner: %s\n", semCmdPortOwner);
+	    }
 	    semShow(semCmdPort, 1);
 	 }
 
-	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
-	    reply = "semCmdPort=1";
-	 } else {
- 	    reply = "semCmdPort=0";
-	 }
+	 sprintf(buff, "semCmdPort=%d, semCmdPortOwner=\"%s\"",
+		 (getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
+		 semCmdPortOwner);
+
+	 reply = buff;
       } else if(strncmp(cmd, "TELNET.RESTART", 11) == 0) {
 	 TRACE(5, "PID %d: command TELNET.RESTART", client_pid, 0);
 	 if(taskDelete(taskIdFigure("tTelnetd")) != OK) {
@@ -206,7 +254,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
    }
 
-   (void)semGive(semCmdPort);
+   (void)give_semCmdPort(0);
 
    close(fd);
 
@@ -269,6 +317,7 @@ cmdPortServer(int port)			/* port to bind to */
       if((semCmdPort = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE)) == NULL){
 	 fprintf(stderr,"Creating semCmdPort semaphore: %s", strerror(errno));
       }
+      *semCmdPortOwner = '\0';
    }
 /*
  * Loop, waiting for connection requests
