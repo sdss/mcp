@@ -74,7 +74,10 @@ OBJS		=	idsp.$(OBJ)			\
 
 .c.$(OBJ):
 	$(CC) $(CFLAGS) $*.c
-	$(AR) $(ARFLAGS) $(LIB) $*.$(OBJ)
 
 all $(LIB):	$(OBJS)
+	$(AR) $(ARFLAGS) $(LIB) $?
 	$(RAN) $(LIB)
+
+clean :
+	/bin/rm -f $(OBJS) *.a core *~
