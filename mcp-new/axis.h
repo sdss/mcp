@@ -52,9 +52,20 @@ int set_position_corr(int mei_axis, double position);
 int get_latched_position_corr(int mei_axis, double *position);
 int start_move_corr(int mei_axis, double pos, double vel, double acc);
 double convert_mei_to_mcp(int axis, double pos);
+#if defined(__IDSP_H)
+   int dsp_set_last_command_corr(PDSP pdsp, int16 mei_axis, double final);
+   int frame_m_xvajt_corr(PFRAME frame, char *cmd_str, int mei_axis,
+			  double x, double v, double a, double j, double t,
+			  long flags, int new_frame);
+#endif
 
 const char *axis_name(int axis);
 float axis_ticks_deg(int axis);
+void enable_pvt(int axis);
+void tm_TCC(int axis);
+int mcp_drift(int axis, double *arcdeg, double *veldeg, double *time);
+int mcp_move(int axis, double *params, int nparam);
+int mcp_plus_move(int axis, double *params, int nparam);
 
 char *ms_off_cmd(char *cmd);
 
@@ -121,6 +132,10 @@ extern double ticks_per_degree[NAXIS];
 extern struct FRAME_QUEUE axis_queue[NAXIS];
 extern struct AXIS_STAT axis_stat[NAXIS];
 extern struct AXIS_STAT persistent_axis_stat[NAXIS];
+extern double max_velocity[NAXIS];
+extern double max_acceleration[NAXIS];
+extern double max_velocity_requested[NAXIS];
+extern double max_acceleration_requested[NAXIS];
 extern int axis_alive;
 
 #endif
