@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 
-long date(void);
 char *get_date(void);
 int mjd(void);
 FILE *fopen_logfile(const char *file, const char *mode);
