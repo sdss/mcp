@@ -491,15 +491,12 @@ DIO316_interrupt(int type)
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
-      if(dio316int_bit & AZIMUTH_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_DIS);
-      }
-      if(dio316int_bit & ALTITUDE_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_DIS);
-      }
-      if(dio316int_bit & INSTRUMENT_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_DIS);
-      }
+/*
+ * disable all axis interrupts until we've read the MEI's latched positions
+ */
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_DIS);
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_DIS);
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_DIS);
 
       {
 	 MCP_MSG msg;
