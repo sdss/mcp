@@ -20,6 +20,7 @@
 #include "cmd.h"
 #include "dscTrace.h"
 #include "mcpMsgQ.h"
+#include "mcpSpectro.h"
 
 char *ffsclose_cmd(char *cmd);
 
@@ -742,9 +743,11 @@ tLamps(void)
 {
    int err;
    unsigned short ctrl[2];
+   int b10_l0;				/* set bit in B10_L0? */
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
-   B10_L0 tm_ctrl;   
+   B10_L0 tm_ctrl0;
+   B10_L1 tm_ctrl1;
 
    for(;;) {
       ret = msgQReceive(msgLamps, (char *)&msg, sizeof(msg), WAIT_FOREVER);
@@ -753,36 +756,78 @@ tLamps(void)
       TRACE(8, "read msg on msgLamps", 0, 0);
       assert(msg.type == lamps_type);
       
+      b10_l0 = -1;
+      switch (msg.u.lamps.type) {
+       case FF_LAMP:
+	 b10_l0 = 1;
+	 break;
+       case NE_LAMP:
+	 b10_l0 = 1;
+	 break;
+       case HGCD_LAMP:
+	 b10_l0 = 1;
+	 break;
+       case UV_LAMP:
+	 b10_l0 = 0;
+	 break;
+       case WHT_LAMP:
+	 b10_l0 = 0;
+	 break;
+       default:
+	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
+	 break;
+      }
+
+      if(b10_l0 != 0 && b10_l0 != 1) {	/* an illegal value */
+	 break;
+      }
+
       if(semTake(semSLC,60) == ERROR) {
 	 printf("Unable to take semaphore: %s", strerror(errno));
 	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
       }
 
-      err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
+      if(b10_l0) {
+	 err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl0)/2);
+      } else {
+	 err = slc_read_blok(1, 10, BIT_FILE, 2, &ctrl[0], sizeof(tm_ctrl1)/2);
+      }
+      
       if(err) {
 	 semGive(semSLC);
 	 printf("R Err=%04x\r\n",err);
       }
 
-      swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
+      swab((char *)&ctrl[0], (char *)&tm_ctrl0, sizeof(tm_ctrl0));
       
       switch (msg.u.lamps.type) {
        case FF_LAMP:
-	 tm_ctrl.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
+	 tm_ctrl0.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        case NE_LAMP:
-	 tm_ctrl.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
+	 tm_ctrl0.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        case HGCD_LAMP:
-	 tm_ctrl.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
+	 tm_ctrl0.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
+	 break;
+       case UV_LAMP:
+	 tm_ctrl1.mcp_im_ff_uv_req = msg.u.lamps.on_off;
+	 break;
+       case WHT_LAMP:
+	 tm_ctrl1.mcp_im_ff_wht_req = msg.u.lamps.on_off;
 	 break;
        default:
 	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
 	 break;
       }
       
-      swab ((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
-      err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
+      if(b10_l0) {
+	 swab ((char *)&tm_ctrl0, (char *)&ctrl[0], sizeof(tm_ctrl0));
+	 err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0],sizeof(tm_ctrl0)/2);
+      } else {
+	 swab ((char *)&tm_ctrl1, (char *)&ctrl[0], sizeof(tm_ctrl1));
+	 err = slc_write_blok(1, 10, BIT_FILE, 2, &ctrl[0],sizeof(tm_ctrl1)/2);
+      }
       semGive (semSLC);
       
       if(err) {
@@ -865,6 +910,12 @@ get_ffstatus(char *ffstatus_ans,
 	  sdssdc.status.i1.il13.hgcd_3_stat,
 	  sdssdc.status.i1.il13.hgcd_4_stat,
 	  sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
+  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"UV %d %d %d %d  %d\n",
+	  0, 0, 0, 0,
+	  sdssdc.status.o1.ol14.im_ff_uv_on_pmt);
+  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"WHT %d %d %d %d  %d\n",
+	  0, 0, 0, 0,
+	  sdssdc.status.o1.ol14.im_ff_wht_on_pmt);
 
   len = strlen(ffstatus_ans);
   assert(len < size);
@@ -1056,6 +1107,70 @@ hgcdoff_cmd(char *cmd)			/* NOTUSED */
    return "";
 }
 
+char *
+uvon_cmd(char *cmd)			/* NOTUSED */
+{
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamps_type;
+   msg.u.lamps.type = UV_LAMP;
+   msg.u.lamps.on_off = ON;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
+   return "";
+}
+
+char *
+uvoff_cmd(char *cmd)			/* NOTUSED */
+{
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamps_type;
+   msg.u.lamps.type = UV_LAMP;
+   msg.u.lamps.on_off = OFF;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
+   return "";
+}
+
+char *
+whton_cmd(char *cmd)			/* NOTUSED */
+{
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamps_type;
+   msg.u.lamps.type = WHT_LAMP;
+   msg.u.lamps.on_off = ON;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
+   return "";
+}
+
+char *
+whtoff_cmd(char *cmd)			/* NOTUSED */
+{
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamps_type;
+   msg.u.lamps.type = WHT_LAMP;
+   msg.u.lamps.on_off = OFF;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
+   return "";
+}
+
 /*****************************************************************************/
 /*
  * Commands for the selected spectrograph.
@@ -1215,6 +1330,10 @@ spectroInit(void)
    define_cmd("HGCD.ON",             hgcdon_cmd,               0, 0, 0, 1, "");
    define_cmd("NE.OFF",              neoff_cmd,                0, 0, 0, 1, "");
    define_cmd("NE.ON",               neon_cmd,                 0, 0, 0, 1, "");
+   define_cmd("UV.OFF",              uvoff_cmd,                0, 0, 0, 1, "");
+   define_cmd("UV.ON",               uvon_cmd,                 0, 0, 0, 1, "");
+   define_cmd("WHT.OFF",             whtoff_cmd,               0, 0, 0, 1, "");
+   define_cmd("WHT.ON",              whton_cmd,                0, 0, 0, 1, "");
    define_cmd("SLIT.STATUS",         slitstatus_cmd,           0, 0, 0, 1, "");
    define_cmd("SLITDOOR.CLEAR",      slitdoor_clear_cmd,       0, 0, 0, 1, "");
    define_cmd("SLITDOOR.CLOSE",      slitdoor_close_cmd,       0, 0, 0, 1, "");

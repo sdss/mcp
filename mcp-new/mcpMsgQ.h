@@ -53,7 +53,9 @@ typedef struct {
       } FFS;
 
       struct {
-	 enum { FF_LAMP, HGCD_LAMP, NE_LAMP } type; /* type off lamp */
+	 enum {
+	    FF_LAMP, HGCD_LAMP, NE_LAMP, UV_LAMP, WHT_LAMP
+	 } type;			/* type off lamp */
 	 enum { ON = 1, OFF = 0 } on_off; /* should I turn it on or off? */
       } lamps;
 
