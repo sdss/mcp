@@ -24,7 +24,13 @@
  * Does this refer to old ticksize of (.0035053554041*4)? RHL.
  */
 #define AZ_TICK		0.0140167104063
-#define ALT_TICK 	0.0140091448584
+
+#if 1
+#  define ALT_TICK	0.01400002855	/* encoder 1 */
+#else
+#  define ALT_TICK 	0.01400914486	/* encoder 2 */
+#endif
+
 #if 0
 #  define ROT_ROTARY_ENCODER 1
 #  define ROT_TICK	0.0127597662202 /* rotary encoder */
@@ -46,7 +52,7 @@
  * idea of the encoder position and the MEI's
  */
 int get_axis_encoder_error(int axis);
-void set_axis_encoder_error(int axis, int error);
+void set_axis_encoder_error(int axis, int error, int write_log);
 int get_position_corr(int mei_axis, double *position);
 int set_position_corr(int mei_axis, double position);
 int get_latched_position_corr(int mei_axis, double *position);
