@@ -41,7 +41,7 @@ extern struct FIDUCIALS alt_fiducial[N_ALT_FIDUCIALS];
 extern struct FIDUCIALS rot_fiducial[N_ROT_FIDUCIALS];
 
 void write_fiducial_log(const char *type, int axis, int fididx, int true,
-			int pos1, int pos2, float arg0);
+			int pos1, int pos2, float arg0, float arg1);
 
 int set_ms_on(int axis);
 int set_ms_off(int axis, float delay);
