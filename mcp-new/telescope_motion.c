@@ -1377,6 +1377,29 @@ void tm_sp_cart_unlatch(int door)
 int tm_slit_status()
 {
   extern struct SDSS_FRAME sdssdc;
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+  printf (" read ctrl = 0x%04x\r\n",(unsigned int)ctrl);
+  printf ("\r\n mcp_slit_dr1_opn_cmd=%d, mcp_slit_dr1_cls_cmd=%d",
+     tm_ctrl1.mcp_slit_dr1_opn_cmd,tm_ctrl1.mcp_slit_dr1_cls_cmd);
+  printf ("\r\n mcp_slit_dr2_opn_cmd=%d, mcp_slit_dr2_cls_cmd=%d",
+     tm_ctrl1.mcp_slit_dr2_opn_cmd,tm_ctrl1.mcp_slit_dr2_cls_cmd);
+  printf ("\r\n mcp_slit_latch1_cmd=%d, mcp_slit_latch2_cmd=%d",
+     tm_ctrl1.mcp_slit_latch1_cmd,tm_ctrl1.mcp_slit_latch2_cmd);
 
   printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
 	sdssdc.status.i1.il9.slit_head_door1_opn,
@@ -1386,6 +1409,14 @@ int tm_slit_status()
 	sdssdc.status.i1.il9.slit_head_door2_opn,
 	sdssdc.status.i1.il9.slit_head_door2_cls,
 	sdssdc.status.i1.il9.slit_head_latch2_opn);
+  printf ("\r\n slit_dr1_opn_perm=%d, slit_dr1_cls_perm=%d, slit_latch1_opn_perm=%d",
+	sdssdc.status.o1.ol9.slit_dr1_opn_perm,
+	sdssdc.status.o1.ol9.slit_dr1_cls_perm,
+	sdssdc.status.o1.ol9.slit_latch1_opn_perm);
+  printf ("\r\n slit_dr2_opn_perm=%d, slit_dr2_cls_perm=%d, slit_latch2_opn_perm=%d",
+	sdssdc.status.o1.ol9.slit_dr2_opn_perm,
+	sdssdc.status.o1.ol9.slit_dr2_cls_perm,
+	sdssdc.status.o1.ol9.slit_latch2_opn_perm);
   return 0;
 }
 /*=========================================================================
@@ -1783,23 +1814,30 @@ int az_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.o11.ol0.az_mtr_ccw_perm) &&
-	(sdssdc.status.o11.ol0.az_mtr_cw_perm))
+  if ((sdssdc.status.i6.il0.az_mtr_ccw_perm_in) &&
+	(sdssdc.status.i6.il0.az_mtr_cw_perm_in) &&
+	(sdssdc.status.i6.il0.az_plc_perm_in))
 	return TRUE;
   else
+    if (((sdssdc.status.i6.il0.az_mtr_ccw_perm_in) ||
+	(sdssdc.status.i6.il0.az_mtr_cw_perm_in)) &&
+	(sdssdc.status.i6.il0.az_plc_perm_in))
+      return TRUE;
+    else
 	return FALSE;
 }
 int alt_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.o11.ol0.alt_mtr_dn_perm) &&
-	(sdssdc.status.o11.ol0.alt_mtr_up_perm))
+  if ((sdssdc.status.i6.il0.alt_mtr_dn_perm_in) &&
+	(sdssdc.status.i6.il0.alt_mtr_up_perm_in) &&
+	(sdssdc.status.i6.il0.alt_plc_perm_in))
 	return TRUE;
   else
-    if (!(sdssdc.status.o11.ol0.alt_mtr_dn_perm) &&
-	(sdssdc.status.o11.ol0.alt_mtr_up_perm) &&
-	(sdssdc.status.o11.ol0.alt_plc_perm))
+    if (((sdssdc.status.i6.il0.alt_mtr_dn_perm_in) ||
+	(sdssdc.status.i6.il0.alt_mtr_up_perm_in)) &&
+	(sdssdc.status.i6.il0.alt_plc_perm_in))
       return TRUE;
     else
 	return FALSE;
@@ -1808,11 +1846,16 @@ int rot_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i8.il0.rot_mtr_rdy) &&
-        (sdssdc.status.o11.ol0.rot_mtr_ccw_perm) &&
-        (sdssdc.status.o11.ol0.rot_mtr_cw_perm))
+  if ((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in) &&
+        (sdssdc.status.i7.il0.rot_mtr_cw_perm_in) &&
+	(sdssdc.status.i7.il0.rot_plc_perm_in))
 	return TRUE;
   else
+    if (((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in) ||
+	(sdssdc.status.i7.il0.rot_mtr_cw_perm_in)) &&
+	(sdssdc.status.i7.il0.rot_plc_perm_in))
+      return TRUE;
+    else
 	return FALSE;
 }
 /*=========================================================================

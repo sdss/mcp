@@ -95,9 +95,9 @@ int Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
 int Axis_vel_pos[6]={700000,0,600000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
-float altclino_sf=.0049016925256;
+float altclino_sf=.0048683116163;/*.0049016925256;*/
 /*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
-int altclino_off=8857;
+int altclino_off=8937;/*8857;*/
 /*9048;*/         /*9500*/
 double ilcpos[6]={90,0,120,0,0,0};
 int ilcvel[6]={200000,0,200000,0,500000,0};
@@ -274,7 +274,7 @@ static void PrintMenuBanner()
   printf("//////  ///////    //////   //////                                             \n");  
   printf("Time Since Boot:       Days               Date:     \n");
   CursPos(1,8);
-  printf ("    SA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
+  printf ("    MSA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
   CursPos(1,9);    
   printf("AZ\n\r");
   CursPos(1,10);    
@@ -777,7 +777,7 @@ void Menu()
          case '{':
 	   CursPos(20,24);
 	   printf("SP1 Latch Toggled               ");
-	   if (sdssdc.status.i1.il9.slit_head_latch1_opn)
+	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
 	     tm_cart_unlatch(SPECTOGRAPH1);
 	   else
 	     tm_cart_latch(SPECTOGRAPH1);
@@ -786,7 +786,7 @@ void Menu()
          case '}':
 	   CursPos(20,24);
 	   printf("SP2 Latch Toggled               ");
-	   if (sdssdc.status.i1.il9.slit_head_latch2_opn)
+	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
 	     tm_cart_unlatch(SPECTOGRAPH2);
 	   else
 	     tm_cart_latch(SPECTOGRAPH2);
@@ -986,14 +986,14 @@ void Menu()
          case '&':
 	   CursPos(20,24);
            printf ("Toggle the axis monitor_on to ");
-	   if (monitor_on[Axis]) 
+	   if (monitor_on[Axis/2]) 
 	   {
-	     monitor_on[Axis]=FALSE;
+	     monitor_on[Axis/2]=FALSE;
              printf ("FALSE ");
 	   }
            else 
 	   {
-	     monitor_on[Axis]=TRUE;
+	     monitor_on[Axis/2]=TRUE;
              printf ("TRUE ");
 	   }
 	   break;
@@ -1067,7 +1067,7 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
 	   if (question_mark==1)
 	   {
 	     CursPos(1,1);
-printf("Extended Help2..(|)=slit1|slit2 toggle; {|}=cart latch1|cart latch2 toggle    \n");
+printf("Extended Help2..(|)=slit1|slit2 toggle; {|}=slit latch1|slit latch2 toggle    \n");
 	     CursPos(1,2);
 printf(" |=flat field lamp toggle; \"=Ne lamp toggle; :=HgCd lamp toggle               \n");
 	     CursPos(1,3);
@@ -1075,7 +1075,7 @@ printf(" ~=flat field screen toggle                                             
 	     CursPos(1,4);
 printf(" &=toggel on/off axis monitor                                                 \n");
 	     CursPos(1,5);
-printf("                                                                              \n");
+printf("MSA is Monitor status,axis State,Amp status(Amp,Brake,EStop)                  \n");
 	     CursPos(1,6);
 printf("                                                                              \n");
 	   }
@@ -1367,6 +1367,7 @@ void PrintMenuPos()
   short adc;
   int limidx;
   extern unsigned char cwLimit;
+  extern int monitor_on[3];
 	
   lasttick=0;
   FOREVER
@@ -1392,6 +1393,8 @@ void PrintMenuPos()
         ap=(*tmaxis[i]).actual_position;
         cp=(*tmaxis[i]).position,
         vlt=(*tmaxis[i]).voltage;
+	if (monitor_on[i]) printf ("*");
+	else printf ("U");
         if (semTake (semMEI,NO_WAIT)!=ERROR)
         {
 	  state=axis_state(i<<1);
@@ -1463,7 +1466,7 @@ void PrintMenuPos()
         }
 	if (fidsign!=0)
         {
-          CursPos(7,9+i);
+          CursPos(8,9+i);
           arcd=(long)(arcsec)/3600;	     
           arcm=((long)(arcsec)-(arcd*3600))/60;	     
           arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
@@ -1530,7 +1533,7 @@ void PrintMenuPos()
 
       if (last_door1!=(int)((sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2))
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2))
 /*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2))*/ 
 								)
       {
@@ -1541,19 +1544,19 @@ void PrintMenuPos()
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door1_cls)
         printf("Closed ");
-      if (sdssdc.status.i1.il9.slit_head_latch1_opn)
+      if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
 /*      if (sdssdc.status.i1.il9.slit_head_latch1_opn)*/
         printf("LatchCmd   ");
       else
         printf("UnLatchCmd ");
       last_door1=(sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2);
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2);
 /*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2);*/ 
       }
       if (last_door2!=(int)((sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2))
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2))
 /*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2))*/ 
 		      						)
       {
@@ -1564,14 +1567,14 @@ void PrintMenuPos()
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door2_cls)
         printf("Closed ");
-      if (sdssdc.status.i1.il9.slit_head_latch2_opn)
+      if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
 /*      if (sdssdc.status.i1.il9.slit_head_latch2_opn)*/
         printf("LatchCmd ");
       else
         printf("UnLatchCmd ");
       last_door2=(sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2);
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
 /*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2);*/ 
       }
       if (last_azbrake!=(int)((sdssdc.status.i9.il0.az_brake_en_stat)|
@@ -1668,7 +1671,7 @@ static void PrintInstBanner()
   printf("//////  ///////    //////   //////                                             \n");  
   printf("Time Since Boot:       Days               Date:     \n");
   CursPos(1,8);
-  printf ("    SA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
+  printf ("    MSA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
   CursPos(1,9);    
   printf("AZ\n\r");
   CursPos(1,10);    
@@ -1819,72 +1822,56 @@ void Inst()
 	   CursPos(20,24);
 	   printf("SP1 Slit Door Toggled          ");
 	   if ((sdssdc.status.i1.il9.slit_head_door1_opn)&&
-               (!sdssdc.status.i1.il9.slit_head_door1_cls))		
+	       (!sdssdc.status.i1.il9.slit_head_door1_cls))
 	   {
 	     tm_sp_slit_close(SPECTOGRAPH1);
 	     break;
 	   }
 	   if ((!sdssdc.status.i1.il9.slit_head_door1_opn)&&
-               (sdssdc.status.i1.il9.slit_head_door1_cls))		
+	       (sdssdc.status.i1.il9.slit_head_door1_cls))
 	   {
 	     tm_sp_slit_open(SPECTOGRAPH1);
 	     break;
 	   }
+	   tm_sp_slit_open(SPECTOGRAPH1);
 	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case ')':
 	   CursPos(20,24);
 	   printf("SP2 Slit Door Toggled           ");
-	   if ((sdssdc.status.i1.il9.slit_head_door2_opn)&&
-               (!sdssdc.status.i1.il9.slit_head_door2_cls))		
+	   if ((sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
+	       (!sdssdc.status.i1.il9.slit_head_door2_cls))
 	   {
 	     tm_sp_slit_close(SPECTOGRAPH2);
 	     break;
 	   }
-	   if ((!sdssdc.status.i1.il9.slit_head_door2_opn)&&
-               (sdssdc.status.i1.il9.slit_head_door2_cls))		
+	   if ((!sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
+	       (sdssdc.status.i1.il9.slit_head_door2_cls))
 	   {
 	     tm_sp_slit_open(SPECTOGRAPH2);
 	     break;
 	   }
+	   tm_sp_slit_open(SPECTOGRAPH2);
 	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case '{':
 	   CursPos(20,24);
 	   printf("SP1 Latch Toggled               ");
-	   if (sdssdc.status.i1.il9.slit_head_latch1_opn)
-/*	   if (sdssdc.status.i1.il9.slit_head_latch1_opn)*/
-	   {
+	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
 	     tm_cart_unlatch(SPECTOGRAPH1);
-	     break;
-	   }
-	   if (!sdssdc.status.i1.il9.slit_head_latch1_opn)
-/*	   if (!sdssdc.status.i1.il9.slit_head_latch1_opn)*/
-	   {
+	   else
 	     tm_cart_latch(SPECTOGRAPH1);
-	     break;
-	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case '}':
 	   CursPos(20,24);
 	   printf("SP2 Latch Toggled               ");
-	   if (sdssdc.status.i1.il9.slit_head_latch2_opn)
-/*	   if (sdssdc.status.i1.il9.slit_head_latch2_opn)*/
-	   {
+	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
 	     tm_cart_unlatch(SPECTOGRAPH2);
-	     break;
-	   }
-	   if (!sdssdc.status.i1.il9.slit_head_latch2_opn)
-/*	   if (!sdssdc.status.i1.il9.slit_head_latch2_opn)*/
-	   {
+	   else
 	     tm_cart_latch(SPECTOGRAPH2);
-	     break;
-	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case 'X': case 'x':
@@ -2061,7 +2048,7 @@ printf(" ~=flat field screen toggle                                             
 	     CursPos(1,4);
 printf("                                                                              \n");
 	     CursPos(1,5);
-printf("                                                                              \n");
+printf("MSA is Monitor status,axis State,Amp status(Amp,Brake,EStop)                  \n");
 	     CursPos(1,6);
 printf("                                                                              \n");
 	   }
@@ -2126,6 +2113,7 @@ void PrintInstPos()
   short adc;
   int limidx;
   extern unsigned char cwLimit;
+  extern int monitor_on[3];
   unsigned short ffs, ffl, ffc;
   char open[]={' ','O'};
   char close[]={' ','C'};
@@ -2155,10 +2143,12 @@ void PrintInstPos()
       }
       for(i = 0; i < 3; i++)
       {
-        CursPos(7,9+i);
+        CursPos(5,9+i);
         ap=(*tmaxis[i]).actual_position;
         cp=(*tmaxis[i]).position,
         vlt=(*tmaxis[i]).voltage;
+	if (monitor_on[i]) printf ("*");
+	else printf ("U");
         if (semTake (semMEI,NO_WAIT)!=ERROR)
         {
 	  state=axis_state(i<<1);
@@ -2230,7 +2220,7 @@ void PrintInstPos()
         }
 	if (fidsign!=0)
         {
-          CursPos(7,9+i);
+          CursPos(8,9+i);
           arcd=(long)(arcsec)/3600;	     
           arcm=((long)(arcsec)-(arcd*3600))/60;	     
           arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
@@ -2295,9 +2285,9 @@ void PrintInstPos()
 
       if (last_door1!=(int)((sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2))
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2))
 /*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2))*/ 
-		      						)
+								)
       {
       CursPos(33,13);
       printf("                  ");
@@ -2306,19 +2296,19 @@ void PrintInstPos()
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door1_cls)
         printf("Closed ");
-      if (sdssdc.status.i1.il9.slit_head_latch1_opn)
+      if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
 /*      if (sdssdc.status.i1.il9.slit_head_latch1_opn)*/
-        printf("LatchCmd ");
+        printf("LatchCmd   ");
       else
         printf("UnLatchCmd ");
       last_door1=(sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2);
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2);
 /*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2);*/ 
       }
       if (last_door2!=(int)((sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2))
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2))
 /*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2))*/ 
 		      						)
       {
@@ -2329,14 +2319,14 @@ void PrintInstPos()
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door2_cls)
         printf("Closed ");
-      if (sdssdc.status.i1.il9.slit_head_latch2_opn)
+      if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
 /*      if (sdssdc.status.i1.il9.slit_head_latch2_opn)*/
         printf("LatchCmd ");
       else
         printf("UnLatchCmd ");
       last_door2=(sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2);
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
 /*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2);*/ 
       }
 
