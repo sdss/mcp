@@ -71,11 +71,8 @@ $(LIBFILE): $(OBJECTS)
 	iptime.o usrtime.o rtc.o microtime.o \
 	>$(DESTDIR)utiltim.map
 
-print	: 
-	  $(PRINT) $(MAKEFILE) $(PROGINCLUDES) $(SOURCES) | lp -opr
-
 clean	:
-	  $(RM) *.o
+	  $(RM) $.o *~
 
 
 ## dependencies
