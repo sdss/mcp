@@ -217,9 +217,17 @@ barcode_open (3)
 #
 # Load fiducials tables
 #
+tel1_cmd			/* AZ */
+ms_read_cmd "/p/mcpbase/fiducial-tables/az.dat"; ms_define_cmd
+ms_max_cmd "300"
+#
 tel2_cmd			/* ALT */
-ms_read_cmd "/p/mcpbase/fiducials/alt-jeg.dat"; ms_define_cmd
+ms_read_cmd "/p/mcpbase/fiducial-tables/alt.dat"; ms_define_cmd
 ms_max_cmd "200"
+#
+rot_cmd				/* ROT */
+ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"; ms_define_cmd
+ms_max_cmd "100"
 #
 # Adjust tracing now that we're up
 #
