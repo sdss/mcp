@@ -302,20 +302,20 @@ There are a number (well, one <EM>is</EM> a number) of commands in iop to
 manipulate and analyse the mcpFiducials files that the MCP writes:
 
 <DL>
-<DT> readMcpFiducials
+<DT> plotMcpFiducials
 <DD>
 Read and analyze an mcpFiducials file
 e.g.
 <PRE>
- readMcpFiducials -mjd 51799 \\
-       -alt -y pos1 -x time -reset -canon -updown -table stdout
+ plotMcpFiducials -mjd 51799 \\
+       -alt -y pos1 -x time -reset -canon -scale -table stdout
 </PRE>
 
 The file (by default the current one) is read, and the readings of
 the specified encoder for the specified axis are analysed.
 <P>
 
-A complete list of options is available via <CODE>readMcpFiducials -help</CODE>
+A complete list of options is available via <CODE>plotMcpFiducials -help</CODE>
 <P>
 
 If you specify <CODE>-x</CODE> and <CODE>-y</CODE> a plot of
@@ -357,6 +357,21 @@ The middle encoder encountered in each sweep in the axis position is found
 (averaged over sweeps), and matters are arranged so that that encoder has
 the same value for every sweep; this is used to take out secular changes
 (and is not needed for the instrument rotator).
+
+<DT> -scale
+<DD>
+
+Estimate the scale (in arcsec/tick), and ensure that if an fiducial's
+present in the table twice, once wrapped and once not, the two entries
+always differ by the same amount (360*60*60/scale)
+<P>
+
+The value that -scale prints out is exactly the value that
+should be in the file mcp/mcp-new/axis.h.
+<P>
+
+
+Implies the <CODE>-absolute</CODE> flag.
 
 <DT> -time0 <t0>
 <DD>
