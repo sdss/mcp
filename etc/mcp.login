@@ -60,7 +60,7 @@ clk2Start ()			/* VMEchip2 tick timer 2 */
 # A further suggestion is to use an even trace level for subroutine entry
 # and that level, plus one, for trace entries within the subroutine.
 #
-traceInit(40000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
+traceInit(60000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
 traceTtyOn 0, 3
@@ -124,7 +124,10 @@ vmeinst (0x1000, 0x0e0000, 0x00, "ab/sddhp.bin")
 #vmeinst (0x1000, 0x0e0000, 0x00, "sdudhp.bin") 
 #230Kb
 dhpd (10,0xe000,"chasb")
-
+#
+# Load slalib for the sake of the MJD
+#
+ld < /p/tpmbase/bin/mv162/slaLib
 #
 # Load the MCP itself
 #
@@ -151,6 +154,7 @@ TimerStart (100,5,serverDCStart)
 ipsdss_ini()
 serverSetSym
 set_rot_state (-1)
+tm_ffs_enable 1		/* enable the Flat Field Screen */
 tm_set_coeffs 0,0,160
 tm_set_coeffs 0,1,6
 tm_set_coeffs 0,2,1500
@@ -182,11 +186,13 @@ start_tm_TCC()
 taskSpawn "taskTrg",100,8,10000,taskTrg
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 taskSpawn "barcodcan",85,8,1500,cancel_read
-traceOff barcodcan, 16,16
 barcode_init(0xfff58000,0xf022,0xAA,2)
 taskDelay (60)
 #azimuth barcode (2=altitude)
 barcode_open (3)
 #barcode_serial 3
-i
-
+#
+# Adjust tracing now that we're up
+#
+traceOff barcodcan, 16,16
+traceTtyOn 0, 5
