@@ -19,12 +19,8 @@
 #include "string.h"
 #include "rebootLib.h"
 #include "gendefs.h"
-#include "dio316dr.h"
-#include "dio316lb.h"
-#include "mv162IndPackInit.h"
 #include "cw.h"
 #include "ad12f1lb.h"
-#include "did48lb.h"
 #include "da128vlb.h"
 #include "da128vrg.h"
 #include "ip480.h"
@@ -40,7 +36,6 @@
 /*
  * Create the task and message queue for the counterweights
  */
-#if USE_MSG_Q
 void
 tMoveCW(void)
 {
@@ -110,7 +105,6 @@ tMoveCWFini(void)
    
    taskDelete(taskIdFigure("tMoveCW"));
 }
-#endif
 
 /*****************************************************************************/
 /*
@@ -119,7 +113,6 @@ tMoveCWFini(void)
 int
 mcp_cw_abort(void)
 {
-#if USE_MSG_Q
    MCP_MSG msg;
    STATUS stat;
 
@@ -134,9 +127,6 @@ mcp_cw_abort(void)
 		      NO_WAIT, MSG_PRI_NORMAL);
       assert(stat == OK);
    }
-#else
-   taskDelete(taskIdFigure("moveCW"));
-#endif
    
    cw_abort();
 
@@ -182,7 +172,6 @@ mcp_set_cw(int inst,			/* instrument to balance for */
       
       return(-1);
    } else {
-#if USE_MSG_Q
 /*
  * send message requesting a counter weight motion
  */
@@ -208,19 +197,6 @@ mcp_set_cw(int inst,			/* instrument to balance for */
       stat = msgQSend(msgMoveCW, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
       assert(stat == OK);
-#else
-      if(taskIdFigure("moveCW") != ERROR) {
-	 if(errstr != NULL) {
-	    *errstr = "ERR: CW or CWP task still active...be patient";
-	 }
-	 
-	 return(-1);			/* CW or CWP task still active */
-      }
-
-      taskSpawn("moveCW",60,VX_FP_TASK,10000,(FUNCPTR)set_counterweight,
-		inst, cw, cwpos,
-		0,0,0,0,0,0,0);
-#endif
    }
 
    if(errstr != NULL) {

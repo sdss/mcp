@@ -3,8 +3,6 @@
 
 #include <msgQLib.h>
 
-#define USE_MSG_Q 1
-
 typedef struct {
    enum {
       DIO316ClearISR_type,

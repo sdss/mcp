@@ -134,12 +134,13 @@ int errmsg_max[3]={400,200,100}; /* axis fiducial max error to post msg */
 SEM_ID semMEI=NULL;
 SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
-#if USE_MSG_Q
-   MSG_Q_ID msgDIO316ClearISR = NULL;	/* control the tm_ClrInt task */
-   MSG_Q_ID msgMoveCW = NULL;		/* control the moveCW task */
-   MSG_Q_ID msgMoveCWAbort = NULL;	/* control the moveCW task */
-   SEM_ID semMoveCWBusy = NULL;		/*  "   "   "   "  "   " " */
-#endif
+
+MSG_Q_ID msgDIO316ClearISR = NULL;	/* control the tm_ClrInt task */
+
+MSG_Q_ID msgMoveCW = NULL;		/* control the moveCW task */
+MSG_Q_ID msgMoveCWAbort = NULL;		/* control the moveCW task */
+SEM_ID semMoveCWBusy = NULL;		/*  "   "   "   "  "   " " */
+
 int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 int MEI_interrupt=FALSE;
 int sdss_was_init=FALSE;
@@ -211,11 +212,7 @@ void restore_fiducials (int axis);
 void restore_fiducials_all ();
 void print_max ();
 double sdss_delta_time(double t2, double t1);
-#if USE_MSG_Q
-   void DIO316ClearISR_delay(void);
-#else
-   void DIO316ClearISR_delay (int delay, int bit);
-#endif
+void DIO316ClearISR_delay(void);
 int tm_frames_to_execute(int axis);
 
 
@@ -3679,7 +3676,7 @@ tm_latch(char *name)
    if(semLATCH == NULL) {
       semLATCH = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
    }
-#if USE_MSG_Q
+
    if(msgDIO316ClearISR == NULL) {
       msgDIO316ClearISR = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgDIO316ClearISR != NULL);
@@ -3688,13 +3685,11 @@ tm_latch(char *name)
 		(FUNCPTR)DIO316ClearISR_delay, 120, dio316int_bit,
 		0,0,0,0,0,0,0,0);
    }
-#endif
    
    for(latchidx = -1;; latchidx = (latchidx + 1)%MAX_LATCHED) {
       if(latchidx < 0) {
 	 latchidx = 0;
       } else {
-#if USE_MSG_Q
 /*
  * send message requesting the latches to rearm, reenabling interrupts
  */
@@ -3708,11 +3703,6 @@ tm_latch(char *name)
 	 stat = msgQSend(msgDIO316ClearISR, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);
 	 assert(stat == OK);
-#else
-	 DIO316ClearISR(tm_DIO316);
-	 taskSpawn("tm_ClrInt",30,8,4000,(FUNCPTR)DIO316ClearISR_delay,120,
-		   dio316int_bit,0,0,0,0,0,0,0,0);
-#endif
       }
 /*
  * The interrupt routine DIO316_interrupt gives semLATCH, so wait for it
@@ -4075,7 +4065,6 @@ tm_latch(char *name)
 **
 **=========================================================================
 */
-#if USE_MSG_Q
 void
 DIO316ClearISR_delay(void)
 {
@@ -4121,33 +4110,6 @@ DIO316ClearISR_delay(void)
       }
    }
 }	 
-#else
-void
-DIO316ClearISR_delay(int delay,
-		     int bit)
-{
-   int status;
-   
-   taskDelay(delay);
-
-   if(semTake(semMEI,WAIT_FOREVER) == ERROR) {
-   } else {
-      while((status = arm_latch(TRUE)) != DSP_OK) {
-	 TRACE(4, "Trying to ARM Latch; status=%d", status);
-      }
-      semGive (semMEI);
-   }
-   if(bit & AZIMUTH_INT) {
-      DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
-   }
-   if(bit & ALTITUDE_INT) {
-      DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
-   }
-   if(bit & INSTRUMENT_INT) {
-      DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
-   }
-}
-#endif
 
 /*=========================================================================
 **=========================================================================
