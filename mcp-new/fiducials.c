@@ -513,20 +513,20 @@ maybe_reset_axis_pos(int axis,		/* the axis */
  * The rotator indices run from fiducial 6 at 365.74 deg to 123 at -188.31 deg
  */
 static int
-get_rot_fididx(const struct LATCH_POS *latchpos, /* the most recent pos. */
+get_rot_fididx(const struct LATCH_POS *latch_pos, /* the most recent pos. */
 	       int last_latch_pos,	/* previous latch pos */
 	       int *big)		/* is this a big interval? */
 {
    int fididx;				/* the desired index */
    
-   if(abs((long)latchpos->pos1 - last_latch_pos) < 250000) {
+   if(abs((long)latch_pos->pos1 - last_latch_pos) < 250000) {
       return(0);			/* we just crossed the same fiducial
 					   twice */
    }
 /*
  * Find the index from the Heidenhain
  */
-   fididx = abs(iround((latchpos->pos1 - last_latch_pos)/800.));
+   fididx = abs(iround((latch_pos->pos1 - last_latch_pos)/800.));
    fididx -= 500;
    
    if(fididx > 0) {
@@ -555,10 +555,10 @@ get_rot_fididx(const struct LATCH_POS *latchpos, /* the most recent pos. */
  * 44 at ~ 185deg, 46 at ~ 176deg
  */
    fididx += 45;
-   if(fididx > 45 && latchpos->pos1 > ROT_FID_BIAS) {
+   if(fididx > 45 && latch_pos->pos1 > ROT_FID_BIAS) {
       fididx -= 76;
    } else {
-      if(fididx < 35 && latchpos->pos1 < ROT_FID_BIAS) {
+      if(fididx < 35 && latch_pos->pos1 < ROT_FID_BIAS) {
 	 fididx += 76;
       }
    }
@@ -571,7 +571,7 @@ get_rot_fididx(const struct LATCH_POS *latchpos, /* the most recent pos. */
  *   ~ 56163422 (332.55deg) --> fiducial 89
  * We must explicitly fix them to be 14, 13, ...
  */
-   if(latchpos->pos1 > ROT_FID_BIAS + 55000000) {
+   if(latch_pos->pos1 > ROT_FID_BIAS + 55000000) {
       fididx = (fididx - 90) + 15 - 1;
    }
 #endif
@@ -1604,17 +1604,17 @@ char *
 ms_off_cmd(char *cmd)			/* NOTUSED */
 {
    float delay;				/* delay until MS.OFF takes effect, s*/
-   float time;				/* when MS.OFF should take effect */
+   float time_off;			/* when MS.OFF should take effect */
    
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   if(sscanf(cmd, "%f", &time) == 0) {	/* no time specified */
+   if(sscanf(cmd, "%f", &time_off) == 0) { /* no time specified */
       delay = 0;
    } else {
-      delay = sdss_delta_time(time, sdss_get_time()); /* how long to wait */
+      delay = sdss_delta_time(time_off, sdss_get_time()); /* how long to wait*/
 
       if(delay < 0) {
 	 delay = 0;
@@ -1798,7 +1798,7 @@ read_fiducials(const char *file,	/* file to read from */
    float error;				/* error in mark */
    int fid;				/* fiducial number from file */
    char fid_str[40];			/* buffer to read string "fiducials" */
-   struct FIDUCIALS *fiducial;		/* fiducials data structure */
+   struct FIDUCIALS *axis_fiducial;	/* fiducials data structure */
    long *fiducial_position;		/* array to set */
    FILE *fil;				/* F.D. for file */
    char line[200];			/* buffer to read lines of file */
@@ -1810,19 +1810,19 @@ read_fiducials(const char *file,	/* file to read from */
    switch (axis) {
     case AZIMUTH:
       n_fiducials = N_AZ_FIDUCIALS;
-      fiducial = az_fiducial;
+      axis_fiducial = az_fiducial;
       fiducial_position = az_fiducial_position;
       bias = 0;
       break;
     case ALTITUDE:
       n_fiducials = N_ALT_FIDUCIALS;
-      fiducial = alt_fiducial;
+      axis_fiducial = alt_fiducial;
       fiducial_position = alt_fiducial_position;
       bias = 0;
       break;
     case INSTRUMENT:
       n_fiducials = N_ROT_FIDUCIALS;
-      fiducial = rot_fiducial;
+      axis_fiducial = rot_fiducial;
       fiducial_position = rot_fiducial_position;
       bias = ROT_FID_BIAS;
       break;
@@ -1875,7 +1875,7 @@ read_fiducials(const char *file,	/* file to read from */
 	    fiducial_position[fid] = mark + bias;
 	 } else {
 	    fiducial_position[fid] = 0;
-	    fiducial[fid].disabled = TRUE;
+	    axis_fiducial[fid].disabled = TRUE;
 	 }
       } else {
 	 TRACE(0, "Corrupt line: %s", line, 0);
