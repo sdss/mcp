@@ -30,6 +30,10 @@ cd "/p/mcpbase"
 #
 ld < vx_tools/lib/vxt.mv162.o
 #
+# Disable slave memory mapping
+#
+vmeSlaveMap1 0
+#
 # Load murmur
 #
 ld < vx_tools/objects/dvx_var_dvx.mv162.o
