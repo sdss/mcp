@@ -64,6 +64,8 @@ void tm_ffs_open();
 void tm_ffs_close();
 void tm_sp_ffs_open();
 void tm_sp_ffs_close();
+int tm_ffs_open_status();
+int tm_ffs_close_status();
 void tm_ffl_on();
 void tm_ffl_off();
 void tm_sp_ffl_on();

@@ -2354,7 +2354,7 @@ int setup_wd (char *addr, char vec, int irq)
 {
   sbrd.brd_ptr=(BYTE *)addr;
 
-  SetInterruptVector (&sbrd,&vec);
+  SetInterruptVector (&sbrd,vec);
   attach_ihandler (0,sbrd.m_InterruptVector,0,wd_isr,
   		(struct handler_data *)&sbrd);
   rebootHookAdd ((FUNCPTR)shutdown_wd);

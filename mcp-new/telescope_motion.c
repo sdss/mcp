@@ -1487,6 +1487,8 @@ int tm_slit_status()
 **	    tm_ffs_close
 **	    tm_sp_ffs_open
 **	    tm_sp_ffs_close
+**	    tm_ffs_open_status
+**	    tm_ffs_close_status
 **
 ** DESCRIPTION:
 **      Open/close the flat field screen
@@ -1505,6 +1507,7 @@ int tm_slit_status()
 int tm_ffs(short val) 
 {
    int err;
+   int cnt;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
@@ -1522,8 +1525,44 @@ int tm_ffs(short val)
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
  /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
+   tm_ctrl1.mcp_ff_screen_enable_cmd = 1;
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,1);
+   cnt=60*12;
+   if (val==1) 
+   {
+     while ((!tm_ffs_open_status())&&(cnt>0))
+     {
+        taskDelay(1);
+        cnt--;
+     }
+     if (!tm_ffs_open_status()) /* did not work */
+       printf ("\r\n FFS did NOT all open...disabling ");
+   }
+   else
+   {
+     while ((!tm_ffs_close_status())&&(cnt>0)) 
+     {
+       taskDelay(1);
+       cnt--;
+     }
+     if (!tm_ffs_close_status()) /* did not work */
+       printf ("\r\n FFS did NOT all close...disabling ");
+   }
+   tm_ctrl1.mcp_ff_screen_enable_cmd = 0;
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[1],2);
    if (semTake (semSLC,60)!=ERROR)
    {
      err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
@@ -1553,6 +1592,38 @@ void tm_sp_ffs_close()
 {
   if (taskIdFigure("tmFFS")==ERROR)
     taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
+}
+int tm_ffs_open_status()
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  if ((sdssdc.status.i1.il13.leaf_1_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_2_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_3_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_4_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_5_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_6_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_7_open_stat)&&
+	(sdssdc.status.i1.il13.leaf_8_open_stat))
+    return TRUE;
+  else 
+    return FALSE;
+}
+int tm_ffs_close_status()
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  if ((sdssdc.status.i1.il13.leaf_1_closed_stat)&&
+ 	(sdssdc.status.i1.il13.leaf_2_closed_stat)&&
+	(sdssdc.status.i1.il13.leaf_3_closed_stat)&&
+	(sdssdc.status.i1.il13.leaf_4_closed_stat)&&
+	(sdssdc.status.i1.il13.leaf_5_closed_stat)&&
+	(sdssdc.status.i1.il13.leaf_6_closed_stat)&&
+	(sdssdc.status.i1.il13.leaf_7_closed_stat)&&
+	(sdssdc.status.i1.il13.leaf_8_closed_stat)) 
+    return TRUE;
+  else 
+    return FALSE;
 }
 /*=========================================================================
 **=========================================================================

@@ -798,12 +798,12 @@ void Menu()
 	   if (sdssdc.status.o1.ol14.ff_screen_open_pmt)
 	   {
 	     printf("Close ");
-	     tm_ffs_close();
+	     tm_sp_ffs_close();
 	   }
 	   else
 	   {
 	     printf("Open  ");
-	     tm_ffs_open();
+	     tm_sp_ffs_open();
 	   }
 	   break;
 
