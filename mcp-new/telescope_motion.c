@@ -1606,7 +1606,7 @@ void tm_set_fiducials(int axis)
                         else
                           printf("ERR: fiducial for axis not crossed      ");
 }
-char *msg_axis_status[]=
+char const* const msg_axis_status[]=
 	{"IN_SEQUENCE",
 	 "IN_POSITION",
 	 "IN_MOTION",
@@ -1635,7 +1635,7 @@ void tm_print_axis_status(int axis)
   for (i=0;i<sizeof(msg_axis_status)/sizeof(char *);i++)
     if ((value>>(i+4))&1) printf ("     %s\r\n",msg_axis_status[i]);
 }
-char *msg_axis_state[]=
+char const* const msg_axis_state[]=
 	{"NO_EVENT",
 	 "NEW_FRAME",
 	 "STOP_EVENT",
@@ -1687,7 +1687,7 @@ void tm_print_axis_state(int axis)
   }
   printf ("     %s\r\n",msg_axis_state[i]);
 }
-char *msg_axis_source[]=
+char const* const msg_axis_source[]=
 	{"ID_NONE",
 	 "ID_HOME_SWITCH",
 	 "ID_POS_LIMIT",
