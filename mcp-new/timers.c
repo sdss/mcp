@@ -125,183 +125,86 @@ test_dt(int t2,int t1)
   return (int)sdss_delta_time((double)t2,(double)t1);
 }
 
-/*=========================================================================
-**
-** DESCRIPTION:
-**	SET.TIME date - sets time to WWVB.
-**	Date can be specified as either "month day year hour minute second" or
-**	"month day year seconds-in-day".
-*/
-static float time1, time2;
-long SDSStime = -1;
+/*
+ *
+ *	SET.TIME date - sets time to TAI with fractional part from GPS
+ *
+ * The date specification is ignored in favour of an NTP server
+ */
+long SDSStime = -1;			/* integral part of TAI */
 
-void
-print_time_changes(void)
-{
-   printf("SDSS time1=%f time2=%f dt = %f\n", time1, time2, time2 - time1);
-}
-
-void
-new_setSDSStimeFromNTP(int quiet, int set)
+static void
+setSDSStimeFromNTP(int quiet)
 {
    const char *ntpServer = "tcc25m.apo.nmsu.edu";
    const char *utcServer = "utc-time.apo.nmsu.edu";
-   int leapSeconds;			/* number of leap seconds: utc - tai*/
-   long oSDSStime;			/* old value of SDSStime */
-   double sdss_frac_s;			/* fraction of a sec after GPS tick */
    struct tm tm;
    time_t t;
    struct timeval tai;			/* TAI from NTP */
-   struct timeval utc;			/* UTC from NTP */
 /*
- * find how many leap seconds TAI is away from UTC
+ * Wait until we are more than 200ms away from a GPS tick
  */
+   {
+      int delay = 0;			/* number of ticks to delay */
+      double sdss_time = sdss_get_time() + 1; /* SDSStime may == -1 */
+      float sdss_frac_s = sdss_time - (int)sdss_time;
+
+      if(sdss_frac_s < 0.20) {
+	 delay = 60*(0.2 - sdss_frac_s);
+      } else if(sdss_frac_s > 0.80) {
+	 delay = 60*(1.2 - sdss_frac_s);
+      }
+      
+      if(delay > 0) {
+	 if(!quiet) {
+	    fprintf(stderr,"setSDSStimeFromNTP: Delaying %d ticks\n", delay);
+	 }
+	 
+	 taskDelay(delay);
+      }
+   }
+/*
+ * Find how many seconds it is after midnight TAI, and set SDSStime accordingly
+ */
+   taskLock();
+   
    if(setTimeFromNTP(ntpServer, 0, 1, 0, &tai) < 0) {
       TRACE(0, "failed to get time from %s: %s", ntpServer, strerror(errno));
-      return;
-   }
-   if(setTimeFromNTP(utcServer, 0, 1, 0, &utc) < 0) {
-      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno));
-      return;
-   }
-   settimeofday(&utc, NULL);		/* synchronise the clock to UTC */
-
-   {
-      float fleapSeconds =
-	(utc.tv_sec + 1e-6*utc.tv_usec) - (tai.tv_sec + 1e-6*tai.tv_usec);
-      leapSeconds = fleapSeconds + ((fleapSeconds > 0) ? +0.5 : -0.5);
-   }
-/*
- * Wait until we are more than 50ms away from a GPS tick
- */
-   {
-      double sdss_time = sdss_get_time() + 1; /* SDSStime may == -1 */
-      sdss_frac_s = sdss_time - (int)sdss_time;
-   }
-   if(sdss_frac_s > 0.95) {
-      fprintf(stderr,"RHL Delaying %d\n", (int)(60*(1.0 - sdss_frac_s) + 5));
-      taskDelay((int)(60*(1.0 - sdss_frac_s) + 5));
-   }
-
-   oSDSStime = SDSStime;		/* used if !quiet */
-   if(set) {
-      taskLock();
-   
-      t = time(NULL);
-      tm = *localtime(&t);
-      tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
-      
-      SDSStime = (time(NULL) - mktime(&tm) + (ONE_DAY - leapSeconds))%ONE_DAY;
-      
       taskUnlock();
+      return;
    }
    
-   if(!quiet) {
-      fprintf(stderr,"NTP time: %d SDSStime: %d\n", SDSStime, oSDSStime);
-   }
-}
-
-
-void
-old_setSDSStimeFromNTP(int quiet, int set)
-{
-   struct tm tm;
-   time_t t;
-   
-   setTimeFromNTP("tcc25m.apo.nmsu.edu", 0, 1, 0, NULL);
-
-   t = time(NULL);
+   t = tai.tv_sec;
    tm = *localtime(&t);
-   tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
+   
+   SDSStime = tm.tm_sec + 60*(tm.tm_min + 60*tm.tm_hour);
    
    if(!quiet) {
-      fprintf(stderr,"NTP time: %d SDSStime: %d\n",
-	      (time(NULL) - mktime(&tm))%ONE_DAY, SDSStime);
+      printf("RHL setting:  %d %d %d %d %d %f\n",
+	     tm.tm_mon + 1, tm.tm_mday, 1900 + tm.tm_year,
+	     tm.tm_hour, tm.tm_min,
+	     tm.tm_sec + 1e-6*timer_read(1));
    }
 
-   if(set) {
-      SDSStime = (time(NULL) - mktime(&tm))%ONE_DAY;
+   taskUnlock();
+/*
+ * synchronise the system clock to UTC; this seems as good a place as any
+ */
+   taskLock();
+
+   if(setTimeFromNTP(utcServer, 0, 1, 0, NULL) < 0) {
+      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno));
    }
 
-   setTimeFromNTP("utc-time.apo.nmsu.edu", 0, 1, 0, NULL);
+   taskUnlock();
 }
-
-
-void (*setSDSStimeFromNTP)(int quiet, int set) = new_setSDSStimeFromNTP; /* RHL XXX */
-
-int use_NTP = 1;			/* get time from NTP not the TCC */
 
 char *
 set_time_cmd(char *cmd)
 {
-   float t1,t2,t3;
-   int cnt;
-   struct timespec tp;
-   struct tm t;
-   int extrasec;
-   
-   if(use_NTP) {
-      setSDSStimeFromNTP(1, 1);
-   } else {
-      cnt = sscanf(cmd, "%d %d %d %f %f %f",
-		   &t.tm_mon, &t.tm_mday, &t.tm_year, &t1, &t2, &t3);
-      switch (cnt) {
-       case 6:				/* date -> m d y h m s */
-	 t.tm_hour = t1;
-	 t.tm_min = t2;
-	 t.tm_sec = t3;
-	 break;		
-	 
-       case 4:				/* date -> m d y s  where s is
-					   in floating pt precision */
-	 t.tm_hour = t1/3600;
-	 t.tm_min = (t1 - t.tm_hour*3600)/60;
-	 t3 = t1 - t.tm_hour*3600 - t.tm_min*60;
-	 t.tm_sec = t3;
-	 break;		
-	 
-       default:
-	 return "ERR: wrong number of args";
-      }
-      
-      t.tm_year -= 1900;
-      t.tm_mon -= 1;
-      
-      if(t3 - (int)t3 > 0.75) {
-	 taskDelay(20);			/* 1/3 sec */
-	 extrasec = 1;
-      } else {
-	 extrasec = 0;
-      }
-      
-      tp.tv_sec = mktime(&t) + extrasec;
-      tp.tv_nsec = 0;
-      time1 = sdss_get_time();		/* before and after for diagnostic */
-      
-      SDSStime = tp.tv_sec%ONE_DAY;
-   }   
-#if 0
-   if(clock_settime(CLOCK_REALTIME, &tp) < 0) {
-      TRACE(0, "Failed to set realtime clock: %s", strerror(errno), 0);
-   }
-#endif
-   time2 = sdss_get_time();
+   static int quiet = 1;		/* be quiet? */
 
-#if 0
-   print_time_changes();
-   printf("t3=%f (extrasec=%d)\n",t3,extrasec);
-   printf (" mon=%d day=%d, year=%d %d:%d:%d\n",
-	   t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
-   printf (" sec=%d, nano_sec=%d\n",tp.tv_sec,tp.tv_nsec);
-
-   printf("time - set.time = %.3f\n",
-	  sdss_get_time() - (t3 + 60*(t.tm_min + 60*t.tm_hour)));
-#endif
-
-#if 0
-   t.tm_hour = t.tm_min = t.tm_sec = 0;
-   setSDSStimeFromNTP(0, 0);
-#endif
+   setSDSStimeFromNTP(quiet);
 
    return "";
 }
@@ -548,7 +451,6 @@ axis_DID48_shutdown(int type)
 **	SDSS_cnt
 **	SDSStime
 **	axis_stat
-**	persistent_axis_stat
 **
 **=========================================================================
 */
@@ -573,7 +475,6 @@ DID48_interrupt(int type)
       NIST_sec=timer_read(1);
       if(NIST_sec > 1000100) {
 	 axis_stat[AZIMUTH].clock_loss_signal = 1;
-	 persistent_axis_stat[AZIMUTH].clock_loss_signal = 1;
       } else {
 	 axis_stat[AZIMUTH].clock_loss_signal = 0;
       }
@@ -581,10 +482,6 @@ DID48_interrupt(int type)
       axis_stat[INSTRUMENT].clock_loss_signal =
 	axis_stat[ALTITUDE].clock_loss_signal =
 	  axis_stat[AZIMUTH].clock_loss_signal;
-      
-      persistent_axis_stat[INSTRUMENT].clock_loss_signal =
-	persistent_axis_stat[ALTITUDE].clock_loss_signal =
-	  persistent_axis_stat[AZIMUTH].clock_loss_signal;
       
       timer_start(1);
    }
@@ -657,6 +554,9 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
 void
 timeInit(void)
 {
+/*
+ * Define time-related commands
+ */
    define_cmd("SET.TIME",     set_time_cmd, -1, 1, 1);
    define_cmd("TICKLOST @ .", ticklost_cmd,  0, 0, 1);
    define_cmd("TIME?",        time_cmd,      0, 0, 1);
