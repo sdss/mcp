@@ -219,6 +219,26 @@ double sdss_delta_time(double t2, double t1);
 void DIO316ClearISR_delay (int delay, int bit);
 int tm_frames_to_execute(int axis);
 
+
+/*****************************************************************************/
+/*
+ * return an axis's name
+ */
+static char *
+axis_name(int axis)
+{
+   switch (axis) {
+    case AZIMUTH:
+      return("azimuth");
+    case ALTITUDE:
+      return("altitude");
+    case INSTRUMENT:
+      return("rotator");
+    default:
+      return "(unknown axis)";
+   }
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -268,70 +288,78 @@ char *reboot_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *correct_cmd(char *cmd)
+char *
+correct_cmd(char *cmd)
 {
   extern SEM_ID semMEI;
   extern struct FIDUCIARY fiducial[3];
   extern long fiducial_position[3];
   long pos;
   double position;
-  time_t fidtim;
+
+#ifdef ROT_ROTARY_ENCODER
+#  error I do not know how to read rotary encode fiducial
+#endif
 
   printf (" CORRECT command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (fiducial[axis_select].markvalid)
-  {
-    if (semTake (semMEI,60)!=ERROR)
-    {
-      get_position(axis_select<<1,&position);
-      semGive (semMEI);
-/*      pos=fiducial_position[axis_select];*/
-      pos=position;
-/* use optical encoder for axis 4 */
-      switch (axis_select)
-      {
-        case ALTITUDE:
-          pos += (fiducial_position[axis_select]-fiducial[axis_select].mark);
-/*          pos += ((long)position-fiducial[axis_select].mark);*/
-          tm_set_pos((axis_select*2),pos);
-/* connection of the second encoder is at best a guess/wish/dream */
-          tm_set_pos((axis_select*2)+1,pos);	
-	  break;
-
-        case AZIMUTH:
-          pos += (fiducial_position[axis_select]-fiducial[axis_select].mark);
-/*          pos += ((long)position-fiducial[axis_select].mark);*/
-          tm_set_pos((axis_select*2),pos);
-/* connection of the second encoder is at best a guess/wish/dream */
-          tm_set_pos((axis_select*2)+1,pos);
-	  break;
-
-        case INSTRUMENT:
-          pos += (fiducial_position[axis_select]-fiducial[axis_select].mark);
-/*          pos += ((long)position-fiducial[axis_select].mark);*/
-          tm_set_pos((axis_select*2),pos);
-          tm_set_pos((axis_select*2)+1,pos);  /* connected reliably */
-	  break;
-      }
-      if (fidfp!=NULL)
-      {
-	time (&fidtim);
-        fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%ld\t%ld",
-	          axis_select,fiducial[axis_select].index,
-	          ctime(&fidtim),sdss_get_time(),
-	          (long)fiducial_position[axis_select]-fiducial[axis_select].mark,
-                  (long)position);
-/*        fidfp=freopen (bldFileName(name),"a",fidfp);*/
-      }
-      fiducial[axis_select].mark=fiducial_position[axis_select];
-      return "";
-    }
-    else
-      return "ERR: semMEI";
+  if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+     return "ERR: ILLEGAL DEVICE SELECTION";
   }
-  else
-    return "ERR: fiducial for axis not crossed";
+  
+  if(!fiducial[axis_select].markvalid) {
+     return "ERR: fiducial for axis not crossed";
+  }
+  
+  if (semTake(semMEI,60) != OK) {
+     printf("Setting %s fiducial: unable to take semaphore: %s",
+	    axis_name(axis_select), strerror(errno));
+     return "ERR: semMEI";
+  }
+
+  if(get_position(axis_select<<1, &position) != DSP_OK) {
+     semGive (semMEI);
+     printf("Setting %s fiducial: unable to read position",
+	    axis_name(axis_select));
+     return "ERR: reading fiducial";
+  }
+  semGive (semMEI);
+  
+  pos=position;
+  switch (axis_select) {
+   case ALTITUDE:
+     pos += fiducial_position[axis_select] - fiducial[axis_select].mark;
+     tm_set_pos((axis_select*2),pos);
+/* connection of the second encoder is at best a guess/wish/dream */
+     tm_set_pos((axis_select*2)+1,pos);	
+     break;
+   case AZIMUTH:
+     pos += fiducial_position[axis_select] - fiducial[axis_select].mark;
+     tm_set_pos((axis_select*2),pos);
+/* connection of the second encoder is at best a guess/wish/dream */
+     tm_set_pos((axis_select*2)+1,pos);
+     break;
+   case INSTRUMENT:
+     pos += fiducial_position[axis_select] - fiducial[axis_select].mark;
+     tm_set_pos((axis_select*2),pos);
+     tm_set_pos((axis_select*2)+1,pos);  /* connected reliably */
+     break;
+  }
+  
+  if(fidfp != NULL) {
+     time_t fidtim;
+     time(&fidtim);
+
+     fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%ld\t%ld",
+	      axis_select,fiducial[axis_select].index,
+	      ctime(&fidtim),sdss_get_time(),
+	      (long)fiducial_position[axis_select]-fiducial[axis_select].mark,
+	      (long)position);
+  }
+  
+  fiducial[axis_select].mark = fiducial_position[axis_select];
+
+  return "";
 }
 
 /*=========================================================================
@@ -1212,23 +1240,25 @@ char *remap_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *rot_cmd(char *cmd)
+char *
+rot_cmd(char *cmd)
 {
-/*  printf (" IR command fired\r\n");*/
-  axis_select=INSTRUMENT;
-  return "";
+   axis_select=INSTRUMENT;
+   return "";
 }
-char *tel1_cmd(char *cmd)
+
+char *
+tel1_cmd(char *cmd)
 {
-/*  printf (" TEL1 command fired\r\n");*/
-  axis_select=AZIMUTH;
-  return "";
+   axis_select=AZIMUTH;
+   return "";
 }
-char *tel2_cmd(char *cmd)
+
+char *
+tel2_cmd(char *cmd)
 {
-/*  printf (" TEL2 command fired\r\n");*/
-  axis_select=ALTITUDE;
-  return "";
+   axis_select=ALTITUDE;
+   return "";
 }
 
 /*=========================================================================
@@ -1251,27 +1281,30 @@ char *tel2_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *set_limits_cmd(char *cmd)
+char *
+set_limits_cmd(char *cmd)
 {
-  double pos1,pos2;
-  int cnt;
+   const int axis = axis_select;	/* cmd_handler can change axis_status*/
+   double pos1,pos2;
+   
+   printf (" SET.LIMITS command fired\r\n");
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   if (sscanf (cmd,"%12lf %12lf",&pos1,&pos2) != 2) {
+      return "ERR: requires two positions specified";
+   }
 
-  printf (" SET.LIMITS command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  cnt=sscanf (cmd,"%12lf %12lf",&pos1,&pos2);
-  if (cnt!=2) return "ERR: requires two positions specified";
-  if(pos1>pos2)
-  {
-    max_position[axis_select]=pos1;
-    min_position[axis_select]=pos2;
-  }
-  else
-  {
-    max_position[axis_select]=pos2;
-    min_position[axis_select]=pos1;
-  }
-  return "";
+   if(pos1 > pos2) {
+      max_position[axis] = pos1;
+      min_position[axis] = pos2;
+   } else {
+      max_position[axis] = pos2;
+      min_position[axis] = pos1;
+   }
+
+   return "";
 }
 
 /*=========================================================================
@@ -4160,42 +4193,44 @@ void DIO316ClearISR_delay (int delay, int bit)
 **
 **=========================================================================
 */
-void set_primary_fiducials (int axis,int fididx,long pos)
+void
+set_primary_fiducials(int axis,
+		      int fididx,
+		      long pos)
 {
-  switch (axis)
-  {
-    case 0:
-	if ((fididx<48)&&(fididx>=0))
-	{
-	  fiducial[axis].index=fididx;
-	  fiducial[axis].markvalid=FALSE;
-	  fiducial[axis].mark=fididx;
-	  fiducial_position[axis]=pos;
-	}
-        az_fiducial_position[fiducial[axis].index]=fiducial_position[axis];
-	break;	  
-    case 1:
-	if ((fididx<7)&&(fididx>=0))
-	{
-	  fiducial[axis].index=fididx;
-	  fiducial[axis].markvalid=FALSE;
-	  fiducial[axis].mark=fididx;
-	  fiducial_position[axis]=pos;
-	}
-        alt_fiducial_position[fiducial[axis].index]=fiducial_position[axis];
-	break;	  
-    case 2:
-	if ((fididx<156)&&(fididx>=0))
-	{
-	  fiducial[axis].index=fididx;
-	  fiducial[axis].markvalid=FALSE;
-	  fiducial[axis].mark=fididx;
-	  fiducial_position[axis]=pos;
-	}
-        rot_fiducial_position[fiducial[axis].index]=fiducial_position[axis];
-	break;	  
-  }  
+   switch (axis) {
+    case AZIMUTH:
+      if(fididx < 48 && fididx >= 0) {
+	 fiducial[axis].index=fididx;
+	 fiducial[axis].markvalid=FALSE;
+	 fiducial[axis].mark=fididx;
+	 fiducial_position[axis]=pos;
+      }
+      az_fiducial_position[fiducial[axis].index] = fiducial_position[axis];
+      break;	  
+    case ALTITUDE:
+      if(fididx < 7 && fididx >= 0) {
+	 fiducial[axis].index=fididx;
+	 fiducial[axis].markvalid=FALSE;
+	 fiducial[axis].mark=fididx;
+	 fiducial_position[axis]=pos;
+      }
+      alt_fiducial_position[fiducial[axis].index] = fiducial_position[axis];
+      break;
+    case INSTRUMENT:
+      if(fididx < 156 && fididx >= 0) {
+	 fiducial[axis].index=fididx;
+	 fiducial[axis].markvalid=FALSE;
+	 fiducial[axis].mark=fididx;
+	 fiducial_position[axis]=pos;
+      }
+      rot_fiducial_position[fiducial[axis].index] = fiducial_position[axis];
+      break;
+    default:
+      printf("set_primary_fiducials: unknown axis %d\n", axis);
+   }
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -4223,14 +4258,17 @@ void set_primary_fiducials (int axis,int fididx,long pos)
 **
 **=========================================================================
 */
-void set_fiducials_all ()
+void
+set_fiducials_all ()
 {
   int i;
 
   for (i=0;i<3;i++)
     set_fiducials (i);
 }
-void set_fiducials (int axis)
+
+void
+set_fiducials (int axis)
 {
   int i;
 
@@ -4268,6 +4306,7 @@ void set_fiducials (int axis)
         break;
     }
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -4297,14 +4336,18 @@ void set_fiducials (int axis)
 #define SM_AZ_FIDUCIALS	0x02810000
 #define SM_ALT_FIDUCIALS	0x02811000
 #define SM_ROT_FIDUCIALS	0x02812000
-void save_fiducials_all ()
+
+void
+save_fiducials_all ()
 {
   int i;
 
   for (i=0;i<3;i++)
     save_fiducials (i);
 }
-void save_fiducials (int axis)
+
+void
+save_fiducials (int axis)
 {
   int i;
   long *sm;
@@ -4328,20 +4371,23 @@ void save_fiducials (int axis)
         break;
     }
 }
-void restore_fiducials_all ()
+
+void
+restore_fiducials_all ()
 {
   int i;
 
   for (i=0;i<3;i++)
     restore_fiducials (i);
 }
-void restore_fiducials (int axis)
+
+void
+restore_fiducials (int axis)
 {
   int i;
   long *sm;
 
-  switch (axis)
-  {
+  switch (axis) {
     case 0:
 	sm = (long *)SM_AZ_FIDUCIALS;
         for (i=0;i<48;i++)
