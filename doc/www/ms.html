@@ -8,10 +8,38 @@ was crossed.  The `correct' values are kept in non-volatile shared
 memory on the MCP, and may be loaded from files on the unix host.
 
 <UL>
+<LI> <A HREF="#overview">Overview of Fiducials</A>
 <LI> <A HREF="#commands">`MS' Commands</A>
 <LI> <A HREF="#logfiles">Fiducial Log Files</A>
 <LI> <A HREF="#iopCommands">IOP Commands to Manipulate mcpFiducial Files</A>
 </UL>
+
+<H2><A NAME="overview">Overview of Fiducials</H2>
+
+When an axis crosses a fiducial mark, two things happen in hardware:
+<NL>
+<LI> A signal is sent to the MEI to <EM>latch</EM> all the axes, i.e.
+read the positions of all the encoders (two per axis).  The MEI
+remembers these positions until they've been read and the board
+is explicitly reset.
+
+<LI> The systran DIO316 board in the MCP VME crate is told to generate
+an interrupt for the MCP, telling it which axes were crossed.  This
+interrupt is then disabled for <EM>all</EM> axes. A message is then
+sent to the tLatch MCP task telling it which axes have seen a
+fiducial crossing.
+</NL>
+
+When the tLatch task receives the message it reads the position of
+the indicated axes, then resets the MEI and reenables interrupts.
+<P>
+
+A consequence of this architecture is that while a fiducial crossing
+is being processed on one axis, fiducial crossings on the other axes
+are ignored.  This is unfortunate but necessary --- the MEI is unable
+to latch the different axes separately, so the MCP is unable to read
+the position of the second fiducial.  It would be possible to generate a
+warning, but doing so would significantly complicate the code.
 
 <H2><A NAME="commands">`MS' Commands</A></H2>
 
