@@ -155,6 +155,7 @@ int IP_Interrupt_Enable (struct IPACK *ip, int irq);
 int VME162_IP_Interrupt_Enable (unsigned char *addr, int slot, int irq);
 int VMESC5_IP_Interrupt_Enable (unsigned char *addr, int slot, int irq);
 int VIPC610_IP_Interrupt_Enable (unsigned char *addr, int slot, int irq);
+int VME_IP_Interrupt_Enable (unsigned char *addr, int irq);
 
 #ifdef __cplusplus
 /*}*/
