@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                 
    unsigned no_inst_in_place : 1;            
    unsigned disc_cable : 1;                  
-   unsigned version_id : 16;                  /* Version 5 : v5  */
+   unsigned version_id : 16;                  /* Version 6 :   */
 } B3_L1;
 
 typedef struct {
@@ -243,13 +243,29 @@ typedef struct {
 
 typedef struct {
    unsigned : 15;                            
-   unsigned btr_enable : 1;                  
+   unsigned spare_b3_8_0 : 1;                
    unsigned : 16;                            
 } B3_L4;
 
 typedef struct {
    unsigned spare_b3_l5 : 1;                 
-   unsigned : 31;                            
+   unsigned : 15;                            
+   unsigned spare_b3_11_15 : 1;              
+   unsigned spare_b3_11_14 : 1;              
+   unsigned spare_b3_11_13 : 1;              
+   unsigned spare_b3_11_12 : 1;              
+   unsigned spare_b3_11_11 : 1;              
+   unsigned spare_b3_11_10 : 1;              
+   unsigned spare_b3_11_9 : 1;               
+   unsigned spare_b3_11_8 : 1;               
+   unsigned spare_b3_11_7 : 1;               
+   unsigned spare_b3_11_6 : 1;               
+   unsigned spare_b3_11_5 : 1;               
+   unsigned spare_b3_11_4 : 1;               
+   unsigned spare_b3_11_3 : 1;               
+   unsigned spare_b3_11_2 : 1;               
+   unsigned spare_b3_11_1 : 1;               
+   unsigned spare_b3_11_0 : 1;               
 } B3_L5;
 
 typedef struct {
@@ -1175,7 +1191,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 5 : v5";
+   static char plcVersion[] = "Version 6 :";
 #endif
 /*
  * End of machine generated code
