@@ -191,9 +191,11 @@ tm_print_coeffs(int mei_axis)
 **	one of 10 possible coefficients.
 **		index=0(P),1(I),2(D),3(AFF),4(VFF),5(ILIM),6(OFF),7(DLIM)
 **		8(SHIFT)(-5 is 1/32),9(FFF)
+**
+**  Not used in code; only for vxWorks experiments
 */
 void
-tm_set_coeffs(int mei_axis, int index, int val)
+tm_set_filter_coeff(int mei_axis, int index, int val)
 {
    short coeff[COEFFICIENTS];
    
