@@ -636,7 +636,7 @@ struct AB_SLC500 {
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	5
+#define SDSS_FRAME_VERSION	6
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;
@@ -648,6 +648,7 @@ struct SDSS_FRAME {
 	struct PVT tccmove[3];
 	struct PVT tccpmove[3];
 	struct PVT pvt[3];
+	unsigned long axis_state[3];
 	unsigned long sdsstime;
 	unsigned long ascii_len;
 #define ASCII_LEN	80
