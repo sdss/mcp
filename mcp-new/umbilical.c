@@ -481,6 +481,8 @@ short
 umbilical_position(void)
 {
    int err;
+   const int offset =
+     ((char *)&sdssdc.status.i4.umbilical_dist - (char *)&sdssdc.status.i1);
    unsigned short pos,position;
    
    if(semTake(semSLC,60) == ERROR) {
@@ -489,7 +491,7 @@ umbilical_position(void)
       return(-1);
    }
 
-   err = slc_read_blok(1, 9, BIT_FILE, 139, &pos, sizeof(pos)/2);
+   err = slc_read_blok(1, 9, BIT_FILE, offset/2, &pos, sizeof(pos)/2);
    semGive(semSLC);
    
    if(err) {
