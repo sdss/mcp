@@ -17,6 +17,7 @@ ab/std_dhp.c -text
 ab/std_dhp.h -text
 ab/vmeinst.c -text
 ip/Makefile -text
+ip/acromag/.cvsignore -text
 ip/acromag/Makefile -text
 ip/acromag/carrier.c -text
 ip/acromag/cnfg480.c -text
@@ -73,6 +74,7 @@ ip/systran/dio316rr.c -text
 ip/systran/dio316wp.c -text
 ip/systran/dio316wr.c -text
 ip/systran/gendefs.h -text
+mcp-new/.cvsignore -text
 mcp-new/Makefile -text
 mcp-new/abdh.h -text
 mcp-new/axis.h -text

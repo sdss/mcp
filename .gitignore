@@ -1,5 +1,9 @@
 ab/dhp.map
 ab/dhp.out
+ip/acromag/*.map
+ip/acromag/*.out
 ip/systran/*.map
 ip/systran/*.out
+mcp-new/*.map
+mcp-new/*.out
 util/utiltim.map
