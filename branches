@@ -210,3 +210,6 @@ Mon Aug 11 15:36:46 MDT 2003
         cvs rtag -b -r v5_19_0 v5_19 mcp
 
         Rebuilding the world on plc v16
+
+Fri Jan 30 2004
+  made v5_25 branch for PLC v18 rebuild 
