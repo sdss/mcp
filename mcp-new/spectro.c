@@ -442,12 +442,14 @@ mcp_slithead_latch_close(int spec)
  *
  * Set the FFS control bits. If val is < 0, it isn't set
  */
+static int which_ffs = 0x3;		/* which petals should I move? */
+
 static int
 set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 		 int enab)		/* value of mcp_ff_screen_enable */
 {
-   unsigned short ctrl[2];
-   B10_L0 tm_ctrl;   
+   struct B10 b10;
+   unsigned short ctrl[sizeof(b10)/2];
    int err;
              
    TRACE(3, "Setting FFS: %d %d", val, enab); /* XXX */
@@ -457,8 +459,10 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
  * (Why? French doesn't want us to blow relays)
  */
    if(enab && val >= 0 &&
-      sdssdc.status.b10.w0.mcp_ff_screen_enable &&
-      sdssdc.status.b10.w0.mcp_ff_scrn_opn_cmd != val) {
+      ((sdssdc.status.b10.w0.mcp_ff_screen_enable &&
+	sdssdc.status.b10.w0.mcp_ff_scrn_opn_cmd != val) ||
+       (sdssdc.status.b10.w1.mcp_ff_screen2_enabl &&
+	sdssdc.status.b10.w1.mcp_ff_scrn2_opn_cmd != val))) {
       int ntick = 60;			/* 1 second */
 
       TRACE(3, "Disabling FFS for %d ticks: %d", ntick, val);
@@ -476,27 +480,34 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
       return(-1);
    }
 
-   err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
    if(err) {
       semGive (semSLC);
       TRACE(0, "set_mcp_ffs_bits: error reading slc: 0x%04x", err, 0);
       return err;
    }
-   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
+   swab((char *)ctrl, (char *)&b10, sizeof(b10));
+      
+   if(val >= 0) {
+      b10.w0.mcp_ff_scrn_opn_cmd = val;
+   }
+   b10.w0.mcp_ff_screen_enable = (which_ffs & 0x1) ? enab : 0;
 
    if(val >= 0) {
-      tm_ctrl.mcp_ff_scrn_opn_cmd = val;
+      b10.w1.mcp_ff_scrn2_opn_cmd = val;
    }
-   tm_ctrl.mcp_ff_screen_enable = enab;
+   b10.w1.mcp_ff_screen2_enabl = (which_ffs & 0x2) ? enab : 0;
 
-   swab ((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
-   err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
-   semGive (semSLC);
-
-   if(err) {
+   swab ((char *)&b10, (char *)ctrl, sizeof(b10));
+   err = slc_write_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
+      
+   if(err) { 
+      semGive (semSLC);
       TRACE(0, "set_mcp_ffs_bits: error writing slc: 0x%04x", err, 0);
       return err;
    }
+
+   semGive (semSLC);
 
    return 0;
 }
@@ -511,57 +522,94 @@ ffs_enable(int val)
 }
 
 /*
- * Return status of flat field screen.  Only 6 of the 8 petals need have moved
+ * Return status of flat field screen.  Only 6 of the 8 petals need have moved,
+ * or 3 of the 4 if only half are being commanded
  */
 int
 ffs_open_status(void)
 {
-   int nopen =
+   int nopen;				/* number of open petals */
+   int nopen1 =				/* first 4 petals */
      (sdssdc.status.i1.il13.leaf_1_open_stat ? 1 : 0) + 
        (sdssdc.status.i1.il13.leaf_2_open_stat ? 1 : 0) +
 	 (sdssdc.status.i1.il13.leaf_3_open_stat ? 1 : 0) +
-	   (sdssdc.status.i1.il13.leaf_4_open_stat ? 1 : 0) +
-	     (sdssdc.status.i1.il13.leaf_5_open_stat ? 1 : 0) +
-	       (sdssdc.status.i1.il13.leaf_6_open_stat ? 1 : 0) +
-		 (sdssdc.status.i1.il13.leaf_7_open_stat ? 1 : 0) +
-		   (sdssdc.status.i1.il13.leaf_8_open_stat ? 1 : 0);
-   
-   if(nopen >= 6) {
-      if(nopen != 8) {
-	 TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
+	   (sdssdc.status.i1.il13.leaf_4_open_stat ? 1 : 0);
+   int nopen2 =				/* last 4 petals */
+     (sdssdc.status.i1.il13.leaf_5_open_stat ? 1 : 0) +
+       (sdssdc.status.i1.il13.leaf_6_open_stat ? 1 : 0) +
+	 (sdssdc.status.i1.il13.leaf_7_open_stat ? 1 : 0) +
+	   (sdssdc.status.i1.il13.leaf_8_open_stat ? 1 : 0);
+
+   if(which_ffs == 0x3) {		/* all petals */
+      nopen = nopen1 + nopen2;
+      if(nopen >= 6) {
+	 if(nopen != 8) {
+	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
+	 }
+	 return(TRUE);
+      } else {
+	 if(nopen != 0) {
+	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
+	 }
+	 return(FALSE);
       }
-      return(TRUE);
-   } else {
-      if(nopen != 0) {
-	 TRACE(0, "%d flat field screen petals are still open", nopen, 0);
+   } else {				/* just first/last 4 */
+      nopen = (which_ffs & 0x1) ? nopen1 : nopen2;
+      if(nopen >= 3) {
+	 if(nopen != 4) {
+	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
+	 }
+	 return(TRUE);
+      } else {
+	 if(nopen != 0) {
+	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
+	 }
+	 return(FALSE);
       }
-      return(FALSE);
    }
 }
 
 int
 ffs_close_status(void)
-{
-   int nclosed =
+{   
+   int nclosed;
+   int nclosed1 =
      (sdssdc.status.i1.il13.leaf_1_closed_stat ? 1 : 0) + 
        (sdssdc.status.i1.il13.leaf_2_closed_stat ? 1 : 0) +
 	 (sdssdc.status.i1.il13.leaf_3_closed_stat ? 1 : 0) +
-	   (sdssdc.status.i1.il13.leaf_4_closed_stat ? 1 : 0) +
-	     (sdssdc.status.i1.il13.leaf_5_closed_stat ? 1 : 0) +
-	       (sdssdc.status.i1.il13.leaf_6_closed_stat ? 1 : 0) +
-		 (sdssdc.status.i1.il13.leaf_7_closed_stat ? 1 : 0) +
-		   (sdssdc.status.i1.il13.leaf_8_closed_stat ? 1 : 0);
+	   (sdssdc.status.i1.il13.leaf_4_closed_stat ? 1 : 0);
+   int nclosed2 =
+     (sdssdc.status.i1.il13.leaf_5_closed_stat ? 1 : 0) +
+       (sdssdc.status.i1.il13.leaf_6_closed_stat ? 1 : 0) +
+	 (sdssdc.status.i1.il13.leaf_7_closed_stat ? 1 : 0) +
+	   (sdssdc.status.i1.il13.leaf_8_closed_stat ? 1 : 0);
    
-   if(nclosed >= 6) {
-      if(nclosed != 8) {
-	 TRACE(0, "Only %d flat field screen petals are closed", nclosed, 0);
+   if(which_ffs == 0x3) {		/* all petals */
+      nclosed = nclosed1 + nclosed2;
+      if(nclosed >= 6) {
+	 if(nclosed != 8) {
+	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
+	 }
+	 return(TRUE);
+      } else {
+	 if(nclosed != 0) {
+	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
+	 }
+	 return(FALSE);
       }
-      return(TRUE);
    } else {
-      if(nclosed != 0) {
-	 TRACE(0, "%d flat field screen petals are still closed", nclosed, 0);
+      nclosed = (which_ffs & 0x1) ? nclosed1 : nclosed2;
+      if(nclosed >= 3) {
+	 if(nclosed != 4) {
+	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
+	 }
+	 return(TRUE);
+      } else {
+	 if(nclosed != 0) {
+	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
+	 }
+	 return(FALSE);
       }
-      return(FALSE);
    }
 }
 
@@ -739,7 +787,7 @@ get_ffstatus(char *ffstatus_ans,
   int len;
 
   sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],
-	"FFS  %d%d %d%d %d%d %d%d  %d%d %d%d %d%d %d%d  %d\n",
+	"FFS  %d%d %d%d %d%d %d%d  %d%d %d%d %d%d %d%d  %d %d\n",
 	   sdssdc.status.i1.il13.leaf_1_open_stat,
 	   sdssdc.status.i1.il13.leaf_1_closed_stat,
 	   sdssdc.status.i1.il13.leaf_2_open_stat,
@@ -756,7 +804,8 @@ get_ffstatus(char *ffstatus_ans,
 	   sdssdc.status.i1.il13.leaf_7_closed_stat,
 	   sdssdc.status.i1.il13.leaf_8_open_stat,
 	   sdssdc.status.i1.il13.leaf_8_closed_stat,
-	   sdssdc.status.o1.ol14.ff_screen_open_pmt);
+	   sdssdc.status.o1.ol14.ff_screen_open_pmt,
+	   which_ffs);
   sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"FF   %d %d %d %d  %d\n",
 	  sdssdc.status.i1.il13.ff_1_stat,
 	  sdssdc.status.i1.il13.ff_2_stat,
@@ -842,6 +891,27 @@ ffsclose_cmd(char *cmd)			/* NOTUSED */
    assert(ret == OK);
 
    return "";
+}
+
+char *
+ffsselect_cmd(char *cmd)
+{
+   int which = atoi(cmd);
+
+   if(which == 0) {			/* may be hex */
+      if(cmd[0] == '0' && (cmd[1] == 'x' || cmd[1] == 'X')) {
+	 which = atoi(&cmd[2]);
+      }
+   }
+   
+   if(which <= 0 || which > 3) {
+      TRACE(0, "Invalid FFS.SELECT argument: %s", cmd, 0);
+      return("Invalid FFS.SELECT argument");
+   }
+
+   which_ffs = which;
+
+   return("");
 }
 
 /*****************************************************************************/
@@ -1066,7 +1136,7 @@ spectroInit(void)
 
       msgFFS = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgFFS != NULL);
-      ret = taskSpawn("tFFS",90,0,2000,(FUNCPTR)tFFS,
+      ret = taskSpawn("tFFS",90,0,3000,(FUNCPTR)tFFS,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
 
@@ -1095,6 +1165,8 @@ spectroInit(void)
    define_cmd("FFL.ON",              fflon_cmd,                0, 0, 0, 1, "");
    define_cmd("FFS.CLOSE",           ffsclose_cmd,             0, 0, 0, 1, "");
    define_cmd("FFS.OPEN",            ffsopen_cmd,              0, 0, 0, 1, "");
+   define_cmd("FFS.SELECT",          ffsselect_cmd,            1, 0, 0, 1,
+	      "Select petal set 1 (0x1), petal set 2 (0x2) or all (0x3)");
    define_cmd("HGCD.OFF",            hgcdoff_cmd,              0, 0, 0, 1, "");
    define_cmd("HGCD.ON",             hgcdon_cmd,               0, 0, 0, 1, "");
    define_cmd("NE.OFF",              neoff_cmd,                0, 0, 0, 1, "");
