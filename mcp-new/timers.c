@@ -389,7 +389,7 @@ DIO316_interrupt(int type)
    DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
-      TRACE(0, "NIST_INT bit is set: %d", dio316int_bit, 0);
+      TRACE0(0, "NIST_INT bit is set: %d", dio316int_bit, 0);
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
