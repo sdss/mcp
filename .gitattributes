@@ -18,6 +18,7 @@ ab/std_dhp.h -text
 ab/vmeinst.c -text
 bin/Makefile -text
 bin/fix-make_make -text
+bin/showMCP -text
 bin/switchMCP -text
 /branches -text
 etc/Makefile -text
