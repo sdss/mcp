@@ -22,6 +22,7 @@
 #include "cmd.h"
 #include "dscTrace.h"
 #include "axis.h"
+#include "mcpUtils.h"
 
 /*------------------------------------------------------------------------
 **
@@ -222,7 +223,9 @@ tcc_serial(int port)
      
      if(status == 0) {
 	strcpy(command_buffer_in, command_buffer);
-	answer_buffer = cmd_handler(1, command_buffer, &cmd_type);
+	answer_buffer =
+	  cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
+		      command_buffer, &cmd_type);
 	/*
 	 * write logfile of murmurable commands
 	 */
