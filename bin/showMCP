@@ -1,11 +1,15 @@
 #!/usr/local/bin/perl
 #
+# -*- perl -*-
+#
 # Show which version of the MCP is setup to boot.
 #
 # From iop, the "mcpVersion" command will tell you which version is
 # actually running; this information is also available from the MCP Menu
 #
 $trans = readlink("/p/mcpbase/etc");
-$trans =~ m|/p/mcp/([^/]*)|;
-
-print "$1\n";
+if($trans =~ m|/p/mcp/([^/]*)|) {
+   print "$1\n";
+} else {
+   print "$trans\n";
+}
