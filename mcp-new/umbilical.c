@@ -607,6 +607,15 @@ umbilical_pos_cmd(char *cmd)
       return("ERR: malformed command argument");
    }
 
+   if(active_umbilical_control) {
+      return("\
+ERR: you cannot command the umbilical tower when it's under active control");
+   }
+   if(!saddle_is_mounted() && !override_saddle_switches) {
+      return("\
+ERR: you may not command the umbilical tower when the saddle isn't mounted");
+   }
+
    if(umbilical_move_pos_in(pos) != 0) {
       return("ERR: UMBILICAL.POS failed");
    }
