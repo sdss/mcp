@@ -83,8 +83,8 @@ int TimerStart(unsigned long freq, unsigned char level, void (*func)())
 
 		/* Now validate the parameters. */
 
-		if ((freq > 0) && (freq <= 100000L)) return ERROR;
-		if (level < 8) return ERROR;		
+		if (freq > 100000L) return ERROR;
+		if (level >= 8) return ERROR;		
 
 		initStats();
 		if ((intBase = MCC(0x0) & 0xff) & 0x0f)

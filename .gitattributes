@@ -250,6 +250,7 @@ mei-new/vmemap.h -text
 util/Makefile -text
 util/iptime.c -text
 util/microtime.c -text
+util/muruser.m68040.o -text svneol=unset#unset
 util/rtc.c -text
 util/timer.c -text
 util/timer.h -text
@@ -257,3 +258,4 @@ util/timerint.o -text svneol=unset#unset
 util/usrtime.c -text
 util/usrtime.h -text
 util/utiltim.out -text svneol=unset#unset
+util/vxt.mv167.o -text svneol=unset#unset
