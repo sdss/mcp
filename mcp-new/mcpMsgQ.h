@@ -2,16 +2,24 @@
 #define MCP_MSG_Q_H 1
 
 #include <msgQLib.h>
+#include "timerTask.h"
 
 typedef struct {
    enum {
+      lamps_type,			/* turn lamps on/off */
       latchCrossed_type,		/* we crossed a fiducial */
       latchReenable_type,		/* reenable fiducial latches */
       moveCW_type,			/* counterweights motion */
-      moveCWAbort_type			/* abort counterweights */
+      moveCWAbort_type,			/* abort counterweights */
+      specDoor_type			/* control spectrograph doors */
    } type;
    
    union {
+      struct {
+	 enum { FF_LAMP, HGCD_LAMP, NE_LAMP } type; /* type off lamp */
+	 enum { ON = 1, OFF = 0 } on_off; /* should I turn it on or off? */
+      } lamps;
+
       struct {
 	 unsigned int time;		/* when we saw the fiducial */
       } latchCrossed;
@@ -30,6 +38,13 @@ typedef struct {
       struct {
 	 int abort;			/* always true */
       } moveCWAbort;
+
+      struct {
+	 int spec;			/* which spectrograph? */
+	 enum { OPEN, CLOSE, CLEAR } op; /* desired operation */
+      } specDoor;
+
+      struct s_tmr_msg tmr;		/* a message type from tTimerTask */
    } u;
 } MCP_MSG;
 
@@ -44,5 +59,13 @@ extern SEM_ID semMoveCWBusy;
  */
 extern MSG_Q_ID msgLatched;
 extern MSG_Q_ID msgLatchReenable;
+/*
+ * tLamps task
+ */
+extern MSG_Q_ID msgLamps;
+/*
+ * tSpecDoor task
+ */
+extern MSG_Q_ID msgSpecDoor;
 
 #endif
