@@ -4,7 +4,7 @@
 #	rebuild instructions for VxWorks/68k
 #
 
-CFLAGS		=	-c -O -DCPU=MC68040 -I$(VX_VW_BASE)/h -DMEI_VW -Wall -DMEI_MC680X0_CPU
+CFLAGS		=	-c -O -DCPU=MC68040 -I$(VX_DSC_DIR)/h -DMEI_VW -Wall -DMEI_MC680X0_CPU
 CC			=	cc68k
 AR			=	ar68k
 ARFLAGS		=	crsv

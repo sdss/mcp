@@ -5,7 +5,7 @@ CPU = MC68040
 
 HOST = irix
 
-VW = $(VX_VW_BASE)/
+VW = $(VX_DSC_DIR)/
 #VW = /p/vx_dsc/v5_1_1f3/
 VWH = $(VW)h/
 H1 = $(VWH)
