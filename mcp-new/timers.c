@@ -449,7 +449,6 @@ axis_DID48_shutdown(int type)
 **
 ** GLOBALS REFERENCED:
 **	NIST_sec
-**	NIST_cnt
 **	SDSS_cnt
 **	SDSStime
 **	axis_stat
@@ -458,8 +457,8 @@ axis_DID48_shutdown(int type)
 */
 unsigned long NIST_sec;
 unsigned char did48int_bit;
-unsigned long NIST_cnt=0;
-unsigned long SDSS_cnt=0;
+unsigned long SDSS_cnt=0;             /* number of times SDSStime was
+                                         incremented */
 
 void
 DID48_interrupt(int type)
@@ -470,7 +469,6 @@ DID48_interrupt(int type)
    TRACE0(16, "DID48_interrupt", 0, 0);
    
    DID48_Read_Port(tm_DID48,5,&did48int_bit);
-   NIST_cnt++;
    if(did48int_bit & NIST_INT) {
       if(SDSStime < 0) {		/* we haven't set time yet */
 	 timer_start(1);		/* reset microsecond timer */
@@ -490,15 +488,17 @@ DID48_interrupt(int type)
 	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
 	 }
       } else if(NIST_sec > 1000000 + dt) {
-	 TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
-
-	 axis_stat[AZIMUTH][0].clock_loss_signal = 
-	   axis_stat[ALTITUDE][0].clock_loss_signal =
-	     axis_stat[INSTRUMENT][0].clock_loss_signal = 1;
-	 
-	 axis_stat[AZIMUTH][1].clock_loss_signal = 
-	   axis_stat[ALTITUDE][1].clock_loss_signal =
-	     axis_stat[INSTRUMENT][1].clock_loss_signal = 1;
+	 if(SDSS_cnt > 1) {		/* not just the first partial second */
+	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
+	    
+	    axis_stat[AZIMUTH][0].clock_loss_signal = 
+	      axis_stat[ALTITUDE][0].clock_loss_signal =
+		axis_stat[INSTRUMENT][0].clock_loss_signal = 1;
+	    
+	    axis_stat[AZIMUTH][1].clock_loss_signal = 
+	      axis_stat[ALTITUDE][1].clock_loss_signal =
+		axis_stat[INSTRUMENT][1].clock_loss_signal = 1;
+	 }
       } else {
 	 axis_stat[AZIMUTH][1].clock_loss_signal = 
 	   axis_stat[ALTITUDE][1].clock_loss_signal =
