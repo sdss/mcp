@@ -13,6 +13,7 @@
 #include "dscTrace.h"
 #include "data_collection.h"
 #include "axis.h"
+#include "mcpMsgQ.h"
 
 int tm_DID48;
 int DID48_Init = FALSE;
@@ -202,6 +203,68 @@ print_time_changes(void)
 }
 
 /*=========================================================================
+**
+**	TICKLOST @ . - Returns if receiving 1 Hz ticks.
+**
+** RETURN VALUES:
+**	return "0" or undefined if not receiving ticks so i return NULL string.
+**
+** CALLS TO:
+**	sdss_get_time
+**	sdss_delta_time
+**
+*/
+char *
+ticklost_cmd(char *cmd)			/* NOTUSED */
+{
+   double tick = sdss_get_time();
+   
+   taskDelay(65);
+
+   if(sdss_delta_time(sdss_get_time(), tick) > 1.0) {
+      return "0";
+   } else {
+      return "";
+   }
+}
+
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: time_cmd
+**
+** DESCRIPTION:
+**	TIME? - gets date and time.
+**
+** RETURN VALUES:
+**	return date as "m d y seconds-of-day"
+**
+** CALLS TO:
+**	sdss_get_time
+**
+** GLOBALS REFERENCED:
+**	SDSStime
+**
+**=========================================================================
+*/
+static char *time_ans={"01 31 1996 86400.000                "};	/* */
+char *time_cmd(char *cmd)
+{
+  static struct tm *t;
+  struct timespec tp;
+
+/*  printf (" TIME? command fired\r\n");*/
+  clock_gettime(CLOCK_REALTIME,&tp);
+  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
+  t = localtime(&tp.tv_sec);
+/*  printf ("t=%p, mon=%d day=%d, year=%d %d:%d:%d\r\n",
+	t,t->tm_mon,t->tm_mday,t->tm_year,t->tm_hour,t->tm_min,t->tm_sec);*/
+  sprintf (time_ans,"%d %d %d %f",t->tm_mon+1,t->tm_mday,t->tm_year+1900,
+	sdss_get_time());
+  return time_ans;
+}
+
+/*=========================================================================
 **=========================================================================
 **
 ** ROUTINE: DIO316_initialize
@@ -307,15 +370,12 @@ axis_DIO316_shutdown(int type)
 /*=========================================================================
 **=========================================================================
 **
-** DESCRIPTION:
-**	Interrupt handler.  Used to handle function generator driven 1 Hz
-**	pulse for testing.  Used for monitoring a crossing of a fiducial
-**	and triggers a task via a semaphore.
+**	Interrupt handler. Used for monitoring a crossing of a fiducial
+**	and triggers a task via a message queue
 **
 **
 ** GLOBALS REFERENCED:
-**	tm_DIO316
-**	semLATCH
+**	msgLatch
 **
 **=========================================================================
 */
@@ -329,13 +389,13 @@ DIO316_interrupt(int type)
    TRACE0(16, "DIO316_interrupt", 0, 0);	 
 
    int_count++;
-   DIO316ReadISR (tm_DIO316,&dio316int_bit);
+   DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
       illegal_NIST++;
-      DIO316ClearISR (tm_DIO316);
+      DIO316ClearISR(tm_DIO316);
    } else {
-      if(dio316int_bit&AZIMUTH_INT) {
+      if(dio316int_bit & AZIMUTH_INT) {
 	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_DIS);
       }
       if(dio316int_bit & ALTITUDE_INT) {
@@ -345,8 +405,18 @@ DIO316_interrupt(int type)
 	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_DIS);
       }
 
-      semGive (semLATCH);
-      TRACE0(8, "Gave semLATCH", 0, 0);
+      {
+	 MCP_MSG msg;
+	 STATUS stat;
+
+	 msg.type = latchCrossed_type;
+	 msg.u.latchCrossed.time = timer_read(2);
+
+	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
+			 NO_WAIT, MSG_PRI_NORMAL);
+	 assert(stat == OK);
+      }
+      TRACE0(8, "Sent message to msgLatched at %d", time, 0);
    }
 }
 
@@ -406,14 +476,20 @@ DID48_interrupt(int type)
       
       NIST_sec=timer_read(1);
       if(NIST_sec > 1000100) {
-	 axis_stat[0].clock_loss_signal = 1;
-	 persistent_axis_stat[0].clock_loss_signal = 1;
+	 axis_stat[AZIMUTH].clock_loss_signal = 1;
+	 persistent_axis_stat[AZIMUTH].clock_loss_signal = 1;
       } else {
-	 axis_stat[0].clock_loss_signal = 0;
+	 axis_stat[AZIMUTH].clock_loss_signal = 0;
       }
       
-      axis_stat[2].clock_loss_signal = axis_stat[1].clock_loss_signal =
-						axis_stat[0].clock_loss_signal;
+      axis_stat[INSTRUMENT].clock_loss_signal =
+	axis_stat[ALTITUDE].clock_loss_signal =
+	  axis_stat[AZIMUTH].clock_loss_signal;
+      
+      persistent_axis_stat[INSTRUMENT].clock_loss_signal =
+	persistent_axis_stat[ALTITUDE].clock_loss_signal =
+	  persistent_axis_stat[AZIMUTH].clock_loss_signal;
+      
       timer_start(1);
    }
 
