@@ -145,6 +145,7 @@ ADC128F1
 #include "ip480.h"
 #include "mv162IndPackInit.h"
 #include "cw.h"
+#include "tm.h"
 #include "data_collection.h"
 #include "abdh.h"
 
@@ -844,6 +845,7 @@ int fiber_msg(struct IL_STATES *sm)
   if (IL_verbose) printf ("\r\nFSM: %s",sm->name);
   return 0;
 }
+
 int is_action_get()
 {
 	if (il_action==IL_GET) return TRUE;
@@ -918,9 +920,26 @@ int leave (short *v1,short *v2)
 	return TRUE;
 	
 }
+int clear_msg ()
+{
+  extern char *inst_display;
+  
+  inst_display=NULL;
+  return 0;
+	
+}
+int leave_msg ()
+{
+  extern char *inst_display;
+  
+  inst_display="Done....                                                            ";
+  taskDelay(60);	
+  return 0;
+}
 short fiber_pos=100;
 short plate_pos=50;
 #define START_FSM	0x00
+#define INVALID_STATE	0xF0
 #define CONTINUE_FSM	0xFE
 #define EXIT_FSM	0xFF
 #define FIBER_INI	0
@@ -935,62 +954,357 @@ struct IL_STATES fiberfsm[]={
 	{"Fiber_ini",fiberini,NULL,
 	  {{is_true,NULL,NULL,FIBER_ENGAG,NULL},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Engage",fiber_msg,il_move,
 	  {{is_plate_engage,NULL,NULL,FIBER_PLAT,CONTINUE_FSM},
 	  {is_less_than,&il_pos,&plate_pos,CONTINUE_FSM,FIBER_ABORT},
 	  {NULL},{NULL}}},
+	  
 	{"Fiber_Plate",fiber_msg,il_move,
 	  {{is_action_get,NULL,NULL,FIBER_GET,FIBER_PUT},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Get",fiber_msg,il_move,
 	  {{is_clamping_force,NULL,NULL,FIBER_RETURN,FIBER_PUT},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Put",fiber_put,il_move,
 	  {{is_clamping_force,NULL,NULL,FIBER_RETURN,FIBER_PUT},
 	  {is_less_than,&il_pos,&fiber_pos,FIBER_ENGAG,FIBER_ABORT},
 	  {NULL},{NULL}}},
+	  
 	{"Fiber_Return",fiber_msg,il_move,
 	  {{is_motion_done,NULL,NULL,FIBER_FINISH,FIBER_RETURN},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Abort",fiber_msg,il_stop,
 	  {{leave,NULL,NULL},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Finish",fiber_msg,il_stop,
 	  {{leave,NULL,NULL},
-	  {NULL},{NULL},{NULL}}}
+	  {NULL},{NULL},{NULL}}},
+	  
+	/* Terminator */
+	{"",NULL,NULL,
+	  {{NULL},{NULL},{NULL},{NULL}}}
+};
+
+extern int tm_move_instchange();
+/*
+extern int instchange_status_msg();
+extern int is_instchange();
+extern int tm_alt_brake_on();
+extern int is_alt_brake_on();
+extern int cw_lower();
+extern int cw_status_msg();
+extern int is_cw_in_position();
+extern int tm_clamp_on();
+extern int is_clamp_on();
+extern int is_inst_id_empty();
+extern int operator_msg1();
+extern int is_stop_in();
+extern int operator_msg2();
+extern int is_query_TF();
+*/
+extern char *inst_display;
+extern char *err_display;
+extern int inst_answer;
+int instchange_status_msg()
+{
+  inst_display = "Moving to instrument change position                                   ";
+  return 0;
+}
+int is_instchange()
+{
+  taskDelay (30);
+  inst_display = "Checking instrument change positions                                   ";
+  taskDelay (30);
+/*
+  if ( (!motion_done(0))||(!motion_done(2))||(!motion_done(4)) )
+    return FALSE;
+  else
+*/
+    return TRUE;
+}
+int is_alt_brake_on()
+{
+  extern struct SDSS_FRAME sdssdc;
+   taskDelay (30);
+  inst_display = "Checking alt brake status";
+  taskDelay (30);
+    return TRUE;
+  if (sdssdc.status.i9.il0.alt_brake_en_stat)
+  {
+    inst_display = "ALT Brake is Engaged";
+    return TRUE;
+  }
+  else
+  {
+    inst_display = "ALT Brake is NOT Engaged";
+    return FALSE;
+  }  
+}
+int cw_lower()
+{
+  extern char *balance_weight(int inst);
+
+  if (taskIdFigure("cw")!=ERROR)
+    printf("ERR: CW task still active...be patient  ");
+  if (taskIdFigure("cwp")!=ERROR)
+    printf("ERR: CWP task still active..be patient  ");
+  taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+			  (int)3,0,0,0,0,0,0,0,0,0);
+  return 0;
+}
+int cw_status_msg()
+{
+  sprintf (inst_display,"Moving #%d counterweight into position",cw_rdselect());
+  return 0;
+}
+int is_cw_in_position()
+{
+  taskDelay (30);
+  inst_display = "Moving counterweights";
+  taskDelay (30);
+    return TRUE;
+  if (taskIdFigure("cw")!=ERROR)
+  {
+    inst_display = "Still moving counterweights into position";
+    return FALSE;
+  }
+  else
+  {
+    inst_display = "Done moving counterweights into position";
+    return TRUE;
+  }
+}
+int is_clamp_on()
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  taskDelay (30);
+  inst_display = "Checking clamp status";
+  taskDelay (30);
+    return TRUE;
+  if (sdssdc.status.i9.il0.clamp_en_stat)
+  {
+    inst_display = "Clamp is Engaged";
+    return TRUE;
+  }
+  else
+  {
+    inst_display = "Clamp is NOT Engaged";
+    return FALSE;
+  }  
+}
+int is_inst_id_empty()
+{
+  taskDelay (30);
+  inst_display = "Checking instrument id empty";
+  taskDelay (30);
+    return TRUE;
+}
+int operator_msg1()
+{
+  inst_display = "Push a stop button in";
+  return 0;
+}
+int is_stop_in()
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  taskDelay (30);
+  inst_display = "Checking stop buttons";
+  taskDelay (30);
+    return TRUE;
+  if (!sdssdc.status.i6.il0.w_lower_stop)
+  {
+    inst_display = "West Lower Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.e_lower_stop)
+  {
+    inst_display = "East Lower Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.s_lower_stop)
+  {
+    inst_display = "South Lower Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.n_lower_stop)
+  {
+    inst_display = "North Lower Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.w_rail_stop)
+  {
+    inst_display = "West Rail Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.s_rail_stop)
+  {
+    inst_display = "South Rail Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.n_rail_stop)
+  {
+    inst_display = "North Rail Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.n_fork_stop)
+  {
+    inst_display = "North Fork Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.n_wind_stop)
+  {
+    inst_display = "North Windscreen Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.cr_stop)
+  {
+    inst_display = "Control Room Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i6.il0.s_wind_stop)
+  {
+    inst_display = "South Windscreen Stop In";
+    return TRUE;
+  }
+  inst_display = "No Stops in Yet";
+  return FALSE;
+}
+int check_stop_in()
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  if ((sdssdc.status.i6.il0.w_lower_stop)&&
+     (sdssdc.status.i6.il0.e_lower_stop)&&
+     (sdssdc.status.i6.il0.s_lower_stop)&&
+     (sdssdc.status.i6.il0.n_lower_stop)&&
+     (sdssdc.status.i6.il0.w_rail_stop)&&
+     (sdssdc.status.i6.il0.s_rail_stop)&&
+     (sdssdc.status.i6.il0.n_rail_stop)&&
+     (sdssdc.status.i6.il0.n_fork_stop)&&
+     (sdssdc.status.i6.il0.n_wind_stop)&&
+     (sdssdc.status.i6.il0.cr_stop)&&
+     (sdssdc.status.i6.il0.s_wind_stop) )
+    return FALSE;
+  else
+    return TRUE;
+}
+
+int operator_msg2()
+{
+  inst_display = "Push the cart in and engage locking pin";
+  return 0;
+}
+
+int is_query_TF()
+{
+   inst_display = "Push the cart in and engage locking pin, respond with Y or N";
+   inst_answer=-1;
+   while (inst_answer==-1)taskDelay(10);
+   return inst_answer; 
+}
+#define ENGAGE_BRAKE	1
+#define LOWER_CW	2
+#define	ENGAGE_CLAMP	3
+#define INST_ID		4
+#define STOP_IN		5
+#define CART_IN		6
+#define EXIT_SPEC	7
+struct IL_STATES specfsm[]={
+
+	{"Instrument Change Position",tm_move_instchange,instchange_status_msg,
+	  {{is_instchange,NULL,NULL,ENGAGE_BRAKE,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"Altitude Brake Engage     ",tm_alt_brake_on,NULL,
+	  {{is_alt_brake_on,NULL,NULL,LOWER_CW,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"Lower Counter Weights     ",cw_lower,cw_status_msg,
+	  {{is_cw_in_position,NULL,NULL,ENGAGE_CLAMP,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"Alignment Clamp Engage    ",tm_clamp_on,NULL,
+	  {{is_clamp_on,NULL,NULL,INST_ID,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"No Instrument ID          ",NULL,NULL,
+	  {{is_inst_id_empty,NULL,NULL,STOP_IN,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"Push stop botton in       ",operator_msg1,NULL,
+	  {{is_stop_in,NULL,NULL,CART_IN,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"Push cart in/engage lckpin",operator_msg2,NULL,
+	  {{is_query_TF,NULL,NULL,EXIT_SPEC,CONTINUE_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	{"Spectograph_Finish        ",leave_msg,clear_msg,
+	  {{leave,NULL,NULL,EXIT_FSM,EXIT_FSM},
+	  {NULL},{NULL},{NULL}}},
+	  
+	/* Terminator */
+	{"",NULL,NULL,
+	  {{NULL},{NULL},{NULL},{NULL}}}
+
 };
 struct IL_STATES testfsm[]={
-
+/*STATE {"name                      ",initialization routine,entry routine,
+	  {RULE 1{routine,arg1,arg2,TRUE state,FALSE state},
+	   RULE 2{routine,arg1,arg2,TRUE state,FALSE state},
+	   RULE 3{routine,arg1,arg2,TRUE state,FALSE state},
+	   RULE 4{routine,arg1,arg2,TRUE state,FALSE state}}
+	 }*/
+	 
 	{"Fiber_ini",NULL,NULL,
 	  {{is_true,NULL,NULL,FIBER_ENGAG,NULL},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Engage",fiber_msg,NULL,
 	  {{is_plate_engage,NULL,NULL,FIBER_PLAT,CONTINUE_FSM},
 	  {is_less_than,&il_pos,&plate_pos,CONTINUE_FSM,FIBER_ABORT},
 	  {NULL},{NULL}}},
+	  
 	{"Fiber_Plate",fiber_msg,NULL,
 	  {{is_action_get,NULL,NULL,FIBER_GET,FIBER_PUT},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Get",fiber_msg,NULL,
 	  {{is_clamping_force,NULL,NULL,FIBER_RETURN,FIBER_PUT},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Put",fiber_put,NULL,
 	  {{is_clamping_force,NULL,NULL,FIBER_RETURN,FIBER_PUT},
 	  {is_less_than,&il_pos,&fiber_pos,FIBER_ENGAG,FIBER_ABORT},
 	  {NULL},{NULL}}},
+	  
 	{"Fiber_Return",fiber_msg,NULL,
 	  {{is_motion_done,NULL,NULL,FIBER_FINISH,FIBER_RETURN},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Abort",fiber_msg,NULL,
 	  {{leave,NULL,NULL},
 	  {NULL},{NULL},{NULL}}},
+	  
 	{"Fiber_Finish",fiber_msg,NULL,
 	  {{leave,NULL,NULL,EXIT_FSM,EXIT_FSM},
-	  {NULL},{NULL},{NULL}}}
+	  {NULL},{NULL},{NULL}}},
+	  
+	/* Terminator */
+	{"",NULL,NULL,
+	  {{NULL},{NULL},{NULL},{NULL}}}
 
 };
 struct IL_INST instfsm[]={
 		{0,&fiberfsm[0],FALSE,0,NULL},
+		{0,&specfsm[0] ,TRUE, 0,NULL},
 		{0,&testfsm[0] ,TRUE, 0,NULL}
 };
 int fsm (int inst,int action)
@@ -1083,7 +1397,7 @@ void il_trace (int inst, int cnt)
   {
 
     printf ("\r\n IL FSM History for instrument %d",inst);
-    printf ("\r\n   STATE NAME         CNT  RULE        TIME\r\n");
+    printf ("\r\n   STATE NAME                            CNT  RULE        TIME\r\n");
     idx=instfsm[inst].history_idx;
     for (i=0;i<cnt;i++)
     {
@@ -1110,6 +1424,65 @@ void il_trace (int inst, int cnt)
       }
     }
   }  
+}
+void il_print (int inst)
+{
+  int i,idx;
+  char symname[MAX_SYS_SYM_LEN+1];
+  SYM_TYPE symtype;
+  int symval;
+  struct IL_STATES *sm;
+  extern char *inst_name[];
+  
+    printf ("\r\nIL FSM for instrument %d, (%s)",inst,inst_name[inst]);
+    printf (" HISTORY idx=%d, history=%p",
+    	instfsm[inst].history_idx,instfsm[inst].history);
+    sm=instfsm[inst].fsm;
+    idx=0;
+    while ((sm->name!=NULL)&&(strlen(sm->name)!=0))
+    {
+      printf ("\r\n\r\nState %d Name %s",
+        idx,sm->name);
+      if (sm->init!=NULL)
+      {
+        symFindByValue(sysSymTbl,       
+            (unsigned long)sm->init,
+            &symname[0],&symval,&symtype);
+        printf ("\r\n Init @%p %s",sm->init,symname);
+      }
+      if (sm->action!=NULL)
+      {
+        symFindByValue(sysSymTbl,       
+            (unsigned long)sm->action,
+            &symname[0],&symval,&symtype);
+        printf ("\r\n Action @%p %s",sm->action,symname);
+      }
+      for (i=0;i<4;i++)
+      {
+        if (sm->rules[i].rule!=NULL)
+	{
+          symFindByValue(sysSymTbl,       
+            (unsigned long)sm->rules[i].rule,
+            &symname[0],&symval,&symtype);
+          printf ("\r\n  rule %d: @%p %s(",
+	    i,sm->rules[i].rule,symname);
+          if (sm->rules[i].var[0]!=NULL) 
+	    printf ("%d,",*(sm->rules[i].var[0]));
+	  else
+	    printf ("NULL,");
+          if (sm->rules[i].var[1]!=NULL) 
+	    printf ("%d",*(sm->rules[i].var[1]));
+	  else
+	    printf ("NULL");
+          printf ("), T State %d, F State %d",
+	    sm->rules[i].true_state,sm->rules[i].false_state);
+/*          printf ("  rule @%p: %s %d\r\n",
+          sm->rules[i].rule,
+          symname,symtype);*/
+        }
+      }
+      sm++; idx++;
+    }
 }
 int is_at_zenith()
 {

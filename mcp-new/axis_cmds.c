@@ -162,7 +162,7 @@ int DIAGQ_verbose=FALSE;
 static double tim[3][MAX_CALC],p[3][MAX_CALC],v[3][MAX_CALC],a[3][MAX_CALC],ji[3][MAX_CALC];
 static double timoff[3][MAX_CALC],poff[3][MAX_CALC],voff[3][MAX_CALC],
 	aoff[3][MAX_CALC],jioff[3][MAX_CALC];
-float time_off[3]={0.0,0.0,0.0};
+double time_off[3]={0.0,0.0,0.0};
 double stop_position[3]={0.0,0.0,0.0};
 double drift_velocity[3]={0.0,0.0,0.0};
 int frame_break[3]={FALSE,FALSE,FALSE};
@@ -197,8 +197,6 @@ int DID48_initialize(unsigned char *addr, unsigned short vecnum);
 void save_firmware();
 void restore_firmware();
 int sdss_init();
-float sdss_get_time();
-float get_time();
 void stop_frame(int axis,double pos,double sf);
 void stp_frame(int axis,double pos,double sf);
 void end_frame(int axis,int index,double sf);
@@ -216,7 +214,7 @@ void save_fiducials_all ();
 void restore_fiducials (int axis);
 void restore_fiducials_all ();
 void print_max ();
-float sdss_delta_time(float t2, float t1);
+double sdss_delta_time(double t2, double t1);
 void DIO316ClearISR_delay (int delay, int bit);
 int tm_frames_to_execute(int axis);
 
@@ -801,7 +799,7 @@ char *move_cmd(char *cmd)
         break;
 
     case 3:
-        if (sdss_delta_time((float)frame->end_time,sdss_get_time())<0.0)
+        if (sdss_delta_time(frame->end_time,sdss_get_time())<0.0)
 	{
 	  free (frame);
 	  printf("\r\n MOVE CMD: bad time=%lf real time=%lf",frame->end_time,
@@ -815,7 +813,7 @@ char *move_cmd(char *cmd)
 		position,velocity,frame->end_time);
 	  taskLock();
           tm_get_pos(axis_select<<1,&pos);
-	  dt=(double)sdss_delta_time((float)frame->end_time,sdss_get_time());
+	  dt=sdss_delta_time(frame->end_time,sdss_get_time());
 	  taskUnlock();
 /* in practice, shifted around sample frequency (.05) for better err transition */
 	  dt -=.043;	/* modify time to reduce error during transition */
@@ -1528,7 +1526,7 @@ char *status_long_cmd(char *cmd)
 */
 char *ticklost_cmd(char *cmd)
 {
-  float tick;
+  double tick;
 
   printf (" TICKLOST @ . command fired\r\n");
   tick=sdss_get_time();
@@ -2262,12 +2260,12 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   int i;
   
 /* problem............................*/
-  while (iframe->nxt==NULL) return ERROR;
+  if (iframe->nxt==NULL) return ERROR;
 /*....................................*/
   fframe=iframe->nxt;
   dx=fframe->position-iframe->position;
   dv=fframe->velocity-iframe->velocity;
-  dt=(double)sdss_delta_time((float)fframe->end_time,(float)iframe->end_time);
+  dt=sdss_delta_time(fframe->end_time,iframe->end_time);
   vdot=dx/dt;
   ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
   j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
@@ -2275,6 +2273,9 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   t=(start+1)/FLTFRMHZ+time_off[axis];	/* for end condition */
   if (CALC_verbose)
   {
+    printf ("\r\n iframe=%p, fframe=%p",iframe,fframe);
+    printf ("\r\n iframe->end_time=%lf, fframe->end_time=%lf",
+		iframe->end_time,fframe->end_time);
     printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
     printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, time_off=%f",ai,j,t,start,time_off[axis]);
   }
@@ -2375,7 +2376,7 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
   fframe=iframe->nxt;
   dx=fframe->position-iframe->position;
   dv=fframe->velocity-iframe->velocity;
-  dt=(double)sdss_delta_time((float)fframe->end_time,(float)iframe->end_time);
+  dt=sdss_delta_time(fframe->end_time,iframe->end_time);
   vdot=dx/dt;
   ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
   j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
@@ -2515,7 +2516,7 @@ void start_frame(int axis,double time)
   taskDelay(5);
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
-     time = (double)sdss_delta_time((float)time,sdss_get_time());
+     time = sdss_delta_time(time,sdss_get_time());
 /*     printf("\r\ntime to dwell=%lf",time);*/
      dsp_dwell (axis<<1,time);
      semGive (semMEI);
@@ -2550,7 +2551,7 @@ int get_frame_cnt(int axis, struct FRAME *iframe)
   fframe=iframe->nxt;
   dt=fframe->end_time-iframe->end_time;
   cnt=(int)((dt-time_off[axis])*FLTFRMHZ);
-/*  printf("\r\nfirst cnt=%d",cnt);*/
+/*  printf("\r\nfirst cnt=%d,%lf,%lf",cnt,dt,(dt-time_off[axis])*FLTFRMHZ);*/
   if ( ((dt-time_off[axis])*FLTFRMHZ)>(int)((dt-time_off[axis])*FLTFRMHZ) )
   {
     cnt++;
@@ -2879,18 +2880,31 @@ void stp_frame(int axis,double pos,double sf)
   int state;
   int e;
   FRAME frame;
-  
+  double position;
+  double velocity;
 
-  printf ("\r\nSTOP axis=%d: p=%12.8lf",
-	axis<<1,(double)pos);
+  printf ("\r\nSTP axis=%d: p=%12.8lf,sf=%lf",
+	axis<<1,(double)pos,sf);
   stopped=FALSE;	/* ...gets rid of warning */
 
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
-      e=frame_m(&frame,"0l vaj u d",axis<<1,
-	(double)0.0,(double)0.05*sf,
-	(double)0.0,
-	FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY,0);
+    get_position(axis<<1,&position);
+    get_velocity(axis<<1,&velocity);
+    printf ("\r\npos=%lf, vel=%lf",position,velocity);
+    if (velocity>0.0)
+      e=frame_m(&frame,"0l avj un d",axis<<1,
+	(double)(-.5*sf),(double)0.0,(double)0.0,
+	FUPD_ACCEL|FUPD_JERK|FTRG_VELOCITY,
+	NEW_FRAME|TRIGGER_NEGATIVE);
+    else
+      e=frame_m(&frame,"0l avj un d",axis<<1,
+	(double)(.5*sf),(double)0.0,(double)0.0,
+	FUPD_ACCEL|FUPD_JERK|FTRG_VELOCITY,
+	NEW_FRAME);
+    e=frame_m(&frame,"0l va u d",axis<<1,
+	(double)0.0,(double)0.0,
+	FUPD_ACCEL|FUPD_VELOCITY,0);
       semGive (semMEI);
   }
 
@@ -3069,7 +3083,7 @@ void tm_TCC(int axis)
 /* in case drifting, no new pvt, and need to stop */
       if (frame_break[axis])
       {
-        stop_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
+        stp_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
 	frame_break[axis]=FALSE;
       }
       taskDelay (3);
@@ -3080,7 +3094,7 @@ void tm_TCC(int axis)
 /* reposition if neccessary */
     semTake (semMEI,WAIT_FOREVER);
     get_position(axis<<1,&position);
-    get_velocity(axis_select<<1,&velocity);
+    get_velocity(axis<<1,&velocity);
     semGive (semMEI);
     pos=(long)position;
 /*      printf("\r\nCheck Params for repositioning");*/
@@ -3122,7 +3136,7 @@ void tm_TCC(int axis)
 
 /* check for time */
     while ((frame!=NULL)&&
-	  (sdss_delta_time((float)frame->end_time,sdss_get_time())<0.0))
+	  (sdss_delta_time(frame->end_time,sdss_get_time())<0.0))
     {
       frame = frame->nxt;
       axis_queue[axis].active=frame;
@@ -3133,7 +3147,7 @@ void tm_TCC(int axis)
     {
       start_frame (axis,frame->end_time);
       while ((frame->nxt==NULL)&&
-	    (sdss_delta_time((float)frame->end_time,sdss_get_time())>0.02))
+	    (sdss_delta_time(frame->end_time,sdss_get_time())>0.02))
       {
 /*        printf ("\r\n waiting for second frame");*/
         taskDelay (3);
@@ -3150,23 +3164,26 @@ void tm_TCC(int axis)
 	  {
 /*	    printf ("\r\nShutdown offset");*/
 	    if (frame->end_time>offset[axis][i][1].end_time)
-	    {
+	    {   /* find last offset position and include any velocity */
               frame->position+=(offset[axis][i][1].position+
                (offset[axis][i][1].velocity*(offset_idx[axis][i]/20.-
 		offset[axis][i][1].end_time)));
 	      frame->velocity+=offset[axis][i][1].velocity;
+	      offset_idx[axis][i]=0;
+	      offset_queue_end[axis][i]=NULL;
 	    }
 	    else
-	    {
-	      clroffset(axis,1);
+	    {	/* still correcting offset */
+	      offset_queue_end[axis][i]=frame->nxt;
+	      offset_queue_end[axis][i]->position-=offset[axis][i][1].position;
+	      offset_queue_end[axis][i]->velocity-=offset[axis][i][1].velocity;
+/*	      clroffset(axis,1);
 	      cntoff=calc_offset(axis,&offset[axis][i][0],offset_idx[axis][i],1);
-	      frame->position+=(poff[axis][0]+
-               (voff[axis][0]*(offset[axis][i][1].end_time/20.-
+	      frame->position+=(poff[axis][0]);
+               +(voff[axis][0]*(offset[axis][i][1].end_time/20.-
 		frame->end_time)) );
-	      frame->velocity+=voff[axis][0];
+	      frame->velocity+=voff[axis][0];*/
 	    }
-	    offset_idx[axis][i]=0;
-	    offset_queue_end[axis][i]=NULL;
 	  }
 	}
 	while (frame_cnt>0)
@@ -3242,7 +3259,7 @@ void tm_TCC(int axis)
         frame = frame->nxt;
         axis_queue[axis].active=frame;    
         while ((frame->nxt==NULL)&&
-	    (sdss_delta_time((float)frame->end_time,sdss_get_time())>.02))
+	    (sdss_delta_time(frame->end_time,sdss_get_time())>.02))
           taskDelay (1);
         while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1)) 
 	  taskDelay(1);
@@ -3261,7 +3278,7 @@ void tm_TCC(int axis)
       if (idx<=0) idx=1;
       if (frame_break[axis])
       {
-        stop_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
+        stp_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
 	frame_break[axis]=FALSE;
       }
       else
@@ -3910,7 +3927,7 @@ void tm_latch(char *name)
 	    else
 	      fididx = 0;
             if (LATCH_verbose)
-              printf ("\r\nAXIS %d: latched pos4=%ld,rot_latch=%d,idx=%d, abspos=%d",
+              printf ("\r\nAXIS %d: latched pos4=%ld,rot_latch=%ld,idx=%d, abspos=%d",
                 latchpos[latchidx].axis,
                 (long)latchpos[latchidx].pos1,
                 rot_latch,fididx,
@@ -3952,7 +3969,7 @@ void tm_latch(char *name)
                 fiducialidx[2]=fididx;
 	        if ((abs(rot_fiducial[fididx].poserr)>errmsg_max[2])&&
 		      (rot_fiducial_position[fididx]!=0))
-                  printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+                  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
 	  	    latchpos[latchidx].axis,
 	            (long)rot_fiducial[fididx].poserr,
 	            (float)latchpos[latchidx].pos1,
@@ -3997,7 +4014,7 @@ void tm_latch(char *name)
                   fiducialidx[2]=fididx;
 	          if ((abs(rot_fiducial[fididx].poserr)>200)&&
 		      (rot_fiducial_position[fididx]!=0))
-                    printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+                    printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
 	  	      latchpos[latchidx].axis,
 	              (long)rot_fiducial[fididx].poserr,
 	              (float)latchpos[latchidx].pos1,
@@ -4009,10 +4026,10 @@ void tm_latch(char *name)
           if (LATCH_verbose)
 	  {
             i=fididx;
-            printf ("\r\nROT FIDUCIAL %d:  mark=%d, pos=%d, last=%d",i,
+            printf ("\r\nROT FIDUCIAL %d:  mark=%ld, pos=%ld, last=%ld",i,
                 rot_fiducial[i].mark,rot_fiducial_position[i],
                 rot_fiducial[i].last);
-            printf ("\r\n                  err=%d, poserr=%d",
+            printf ("\r\n                  err=%ld, poserr=%ld",
                 rot_fiducial[i].err,rot_fiducial[i].poserr);
 	  }
           rot_latch=latchpos[latchidx].pos1;
@@ -4372,16 +4389,16 @@ void print_fiducials (int axis)
 	  }
           if (alt_fiducial[i].markvalid)
 	  {
-	    printf ("ALT FIDUCIAL %d(%d degs):  mark=%d, pos=%d, last=%d",i,
+	    printf ("ALT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld",i,
 		(int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
 		alt_fiducial[i].mark,alt_fiducial_position[i],
 	        alt_fiducial[i].last);
-	    printf ("\r\n                 err=%d, poserr=%d",
+	    printf ("\r\n                 err=%ld, poserr=%ld",
 		alt_fiducial[i].err,alt_fiducial[i].poserr);
           }
 	  else
 	  {
-	    printf ("ALT FIDUCIAL %d:  pos=%d",i,
+	    printf ("ALT FIDUCIAL %d:  pos=%ld",i,
 		alt_fiducial_position[i]);
 	  }     
 	}
@@ -4397,16 +4414,16 @@ void print_fiducials (int axis)
 	  }
           if (rot_fiducial[i].markvalid)
 	  {
-	    printf ("ROT FIDUCIAL %d(%d degs):  mark=%d, pos=%d, last=%d",i,
+	    printf ("ROT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld",i,
 		(int)(rot_fiducial[i].mark/ROT_TICKS_DEG),
 		rot_fiducial[i].mark,rot_fiducial_position[i],
 	        rot_fiducial[i].last);
-	    printf ("\r\n                  err=%d, poserr=%d",
+	    printf ("\r\n                  err=%ld, poserr=%ld",
 		rot_fiducial[i].err,rot_fiducial[i].poserr);
           }
 	  else
 	  {
-	    printf ("ROT FIDUCIAL %d:  pos=%d",i,
+	    printf ("ROT FIDUCIAL %d:  pos=%ld",i,
 		rot_fiducial_position[i]);
 	  }     
 	}
@@ -4766,10 +4783,10 @@ int sdss_init()
     printf ("AXIS %d:  set e_stop rate=%lf\r\n",axis,rate);
 
     get_error_limit(axis,&limit,&action);
-    printf ("AXIS %d: error limit=%d, action=%d\r\n",axis,(long)limit,action);
+    printf ("AXIS %d: error limit=%ld, action=%d\r\n",axis,(long)limit,action);
     set_error_limit(axis,24000.,ABORT_EVENT);
     get_error_limit(axis,&limit,&action);
-    printf ("AXIS %d: SET error limit=%d, action=%d\r\n",axis,(long)limit,action);
+    printf ("AXIS %d: SET error limit=%ld, action=%d\r\n",axis,(long)limit,action);
     set_integration (axis,IM_ALWAYS);
   }
   init_io(2,IO_INPUT);
@@ -4836,28 +4853,28 @@ void restore_firmware()
 /* turn on 1 Hz interrupt time returns else use local clock
 */
 #ifdef CLOCK_INT
-float sdss_get_time()
+double sdss_get_time()
 {
   extern timer_read(int timer);
   	  unsigned long micro_sec;
 
           micro_sec = (unsigned long)(1.0312733648*timer_read (1));
 	  if (micro_sec>1000000) micro_sec=999999;
-          return (float)(SDSStime+((micro_sec%1000000)/1000000.));
+          return (double)(SDSStime+((micro_sec%1000000)/1000000.));
 }
-float get_time()
+double get_time()
 {
   extern timer_read(int timer);
   	  unsigned long micro_sec;
 
           micro_sec = (unsigned long)(1.0312733648*timer_read (1));
 	  if (micro_sec>1000000) micro_sec=999999;
-	  printf ("\r\nSDSS time=%f",
-		(float)(SDSStime+((micro_sec%1000000)/1000000.)));
-          return (float)(SDSStime+((micro_sec%1000000)/1000000.));
+	  printf ("\r\nSDSS time=%lf",
+		(double)(SDSStime+((micro_sec%1000000)/1000000.)));
+          return (double)(SDSStime+((micro_sec%1000000)/1000000.));
 }
 #else
-float sdss_get_time()
+double sdss_get_time()
 {
   extern timer_read(int timer);
   	  struct timespec tp;
@@ -4865,9 +4882,9 @@ float sdss_get_time()
 
   	  clock_gettime(CLOCK_REALTIME,&tp);
           micro_sec = timer_read (1);
-          return ((float)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
+          return ((double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
 }
-float get_time()
+double get_time()
 {
   extern timer_read(int timer);
   	  struct timespec tp;
@@ -4875,10 +4892,10 @@ float get_time()
 
   	  clock_gettime(CLOCK_REALTIME,&tp);
           micro_sec = timer_read (1);
-	  printf ("\r\nsec=%d, day_sec=%d, micro_sec=%d, time=%f",
+	  printf ("\r\nsec=%d, day_sec=%d, micro_sec=%d, time=%lf",
 		tp.tv_sec,tp.tv_sec%ONE_DAY,micro_sec,
-		(float)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
-          return ((float)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
+		(double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
+          return ((double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
 }
 #endif
 
@@ -4903,7 +4920,7 @@ float get_time()
 **
 **=========================================================================
 */
-float sdss_delta_time(float t2, float t1)
+double sdss_delta_time(double t2, double t1)
 {
   if ((t2>=0.0)&&(t2<400.)&&(t1>86000.)&&(t1<86400.))
     return ((86400.-t1)+t2);
@@ -4913,8 +4930,8 @@ float sdss_delta_time(float t2, float t1)
 }
 int test_dt(int t2,int t1)
 {
-  printf ("\r\ndt=%f",sdss_delta_time((float)t2,(float)t1));
-  return (int)sdss_delta_time((float)t2,(float)t1);
+  printf ("\r\ndt=%f",sdss_delta_time((double)t2,(double)t1));
+  return (int)sdss_delta_time((double)t2,(double)t1);
 }
 
 /*=========================================================================

@@ -1,3 +1,4 @@
+int tm_move_instchange ();
 void tm_move_time (int axis, int vel, int accel, int time);
 void tm_move_offset (int axis, int off);
 void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times);

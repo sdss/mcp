@@ -216,7 +216,7 @@ void mei_data_collection(unsigned long freq)
 	int i;
 	int rotate;
 	extern void tm_data_collection();
-	extern float sdss_get_time();
+	extern double sdss_get_time();
         void restore_pos();
 	
 	/*  ****************************************************  **
@@ -267,7 +267,7 @@ void mei_data_collection(unsigned long freq)
           {
   	   if (semTake (semMEI,NO_WAIT)!=ERROR)
            {
-	    sdss_time_dc=sdss_get_time();
+	    sdss_time_dc=(float)sdss_get_time();
             time (&sdssdc.ctime);
             sdssdc.sdsstime=(long)(sdss_time_dc*1000);
             i=MEIDC_Rotate;

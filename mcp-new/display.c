@@ -53,9 +53,12 @@ erase the screen etc.
 #include "idsp.h"
 #include "pcdsp.h"
 #include "taskLib.h"
+#include "gendefs.h"
+#include "ad12f1lb.h"
 #include "axis.h"
 #include "tm.h"
 #include "cw.h"
+#include "io.h"
 #include "data_collection.h"
 /*========================================================================
 **========================================================================
@@ -86,22 +89,19 @@ static char *limitstatus[]={"LU","L "," U","  "};
 */
 int question_mark=0;
 int Axis=4;
-int adjpos[6]={0,0,0,0,0,0};
-int adjvel[6]={0,0,0,0,0,0};
-int adjacc[6]={70000,10000,10000,10000,10000,10000};
-int incvel[6]={1000,0,1000,0,1000,0};
-int Axis_vel[6]={0,0,0,0,0,0};
-int Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
-int Axis_vel_pos[6]={700000,0,600000,0,250000,0};
+long adjpos[6]={0,0,0,0,0,0};
+long adjvel[6]={0,0,0,0,0,0};
+long adjacc[6]={70000,10000,10000,10000,10000,10000};
+long incvel[6]={1000,0,1000,0,1000,0};
+long Axis_vel[6]={0,0,0,0,0,0};
+long Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
+long Axis_vel_pos[6]={700000,0,600000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
 float altclino_sf=.0048683116163;/*.0049016925256;*/
 /*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
 int altclino_off=8937;/*8857;*/
 /*9048;*/         /*9500*/
-double ilcpos[6]={90,0,120,0,0,0};
-int ilcvel[6]={200000,0,200000,0,500000,0};
-int ilcacc[6]={10000,10000,10000,10000,10000,10000};
 char MenuInput[21];
 
 /* prototypes */
@@ -295,9 +295,9 @@ static void PrintMenuBanner()
   if (Axis==0) printf("Azimuth Controls  ");
   if (Axis==2) printf("Altitude Controls ");
   if (Axis/2==2) printf("Rotator Controls  ");
-  printf ("<--J-- %6ld --K--> Increment=%d Cts\n",Axis_vel[Axis],incvel[Axis]);
+  printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",Axis_vel[Axis],incvel[Axis]);
   CursPos(1,22);
-  printf("/////////////////////////////// SDSS ////////////////////////////////\n\r");
+  printf("/////////////////////////////// Menu ////////////////////////////////\n\r");
   printf("R=Rotator Z=aZimuth L=aLtitude S=Stop H=Hold ?=help X=eXit......Command->\n\r");
   if (taskIdFigure("menuPos")==ERROR)
     taskSpawn("menuPos",99,VX_FP_TASK,8000,(FUNCPTR)PrintMenuPos,
@@ -418,7 +418,7 @@ void Menu()
        case 'Z': case 'z': CursPos(1,19);
          printf("Azimuth Controls  ");
          Axis=0;
-         printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
+         printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
          Axis_vel[Axis],incvel[Axis]);
          PrintMenuMove();
          break;
@@ -426,7 +426,7 @@ void Menu()
        case 'L': case 'l': CursPos(1,19);
          printf("Altitude Controls ");
          Axis=2;
-         printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
+         printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
          Axis_vel[Axis],incvel[Axis]);
          PrintMenuMove();
          break;
@@ -434,7 +434,7 @@ void Menu()
        case 'R': case 'r': CursPos(1,19);
          printf("Rotator Controls  ");
          Axis=4;
-         printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
+         printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
          Axis_vel[Axis],incvel[Axis]);
          PrintMenuMove();
          break;
@@ -521,7 +521,7 @@ void Menu()
            if (fidfp!=NULL)
 	   {
 	     time (&fidtim);
-             fprintf (fidfp,"\n#Menu %d\t%d\t%.25s:%f\t%d\t%d",
+             fprintf (fidfp,"\n#Menu %d\t%d\t%.25s:%lf\t%ld\t%ld",
 	          Axis,fiducial[Axis/2].index,
 	          ctime(&fidtim),sdss_get_time(),
 	          (long)fiducial_position[Axis/2]-fiducial[Axis/2].mark,
@@ -559,7 +559,7 @@ void Menu()
 	   if (negative) adjpos[Axis] = -adjpos[Axis];
 	   CursPos(36,20);
 	   if (adjpos[Axis]<0)
-	     printf("-%03ld:%02ld:%02ld:%03ld %10ld Cts",
+	     printf("-%03d:%02ld:%02ld:%03ld %10ld Cts",
 		abs(deg),min,arcsec,marcsec,adjpos[Axis]);
      	   else
 	     printf(" %03ld:%02ld:%02ld:%03ld %10ld Cts",
@@ -660,7 +660,7 @@ void Menu()
 	     incvel[Axis]=abs(incvel[Axis]);
 	     if (incvel[Axis]>10000) incvel[Axis]=10000;
 	     CursPos(49,19);
-	     printf ("%d Cts",incvel[Axis]);
+	     printf ("%ld Cts",incvel[Axis]);
 	   }
 	   CursPos(20,24);
 	   printf("                                        ");
@@ -867,7 +867,7 @@ void Menu()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&inst);
+	     sscanf (buf,"%d",&inst);
 	     if ((inst<0)||(inst>16)) 
 	     {
 	       printf("ERR: Inst Out of Range (0-16)           ");
@@ -907,7 +907,7 @@ void Menu()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&cwpos);
+	     sscanf (buf,"%d",&cwpos);
 	     CursPos(20,24);
 	     if ((cwpos<10)||(cwpos>800))
 	     {
@@ -944,7 +944,7 @@ void Menu()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&cwpos);
+	     sscanf (buf,"%d",&cwpos);
 	     CursPos(20,24);
 	     if ((cwpos<10)||(cwpos>800))
 	     {
@@ -1687,10 +1687,10 @@ static void PrintInstBanner()
   CursPos(1,15);
   printf("Lamp FF 1234 Cmd=Off; Ne 1234 Cmd=Off; HgCd 1234 Cmd=OFF");
   CursPos(1,16);
-  printf("CW1\tCW2\tCW3\tCW4\n\r");
+  printf("CW1\tCW2\tCW3\tCW4\t\tLiftPos\tLiftForc\n\r");
   CursPos(1,19);
   CursPos(1,22);
-  printf("/////////////////////////////// SDSS ////////////////////////////////\n\r");
+  printf("/////////////////////////////// Inst ////////////////////////////////\n\r");
   printf("                                             ?=help X=eXit......Command->\n\r");
   if (taskIdFigure("instPos")==ERROR)
     taskSpawn("instPos",99,VX_FP_TASK,4000,(FUNCPTR)PrintInstPos,
@@ -1698,6 +1698,7 @@ static void PrintInstBanner()
 }
 /****************************************************************************/
 char *inst_display=NULL;
+char *err_display=NULL;
 char inst_msg[71]={"INST MSG: "};
 int inst_answer=-1;
 
@@ -1706,9 +1707,7 @@ void Inst()
 {
   int Running=TRUE;
   char buf[255];
-  extern double ticks_per_degree[];
   extern struct SDSS_FRAME sdssdc;
-  extern SEM_ID semMEI;
   extern SEM_ID semMEIUPD;
   extern void manTrg();
   extern int cw_abort();
@@ -1767,38 +1766,25 @@ void Inst()
 	   amp_reset(2);
 	   amp_reset(3);
 	   amp_reset(4);
-           if (semTake (semMEI,60)!=ERROR)
-	   {
              if (STOPed[0])
              {
                STOPed[0]=FALSE;
-               sem_controller_run (0);
+               tm_controller_run (0);
              }
              if (STOPed[2])
              {
                STOPed[2]=FALSE;
-               sem_controller_run (2);
+               tm_controller_run (2);
              }
              if (STOPed[4])
              {
                STOPed[4]=FALSE;
-               sem_controller_run (4);
+               tm_controller_run (4);
              }
 	     Axis_vel[0]=0;
 	     Axis_vel[2]=0;
 	     Axis_vel[4]=0;
-	     start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
-		(double)ilcvel[0],(double)ilcacc[0]);
-             start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
-		(double)ilcvel[2],(double)ilcacc[2]);
-             start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
- 		(double)ilcvel[4],(double)ilcacc[4]);
-	     semGive (semMEI); 
-           }
-           else
-           {
-	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-           }
+	   tm_move_instchange();
 	   break;
 
          case 'T': case 't': CursPos(20,24);
@@ -1884,12 +1870,12 @@ void Inst()
 	   
          case 'I': case 'i':
 	   CursPos(20,24);
-	   printf("Instrument FSM dd; 0=FIBER; 1=Spectograph Corrector Lens 2=TEST   ");
+	   printf("Instrument FSM dd; 0=FIBER; 1=CorLens 2=TEST   ");
 	   if (GetString(&MenuInput[0],20))
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&inst);
+	     sscanf (buf,"%d",&inst);
 	     if ((inst<0)||(inst>16)) 
 	     {
 	       printf("ERR: Inst Out of Range (0-16)           ");
@@ -1907,7 +1893,7 @@ void Inst()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&inst);
+	     sscanf (buf,"%d",&inst);
 	     if ((inst<0)||(inst>16)) 
 	     {
 	       printf("ERR: Inst Out of Range (0-16)           ");
@@ -1947,7 +1933,7 @@ void Inst()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&cwpos);
+	     sscanf (buf,"%d",&cwpos);
 	     CursPos(20,24);
 	     if ((cwpos<10)||(cwpos>800))
 	     {
@@ -1984,7 +1970,7 @@ void Inst()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&cwpos);
+	     sscanf (buf,"%d",&cwpos);
 	     CursPos(20,24);
 	     if ((cwpos<10)||(cwpos>800))
 	     {
@@ -2122,6 +2108,8 @@ void PrintInstPos()
   char three[]={' ','3'};
   char four[]={' ','4'};
   char *oo[]={"Off"," On"};
+  short pos, force;
+  extern int il_ADC128F1;
 	
   lasttick=0;
   FOREVER
@@ -2430,6 +2418,14 @@ void PrintInstPos()
         printf ("%d %s\t",
 	  (int)((1000*adc)/2048.),limitstatus[limidx]);
       }
+      ADC128F1_Read_Reg(il_ADC128F1,IL_POSITION,&pos);
+      if ((pos&0x800)==0x800) pos |= 0xF000;
+      else pos &= 0xFFF;
+      ADC128F1_Read_Reg(il_ADC128F1,IL_STRAIN_GAGE,&force);
+      if ((force&0x800)==0x800) force |= 0xF000;
+      else force &= 0xFFF;
+      printf ("\t%d\t%d",pos,force);
+      
       CursPos(1,19);
       memset(&inst_msg[10],' ',60);
       memcpy(&inst_msg[10],inst_display,min(strlen(inst_display),60));
@@ -2442,250 +2438,4 @@ void PrintInstPos()
     }
     taskDelay (60);
   }
-}
-int tm_move_instchange ()
-{
-  extern SEM_ID semMEI;
-  extern void manTrg();
-  extern double ticks_per_degree[];
-
-	   CursPos(20,24);
-           amp_reset(0);
-	   amp_reset(1);
-	   amp_reset(2);
-	   amp_reset(3);
-	   amp_reset(4);
-           if (semTake (semMEI,60)!=ERROR)
-	   {
-             if (STOPed[0])
-             {
-               STOPed[0]=FALSE;
-               sem_controller_run (0);
-             }
-             if (STOPed[2])
-             {
-               STOPed[2]=FALSE;
-               sem_controller_run (2);
-             }
-             if (STOPed[4])
-             {
-               STOPed[4]=FALSE;
-               sem_controller_run (4);
-             }
-	     Axis_vel[0]=0;
-	     Axis_vel[2]=0;
-	     Axis_vel[4]=0;
-	     start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
-		(double)ilcvel[0],(double)ilcacc[0]);
-             start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
-		(double)ilcvel[2],(double)ilcacc[2]);
-             start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
-		(double)ilcvel[4],(double)ilcacc[4]);
-	     semGive (semMEI); 
-           }
-           else
-	   {
-	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-	     return ERROR;
-	   }
-	   return 0;
-}
-int instchange_status_msg()
-{
-  inst_display = "Moving to instrument change position                                   ";
-  return 0;
-}
-int is_instchange()
-{
-  taskDelay (30);
-  inst_display = "Checking instrument change positions                                   ";
-  taskDelay (30);
-/*
-  if ( (!motion_done(0))||(!motion_done(2))||(!motion_done(4)) )
-    return FALSE;
-  else
-*/
-    return TRUE;
-}
-int is_alt_brake_on()
-{
-  extern struct SDSS_FRAME sdssdc;
-   taskDelay (30);
-  inst_display = "Checking alt brake status";
-  taskDelay (30);
-    return TRUE;
-  if (sdssdc.status.i9.il0.alt_brake_en_stat)
-  {
-    inst_display = "ALT Brake is Engaged";
-    return TRUE;
-  }
-  else
-  {
-    inst_display = "ALT Brake is NOT Engaged";
-    return FALSE;
-  }  
-}
-int cw_lower()
-{
-  extern char *balance_weight(int inst);
-
-  if (taskIdFigure("cw")!=ERROR)
-    printf("ERR: CW task still active...be patient  ");
-  if (taskIdFigure("cwp")!=ERROR)
-    printf("ERR: CWP task still active..be patient  ");
-  taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
-			  (int)3,0,0,0,0,0,0,0,0,0);
-  return 0;
-}
-int cw_status_msg()
-{
-  sprintf (inst_display,"Moving #%d counterweight into position",cw_rdselect());
-  return 0;
-}
-int is_cw_in_position()
-{
-  taskDelay (30);
-  inst_display = "Moving counterweights";
-  taskDelay (30);
-    return TRUE;
-  if (taskIdFigure("cw")!=ERROR)
-  {
-    inst_display = "Still moving counterweights into position";
-    return FALSE;
-  }
-  else
-  {
-    inst_display = "Done moving counterweights into position";
-    return TRUE;
-  }
-}
-int is_clamp_on()
-{
-  extern struct SDSS_FRAME sdssdc;
-
-  taskDelay (30);
-  inst_display = "Checking clamp status";
-  taskDelay (30);
-    return TRUE;
-  if (sdssdc.status.i9.il0.clamp_en_stat)
-  {
-    inst_display = "Clamp is Engaged";
-    return TRUE;
-  }
-  else
-  {
-    inst_display = "Clamp is NOT Engaged";
-    return FALSE;
-  }  
-}
-int is_inst_id_empty()
-{
-  taskDelay (30);
-  inst_display = "Checking instrument id empty";
-  taskDelay (30);
-    return TRUE;
-}
-int operator_msg1()
-{
-  inst_display = "Push a stop button in";
-  return 0;
-}
-int is_stop_in()
-{
-  extern struct SDSS_FRAME sdssdc;
-
-  taskDelay (30);
-  inst_display = "Checking stop buttons";
-  taskDelay (30);
-    return TRUE;
-  if (!sdssdc.status.i6.il0.w_lower_stop)
-  {
-    inst_display = "West Lower Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.e_lower_stop)
-  {
-    inst_display = "East Lower Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.s_lower_stop)
-  {
-    inst_display = "South Lower Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.n_lower_stop)
-  {
-    inst_display = "North Lower Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.w_rail_stop)
-  {
-    inst_display = "West Rail Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.s_rail_stop)
-  {
-    inst_display = "South Rail Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.n_rail_stop)
-  {
-    inst_display = "North Rail Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.n_fork_stop)
-  {
-    inst_display = "North Fork Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.n_wind_stop)
-  {
-    inst_display = "North Windscreen Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.cr_stop)
-  {
-    inst_display = "Control Room Stop In";
-    return TRUE;
-  }
-  if (!sdssdc.status.i6.il0.s_wind_stop)
-  {
-    inst_display = "South Windscreen Stop In";
-    return TRUE;
-  }
-  inst_display = "No Stops in Yet";
-  return FALSE;
-}
-int check_stop_in()
-{
-  extern struct SDSS_FRAME sdssdc;
-
-  if ((sdssdc.status.i6.il0.w_lower_stop)&&
-     (sdssdc.status.i6.il0.e_lower_stop)&&
-     (sdssdc.status.i6.il0.s_lower_stop)&&
-     (sdssdc.status.i6.il0.n_lower_stop)&&
-     (sdssdc.status.i6.il0.w_rail_stop)&&
-     (sdssdc.status.i6.il0.s_rail_stop)&&
-     (sdssdc.status.i6.il0.n_rail_stop)&&
-     (sdssdc.status.i6.il0.n_fork_stop)&&
-     (sdssdc.status.i6.il0.n_wind_stop)&&
-     (sdssdc.status.i6.il0.cr_stop)&&
-     (sdssdc.status.i6.il0.s_wind_stop) )
-    return FALSE;
-  else
-    return TRUE;
-}
-
-int operator_msg2()
-{
-  inst_display = "Push the cart in and engage locking pin";
-  return 0;
-}
-
-int is_query_TF()
-{
-   inst_display = "Push the cart in and engage locking pin, respond with Y or N";
-   inst_answer=-1;
-   while (inst_answer==-1)taskDelay(10);
-   return inst_answer; 
 }

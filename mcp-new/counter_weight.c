@@ -333,7 +333,7 @@ char *balance_weight(int inst)
 {
   int cw;
 
-  printf ("\r\nBALANCE WEIGHT\r\n");
+  if (CW_verbose) printf ("\r\nBALANCE WEIGHT\r\n");
   for (cw=CW_0;cw<CW_MAX;cw++)
     balance (cw,inst);
   return "";
@@ -342,7 +342,7 @@ char *balance_cmd(char *cmd)
 {
   int cw,inst;
 
-  printf ("\r\nBALANCE command fired\r\n");
+  if (CW_verbose) printf ("\r\nBALANCE command fired\r\n");
   if ((inst=cw_get_inst(cmd))!=-1)
   {
     for (cw=CW_0;cw<CW_MAX;cw++)
@@ -523,7 +523,7 @@ void balance (int cw, int inst)
   short last_direction;
   int totcnt, cnt, last_error;
 
-  printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
+  if (CW_verbose) printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
   fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
   ioTaskStdSet(0,1,fd);
   ioTaskStdSet(0,2,fd);

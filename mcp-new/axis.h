@@ -28,6 +28,7 @@
 #define SDSS_STOP_RATE		-24000
 #define SDSS_E_STOP_RATE	-24000
 /* .01401665166 bill's on 22-oct-99 */
+/* mulitply AZ times 2000 for FNAL test setupd */
 #define AZ_TICK		(.0140167104063)   /* (.0035053554041*4)*/
 #define ALT_TICK 	(.0140091448584)   /* (.0035022862146*4)*/
 #ifdef ROT_ROTARY_ENCODER
@@ -153,8 +154,8 @@ void set_rot_dnlimit (int state, int val);
 void set_rot_state (int state);
 int coeffs_state_deg (int axis, double degs);
 int coeffs_state_cts (int axis, int cts);
-float sdss_get_time();
-float get_time();
+double sdss_get_time();
+double get_time();
 void amp_reset(int axis);
 #define __AXIS_H__             /* do only once */
 
