@@ -13,7 +13,7 @@
 #include "data_collection.h"
 #include "axis.h"
 #include "tm.h"
-#include "trace.h"
+#include "dscTrace.h"
 #include "cw.h"
 #include "cmd.h"
 
@@ -35,6 +35,8 @@ int
 instrument_id(void)
 {
    int inst_id1, inst_id2, inst_id3;	/* values of the inst ID switches */
+   static int notify = -1;		/* should I notify user of bad ID? */
+   int notify_rate = 60;		/* how often should I notify? */
 #if GUESS_INSTRUMENT
    int pri_latch_opn;			/* the primary latches are open */
    int spec_lens;			/* the spec corrector in installed */
@@ -66,11 +68,17 @@ instrument_id(void)
 
    semGive(semSDSSDC);
 
-   if(inst_id1 != inst_id2 || inst_id1 != inst_id3) {
-      static char buff[4];
-      sprintf(buff,"%1d%1d%1d", inst_id1, inst_id2, inst_id3);
-      TRACE(1, "Inconsistent instrument ID switches: %s", buff, 0);
-      return(-1);
+   if(inst_id1 == inst_id2 && inst_id1 == inst_id3) {
+      notify = -1;
+   } else {
+      notify = (notify + 1)%notify_rate;
+
+      if(notify == 0) {
+	 static char buff[20];
+	 sprintf(buff,"%d %d %d", inst_id1, inst_id2, inst_id3);
+	 TRACE(2, "Inconsistent instrument ID switches: %s", buff, 0);
+	 return(-1);
+      }
    }
 #if GUESS_INSTRUMENT
    if(inst_id1 == 0 && !pri_latch_opn && !spec_lens) {
