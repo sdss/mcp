@@ -867,8 +867,8 @@ move_cmd(char *cmd)
    if(fabs(velocity) > max_velocity[axis_select]) {
       TRACE(2, "Max vel. for %s exceeded: %ld",
 	    axis_name(axis_select), (long)velocity);
-      velocity = (velocity > 0 ?
-		  max_velocity[axis_select] : -max_velocity[axis_select];
+      velocity = (velocity > 0) ?
+	max_velocity[axis_select] : -max_velocity[axis_select];
    }
    
    frame->velocity = (double)velocity;
@@ -2033,9 +2033,11 @@ load_frames(int axis, int cnt, int idx, double sf)
       
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 printf("AXIS %d: MAX ACC %f exceeded by %f\n",
-		axis,a[axis][i], max_acceleration[axis]);
-	 TRACE(2, "Max accl. for %s exceeded: %ld",
-		axis_name(axis), (long)a[axis][i]);
+		axis, a[axis][i], max_acceleration[axis]);
+	 {
+	    long acc = a[axis][i];	/* TRACE macro has a variable "a" */
+	    TRACE(2, "Max accl. for %s exceeded: %ld", axis_name(axis), acc);
+	 }
       }
       
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
@@ -3383,13 +3385,14 @@ restore_pos(void)
 int
 axisMotionInit(void)
 {
-   int i;
-   int err;
-   int axis;
-   double rate;
-   char buffer[MAX_ERROR_LEN] ;
-   double limit;
    short action;
+   char buffer[MAX_ERROR_LEN] ;
+   short coeff[COEFFICIENTS];		/* coefficients for PID loops */
+   int err;
+   int i;
+   double limit;
+   int mei_axis;			/* counter for all 2*NAXIS "axes" */
+   double rate;
 /*
  * Create semaphores
  */
@@ -3450,28 +3453,28 @@ axisMotionInit(void)
    set_sample_rate(160);
    TRACE(3, "Sample Rate=%d", dsp_sample_rate(), 0);
    
-   for(axis = 0; axis < dsp_axes(); axis++) {
-      TRACE(3, "Initialising AXIS %d", axis, 0);
+   for(mei_axis = 0; mei_axis < dsp_axes(); mei_axis++) {
+      TRACE(3, "Initialising AXIS %d", mei_axis, 0);
 
-      get_stop_rate(axis,&rate);
+      get_stop_rate(mei_axis, &rate);
       TRACE(3, "old stop rate = %f", rate, 0);
-      set_stop_rate(axis,(double)SDSS_STOP_RATE);
-      get_stop_rate(axis,&rate);
+      set_stop_rate(mei_axis, (double)SDSS_STOP_RATE);
+      get_stop_rate(mei_axis, &rate);
       TRACE(3, "set stop rate = %f", rate, 0);
       
-      get_e_stop_rate(axis,&rate);
+      get_e_stop_rate(mei_axis, &rate);
       TRACE(3, "old e_stop rate=%f", rate, 0);
-      set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
-      get_e_stop_rate(axis,&rate);
+      set_e_stop_rate(mei_axis, (double)SDSS_E_STOP_RATE);
+      get_e_stop_rate(mei_axis, &rate);
       TRACE(3, "set e_stop rate=%f", rate, 0);
       
-      get_error_limit(axis,&limit,&action);
+      get_error_limit(mei_axis, &limit, &action);
       TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
-      set_error_limit(axis,24000.,ABORT_EVENT);
-      get_error_limit(axis, &limit, &action);
+      set_error_limit(mei_axis, 24000, ABORT_EVENT);
+      get_error_limit(mei_axis, &limit, &action);
       TRACE(3, "set error limit=%ld, action=%d", (long)limit, action);
 
-      set_integration(axis, IM_ALWAYS);
+      set_integration(mei_axis, IM_ALWAYS);
    }
 
    restore_pos();			/* restore axis positions */
@@ -3480,6 +3483,49 @@ axisMotionInit(void)
 
    VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
    init_io(2,IO_INPUT);
+/*
+ * Set filter coefficients for the axes.  Note that it is essential that we
+ * provide values for all of the coefficients.
+ */
+   semTake(semMEI,WAIT_FOREVER);
+
+   coeff[DF_P] = 160;
+   coeff[DF_I] = 6;
+   coeff[DF_D] = 1500;
+   coeff[DF_ACCEL_FF] = 0;
+   coeff[DF_VEL_FF] = 0;
+   coeff[DF_I_LIMIT] = 32767;
+   coeff[DF_OFFSET] = 0;
+   coeff[DF_DAC_LIMIT] = 18000;
+   coeff[DF_SHIFT] = -4;		/* 1/16 */
+   coeff[DF_FRICT_FF] = 0;
+   set_filter(2*AZIMUTH, (P_INT)coeff);
+
+   coeff[DF_P] = 120;
+   coeff[DF_I] = 6;
+   coeff[DF_D] = 1200;
+   coeff[DF_ACCEL_FF] = 0;
+   coeff[DF_VEL_FF] = 0;
+   coeff[DF_I_LIMIT] = 32767;
+   coeff[DF_OFFSET] = 0;
+   coeff[DF_DAC_LIMIT] = 10000;
+   coeff[DF_SHIFT] = -4;		/* 1/16 */
+   coeff[DF_FRICT_FF] = 0;
+   set_filter(2*ALTITUDE, (P_INT)coeff);
+   
+   coeff[DF_P] = 120;
+   coeff[DF_I] = 12;
+   coeff[DF_D] = 600;
+   coeff[DF_ACCEL_FF] = 0;
+   coeff[DF_VEL_FF] = 0;
+   coeff[DF_I_LIMIT] = 32767;
+   coeff[DF_OFFSET] = 0;
+   coeff[DF_DAC_LIMIT] = 12000;
+   coeff[DF_SHIFT] = -5;		/* 1/32 */
+   coeff[DF_FRICT_FF] = 0;
+   set_filter(2*INSTRUMENT, (P_INT)coeff);
+
+   semGive(semMEI);
 /*
  * Spawn the tasks that run the axes
  */
