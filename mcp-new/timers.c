@@ -88,32 +88,23 @@ get_time(void)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: sdss_delta_time
-**	    test_dt - diagnostic test
-**
-** DESCRIPTION:
 **	Determine the delta time.  This routine takes into consideration
 **	the window when the time wraps from a full day to the beginning
 **	of the new day.  The logic has a limit of 400 seconds to the end
 **	of the day to work across the boundary.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
 **
 **=========================================================================
 */
 double
 sdss_delta_time(double t2, double t1)
 {
-  if ((t2>=0.0)&&(t2<400.)&&(t1>86000.)&&(t1<86400.))
-    return ((86400.-t1)+t2);
-  if ((t1>=0.0)&&(t1<400.)&&(t2>86000.)&&(t2<86400.))
-    return ((t2-86400.)-t1);
-  return (t2-t1);
+  if(t2 >= 0 && t2 < 400 && t1 > 86000 && t1 < 86400) {
+     return((86400 - t1) + t2);
+  } else if(t1 >= 0 && t1 < 400 && t2 > 86000 && t2 < 86400) {
+     return((t2 - 86400) - t1);
+  } else {
+     return(t2 - t1);
+  }
 }
 
 int
@@ -358,7 +349,6 @@ DIO316_interrupt(int type)
       TRACE0(8, "Gave semLATCH", 0, 0);
    }
 }
-
 
 /*****************************************************************************/
 /*
