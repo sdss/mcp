@@ -1,52 +1,10 @@
 #include "copyright.h"
 /**************************************************************************
-***************************************************************************
-** FILE:
-**      axis_cmds.c
 **
-** ABSTRACT:
 **	Action routines for commands from the TCC which involve setting up
 **	queues for each axis to execute motion.
 **	tm_TCC is spawned for each axis to excute motion
-**	Fiducial routines for resetting position based on known points.
-**
-** ENTRY POINT          SCOPE   DESCRIPTION
-** ----------------------------------------------------------------------
-**	tm_TCC		task	tmAz, tmAlt, tmRot
-**	tm_latch	task	tmLatch
-**
-** ENVIRONMENT:
-**      ANSI C.
-**
-** REQUIRED PRODUCTS:
-**
-** AUTHORS:
-**      Creation date:  Aug 30, 1999
-**      Charlie Briegel
-**
-***************************************************************************
-***************************************************************************/
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		AXIS control						*/
-/*   File:	axis_cmds.c						*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, briegel@fnal.gov	*/
-/*   Program:	axis_cmds : VxWorks					*/
-/*   Modules:								*/
-/*									*/	
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
-/************************************************************************/
-
-/*------------------------------*/
-/*	includes		*/
-/*------------------------------*/
+*/
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
@@ -60,10 +18,6 @@
 #include "taskLib.h"
 #include "rebootLib.h"
 #include "sysLib.h"
-#if defined(CALL_NSF)
-#include "nfsDrv.h"
-#include "nfsLib.h"
-#endif
 #include "ioLib.h"
 #include "errno.h"
 #include "usrLib.h"
@@ -91,6 +45,7 @@
 #include "mcpMsgQ.h"
 #include "abdh.h"
 #include "mcpTimers.h"
+#include "mcpFiducials.h"
 
 /*========================================================================
 **========================================================================
@@ -105,46 +60,31 @@
 **
 ** LOCAL DEFINITIONS
 */
-struct LATCH_POS
-{
-	int axis;
-	int ref;
-	int data;
-	double pos1;
-	double pos2;
-};
 struct DIAG_Q {
-	double p;
-	double v;
-	double a;
-	double ji;
-	double tim;
+   double p;
+   double v;
+   double a;
+   double ji;
+   double tim;
 };
+
 /*-------------------------------------------------------------------------
 **
 ** GLOBAL VARIABLES
 */
-FILE *fidfp=NULL;
-static int latchidx=0;
-int LATCH_error=FALSE;
-int LATCH_verbose=FALSE;
-#define MAX_LATCHED	2000
-struct LATCH_POS latchpos[MAX_LATCHED];
-int errmsg_max[3]={400,200,100}; /* axis fiducial max error to post msg */
-SEM_ID semMEI=NULL;
-SEM_ID semSLC=NULL;
-SEM_ID semLATCH=NULL;
+SEM_ID semMEI = NULL;
+SEM_ID semSLC = NULL;
 
 MSG_Q_ID msgDIO316ClearISR = NULL;	/* control the tm_ClrInt task */
 
 MSG_Q_ID msgMoveCW = NULL;		/* control the moveCW task */
-MSG_Q_ID msgMoveCWAbort = NULL;		/* control the moveCW task */
-SEM_ID semMoveCWBusy = NULL;		/*  "   "   "   "  "   " " */
+MSG_Q_ID msgMoveCWAbort = NULL;		/*  "   "   "   "  "   "   */
+SEM_ID semMoveCWBusy = NULL;		/*  "   "   "   "  "   "   */
 
-int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
-int MEI_interrupt=FALSE;
-int sdss_was_init=FALSE;
-struct FRAME_QUEUE axis_queue[3]={
+int axis_select = -1;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
+int MEI_interrupt = FALSE;
+int sdss_was_init = FALSE;
+struct FRAME_QUEUE axis_queue[3] = {
    {0, NULL, NULL},
    {0, NULL, NULL},
    {0, NULL, NULL}
@@ -158,8 +98,8 @@ int CALCOFF_verbose=FALSE;
 int CALCADDOFF_verbose=FALSE;
 int CALCFINAL_verbose=FALSE;
 int FRAME_verbose=FALSE;
-struct DIAG_Q *diagq=NULL;
-int diagq_siz,diagq_i;
+static struct DIAG_Q *diagq = NULL;
+static int diagq_siz,diagq_i;
 int DIAGQ_verbose=FALSE;
 #define FRMHZ		20	/* 20 Hz Frames to MEI */
 #define FLTFRMHZ	20.
@@ -188,39 +128,18 @@ int offset_idx[3][OFF_MAX+2]={
 };
 double sec_per_tick[3]={AZ_TICK, ALT_TICK, ROT_TICK};
 double ticks_per_degree[3]={AZ_TICKS_DEG, ALT_TICKS_DEG, ROT_TICKS_DEG};
+
 /*------------*/
 /* Prototypes */
 /*------------*/
-void save_firmware();
-void restore_firmware();
-int sdss_init();
-void stop_frame(int axis,double pos,double sf);
-void stp_frame(int axis,double pos,double sf);
-void end_frame(int axis,int index,double sf);
-void start_tm_TCC();
-void start_tm_TCC_test();
-void amp_reset(int axis);
-void latchstart ();
-void latchprint (char *description);
-void latchexcel (int axis);
-void set_primary_fiducials (int axis,int fididx,long pos);
-void set_fiducials (int axis);
-void save_fiducials (int axis);
-void set_fiducials_all ();
-void save_fiducials_all ();
-void restore_fiducials (int axis);
-void restore_fiducials_all ();
-void print_max ();
-double sdss_delta_time(double t2, double t1);
-void DIO316ClearISR_delay(void);
-int tm_frames_to_execute(int axis);
-
+
+static int tm_frames_to_execute(int axis);
 
 /*****************************************************************************/
 /*
  * return an axis's name
  */
-static char *
+const char *
 axis_name(int axis)
 {
    switch (axis) {
@@ -231,130 +150,10 @@ axis_name(int axis)
     case INSTRUMENT:
       return("rotator");
     default:
-      return "(unknown axis)";
+      return("(unknown axis)");
    }
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: reboot_cmd
-**
-** DESCRIPTION:
-**      <break> -> Software reboot
-**
-** RETURN VALUES:
-**      NULL string
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *reboot_cmd(char *cmd)
-{
-  printf (" <break> command fired\r\n");
-  reboot(BOOT_NORMAL);
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: correct_cmd
-**
-** DESCRIPTION:
-**      CORRECT -> set the fiducial
-**	This will set the fiducial to the nearest valid fiducial crossed (in the
-**	future), but currently there is one "trusted" fiducial per axis.  This
-**	fiducial, if valid, will adjust the axis position appropriately.
-**
-** RETURN VALUES:
-**      NULL string or "ERR:..."
-**
-** CALLS TO:
-**	tm_set_position
-**
-** GLOBALS REFERENCED:
-**	fiducial
-**	fiducial_position
-**	semMEI
-**	axis_select
-**
-**=========================================================================
-*/
-char *
-correct_cmd(char *cmd)
-{
-  long pos;
-  double position;
-
-#ifdef ROT_ROTARY_ENCODER
-#  error I do not know how to read rotary encode fiducial
-#endif
-
-  printf (" CORRECT command fired\r\n");
-  if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
-     return "ERR: ILLEGAL DEVICE SELECTION";
-  }
-  
-  if(!fiducial[axis_select].markvalid) {
-     return "ERR: fiducial for axis not crossed";
-  }
-  
-  if (semTake(semMEI,60) != OK) {
-     printf("Setting %s fiducial: unable to take semaphore: %s",
-	    axis_name(axis_select), strerror(errno));
-     return "ERR: semMEI";
-  }
-
-  if(get_position(axis_select<<1, &position) != DSP_OK) {
-     semGive (semMEI);
-     printf("Setting %s fiducial: unable to read position",
-	    axis_name(axis_select));
-     return "ERR: reading fiducial";
-  }
-  semGive (semMEI);
-  
-  pos=position;
-  switch (axis_select) {
-   case ALTITUDE:
-     pos += fiducial_position[axis_select] - fiducial[axis_select].mark;
-     tm_set_pos((axis_select*2),pos);
-/* connection of the second encoder is at best a guess/wish/dream */
-     tm_set_pos((axis_select*2)+1,pos);	
-     break;
-   case AZIMUTH:
-     pos += fiducial_position[axis_select] - fiducial[axis_select].mark;
-     tm_set_pos((axis_select*2),pos);
-/* connection of the second encoder is at best a guess/wish/dream */
-     tm_set_pos((axis_select*2)+1,pos);
-     break;
-   case INSTRUMENT:
-     pos += fiducial_position[axis_select] - fiducial[axis_select].mark;
-     tm_set_pos((axis_select*2),pos);
-     tm_set_pos((axis_select*2)+1,pos);  /* connected reliably */
-     break;
-  }
-  
-  if(fidfp != NULL) {
-     time_t fidtim;
-     time(&fidtim);
-
-     fprintf(fidfp,"CORRECT %d\t%d\t%.24s:%f\t%ld\t%ld\n",
-	      axis_select,fiducial[axis_select].index,
-	      ctime(&fidtim),sdss_get_time(),
-	      (long)fiducial_position[axis_select]-fiducial[axis_select].mark,
-	      (long)position);
-  }
-  
-  fiducial[axis_select].mark = fiducial_position[axis_select];
-
-  return "";
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -376,60 +175,60 @@ correct_cmd(char *cmd)
 **
 **=========================================================================
 */
-static char *drift_ans={"360.00000 0.500000 5040.00000                                "};
-char *drift_cmd(char *cmd)
+static char drift_ans[] =
+   "360.00000 0.500000 5040.00000                                ";
+
+char *
+drift_cmd(char *cmd)
 {
-  double position;
-  double arcdeg, veldeg;
-  float time;
-
+   double position;
+   double arcdeg, veldeg;
+   float time;
+   
 /*  printf (" DRIFT command fired\r\n");*/
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (semTake (semMEI,60)!=ERROR)
-  {
-    get_velocity(axis_select<<1,&drift_velocity[axis_select]);
-    semGive (semMEI);
-    drift_break[axis_select]=TRUE;
-  }
-  else
-    return "ERR: semMEI";
-  taskDelay(3);
-  if (semTake (semMEI,60)!=ERROR)
-  {
-    taskLock();	/* enforce coincidental data */
-    get_position(axis_select<<1,&position);
-    time=sdss_get_time();
-    taskUnlock();
-    semGive (semMEI);
-    if (time<0) return "ERR: BAD TIME";
-  }
-  else
-    return "ERR: semMEI";
-  veldeg=(sec_per_tick[axis_select]*drift_velocity[axis_select])/3600.;
-  arcdeg=(sec_per_tick[axis_select]*position)/3600.;
-  sprintf (drift_ans,"%f %f %f",arcdeg,veldeg,time);
-  return drift_ans;
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: id_cmd
-**
-** DESCRIPTION:
-**      ID -> MEI firmware
-**
-** RETURN VALUES:
-**      "axis date firmware"
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
 
+
+   if(semTake (semMEI,60) == ERROR) {
+      return "ERR: semMEI";
+   }
+   
+   get_velocity(axis_select<<1,&drift_velocity[axis_select]);
+   semGive (semMEI);
+   drift_break[axis_select]=TRUE;
+
+   taskDelay(3);
+   if(semTake(semMEI, 60) != ERROR) {
+      TRACE(0, "drift_cmd: failed to get semMEI: %s (%d)",
+	    strerror(errno), errno);
+      return "ERR: semMEI";
+   }
+
+   taskLock();				/* enforce coincidental data */
+   get_position(2*axis_select, &position);
+   time = sdss_get_time();
+   taskUnlock();
+   semGive (semMEI);
+
+   if(time < 0) {
+      TRACE(0, "drift_cmd: bad time %g", time, 0);
+      return "ERR: BAD TIME";
+   }
+
+   veldeg = sec_per_tick[axis_select]*drift_velocity[axis_select]/3600.;
+   arcdeg = sec_per_tick[axis_select]*position/3600.;
+   sprintf(drift_ans, "%f %f %f", arcdeg, veldeg, time);
+
+   return drift_ans;
+}
+
+/*****************************************************************************/
+/*
+ * return the MCP version
+ */
 void
 mcpVersion(void)
 {
@@ -464,30 +263,37 @@ mcpVersion(void)
    assert(version[100] == '\a');	/* no overrun */
    printf("mcpVersion: %s\n", version);
 }
-
 
-static char *id_ans={"0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x"};
-char *id_cmd(char *cmd)
-{
-  static char *axis_name[]={"None Specified","Azimuth","Altitude","Rotator"
-		};
-
-/*  printf (" ID command fired\r\n");*/
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (id_ans,"%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
-		axis_select,axis_name[axis_select+1],__DATE__, getCvsTagname(),
-		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
-		dsp_option()&0xFFF,dsp_axes());
-  return id_ans;
-}
-
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: init_cmd
+**      ID -> MEI firmware
 **
-** DESCRIPTION:
+** RETURN VALUES:
+**      "axis date firmware"
+**=========================================================================
+*/
+char *
+id_cmd(char *cmd)
+{
+   static char id_ans[] = "0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x";
+
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+
+  sprintf(id_ans,"%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
+		axis_select,axis_name(axis_select),__DATE__, getCvsTagname(),
+		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
+		dsp_option()&0xFFF,dsp_axes());
+   
+  return id_ans;
+}
+
+/*=========================================================================
+**=========================================================================
+**
 **      INIT -> Init the axis
 **
 ** RETURN VALUES:
@@ -512,73 +318,82 @@ char *id_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *init_cmd(char *cmd)
+char *
+init_cmd(char *cmd)
 {
-  int state;
-  int retry;
+   int state;
+   int retry;
+   
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
 
-/*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  state=tm_axis_state(axis_select<<1);
-
-/*  I don't really agree with this, JG directed...I think the axis should
-    remain in closed loop if in close loop */
-  if (state>2)		/* normal...NOEVENT,running, or NEW_FRAME */
-  {
-    printf ("\r\n  INIT axis %d: not running, state=%x",axis_select<<1,state);
-    tm_controller_idle (axis_select<<1);
+   state = tm_axis_state(2*axis_select);
+/*
+ * I (Charlie) don't really agree with this, JEG directed...
+ * I think the axis should remain in closed loop if in close loop
+ */
+  if(state > 2) {			/* normal...NOEVENT,running, or
+					   NEW_FRAME */
+     printf("INIT axis %d: not running, state=0x%x\n", 2*axis_select, state);
+     tm_controller_idle(2*axis_select);
   }
-  tm_reset_integrator(axis_select<<1);
-  drift_break[axis_select]=FALSE;
-  frame_break[axis_select]=FALSE;
-  switch (axis_select)
-  {
-    case AZIMUTH:
-      amp_reset(axis_select<<1);	/* two amplifiers, */
-      amp_reset((axis_select<<1)+1);	/* param is index to bit field */
-      if (sdssdc.status.i9.il0.az_brake_en_stat)
-      {
-        printf("Azimuth Brake Turned Off                ");
-        tm_sp_az_brake_off();
+   
+  tm_reset_integrator(2*axis_select);
+  drift_break[axis_select] = FALSE;
+  frame_break[axis_select] = FALSE;
+
+  switch(axis_select) {
+   case AZIMUTH:
+      amp_reset(2*axis_select);		/* two amplifiers, */
+      amp_reset(2*axis_select + 1);	/* param is index to bit field */
+      if(sdssdc.status.i9.il0.az_brake_en_stat) {
+	 printf("Azimuth Brake Turned Off\n");
+	 tm_sp_az_brake_off();
       }
       break;
-
     case ALTITUDE:
-      amp_reset(axis_select<<1);	/* two amplifiers */
-      amp_reset((axis_select<<1)+1);	/* param is index to bit field */
-      if (sdssdc.status.i9.il0.alt_brake_en_stat)
-      {
-        printf("Altitude Brake Turned Off               ");
-        tm_sp_alt_brake_off();           
+      amp_reset(2*axis_select);		/* two amplifiers */
+      amp_reset(2*axis_select + 1);	/* param is index to bit field */
+      if(sdssdc.status.i9.il0.alt_brake_en_stat) {
+	 printf("Altitude Brake Turned Off\n");
+	 tm_sp_alt_brake_off();           
       }
       break;
-
     case INSTRUMENT:
-      amp_reset(axis_select<<1);	/* one amplifiers */
+      amp_reset(2*axis_select);		/* one amplifier */
       break;				/* param is index to bit field */
   }
-/*  tm_axis_state retries as well...so this is really redundant, but then the
-    brakes don't come off real quick so this will assure closed loop for
-    at least sometime before continuing */
-  retry=4;
-  while ((tm_axis_state(axis_select<<1)>2)&&((retry--)>0))
-  {
-    tm_controller_run (axis_select<<1);
-    taskDelay(20);
+/*
+ * tm_axis_state retries as well...so this is really redundant, but then the
+ * brakes don't come off really quickly so this will assure closed loop for
+ * at least sometime before continuing
+ */
+  retry = 4;
+  while(tm_axis_state(2*axis_select) > 2 && retry-- > 0) {
+     tm_controller_run(2*axis_select);
+     taskDelay(20);
   }
-/* zero the velocity */
-  if (semTake (semMEI,60)!=ERROR)  
-  {
-    v_move(axis_select<<1,(double)0,(double)5000);
-    semGive (semMEI);
-  }
-/* reinitialize the queue of pvts to none */
-  axis_queue[axis_select].active=axis_queue[axis_select].end;
-  axis_queue[axis_select].active=NULL;
-  return "";
+/*
+ * zero the velocity
+ */
+   if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "Failed to take semMEI to zero velocity for axis %s",
+	    axis_name(axis_select), 0);
+   } else {
+      v_move(2*axis_select,(double)0,(double)5000);
+      semGive (semMEI);
+   }
+/*
+ * reinitialize the queue of pvts to none
+ */
+   axis_queue[axis_select].active = axis_queue[axis_select].end;
+   axis_queue[axis_select].active = NULL;
+   
+   return "";
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -598,16 +413,20 @@ char *init_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *maxacc_cmd(char *cmd)
+char *
+maxacc_cmd(char *cmd)
 {
-  int cnt;
+   printf (" MAXACC command fired\r\n");
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   if(sscanf(cmd,"%12lf", &max_acceleration[axis_select]) != 1) {
+      printf("ERR: no acceleration specified\n");
+   }
 
-  printf (" MAXACC command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  cnt=sscanf (cmd,"%12lf",&max_acceleration[axis_select]);
-  if (cnt!=1) printf ("ERR: no acceleration specified");
-  return "";
+   return "";
 }
 
 /*=========================================================================
@@ -629,18 +448,23 @@ char *maxacc_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *maxvel_cmd(char *cmd)
+char *
+maxvel_cmd(char *cmd)
 {
-  int cnt;
+   printf (" MAXVEL command fired\r\n");
 
-  printf (" MAXVEL command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  cnt=sscanf (cmd,"%12lf",&max_velocity[axis_select]);
-  if (cnt!=1) printf ("ERR: no velocity specified");
-  return "";
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   if(sscanf (cmd,"%12lf",&max_velocity[axis_select]) != 1) {
+      printf("ERR: no velocity specified\n");
+   }
+
+   return "";
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -683,14 +507,21 @@ char *mc_dump_cmd(char *cmd)
 **
 **=========================================================================
 */
-static char *max_ans={"F@ F.             "};
-char *mc_maxacc_cmd(char *cmd)
+static char max_ans[] = "F@ F.             ";
+
+char *
+mc_maxacc_cmd(char *cmd)
 {
-  printf (" MC.MAX.ACC command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f", max_acceleration[axis_select]);
-  return max_ans;
+   printf (" MC.MAX.ACC command fired\n");
+   
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+
+   sprintf(max_ans,"F@ F. %12f", max_acceleration[axis_select]);
+
+   return max_ans;
 }
 
 /*=========================================================================
@@ -712,13 +543,19 @@ char *mc_maxacc_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *mc_maxpos_cmd(char *cmd)
+char *
+mc_maxpos_cmd(char *cmd)		/* NOTUSED */
 {
-  printf (" MC.MAX.POS command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f", max_position[axis_select]);
-  return max_ans;
+   printf(" MC.MAX.POS command fired\n");
+   
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   sprintf(max_ans,"F@ F. %12f", max_position[axis_select]);
+
+   return max_ans;
 }
 
 /*=========================================================================
@@ -740,13 +577,19 @@ char *mc_maxpos_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *mc_maxvel_cmd(char *cmd)
+char *
+mc_maxvel_cmd(char *cmd)		/* NOTUSED */
 {
-  printf (" MC.MAX.VEL command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f", max_velocity[axis_select]);
-  return max_ans;
+   printf (" MC.MAX.VEL command fired\n");
+   
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+
+   sprintf(max_ans,"F@ F. %12f", max_velocity[axis_select]);
+   
+   return max_ans;
 }
 
 /*=========================================================================
@@ -768,15 +611,21 @@ char *mc_maxvel_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *mc_minpos_cmd(char *cmd)
+char *
+mc_minpos_cmd(char *cmd)		/* NOTUSED */
 {
-  printf (" MC.MIN.POS command fired\r\n");
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f", min_position[axis_select]);
-  return max_ans;
+   printf(" MC.MIN.POS command fired\n");
+   
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+
+   sprintf(max_ans,"F@ F. %12f", min_position[axis_select]);
+   
+   return max_ans;
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -810,133 +659,165 @@ char *mc_minpos_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *move_cmd(char *cmd)
+char *
+move_cmd(char *cmd)
 {
-  double position,velocity,pos;
-  struct FRAME *frame,*nxtque;
-  struct FRAME_QUEUE *queue;
-  int i;
-  int cnt;
-  double dt;
-
+   double position,velocity,pos;
+   struct FRAME *frame,*nxtque;
+   struct FRAME_QUEUE *queue;
+   int i;
+   int cnt;
+   double dt;
+   
 /*  printf (" MOVE command fired\r\n");*/
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (sdss_get_time()<0) return "ERR: BAD TIME";
-  queue = &axis_queue[axis_select];
-  frame = (struct FRAME *)malloc (sizeof(struct FRAME));
-  if (frame==NULL) return "ERR: OUT OF MEMORY";
-  cnt=sscanf (cmd,"%12lf %12lf %12lf",&position,&velocity,&frame->end_time);
-  switch (cnt)
-  {
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+
+   if(sdss_get_time() < 0) {
+      TRACE(0, "move_cmd(): bad time", 0, 0);
+      return "ERR: BAD TIME";
+   }
+   
+   queue = &axis_queue[axis_select];
+   
+   frame = (struct FRAME *)malloc (sizeof(struct FRAME));
+   if(frame == NULL) {
+      TRACE(0, "Cannot allocate frame (%d)", errno, 0);
+      return "ERR: OUT OF MEMORY";
+   }
+   
+   cnt = sscanf(cmd,"%12lf %12lf %12lf",
+		&position, &velocity, &frame->end_time);
+   switch (cnt) {
     case -1:
     case 0:
-        tm_get_pos(axis_select<<1,&stop_position[axis_select]);
-        frame_break[axis_select]=TRUE;
-	if (frame!=NULL) free (frame);
-	sdssdc.tccmove[axis_select].position=0;
-	sdssdc.tccmove[axis_select].velocity=0;
-	sdssdc.tccmove[axis_select].time=0;
-        return "";
+      tm_get_pos(2*axis_select, &stop_position[axis_select]);
+      frame_break[axis_select] = TRUE;
 
+      sdssdc.tccmove[axis_select].position = 0;
+      sdssdc.tccmove[axis_select].velocity = 0;
+      sdssdc.tccmove[axis_select].time = 0;
+
+      if(frame != NULL) free(frame);
+      
+      return "";
     case 1:
-        tm_get_pos(axis_select<<1,&pos);
-	velocity = (double).10;
-	frame->end_time = fmod((double)(sdss_get_time()+
-          abs((pos/ticks_per_degree[axis_select]-position)/velocity)),
-	  (double)86400.0);
-	velocity=0.0;
-        break;
-
+      tm_get_pos(2*axis_select,&pos);
+      velocity = (double)0.10;
+      frame->end_time =
+	fmod((double)(sdss_get_time() +
+		      abs((pos/ticks_per_degree[axis_select] -
+			   position)/velocity)), (double)86400.0);
+      velocity=0.0;
+      break;
     case 2:
-        tm_get_pos(axis_select<<1,&pos);
-	frame->end_time = fmod((double)(sdss_get_time()+
-          abs((pos/ticks_per_degree[axis_select]-position)/velocity)),
-	  (double)86400.0);
-        break;
-
+      tm_get_pos(2*axis_select,&pos);
+      frame->end_time =
+	fmod((double)(sdss_get_time() +
+		      abs((pos/ticks_per_degree[axis_select] -
+			   position)/velocity)), (double)86400.0);
+      break;
     case 3:
-        if (sdss_delta_time(frame->end_time,sdss_get_time())<0.0)
-	{
-	  free (frame);
-	  printf("\r\n MOVE CMD: bad time=%f real time=%f",frame->end_time,
-		sdss_get_time());
-	  return "ERR: BAD TIME";
-	}
-  	if (drift_break[axis_select])
-	{
-	  if (DRIFT_verbose)
-            printf("\r\nDRIFT pvt %f %f %f",
-		position,velocity,frame->end_time);
-	  taskLock();
-          tm_get_pos(axis_select<<1,&pos);
-	  dt=sdss_delta_time(frame->end_time,sdss_get_time());
-	  taskUnlock();
-/* in practice, shifted around sample frequency (.05) for better err transition */
-	  dt -=.043;	/* modify time to reduce error during transition */
-	  pos=(pos+
-	    (drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
-	  if (DRIFT_verbose)
-            printf("\r\nDRIFT modified pvt %f %f %f, difference=%f, dt=%f",
-		pos,velocity,frame->end_time,position-pos,dt);
-	  if (drift_modify_enable)
-	    position=pos;
-	  drift_break[axis_select]=FALSE;
+      if(sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
+	 if(frame != NULL) free(frame);
+	 printf("MOVE CMD: bad time=%f real time=%f\n",
+		frame->end_time, sdss_get_time());
+	 TRACE(0, "MOVE CMD: bad time=%f", frame->end_time, 0);
+	 TRACE(0, "          real time=%f", sdss_get_time(), 0);
+	 return "ERR: BAD TIME";
+      }
+      
+      if(drift_break[axis_select]) {
+	 if (DRIFT_verbose) {
+            printf("DRIFT pvt %f %f %f\n", position,velocity,frame->end_time);
+	 }
+	 
+	 taskLock();
+	 tm_get_pos(2*axis_select, &pos);
+	 dt = sdss_delta_time(frame->end_time, sdss_get_time());
+	 taskUnlock();
+/*
+ * in practice, shifted around sample frequency (.05) for better
+ * err transition
+ */
+	 dt -=.043;	/* modify time to reduce error during transition */
+	 pos = (pos + drift_velocity[axis_select]*dt)/
+						 ticks_per_degree[axis_select];
+	  if(DRIFT_verbose) {
+	     printf("DRIFT modified pvt %f %f %f, difference=%f, dt=%f\n",
+		    pos, velocity, frame->end_time, position - pos, dt);
+	  }
+
+	  if(drift_modify_enable) {
+	     position = pos;
+	  }
+	 
+	  drift_break[axis_select] = FALSE;
 	}
 	break;
-  }
-  frame->position=position;
-  if (fabs(velocity)>max_velocity[axis_select]) 
-    if (velocity>0.0)
-      velocity=max_velocity[axis_select];
-    else
-      velocity=-max_velocity[axis_select];
-  frame->velocity=(double)velocity;
-  frame->nxt = NULL;
-  sdssdc.tccmove[axis_select].position=
-	(long)(frame->position*ticks_per_degree[axis_select]);
-  sdssdc.tccmove[axis_select].velocity=
-	(long)(frame->velocity*ticks_per_degree[axis_select]);
-  sdssdc.tccmove[axis_select].time=(long)(frame->end_time*1000);
+   }
+   
+   frame->position = position;
+   if(fabs(velocity) > max_velocity[axis_select]) {
+      if(velocity > 0.0) {
+	 velocity = max_velocity[axis_select];
+      } else {
+	 velocity = -max_velocity[axis_select];
+      }
+   }
+   
+   frame->velocity = (double)velocity;
+   frame->nxt = NULL;
 
-/* queues are initialized with one dummy entry at sdss_init time */
-  taskLock();
-  nxtque = queue->end;
-  nxtque->nxt = frame;
-  if (queue->active==NULL)/* end of queue, and becomes active frame */
-    queue->active=frame;
-  for (i=0;i<OFF_MAX;i++)
-  {
-    if (offset_queue_end[axis_select][i]!=NULL)
-    {
-/* still correcting offset , reduce new specifications */
-      offset_queue_end[axis_select][i]=frame;
-      frame->position-=offset[axis_select][i][1].position;
-      frame->velocity-=offset[axis_select][i][1].velocity;
-/*      printf ("\r\nreduce offset end=%p, pos=%f,idx=%d",frame,
-	frame->position,offset_idx[axis_select][i]);*/
-    }
+   sdssdc.tccmove[axis_select].position=
+     (long)(frame->position*ticks_per_degree[axis_select]);
+   sdssdc.tccmove[axis_select].velocity=
+     (long)(frame->velocity*ticks_per_degree[axis_select]);
+   sdssdc.tccmove[axis_select].time=(long)(frame->end_time*1000);
+/*
+ * queues are initialized with one dummy entry at sdss_init time
+ */
+   taskLock();
+   nxtque = queue->end;
+   nxtque->nxt = frame;
+   if(queue->active == NULL) {/* end of queue, and becomes active frame */
+      queue->active=frame;
+   }
+   
+   for(i = 0; i < OFF_MAX; i++) {
+      if(offset_queue_end[axis_select][i] != NULL) {
+	 /* still correcting offset , reduce new specifications */
+	 offset_queue_end[axis_select][i] = frame;
+	 frame->position -= offset[axis_select][i][1].position;
+	 frame->velocity -= offset[axis_select][i][1].velocity;
+#if 0
+	 printf("reduce offset end=%p, pos=%f,idx=%d\n",frame,
+		 frame->position,offset_idx[axis_select][i]);
+#endif
+      }
+   }
+   
+   queue->end = frame;
+   queue->cnt++;
+   taskUnlock();
+/*
+ * clean up queue for old entries
+ */
+  while(queue->cnt > MAX_FRAME_CNT && queue->top != queue->active) {
+     nxtque = queue->top;
+     queue->top = nxtque->nxt;
+     free(nxtque);
+     queue->cnt--;
   }
-  queue->end=frame;
-  queue->cnt++;
-  taskUnlock();
-/* clean up queue for old entries */
-  while ((queue->cnt>MAX_FRAME_CNT)&&(queue->top != queue->active))
-  {
-    nxtque = queue->top;
-    queue->top = nxtque->nxt;
-    free(nxtque);
-    queue->cnt--;
-  }
+
   return "";
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: plus_move_cmd
-**
-** DESCRIPTION:
 **	+MOVE does nothing
 **	+MOVE pos - offsets position by specified amount
 **	+MOVE pos vel - offsets position by specified amount and increases
@@ -949,8 +830,6 @@ char *move_cmd(char *cmd)
 ** RETURN VALUES:
 **	NULL string or "ERR:..."
 **
-** CALLS TO:
-**
 ** GLOBALS REFERENCED:
 **	sdssdc
 **	axis_select
@@ -961,148 +840,120 @@ char *move_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *plus_move_cmd(char *cmd)
+char *
+plus_move_cmd(char *cmd)
 {
-  double position,velocity,frame_time;
-  struct FRAME_QUEUE *queue;
-  int cnt;
-  int i;
+   double position,velocity,frame_time;
+   struct FRAME_QUEUE *queue;
+   int cnt;
+   int i;
+   
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
 
-/*  printf (" +MOVE command fired\r\n");*/
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  for (i=0;i<OFF_MAX;i++)
-    if (offset_queue_end[axis_select][i]==NULL) break;
-  if (i>=OFF_MAX) return "ERR: offset active";
-  queue = &axis_queue[axis_select];
-  cnt=sscanf (cmd,"%lf %lf %lf",&position,&velocity,&frame_time);
+   for(i = 0; i < OFF_MAX; i++) {
+      if(offset_queue_end[axis_select][i] == NULL) break;
+   }
+   
+   if(i >= OFF_MAX) {
+      return "ERR: offset active";
+   }
 
-  switch (cnt)
-  {
+   queue = &axis_queue[axis_select];
+   cnt = sscanf(cmd,"%lf %lf %lf", &position, &velocity, &frame_time);
+   
+   switch (cnt) {
     case -1:
     case 0:
-        break;		/* NULL offset - does nothing */
+      break;		/* NULL offset - does nothing */
     case 1:
-	if (position==0.0) break;
-        offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
-        offset[axis_select][i][0].position=0;
-        offset[axis_select][i][1].position=position;
-	offset[axis_select][i][0].velocity=0;
-	offset[axis_select][i][1].velocity=0;
-	offset[axis_select][i][0].end_time=0;
-/* short offsets are give some extra time for smooth ramp.  long offsets
-are spread over a time period averaging .4 degs per second */
-        if (position<.15)
-	  offset[axis_select][i][1].end_time=(double).75;
-	else
-	  offset[axis_select][i][1].end_time=
-		(double)((int)((position/.15)*20))/20.;
-	offset_idx[axis_select][i]=0;
-	offset_queue_end[axis_select][i]=queue->end;
-        break;
-    case 2:
-	if ((position==0.0)&&(velocity==0.0)) break;
-        offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
-        offset[axis_select][i][0].position=0;
-        offset[axis_select][i][1].position=position;
-	offset[axis_select][i][0].velocity=0;
-	offset[axis_select][i][1].velocity=velocity;
-	offset[axis_select][i][0].end_time=0;
-        if (position<.15)
-	  offset[axis_select][i][1].end_time=(double).75;
-	else	/* average .4 degree per second */
-	  offset[axis_select][i][1].end_time=
-		(double)((int)((position/.15)*20))/20.;
-	offset_idx[axis_select][i]=0;
-	offset_queue_end[axis_select][i]=queue->end;
-        break;
-    case 3:
-	return "ERR: unimplemented";
+      if(position == 0.0) break;
+      
+      offset[axis_select][i][0].nxt = &offset[axis_select][i][1];
+      offset[axis_select][i][0].position = 0;
+      offset[axis_select][i][1].position = position;
+      offset[axis_select][i][0].velocity = 0;
+      offset[axis_select][i][1].velocity = 0;
+      offset[axis_select][i][0].end_time = 0;
 /*
-	if ((position==0.0)&&(velocity==0.0)) break;
-        offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
-        offset[axis_select][i][0].position=0;
-        offset[axis_select][i][1].position=position;
-	offset[axis_select][i][0].velocity=0;
-	offset[axis_select][i][1].velocity=velocity;
-	offset[axis_select][i][0].end_time=0;
-        if (position<.2)
-	  offset[axis_select][i][1].end_time=(double).4;
-	else
-	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
-	offset_idx[axis_select][i]=0;
-	offset_queue_end[axis_select][i]=queue->end;
-*/
-        break;
-  }
-	printf("\r\n%p: queue_end=%p, position=%f, velocity=%f, end_time=%f",
-		&offset[axis_select][i],offset_queue_end[axis_select][i],
-		offset[axis_select][i][1].position,
-		offset[axis_select][i][1].velocity,
-		offset[axis_select][i][1].end_time);
-  sdssdc.tccpmove[axis_select].position=
-	(long)(offset[axis_select][i][1].position*ticks_per_degree[axis_select]);
-  sdssdc.tccpmove[axis_select].velocity=
-	(long)(offset[axis_select][i][1].velocity*ticks_per_degree[axis_select]);
-  sdssdc.tccpmove[axis_select].time=
-	(long)(offset[axis_select][i][1].end_time*1000);
-  return "";
+ * short offsets are give some extra time for smooth ramp.  long offsets
+ * are spread over a time period averaging .4 degs per second
+ */
+      if(position < 0.15) {
+	 offset[axis_select][i][1].end_time = (double)0.75;
+      } else {
+	 offset[axis_select][i][1].end_time =
+				       (double)((int)((position/0.15)*20))/20.;
+      }
+
+      offset_idx[axis_select][i] = 0;
+      offset_queue_end[axis_select][i] = queue->end;
+      
+      break;
+    case 2:
+      if(position == 0.0 && velocity == 0.0) break;
+      
+      offset[axis_select][i][0].nxt = &offset[axis_select][i][1];
+      offset[axis_select][i][0].position = 0;
+      offset[axis_select][i][1].position = position;
+      offset[axis_select][i][0].velocity = 0;
+      offset[axis_select][i][1].velocity = velocity;
+      offset[axis_select][i][0].end_time = 0;
+      
+      if(position < 0.15) {
+	 offset[axis_select][i][1].end_time=(double).75;
+      } else {			/* average .4 degree per second */
+	 offset[axis_select][i][1].end_time =
+	   (double)((int)((position/.15)*20))/20.;
+      }
+      
+      offset_idx[axis_select][i] = 0;
+      offset_queue_end[axis_select][i] = queue->end;
+      break;
+    case 3:
+      TRACE(0, "Attempt to specify +MOVE p v t", 0, 0);
+      return "ERR: unimplemented";
+#if 0
+      if(position == 0.0 && velocity == 0.0) break;
+      
+      offset[axis_select][i][0].nxt = &offset[axis_select][i][1];
+      offset[axis_select][i][0].position = 0;
+      offset[axis_select][i][1].position = position;
+      offset[axis_select][i][0].velocity = 0;
+      offset[axis_select][i][1].velocity = velocity;
+      offset[axis_select][i][0].end_time = 0;
+      if(position < 0.2) {
+	 offset[axis_select][i][1].end_time = (double).4;
+      } else {
+	 offset[axis_select][i][1].end_time =
+	   (double)((int)((position/1.0)*20))/20.;
+      }
+      offset_idx[axis_select][i]=0;
+      offset_queue_end[axis_select][i]=queue->end;
+#endif
+      break;
+   }
+
+   printf("%p: queue_end=%p, position=%f, velocity=%f, end_time=%f\n",
+	  &offset[axis_select][i],offset_queue_end[axis_select][i],
+	  offset[axis_select][i][1].position,
+	  offset[axis_select][i][1].velocity,
+	  offset[axis_select][i][1].end_time);
+   
+   sdssdc.tccpmove[axis_select].position =
+     (long)(offset[axis_select][i][1].position*ticks_per_degree[axis_select]);
+   sdssdc.tccpmove[axis_select].velocity =
+     (long)(offset[axis_select][i][1].velocity*ticks_per_degree[axis_select]);
+   sdssdc.tccpmove[axis_select].time =
+     (long)(offset[axis_select][i][1].end_time*1000);
+   
+   return "";
 }
-
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: mr_dump_cmd
-**
-** DESCRIPTION:
-**	MR.DUMP - Displays a large buffer of positions at 20 ms resolution.
-**	Remains unimplemented since better engineering tools are available.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *mr_dump_cmd(char *cmd)
-{
-  printf (" MR.DUMP command fired\r\n");
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: ms_dump_cmd
-**
-** DESCRIPTION:
-**	MS.DUMP - Displays the last 12 fiducials passed.
-**	Remains unimplemented since better engineering tools are available.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *ms_dump_cmd(char *cmd)
-{
-/*  printf (" MS.DUMP command fired\r\n");*/
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: ms_map_dump_cmd
-**
-** DESCRIPTION:
 **	MS.MAP.DUMP - Displays the last all fiducials if fed back to the 
 **	MCP will restore the positions.
 **	Remains unimplemented.  Fiducials are currently saved and restored
@@ -1110,19 +961,14 @@ char *ms_dump_cmd(char *cmd)
 **
 ** RETURN VALUES:
 **	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-char *ms_map_dump_cmd(char *cmd)
+char *
+ms_map_dump_cmd(char *cmd)		/* NOTUSED */
 {
   printf (" MS.MAP.DUMP command fired\r\n");
   return "";
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1142,7 +988,8 @@ char *ms_map_dump_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *ms_map_load_cmd(char *cmd)
+char *
+ms_map_load_cmd(char *cmd)		/* NOTUSED */
 {
   printf (" MS.MAP.LOAD?????? command fired\r\n");
   return "";
@@ -1151,10 +998,6 @@ char *ms_map_load_cmd(char *cmd)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: ms_off_cmd
-**	    ms_on_cmd
-**
-** DESCRIPTION:
 **	MS.OFF - turn off automatic setting of positions as fiducials are passed.
 **	MS.ON - turn on automatic setting of positions as fiducials are passed.
 **	Unimplemented until fiducials are better tested.
@@ -1162,72 +1005,20 @@ char *ms_map_load_cmd(char *cmd)
 ** RETURN VALUES:
 **	NULL string or "ERR:..."
 **
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
 **=========================================================================
 */
-char *ms_off_cmd(char *cmd)
+char *
+ms_off_cmd(char *cmd)			/* NOTUSED */
 {
-/*  printf (" MS.OFF command fired\r\n");*/
-  return "";
+   return "";
 }
-char *ms_on_cmd(char *cmd)
+
+char *
+ms_on_cmd(char *cmd)			/* NOTUSED */
 {
-/*  printf (" MS.ON command fired\r\n");*/
-  return "";
+   return "";
 }
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: ms_pos_dump_cmd
-**
-** DESCRIPTION:
-**	MS.POS.DUMP - Displays the last all fiducials.
-**	Remains unimplemented.  Fiducials can be viewed from 
-**	print_fiducials(axis, show_all).
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *ms_pos_dump_cmd(char *cmd)
-{
-  printf (" MS.POS.DUMP command fired\r\n");
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: remap_cmd
-**
-** DESCRIPTION:
-**	REMAP - maps all the fiducials.
-**	Unimplemented until fiducials are better tested.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *remap_cmd(char *cmd)
-{
-  printf (" REMAP command fired\r\n");
-  return "";
-}
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1251,26 +1042,26 @@ char *remap_cmd(char *cmd)
 **=========================================================================
 */
 char *
-rot_cmd(char *cmd)
+rot_cmd(char *cmd)			/* NOTUSED */
 {
-   axis_select=INSTRUMENT;
+   axis_select = INSTRUMENT;
    return "";
 }
 
 char *
-tel1_cmd(char *cmd)
+tel1_cmd(char *cmd)			/* NOTUSED */
 {
-   axis_select=AZIMUTH;
+   axis_select = AZIMUTH;
    return "";
 }
 
 char *
-tel2_cmd(char *cmd)
+tel2_cmd(char *cmd)			/* NOTUSED */
 {
-   axis_select=ALTITUDE;
+   axis_select = ALTITUDE;
    return "";
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1298,7 +1089,8 @@ set_limits_cmd(char *cmd)
    double pos1,pos2;
    
    printf (" SET.LIMITS command fired\r\n");
-   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1336,10 +1128,10 @@ set_limits_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *stats_cmd(char *cmd)
+char *
+stats_cmd(char *cmd)			/* NOTUSED */
 {
-  printf (" STATS command fired\r\n");
-  return "";
+   return "";
 }
 
 /*=========================================================================
@@ -1401,9 +1193,6 @@ status_cmd(char *cmd)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: status_long_cmd
-**
-** DESCRIPTION:
 **	STATUS.LONG - Returns long status of the axis.
 **
 ** RETURN VALUES:
@@ -1431,7 +1220,8 @@ status_cmd(char *cmd)
 		%f velocity 
 		%b status 
 		%f last index" */
-char *status_long_cmd(char *cmd)
+char *
+status_long_cmd(char *cmd)		/* NOTUSED */
 {
    static char status_long_ans[33];
    int i;
@@ -1485,7 +1275,8 @@ axis_status_cmd(char *cmd)
 
    TRACE(8, "Setting reply_str[200] axis == %d", axis, 0);
    reply_str[200] = '\a';
-   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
 
@@ -1507,7 +1298,7 @@ axis_status_cmd(char *cmd)
       break;
     case INSTRUMENT:
       brake_is_on = -1;			/* there is no brake */
-      fid_mark = rot_fiducial[fiducialidx[axis]].mark;
+      fid_mark = rot_fiducial[fiducialidx[axis]].mark - ROT_FID_BIAS;
       break;
     default:
       semGive(semMEIUPD);
@@ -1537,11 +1328,7 @@ axis_status_cmd(char *cmd)
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: ticklost_cmd
-**
-** DESCRIPTION:
 **	TICKLOST @ . - Returns if receiving 1 Hz ticks.
 **
 ** RETURN VALUES:
@@ -1551,22 +1338,21 @@ axis_status_cmd(char *cmd)
 **	sdss_get_time
 **	sdss_delta_time
 **
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-char *ticklost_cmd(char *cmd)
+char *
+ticklost_cmd(char *cmd)			/* NOTUSED */
 {
-  double tick;
+   double tick = sdss_get_time();
+   
+   taskDelay(65);
 
-  printf (" TICKLOST @ . command fired\r\n");
-  tick=sdss_get_time();
-  taskDelay(65);
-  if (sdss_delta_time(sdss_get_time(),tick)>1.0) return "0";
-  else
-    return "";
+   if(sdss_delta_time(sdss_get_time(), tick) > 1.0) {
+      return "0";
+   } else {
+      return "";
+   }
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -2187,9 +1973,6 @@ char *abstatus_cmd(char *cmd)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: calc_frames
-**
-** DESCRIPTION:
 **	Calculate frames from pvt pairs starting at a specified position.
 **	Up to MAX_CALC frames are returned into the global buffers for
 **	specification into MEI frames.
@@ -2226,106 +2009,125 @@ char *abstatus_cmd(char *cmd)
 **
 **=========================================================================
 */
-int calc_frames (int axis, struct FRAME *iframe, int start)
+int
+calc_frames(int axis, struct FRAME *iframe, int start)
 {
-  double dx,dv,dt,vdot;
-  double ai,j,t,lai,lj,lt,ldt;
-  struct FRAME *fframe;
-  struct FRAME *lframe;
-  int i;
-  
-/* problem............................*/
-  if (iframe->nxt==NULL) return ERROR;
-/*....................................*/
-  fframe=iframe->nxt;
-  dx=fframe->position-iframe->position;
-  dv=fframe->velocity-iframe->velocity;
-  dt=sdss_delta_time(fframe->end_time,iframe->end_time);
-  vdot=dx/dt;
-  ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
-  j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
-/* neccessary if for loop not executed; calc of t*/
-  t=(start+1)/FLTFRMHZ+time_off[axis];	/* for end condition */
-  if (CALC_verbose)
-  {
-    printf ("\r\n iframe=%p, fframe=%p",iframe,fframe);
-    printf ("\r\n iframe->end_time=%f, fframe->end_time=%f",
-		iframe->end_time,fframe->end_time);
-    printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f",dx,dv,dt,vdot);
-    printf("\r\n ai=%12.8f, j=%12.8f, t=%f, start=%d, time_off=%f",ai,j,t,start,time_off[axis]);
-  }
-  for (i=0;i<(int)min(MAX_CALC-1,
-		(int)((dt-time_off[axis])*FRMHZ)-start);i++)
-  {
-    t=(i+start+1)/FLTFRMHZ+time_off[axis];
-    tim[axis][i]=1/FLTFRMHZ;
-    p[axis][i]=iframe->position+(iframe->velocity*t)+(1/2.)*ai*(t*t)+
-    			(1/6.)*j*(t*t*t);
-    v[axis][i]=iframe->velocity+(ai*t)+(1/2.)*j*(t*t);
-    a[axis][i]=ai+(j*t);
-    ji[axis][i]=j;
-    if (CALC_verbose)
-      printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
- 	i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
-  }
-/* last one with a portion remaining; needs portion of next one */
-/*  printf ("\r\nCheck for FINAL: time_off=%f, i=%d, start=%d, t=%f, dt=%f",
-		time_off[axis],i,start,t,dt);*/
-
-  if ( ((int)(i+start)==(int)((dt-time_off[axis])*FLTFRMHZ)) &&
-	(t!=(dt-time_off[axis])) )
-  {
-    ldt=(((dt-time_off[axis])*FLTFRMHZ)-(int)((dt-time_off[axis])*FLTFRMHZ))/FLTFRMHZ;
-    t = (1/FLTFRMHZ)-ldt;
-    lt = dt;
-    tim[axis][i]=1/FLTFRMHZ;
-    lframe=fframe;
-    if (lframe->nxt==NULL) 
-    {
-      printf ("\r\nCALC FRAME: next frame required to finish");
+   double dx,dv,dt,vdot;
+   double ai,j,t,lai,lj,lt,ldt;
+   struct FRAME *fframe;
+   struct FRAME *lframe;
+   int i;
+   
+   /* problem............................*/
+   if(iframe->nxt == NULL) {
+      TRACE(0, "Initial frame has NULL ->nxt pointer", 0, 0);
       return ERROR;
-    }
-    fframe=lframe->nxt;
-    time_off[axis]=t;
-    lai=ai; 
-    lj=j;
-    dx=fframe->position-lframe->position;
-    dv=fframe->velocity-lframe->velocity;
-    dt=fframe->end_time-lframe->end_time;
-    vdot=dx/dt;
-    if (CALCFINAL_verbose)
-    {
-      printf ("\r\n time_off=%f, ldt=%f, lt=%f, t=%f",time_off[axis],ldt,lt,t);
-      printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%12.8f",dx,dv,dt,vdot);
-    }
-    ai=(2/dt)*((3*vdot)-(2*lframe->velocity)-fframe->velocity);
-    j=(6/(dt*dt))*(lframe->velocity+fframe->velocity-(2*vdot));
+   }
+   
+   fframe = iframe->nxt;
+   dx = fframe->position - iframe->position;
+   dv = fframe->velocity - iframe->velocity;
+   dt = sdss_delta_time(fframe->end_time, iframe->end_time);
+   vdot = dx/dt;
+   ai = (2/dt)*(3*vdot - 2*iframe->velocity - fframe->velocity);
+   j = (6/(dt*dt))*(iframe->velocity + fframe->velocity - 2*vdot);
+/*
+ * necessary if for loop not executed; calc of t
+ */
+   t = (start + 1)/FLTFRMHZ + time_off[axis]; /* for end condition */
 
-    p[axis][i]=lframe->position+(lframe->velocity*t)+(1/2.)*ai*(t*t)+
-    			(1/6.)*j*(t*t*t);
-    v[axis][i]=lframe->velocity+(ai*t)+(1/2.)*j*(t*t);
-    a[axis][i]=(FLTFRMHZ*t*(ai+(j*t)))+(FLTFRMHZ*ldt*(lai+(lj*lt)));
-    ji[axis][i]=(FLTFRMHZ*t*j)+(FLTFRMHZ*ldt*lj);
-    if (CALCFINAL_verbose)
-      printf ("\r\nFinal %d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
-	i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
-    if ((i+1)>MAX_CALC) printf ("\r\n calc_frames has problems %d",i+1);
-    return (i+1);
+   if(CALC_verbose) {
+      printf("\r\n iframe=%p, fframe=%p",iframe,fframe);
+      printf("\r\n iframe->end_time=%f, fframe->end_time=%f",
+	      iframe->end_time,fframe->end_time);
+      printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f",dx,dv,dt,vdot);
+      printf("\r\n ai=%12.8f, j=%12.8f, t=%f, start=%d, time_off=%f",
+	     ai,j,t,start,time_off[axis]);
   }
-  else 
-  {
-    if (i>(MAX_CALC-1)) printf ("\r\n calc_frames has problems %d",i);
-    return i;
-  }
+
+   for(i = 0;
+       i < (int)min(MAX_CALC-1, (int)((dt - time_off[axis])*FRMHZ) - start);
+									 i++) {
+      t = (i + start + 1)/FLTFRMHZ + time_off[axis];
+      tim[axis][i] = 1/FLTFRMHZ;
+      p[axis][i] = iframe->position + iframe->velocity*t + (1/2.)*ai*(t*t) +
+	(1/6.)*j*(t*t*t);
+      v[axis][i] = iframe->velocity + ai*t + (1/2.)*j*(t*t);
+      a[axis][i] = ai + j*t;
+      ji[axis][i] = j;
+      
+      if(CALC_verbose) {
+	 printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
+		 i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
+      }
+   }
+/*
+ * last one with a portion remaining; needs portion of next one
+ */
+#if 0
+   printf("Check for FINAL: time_off=%f, i=%d, start=%d, t=%f, dt=%f\n",
+	  time_off[axis], i, start, t, dt);
+#endif
+
+   if((int)(i + start) != (int)((dt - time_off[axis])*FLTFRMHZ) ||
+						    t == dt - time_off[axis]) {
+      if(i > MAX_CALC - 1) {
+	 TRACE(0, "calc_frames has problems (A) %d\n",i, 0);
+      }
+      return i;
+   }
+
+   ldt = ((dt - time_off[axis])*FLTFRMHZ -
+			       (int)((dt - time_off[axis])*FLTFRMHZ))/FLTFRMHZ;
+   t = 1/FLTFRMHZ - ldt;
+   lt = dt;
+   tim[axis][i] = 1/FLTFRMHZ;
+   
+   lframe = fframe;
+   if(lframe->nxt == NULL) {
+      TRACE(1, "CALC FRAME: next frame required to finish", 0, 0);
+      return ERROR;
+   }
+    
+   fframe = lframe->nxt;
+   time_off[axis] = t;
+   lai = ai; 
+   lj = j;
+   dx = fframe->position - lframe->position;
+   dv = fframe->velocity - lframe->velocity;
+   dt = fframe->end_time - lframe->end_time;
+   vdot = dx/dt;
+
+   if(CALCFINAL_verbose) {
+      printf("time_off=%f, ldt=%f, lt=%f, t=%f\n",time_off[axis],ldt,lt,t);
+      printf("dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%12.8f\n",dx,dv,dt,vdot);
+   }
+   
+   ai = (2/dt)*(3*vdot - 2*lframe->velocity - fframe->velocity);
+   j = (6/(dt*dt))*(lframe->velocity + fframe->velocity - 2*vdot);
+   
+   p[axis][i] = lframe->position + lframe->velocity*t + (1/2.)*ai*(t*t) +
+							      (1/6.)*j*(t*t*t);
+   v[axis][i] = lframe->velocity + ai*t + (1/2.)*j*(t*t);
+   a[axis][i] = FLTFRMHZ*t*(ai + j*t) + FLTFRMHZ*ldt*(lai + (lj*lt));
+   ji[axis][i] = FLTFRMHZ*t*j + FLTFRMHZ*ldt*lj;
+   
+   if(CALCFINAL_verbose) {
+      printf("Final %d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f\n",
+	     i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
+   }
+   
+   if(i + 1 > MAX_CALC) {
+      TRACE(0, "calc_frames has problems (B) %d\n",i + 1, 0);
+   }
+
+   return(i + 1);
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: calc_offset
-**
-** DESCRIPTION:
-**	Calculate offset frames from pvt pairs starting at a specified position.
+**	Calculate offset frames from pvt pairs starting at a specified position
 **	Up to MAX_CALC frames are returned into the global buffers for
 **	specification into MEI frames.  Similar to calc_frames and applied
 **	as an addition to calc_frames or a bump.
@@ -2341,92 +2143,90 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
 **
 **=========================================================================
 */
-int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
+int
+calc_offset(int axis, struct FRAME *iframe, int start, int cnt)
 {
-  double dx,dv,dt,vdot;
-  double ai,j,t;
-  struct FRAME *fframe;
-  int i,ii;
+   double dx,dv,dt,vdot;
+   double ai,j,t;
+   struct FRAME *fframe;
+   int i,ii;
   
-  fframe=iframe->nxt;
-  dx=fframe->position-iframe->position;
-  dv=fframe->velocity-iframe->velocity;
-  dt=sdss_delta_time(fframe->end_time,iframe->end_time);
-  vdot=dx/dt;
-  ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
-  j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
-/* neccessary if for loop not executed; calc of t*/
-  t=(start+1)/FLTFRMHZ;	/* for end condition */
-  if (CALCOFF_verbose)
-  {
-    printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f",dx,dv,dt,vdot);
-    printf("\r\n ai=%12.8f, j=%12.8f, t=%f, start=%d, ",ai,j,t,start);
-  }
-  for (i=0;i<(int)min(cnt,
-		(int)(dt*FRMHZ)-start);i++)
-  {
-    t=(i+start+1)/FLTFRMHZ;
-    timoff[axis][i]=1/FLTFRMHZ;
-    poff[axis][i]+=iframe->position+(iframe->velocity*t)+(1/2.)*ai*(t*t)+
-    			(1/6.)*j*(t*t*t);
-    voff[axis][i]+=iframe->velocity+(ai*t)+(1/2.)*j*(t*t);
-    aoff[axis][i]+=ai+(j*t);
-    jioff[axis][i]+=j;
-    if (CALCOFF_verbose)
-      printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
- 	i,t,timoff[axis][i],poff[axis][i],voff[axis][i],aoff[axis][i]);
-  }
-  for (ii=i;ii<cnt;ii++)
-  {         
-    t=(ii+start+1)/FLTFRMHZ;
-    timoff[axis][ii]=1/FLTFRMHZ;
-    poff[axis][ii]+=fframe->position+(fframe->velocity*(t-dt));
-    voff[axis][ii]+=fframe->velocity;
-    if (CALCOFF_verbose)
-      printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
-        ii,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],aoff[axis][ii]);
-  }
-  return i;
+   fframe = iframe->nxt;
+   dx = fframe->position - iframe->position;
+   dv = fframe->velocity - iframe->velocity;
+   dt = sdss_delta_time(fframe->end_time, iframe->end_time);
+   vdot = dx/dt;
+   ai = (2/dt)*(3*vdot - 2*iframe->velocity - fframe->velocity);
+   j = (6/(dt*dt))*(iframe->velocity + fframe->velocity - 2*vdot);
+/*
+ * neccessary if for loop not executed; calc of t
+ */
+   t = (start + 1)/FLTFRMHZ;		/* for end condition */
+   if(CALCOFF_verbose) {
+      printf("dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f\n",dx,dv,dt,vdot);
+      printf("ai=%12.8f, j=%12.8f, t=%f, start=%d,\n",ai,j,t,start);
+   }
+   
+   for(i = 0; i < (int)min(cnt, (int)(dt*FRMHZ)-start); i++) {
+      t = (i + start + 1)/FLTFRMHZ;
+      timoff[axis][i] = 1/FLTFRMHZ;
+      poff[axis][i] += iframe->position + iframe->velocity*t + (1/2.)*ai*(t*t)+
+							      (1/6.)*j*(t*t*t);
+      voff[axis][i] += iframe->velocity + ai*t + (1/2.)*j*(t*t);
+      aoff[axis][i] += ai + j*t;
+      jioff[axis][i] += j;
+      
+      if(CALCOFF_verbose) {
+	 printf ("%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f\n",
+		 i,t,timoff[axis][i],poff[axis][i],voff[axis][i],
+		 aoff[axis][i]);
+      }
+   }
+
+   for(ii = i; ii < cnt; ii++) {         
+      t = (ii+start+1)/FLTFRMHZ;
+      timoff[axis][ii] = 1/FLTFRMHZ;
+      poff[axis][ii] += fframe->position + fframe->velocity*(t - dt);
+      voff[axis][ii] += fframe->velocity;
+      
+      if(CALCOFF_verbose) {
+	 printf("%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f\n",
+		ii,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],
+		aoff[axis][ii]);
+      }
+   }
+   
+   return i;
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: clroffset
-**
-** DESCRIPTION:
 **	Clear the offset calculation.
 **
 ** RETURN VALUES:
 **	number of offset calculations cleared
-**
-** CALLS TO:
 **
 ** GLOBALS REFERENCED:
 **	poff,voff,aoff,jioff
 **
 **=========================================================================
 */
-int clroffset(int axis,int cnt)
+int
+clroffset(int axis,int cnt)
 {
-  int i;
+   int i;
+   
+   for(i = 0; i < cnt; i++) {         
+      poff[axis][i] = voff[axis][i] = aoff[axis][i] = jioff[axis][i] = 0;
+   }
 
-  for (i=0;i<cnt;i++)
-  {         
-    poff[axis][i]=0;
-    voff[axis][i]=0;
-    aoff[axis][i]=0;
-    jioff[axis][i]=0;
-  }
-  return cnt;
+   return cnt;
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: addoffset
-**
-** DESCRIPTION:
 **	Add the offset calculation to the MEI frames.
 **
 ** RETURN VALUES:
@@ -2440,29 +2240,29 @@ int clroffset(int axis,int cnt)
 **
 **=========================================================================
 */
-int addoffset(int axis,int cnt)
+int
+addoffset(int axis,int cnt)
 {
-  int i;
+   int i;
 
-  for (i=0;i<cnt;i++)
-  {         
-    p[axis][i]+=poff[axis][i];
-    v[axis][i]+=voff[axis][i];
-    a[axis][i]+=aoff[axis][i];
-    ji[axis][i]+=jioff[axis][i];
-    if (CALCADDOFF_verbose)
-      printf ("\r\n%d:  p=%12.8f, v=%12.8f, a=%12.8f",
-        i,p[axis][i],v[axis][i],a[axis][i]);
-  }
-  return cnt;
+   for(i=0;i<cnt;i++) {
+      p[axis][i] += poff[axis][i];
+      v[axis][i] += voff[axis][i];
+      a[axis][i] += aoff[axis][i];
+      ji[axis][i] += jioff[axis][i];
+
+      if(CALCADDOFF_verbose) {
+	 printf("%d:  p=%12.8f, v=%12.8f, a=%12.8f\n",
+		i,p[axis][i],v[axis][i],a[axis][i]);
+      }
+   }
+
+   return cnt;
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: start_frame
-**
-** DESCRIPTION:
 **	Start the frame processing after at a specified time.  The MEI
 **	controller dwells after all frames inside the MEI have been 
 **	purged.
@@ -2474,67 +2274,70 @@ int addoffset(int axis,int cnt)
 **	tm_frames_to_execute
 **	sdss_delta_time
 **
-** GLOBALS REFERENCED:
-**
 **=========================================================================
 */
-void start_frame(int axis,double time)
+void
+start_frame(int axis,double time)
 {
-  int lcnt;
+   int lcnt;
   
-  time_off[axis]=0.0;
-  while ((lcnt=tm_frames_to_execute(axis))>1)
-  {
-/*    printf("\r\nDwell frames left=%d",lcnt);*/
-    taskDelay(3);
-  }
-  taskDelay(5);
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-     time = sdss_delta_time(time,sdss_get_time());
-/*     printf("\r\ntime to dwell=%f",time);*/
-     dsp_dwell (axis<<1,time);
-     semGive (semMEI);
-  }
-  printf ("\r\nSTART axis=%d: time=%f",axis<<1,time);
+   time_off[axis] = 0.0;
+   while ((lcnt = tm_frames_to_execute(axis)) > 1) {
+#if 0
+      printf("Dwell frames left=%d\n",lcnt);
+#endif
+      taskDelay(3);
+   }
+   
+   taskDelay(5);
+   if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+   } else {
+      time = sdss_delta_time(time, sdss_get_time());
+#if 0
+      printf("time to dwell=%f\n",time);
+#endif
+      dsp_dwell(2*axis, time);
+      semGive(semMEI);
+   }
+   
+   printf("START axis=%d: time=%f\n", 2*axis, time);
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: get_frame_count
-**
-** DESCRIPTION:
 **	Retrieves the number of MEI frames between two pvts including the 
 **	left over remants of the previous pvt pair.
 **
 ** RETURN VALUES:
 **	number of MEI frames
 **
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
 **=========================================================================
 */
-int get_frame_cnt(int axis, struct FRAME *iframe)
+int
+get_frame_cnt(int axis, struct FRAME *iframe)
 {
-  struct FRAME *fframe;
-  double dt;
-  int cnt;
-
-  fframe=iframe->nxt;
-  dt=fframe->end_time-iframe->end_time;
-  cnt=(int)((dt-time_off[axis])*FLTFRMHZ);
-/*  printf("\r\nfirst cnt=%d,%f,%f",cnt,dt,(dt-time_off[axis])*FLTFRMHZ);*/
-  if ( ((dt-time_off[axis])*FLTFRMHZ)>(int)((dt-time_off[axis])*FLTFRMHZ) )
-  {
-    cnt++;
-/*    printf(" final cnt=%d",cnt);*/
-  }
-  return cnt;
+   struct FRAME *fframe;
+   double dt;
+   int cnt;
+   
+   fframe = iframe->nxt;
+   dt = fframe->end_time-iframe->end_time;
+   cnt = (dt - time_off[axis])*FLTFRMHZ;
+#if 0
+   printf("first cnt=%d,%f,%f\n",cnt,dt,(dt-time_off[axis])*FLTFRMHZ);
+#endif
+   if((dt - time_off[axis])*FLTFRMHZ > (int)((dt - time_off[axis])*FLTFRMHZ)) {
+      cnt++;
+#if 0
+      printf("final cnt=%d\n",cnt);
+#endif
+   }
+   
+   return cnt;
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -2601,7 +2404,7 @@ struct SW_COEFFS rot_coeffs[]={
 void
 set_rot_coeffs (int state, int index, short val)
 {
-  rot_coeffs[state].coeffs[index]=val;
+   rot_coeffs[state].coeffs[index] = val;
 }
 
 void
@@ -2644,7 +2447,7 @@ set_rot_dnlimit (int state, int val)
 void
 set_rot_state(int state)
 {
-   axis_coeffs_state[4]=state;
+   axis_coeffs_state[4] = state;
 }
 
 int
@@ -2710,74 +2513,90 @@ coeffs_state_cts(int axis,
 **
 **=========================================================================
 */
-void load_frames(int axis, int cnt, int idx, double sf)
+void
+load_frames(int axis, int cnt, int idx, double sf)
 {
-  int e;
-  int i;
-  FRAME frame;
-  
-  if (FRAME_verbose)
-    printf("\r\n Load %d Frames, sf=%f",cnt,sf);
-  for (i=idx;i<(cnt+idx);i++)
-  {
-    if (fabs(a[axis][i])>fabs(max_acceleration[axis+3])) 
-      max_acceleration[axis+3]=a[axis][i];
-    if (fabs(a[axis][i])>max_acceleration[axis]) 
-      printf ("\r\nAXIS %d: MAX ACC %f exceeded by %f",
-	  axis,a[axis][i],max_acceleration[axis]);
-    if (fabs(v[axis][i])>fabs(max_velocity[axis+3])) 
-      max_velocity[axis+3]=v[axis][i];
-    if (fabs(v[axis][i])>max_velocity[axis]) 
-      printf ("\r\nAXIS %d: MAX VEL %f exceeded by %f",
-	  axis,v[axis][i],max_velocity[axis]);
-    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-    {
-      taskLock();
-      e=frame_m(&frame,"0l xvajt un d",axis<<1,
-	(double)p[axis][i]*sf,(double)v[axis][i]*sf,
-	(double)a[axis][i]*sf,(double)ji[axis][i]*sf,
-	tim[axis][i],
-	FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,NEW_FRAME);
-      taskUnlock();
-      semGive (semMEI);
-    }
-    sdssdc.pvt[axis].position=(long)(p[axis][i]*sf);
-    sdssdc.pvt[axis].velocity=(long)(v[axis][i]*sf);
-    sdssdc.pvt[axis].time=(long)(tim[axis][i]*1000);
-    if (DIAGQ_verbose)
-    {
-      if ((diagq!=NULL)&&(axis==DIAGQ_verbose))
-      {
-        (diagq+diagq_i)->p=p[axis][i];
-        (diagq+diagq_i)->v=v[axis][i];
-        (diagq+diagq_i)->a=a[axis][i];
-        (diagq+diagq_i)->ji=ji[axis][i];
-        (diagq+diagq_i)->tim=tim[axis][i];
-        diagq_i = (diagq_i+1)%diagq_siz;
-      }
-    }
-    if (FRAME_verbose)
-        printf ("\r\n axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, \r\nj=%12.8f,t=%12.8f",
-	axis<<1,i,
-	(double)p[axis][i]*sf,(double)v[axis][i]*sf,
-	(double)a[axis][i]*sf,ji[axis][i]*sf,
-	tim[axis][i]);    
-    }
-}
-void load_frames_test(int axis, int cnt, double sf)
-{
-  int i;
+   int e;
+   int i;
+   FRAME frame;
    
-    printf("\r\n Load %d Frames, sf=%f",cnt,sf);
-    for (i=0;i<cnt;i++)
-    {
-      printf ("\r\n axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f",
-	axis<<1,i,
-	(double)p[axis][i]*sf,(double)v[axis][i]*sf,
-	(double)a[axis][i]*sf,ji[axis][i]*sf,
-	tim[axis][i]);    
-    }
+   if(FRAME_verbose) {
+      printf("\r\n Load %d Frames, sf=%f",cnt,sf);
+   }
+   
+   for(i = idx; i < cnt + idx; i++) {
+      if(fabs(a[axis][i]) > fabs(max_acceleration[axis+3])) {
+	 max_acceleration[axis+3] = a[axis][i];
+      }
+      
+      if(fabs(a[axis][i]) > max_acceleration[axis]) {
+	 printf("\r\nAXIS %d: MAX ACC %f exceeded by %f",
+		axis,a[axis][i],max_acceleration[axis]);
+      }
+      
+      if(fabs(v[axis][i]) > fabs(max_velocity[axis+3])) {
+	 max_velocity[axis+3] = v[axis][i];
+      }
+      
+      if(fabs(v[axis][i]) > max_velocity[axis]) {
+	 printf ("\r\nAXIS %d: MAX VEL %f exceeded by %f",
+		 axis,v[axis][i],max_velocity[axis]);
+      }
+      
+      if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+      } else {
+	 taskLock();
+	 e=frame_m(&frame,"0l xvajt un d",axis<<1,
+		   (double)p[axis][i]*sf,(double)v[axis][i]*sf,
+		   (double)a[axis][i]*sf,(double)ji[axis][i]*sf,
+		   tim[axis][i],
+		   FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,NEW_FRAME);
+	 taskUnlock();
+	 semGive (semMEI);
+      }
+      
+      sdssdc.pvt[axis].position = (long)(p[axis][i]*sf);
+      sdssdc.pvt[axis].velocity = (long)(v[axis][i]*sf);
+      sdssdc.pvt[axis].time = (long)(tim[axis][i]*1000);
+      
+      if(DIAGQ_verbose) {
+	 if(diagq != NULL && axis == DIAGQ_verbose) {
+	    diagq[diagq_i].p = p[axis][i];
+	    diagq[diagq_i].v = v[axis][i];
+	    diagq[diagq_i].a = a[axis][i];
+	    diagq[diagq_i].ji = ji[axis][i];
+	    diagq[diagq_i].tim = tim[axis][i];
+	    diagq_i = (diagq_i+1)%diagq_siz;
+	 }
+      }
+      
+      if(FRAME_verbose) {
+	 printf("axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f\n"
+		"j=%12.8f,t=%12.8f\n",
+		axis<<1, i,
+		(double)p[axis][i]*sf, (double)v[axis][i]*sf,
+		(double)a[axis][i]*sf, ji[axis][i]*sf,
+		tim[axis][i]);
+      }
+   }
 }
+
+void
+load_frames_test(int axis, int cnt, double sf)
+{
+   int i;
+   
+   printf("\r\n Load %d Frames, sf=%f",cnt,sf);
+   for(i = 0; i < cnt; i++) {
+      printf ("\r\n axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f",
+	      axis<<1,i,
+	      (double)p[axis][i]*sf,(double)v[axis][i]*sf,
+	      (double)a[axis][i]*sf,ji[axis][i]*sf,
+	      tim[axis][i]);
+   }
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -2939,74 +2758,67 @@ void drift_frame(int axis,double vel,double sf)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: end_frame
-**
-** DESCRIPTION:
 **	End frames sent to MEI since there are no new pvts.  This should
 **	bring the motion to a position with no velocity or acceleration.
 **	The controller will remain in closed-loop holding the position.
 **
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
 **=========================================================================
 */
-void end_frame(int axis,int index,double sf)
+void
+end_frame(int axis, int index, double sf)
 {
-  int e;
-  FRAME frame;
-  
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-      e=frame_m(&frame,"0l xvajt un d",axis<<1,
-	(double)p[axis][index]*sf,(double)0.0,(double)0.0,
-	(double)0.0,
-	(double)(1./FLTFRMHZ),
-	FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
-      dsp_set_last_command(dspPtr,axis<<1,(double)p[axis][index]*sf);
-      semGive (semMEI);
-      printf ("\r\nEND axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f",
-	axis<<1,index,
-	(double)p[axis][index]*sf,(double)v[axis][index]*sf,(double)a[axis][index]*sf,
-	(double)ji[axis][index]*sf,
-	tim[axis][index]);    
-  }
+   int e;
+   FRAME frame;
+   
+   if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+      return;
+   } 
+
+   e = frame_m(&frame, "0l xvajt un d", 2*axis,
+	       (double)p[axis][index]*sf,(double)0.0,(double)0.0,
+	       (double)0.0,
+	       (double)(1./FLTFRMHZ),
+	       FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
+   dsp_set_last_command(dspPtr, 2*axis, (double)p[axis][index]*sf);
+   semGive(semMEI);
+   
+   printf("END axis=%d (%d): "
+	  "p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f, t=%12.8f\n",
+	  2*axis, index,
+	  (double)p[axis][index]*sf,(double)v[axis][index]*sf,
+	  (double)a[axis][index]*sf, (double)ji[axis][index]*sf,
+	  tim[axis][index]);
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_frames_to_execute
-**
-** DESCRIPTION:
 **	Returns remaining frames in MEI queue or ERROR
 **
 ** RETURN VALUES:
 **	remaining frames to execute
-**
-** CALLS TO:
 **
 ** GLOBALS REFERENCED:
 **	semMEI
 **
 **=========================================================================
 */
-int tm_frames_to_execute(int axis)
+static int
+tm_frames_to_execute(int axis)
 {
-  int cnt;
-  
-  if (semTake (semMEI,60)!=ERROR)
-  {
-    cnt=frames_to_execute(axis<<1);
-    semGive (semMEI);
-    return cnt;    
-  }
-  printf("\r\ntm_frames_to_execute error");
-  return ERROR;    
+   int cnt;
+   
+   if(semTake(semMEI,60) == ERROR) {
+      printf("tm_frames_to_execute error\n");
+      return ERROR;    
+   }
+   
+   cnt = frames_to_execute(2*axis);
+   semGive(semMEI);
+   
+   return cnt;    
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -3028,250 +2840,295 @@ int tm_frames_to_execute(int axis)
 **=========================================================================
 */
 #define LOAD_MAX        20
-void tm_TCC(int axis)
-{
-  int cnt, lcnt, cntoff;
-  struct FRAME *frame;
-  struct FRAME *frmoff;
-  int i;
-  int frame_cnt, frame_idx;
-  double position;
-  double velocity;
-  long pos;
-  int idx;
-  int status;
-  
-  tm_controller_run (axis<<1);
-  idx=0;
-  printf ("\r\n Axis=%d;  Ticks per degree=%f",axis,
-	ticks_per_degree[axis]);
-  FOREVER
-  {
-/* task should idle here with no input pvt */
-    while (axis_queue[axis].active==NULL)
-    {
-      axis_alive |= (1<<axis);	/* keep alive bit */
-/* in case drifting, no new pvt, and need to stop */
-      if (frame_break[axis])
-      {
-        stp_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
-	frame_break[axis]=FALSE;
-      }
-      taskDelay (3);
-    }
-    frame=axis_queue[axis].active;
-    drift_break[axis]=FALSE;
 
-/* reposition if neccessary */
-    semTake (semMEI,WAIT_FOREVER);
-    get_position(axis<<1,&position);
-    get_velocity(axis<<1,&velocity);
-    semGive (semMEI);
-    pos=(long)position;
-/*      printf("\r\nCheck Params for repositioning");*/
-    if ( (abs((long)((frame->position*ticks_per_degree[axis])-position))>
-	(long)(.01*ticks_per_degree[axis])) && (fabs(velocity)==0) )
-    {
-      while ((lcnt=tm_frames_to_execute(axis))>1)
-      {
-        printf ("\r\n frames left=%d",lcnt);
-        taskDelay(1);
+void
+tm_TCC(int axis)
+{
+   int cnt, lcnt, cntoff;
+   struct FRAME *frame;
+   struct FRAME *frmoff;
+   int i;
+   int frame_cnt, frame_idx;
+   double position;
+   double velocity;
+   long pos;
+   int idx;
+   int status;
+   
+   tm_controller_run(2*axis);
+   idx=0;
+   printf("Axis=%d;  Ticks per degree=%f\n",axis, ticks_per_degree[axis]);
+   
+   for(;;) {
+/*
+ * task should idle here with no input pvt
+ */
+      while(axis_queue[axis].active == NULL) {
+	 axis_alive |= (1 << axis);	/* keep alive bit */
+/*
+ * in case drifting, no new pvt, and need to stop
+ */
+	 if(frame_break[axis]) {
+	    stp_frame(axis, stop_position[axis],
+		      (double)ticks_per_degree[axis]);
+	    frame_break[axis] = FALSE;
+	 }
+	 taskDelay (3);
       }
-      tm_start_move (axis<<1,
-		1*(double)ticks_per_degree[axis],
-		.05*(double)ticks_per_degree[axis],
-		frame->position*(double)ticks_per_degree[axis]);
-      printf ("\r\nAxis %d Repositioning TCC cmd to pos=%f from pos=%f\r\n diff=%ld>%ld",
+
+      frame=axis_queue[axis].active;
+      drift_break[axis]=FALSE;
+/*
+ * reposition if necessary
+ */
+      semTake (semMEI,WAIT_FOREVER);
+      get_position(2*axis, &position);
+      get_velocity(2*axis,&velocity);
+      semGive(semMEI);
+      
+      pos = (long)position;
+#if 0
+      printf("Check Params for repositioning\n");
+#endif
+      if(abs((long)((frame->position*ticks_per_degree[axis]) - position)) >
+					 (long)(0.01*ticks_per_degree[axis]) &&
+							 fabs(velocity) == 0) {
+	 while((lcnt = tm_frames_to_execute(axis)) > 1) {
+	    printf ("frames left=%d\n",lcnt);
+	    taskDelay(1);
+	 }
+	 tm_start_move(2*axis,
+		       1*(double)ticks_per_degree[axis],
+		       0.05*(double)ticks_per_degree[axis],
+		       frame->position*(double)ticks_per_degree[axis]);
+	 
+	 printf("Axis %d Repositioning TCC cmd to pos=%f from pos=%f\n"
+		"diff=%ld>%ld\n",
 		axis,frame->position*ticks_per_degree[axis],position,
 		abs((frame->position*ticks_per_degree[axis])-position),
-		(long)(.01*ticks_per_degree[axis]) );
-      status=TRUE;
-      while ((abs((frame->position*ticks_per_degree[axis])-position)>
-		(long)(.01*ticks_per_degree[axis]))&&status)
-      {
-        taskDelay (10);
-        if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-        {
-	  status=in_motion(axis<<1);
-          get_position(axis<<1,&position);
-          semGive (semMEI);
-          pos=(long)position;
-        }
-/*        printf("\r\nrepositioning to %f, status=%d",position,status);*/
-      }
-      printf("\r\nDone repositioning to %f",position);
-    }
-/*    else
-      printf("\r\n nonzero vel=%f",velocity);*/
-
-/* check for time */
-    while ((frame!=NULL)&&
-	  (sdss_delta_time(frame->end_time,sdss_get_time())<0.0))
-    {
-      frame = frame->nxt;
-      axis_queue[axis].active=frame;
-      printf ("\r\n Frame deleted due to time");
-    }
-
-    if (frame!=NULL)
-    {
-      start_frame (axis,frame->end_time);
-      while ((frame->nxt==NULL)&&
-	    (sdss_delta_time(frame->end_time,sdss_get_time())>0.02))
-      {
-/*        printf ("\r\n waiting for second frame");*/
-        taskDelay (3);
-      }
-#if 1					/* Charlie's version */
-      while ( (frame->nxt!=NULL) || (axis_queue[axis].active!=NULL) &&
-	     ((!frame_break)&&(!drift_break)) )
-#else  /* re-written for clarity */
-      while(frame->nxt != NULL ||
-	    (axis_queue[axis].active != NULL && !frame_break && !drift_break))
+		(long)(0.01*ticks_per_degree[axis]));
+	 
+	 status=TRUE;
+	 while((abs((frame->position*ticks_per_degree[axis]) - position) >
+		(long)(0.01*ticks_per_degree[axis])) &&
+	       status == TRUE) {
+	    taskDelay (10);
+	    if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+	       TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+	    } else {
+	       status=in_motion(axis<<1);
+	       get_position(axis<<1,&position);
+	       semGive (semMEI);
+	       pos=(long)position;
+	    }
+#if 0
+	    printf("repositioning to %f, status=%d\n", position, status);
 #endif
-	{
-        frame_cnt=get_frame_cnt(axis,frame);
-/*        printf ("\r\n frames_cnt=%d",frame_cnt);*/
-        frame_idx=0;
-	while (frame_cnt>0)
-        {
-          while ( ((cnt=calc_frames(axis,frame,frame_idx))==ERROR)&&
-            ((lcnt=tm_frames_to_execute(axis))>4) ) taskDelay (1);
-	  if (cnt==ERROR)
-	  {
-            frame_break[axis]=TRUE;
-            printf ("\r\n frame=%p, nxt=%p, nxt=%p, frame_cnt=%d",
-	      frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
-	  }
-	  else
-	  {
-/* OFFSET */
-            for (i=0;i<OFF_MAX;i++)
-  	    {
-	      clroffset(axis,cnt);
-	      if (offset_queue_end[axis][i]!=NULL)
-	      {
-	        cntoff=calc_offset(axis,&offset[axis][i][0],
-					offset_idx[axis][i],cnt);
-	        offset_idx[axis][i]+=cnt;
-  	        if ((offset_idx[axis][i]/20.)>offset[axis][i][1].end_time)
-	        {
-/*	          printf ("\r\nShutdown offset");*/
-                  frmoff=frame;
-	          taskLock();
-                  while (frmoff!=offset_queue_end[axis][i])
-                  {
-	            frmoff->position+=offset[axis][i][1].position;
-	            frmoff->velocity+=offset[axis][i][1].velocity;
-	            frmoff=frmoff->nxt;
-/*	            printf ("\r\noffset end=%p, pos=%f,idx=%d",frmoff,
-		      frmoff->position,offset_idx[axis][i]);*/
-	          }
-                  frmoff->position+=offset[axis][i][1].position;
-	          frmoff->velocity+=offset[axis][i][1].velocity;
-/*                  printf ("\r\noffset end=%p, pos=%f,idx=%d",frmoff,
-		      frmoff->position,offset_idx[axis][i]);*/
-	          offset_queue_end[axis][i]=NULL;
-	          taskUnlock();
-	        }
-	      }
-	      addoffset(axis,cnt);
-	    }
-            frame_idx += cnt;
-            frame_cnt -= cnt;
-	  }
+	 }
+	 printf("Done repositioning to %f\n",position);
+      } else {
+#if 0
+	 printf("nonzero vel=%f\n", velocity);
+#endif
+      }
+/*
+ * check for time
+ */
+      while(frame != NULL &&
+	    sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
+	 frame = frame->nxt;
+	 axis_queue[axis].active=frame;
+	 printf ("\r\n Frame deleted due to time");
+      }
+      
+      if(frame != NULL) {
+	 start_frame (axis,frame->end_time);
+	 while(frame->nxt == NULL &&
+	       sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
+#if 0
+	    printf ("\r\n waiting for second frame");
+#endif
+	    taskDelay (3);
+	 }
+#if 0					/* Charlie's version */
+	 while ( (frame->nxt!=NULL) || (axis_queue[axis].active!=NULL) &&
+		((!frame_break)&&(!drift_break)) ) ;
+#else  /* re-written for clarity */
+	 while(frame->nxt != NULL ||
+	       (axis_queue[axis].active != NULL &&
+					       !frame_break && !drift_break)) {
 
-	  if (frame_break[axis]) 
-	  {
-/*	    printf ("\r\nFRAME_BREAK");*/
-            axis_queue[axis].active=NULL;
-	    frame_cnt=0;
-            break;
-	  }
-	  if (drift_break[axis]) 
-	  {
-/*	    printf ("\r\nDRIFT_BREAK");*/
-            axis_queue[axis].active=NULL;
-	    frame_cnt=0;
-            break;
-	  }
+#endif
+	    frame_cnt = get_frame_cnt(axis,frame);
+#if 0
+	    printf ("frames_cnt=%d\n", frame_cnt);
+#endif
+	    frame_idx = 0;
+	    while(frame_cnt > 0) {
+	       while((cnt = calc_frames(axis,frame,frame_idx)) == ERROR &&
+		     (lcnt = tm_frames_to_execute(axis)) > 4) {
+		  taskDelay(1);
+	       }
+	       
+	       if(cnt == ERROR) {
+		  frame_break[axis] = TRUE;
+		  printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
+			 frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
+	       } else {			/* OFFSET */
+		  for(i = 0; i < OFF_MAX; i++) {
+		     clroffset(axis,cnt);
+		     if(offset_queue_end[axis][i] != NULL) {
+			cntoff = calc_offset(axis, &offset[axis][i][0],
+					     offset_idx[axis][i], cnt);
+			offset_idx[axis][i] += cnt;
+			
+			if(offset_idx[axis][i]/20.0 >
+			   offset[axis][i][1].end_time) {
+#if 0
+			   printf ("\r\nShutdown offset");
+#endif
+			   frmoff=frame;
+			   taskLock();
+			   while(frmoff != offset_queue_end[axis][i]) {
+			      frmoff->position += offset[axis][i][1].position;
+			      frmoff->velocity += offset[axis][i][1].velocity;
+			      frmoff = frmoff->nxt;
+#if 0
+			      printf("offset end=%p, pos=%f,idx=%d\n",
+				     frmoff, frmoff->position,
+				     offset_idx[axis][i]);
+#endif
+			   }
+			   
+			   frmoff->position += offset[axis][i][1].position;
+			   frmoff->velocity += offset[axis][i][1].velocity;
+#if 0
+			   printf("offset end=%p, pos=%f,idx=%d\n",
+				  frmoff, frmoff->position,
+				  offset_idx[axis][i]);
+#endif
+			   offset_queue_end[axis][i] = NULL;
+			   taskUnlock();
+			}
+		     }
+		     addoffset(axis,cnt);
+		  }
+		  frame_idx += cnt;
+		  frame_cnt -= cnt;
+	       }
+	       
+	       if(frame_break[axis]) {
+#if 0
+		  printf("FRAME_BREAK\n");
+#endif
+		  axis_queue[axis].active=NULL;
+		  frame_cnt=0;
+		  break;
+	       }
+	       
+	       if(drift_break[axis]) {
+#if 0
+		  printf("DRIFT_BREAK\n");
+#endif
+		  axis_queue[axis].active=NULL;
+		  frame_cnt=0;
+		  break;
+	       }
+	       
+	       idx = 0;
+	       while(cnt > 0) {
+		  if(frame_break[axis]) {
+#if 0
+		     printf("FRAME_BREAK\n");
+#endif
+		     axis_queue[axis].active=NULL;
+		     frame_cnt=0;
+		     cnt=0;
+		     break;
+		  }
+		  
+		  if(drift_break[axis]) {
+#if 0
+		     printf("DRIFT_BREAK\n");
+#endif
+		     axis_queue[axis].active=NULL;
+		     frame_cnt=0;
+		     cnt=0;
+		     break;
+		  }
+		  
+		  if(cnt > 0) {
+		     load_frames(axis, min(cnt,5), idx,
+				 (double)ticks_per_degree[axis]);
+		     
+		     if(idx == 15 && cnt == 5) {
+			printf("p=%f\n",p[axis][19]);
+		     }
+		     
+		     while((lcnt = tm_frames_to_execute(axis)) > 10) {
+			taskDelay(3);
+		     }
+		     
+		     idx += 5;
+		     cnt -= 5;
+		  }
+	       }
+	    }
+	    
+	    if(axis_queue[axis].active == NULL) {
+	       frame=axis_queue[axis].end;
+	       break;
+	    }
+	    
+	    frame = frame->nxt;
+	    axis_queue[axis].active = frame;
+	    while(frame->nxt == NULL &&
+		  sdss_delta_time(frame->end_time,sdss_get_time()) > 0.02) {
+	       taskDelay (1);
+	    }
+	    
+	    while(frame->nxt == NULL &&
+		  (lcnt = tm_frames_to_execute(axis)) > 1) {
+	       taskDelay(1);
+	    }
+	 }
+	 
+	 lcnt = tm_frames_to_execute(axis);
+	 printf("Ran out: frames left=%d\n", lcnt);
+	 
+	 taskLock();
+	 axis_queue[axis].active = NULL;
+	 frame = axis_queue[axis].end;
+	 for(i = 0; i < OFF_MAX; i++) {
+	    offset_idx[axis][i]=0;
+	    offset_queue_end[axis][i]=NULL;
+	 }
+	 taskUnlock();
+	 
+	 if(idx <= 0) {
+	    idx = 1;
+	 }
 
-	  idx=0;
-	  while (cnt>0)
-          {
-	    if (frame_break[axis]) 
-	    {
-/*	      printf ("\r\nFRAME_BREAK");*/
-              axis_queue[axis].active=NULL;
- 	      frame_cnt=0;
-	      cnt=0;
-              break;
+	 if(frame_break[axis]) {
+	    stp_frame(axis, stop_position[axis],
+		      (double)ticks_per_degree[axis]);
+	    frame_break[axis] = FALSE;
+	 } else {
+	    if(drift_break[axis]) {
+	       drift_frame(axis, drift_velocity[axis],
+			   (double)ticks_per_degree[axis]);
+	    } else {
+	       end_frame(axis, idx - 1, (double)ticks_per_degree[axis]);
 	    }
-	    if (drift_break[axis]) 
-	    {
-/*	      printf ("\r\nDRIFT_BREAK");*/
-              axis_queue[axis].active=NULL;
-	      frame_cnt=0;
-	      cnt=0;
-              break;
-	    }
-	    if (cnt>0)
-	    {
-              load_frames(axis,min(cnt,5),idx,(double)ticks_per_degree[axis]);
-	      if ((idx==15)&&(cnt==5)) printf ("\r\n p=%f",p[axis][19]);
-              while ((lcnt=tm_frames_to_execute(axis))>10) taskDelay (3);
-	      idx+=5;
-	      cnt -=5;
-	    }
-          }
-        }
-        if (axis_queue[axis].active==NULL) 
-        {
-	  frame=axis_queue[axis].end;
-	  break;
-	}
-        frame = frame->nxt;
-        axis_queue[axis].active=frame;    
-        while ((frame->nxt==NULL)&&
-	    (sdss_delta_time(frame->end_time,sdss_get_time())>.02))
-          taskDelay (1);
-        while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1)) 
-	  taskDelay(1);
+	 }
+      } else {
+	 printf ("Restart no frames to process\n");
       }
-      lcnt=tm_frames_to_execute(axis);;
-      printf ("\r\n Ran out: frames left=%d",lcnt);
-      taskLock();
-      axis_queue[axis].active=NULL;    
-      frame=axis_queue[axis].end;
-      for (i=0;i<OFF_MAX;i++)
-      {
-        offset_idx[axis][i]=0;
-	offset_queue_end[axis][i]=NULL;
-      }
-      taskUnlock();
-      if (idx<=0) idx=1;
-      if (frame_break[axis])
-      {
-        stp_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
-	frame_break[axis]=FALSE;
-      }
-      else
-      {
-        if (drift_break[axis])
-        {
-          drift_frame(axis,drift_velocity[axis],(double)ticks_per_degree[axis]);
-        }
-        else
-	{
-          end_frame(axis,idx-1,(double)ticks_per_degree[axis]);
-	}
-      }
-    }
-    else
-      printf ("\r\nRestart no frames to process");
-  }
+   }
 }
-void start_tm_TCC()
+
+void
+start_tm_TCC()
 {
   taskSpawn("tmAz",47,VX_FP_TASK,20000,(FUNCPTR)tm_TCC,
 		0,0,0,0,0,0,0,0,0,0);
@@ -3350,1093 +3207,39 @@ void start_tm_TCC_test()
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: print_axis_queue
-**
-** DESCRIPTION:
 **	Diagnostic for display the last 100 pvts for a specified axis.
-**
-** RETURN VALUES:
-**	return always zero
-**
-** CALLS TO:
 **
 ** GLOBALS REFERENCED:
 **	axis_queue
 **
 **=========================================================================
 */
-int print_axis_queue(int axis)
-{
-  struct FRAME *frame;
-  struct FRAME_QUEUE *queue;
-
-  printf ("\r\nList Axis Queue=%d: %p",axis,&axis_queue[axis]);
-  queue = &axis_queue[axis];
-  frame = (struct FRAME *)queue->top;
-
-  while (frame!=NULL)
-  {		/* end of queue, and becomes active frame */
-    if (frame==queue->top) printf ("\r\nTOP, cnt=%d",queue->cnt);
-    if (frame==queue->active) printf ("\r\nACTIVE");
-    if (frame==queue->end) printf ("\r\nEND");
-    printf ("\r\n %p: position=%12.8f, velocity=%12.8f, end_time=%12.8f",frame,
-    		frame->position,
-  		frame->velocity,
-		frame->end_time);
-    if (frame->nxt!=NULL)
-    {
-      printf ("\r\n      deltas position=%12.8f, velocity=%12.8f, end_time=%12.8f",
-                frame->nxt->position-frame->position,
-                frame->nxt->velocity-frame->velocity,
-                frame->nxt->end_time-frame->end_time);
-    }
-    frame = frame->nxt;
-  }
-  return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: init_fiducial 
-**	    tm_latch
-**
-** DESCRIPTION:
-**	Initialize the fiducials marking all invalid and restoring known
-**	positions from shared memory.  Always update the fixed fiducial
-**	for each axis to a known point.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**	restore_fiducials
-**
-** GLOBALS REFERENCED:
-**	az_fiducial
-**	alt_fiducial
-**	rot_fiducial
-**	az_fiducial_position
-**	alt_fiducial_position
-**	rot_fiducial_position
-**
-**=========================================================================
-*/
-/* structure for the primary set of fiducials - one per axis */
-struct FIDUCIARY fiducial[3]=
-/*	NotValid, mark, index */
-	{{FALSE,0,9+24},
-	  {FALSE,0,1},
-	  {FALSE,0,40+43}};
-/* stow     120:44:15.8
-   fiducial 120:45:44.9
-   median   000:21:59.4
-*/
-/*		           120:45:44.9, 14:39:23:286, 005:58:04:130  */
-/*			   AZ           , ALT         , ROT      */
-long fiducial_position[3]={31016188     , 3766415+58807     , 336370/2};
-/*long fiducial_position[3]={31016188     , 3766415+58807     , 402702};*/
-
-/* structure for all the fiducials */
-struct FIDUCIALS az_fiducial[48];
-struct FIDUCIALS alt_fiducial[7];
-struct FIDUCIALS rot_fiducial[156];
-long az_fiducial_position[60];
-long alt_fiducial_position[7];
-long rot_fiducial_position[156];
-long rot_latch = 0;			/* position of last rotary latch seen*/
-int fiducialidx[3]={-1,-1,-1};		/* last fiducial crossed */
-void init_fiducial()
-{
-  int i;
-
-  for (i=0;i<sizeof(az_fiducial)/sizeof(struct FIDUCIALS);i++)
-  {
-    az_fiducial[i].markvalid=FALSE;
-    az_fiducial[i].last=0;
-    az_fiducial[i].err=0;
-    az_fiducial[i].poserr=0;
-    az_fiducial[i].mark=0;
-    az_fiducial_position[i]=0;
-  }
-  restore_fiducials (0);
-  az_fiducial_position[fiducial[0].index]=fiducial_position[0];	/* 120:49:20:00 */
-  for (i=0;i<sizeof(alt_fiducial)/sizeof(struct FIDUCIALS);i++)
-  {
-    alt_fiducial[i].markvalid=FALSE;
-    alt_fiducial[i].last=0;
-    alt_fiducial[i].err=0;
-    alt_fiducial[i].poserr=0;
-    alt_fiducial[i].mark=0;
-    alt_fiducial_position[i]=0;
-  }
-  restore_fiducials (1);
-	/* 14:39:23:286 */
-  alt_fiducial_position[fiducial[1].index]=fiducial_position[1];
-  alt_fiducial_position[0]=0x0;	/* 00:00:00:00 */
-  alt_fiducial_position[6]=0x0160E6C6;	/* 090:00:00:00 */
-  for (i=0;i<sizeof(rot_fiducial)/sizeof(struct FIDUCIALS);i++)
-  {
-    rot_fiducial[i].markvalid=FALSE;
-    rot_fiducial[i].last=0;
-    rot_fiducial[i].err=0;
-    rot_fiducial[i].poserr=0;
-    rot_fiducial[i].mark=0;
-    rot_fiducial_position[i]=0;
-  }
-  restore_fiducials (2);
-   	/* 001:13:35:373 */
-  rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
-}
-static char const thePath[] = "/mcptpm/";
-#if defined(CALL_NSF)
-/*------------------------------------------------------------------------------
-  createNfsConnection
-
-  This function sets up the NFS connection to 'sdsshost'. It also
-  changes the directory.
-------------------------------------------------------------------------------*/
-static STATUS createNfsConnection(void)
-{
-/*        int const NESWOLD = 6295;*/
-        int const BRIEGEL = 1131;
-        int const CONTROLS = 1522;
-
-        /* First, set up our NFS authentication parameters. We'll appear
-       as 'neswold' from the 'controls' group. These IDs are obtained
-       from 'sdsshost.apo.nmsu.edu'. */
-
-        nfsAuthUnixSet("sdssmcp", BRIEGEL, CONTROLS, 0, 0);
-
-        /* Attempt to mount the remote drive and set the default
-       directory. */
-
-        if (OK == nfsMount("sdsshost", (char*) thePath, 0))
-                return OK;
-        else {
-	  printErrno(errno);
-                return ERROR;
-        }
-}
-/*------------------------------------------------------------------------------
-  destroyNfsConnection
-------------------------------------------------------------------------------*/
-static STATUS destroyNfsConnection(void)
-{
-        return nfsUnmount((char*) thePath);
-}
-#endif
-/* This variable holds the default path to where the log files will be
-   held. There is code that expects this string to contain the
-   trailing '/' */
-
-/*------------------------------------------------------------------------------
-  logFileName
-------------------------------------------------------------------------------*/
-static char const* bldFileName(char const* newName)
-{
-        static char buffer[1024] = "";
-
-        /* If the new name isn't NULL, then we'll be modifying the static
-       value. If it is NULL, we'll just return the current
-       contents. */
-
-        if (newName)
-
-                /* If the string isn't empty, then build up a path (the file
-           must reside in the /mcptpm directory!) If the string is
-           empty, we clear out the static value. */
-
-                if (*newName)
-                        sprintf(buffer, "%s%.*s", thePath,
-                                        (int) (sizeof(buffer) - sizeof(thePath)
-- 1), newName);
-                else
-                        buffer[0] = '\0';
-        return buffer;
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: fiducial_shutdown
-**
-** DESCRIPTION:
-**	Flush the file and close it.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
 void
-fiducial_shutdown(int type)
+print_axis_queue(int axis)
 {
-  printf("fiducial file shutdown: FP=%p\r\n",fidfp);
-  
-  fclose (fidfp);
-#if defined(CALL_NSF)
-  destroyNfsConnection();
-#endif
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_latch
-**
-** DESCRIPTION:
-**	The azimuth has 48 entries for +-360 degrees.  The azimuth uses small
-**	segments of optical tape with reference marks to interrupt the MCP.
-**	A barcode reader is triggered to read a corresponding UPC which 
-**	contains an absolute index.  The position must be aligned within
-**	approximately 120 deg for this mechanism to work since the code
-**	must determine if the azimuth is wrapped or not.
-**	The altitude has 7 entries for 0-90 degrees.  The altitude also uses
-**	segments of optical tape with reference marks to interrupt the MCP, 
-**	but the barcode reader is disabled (failed).  The clinometer is used
-**	to judge the index for the reference crossing.  The clinometer must
-**	be accurate to with +-7 degrees for this to work correctly.
-**	The rotator has 156 entries to exceed +-360 degrees.  The rotator
-**	uses the same optical tape but it is continuous and provides an
-**	absolute unique value between any two reference marks.  This value
-**	is adjusted as an index into the table.
-**	tm_latch is the routine triggered by the semaphore and processes
-**	the reference corresponding to the axis causing the trigger.  Note:
-**	when a latch occurs in the MEI, all axis are latched.  Also, if
-**	numberous interrupts occur due to setting on the reference mark, then
-**	the next interrupt is delayed by disabling the interrupt and not
-**	enabling until a delay is expired.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**	barcode_serial
-**
-** GLOBALS REFERENCED:
-**	semMEI
-**	sdssdc
-**	latchpos
-**	fiducial
-**	fiducialidx
-**	az_fiducial
-**	alt_fiducial
-**	rot_fiducial
-**	az_fiducial_position
-**	alt_fiducial_position
-**	rot_fiducial_position
-**	altclino_off, altclino_sf
-**
-**=========================================================================
-*/
-void
-tm_latch(char *name)
-{
-   int i;
-   int fididx;
-   int fididx1;
-   int status;
-   time_t fidtim;
-   int ret;				/* return code from semTake() */
+   struct FRAME *frame;
+   struct FRAME_QUEUE *queue;
    
-#if defined(CALL_NSF)
-   if((status = createNfsConnection()) == ERROR) {
-      printf ("\r\nNFSConnection error");
-   }
-#endif
-
-   fidfp = fopen(bldFileName(name),"a");
-   if(fidfp == NULL) {
-      printf ("\r\nOpen file error: %s",name);
-   } else {
-      printf ("\r\nOpen file %s; %p",name,fidfp);
-
-#if 0
-      setvbuf(fidfp,NULL,_IOLBF,0);
-      rebootHookAdd((FUNCPTR)fiducial_shutdown);
-#endif
+   printf("List Axis Queue=%d: %p\n",axis,&axis_queue[axis]);
+   queue = &axis_queue[axis];
+   for(frame = (struct FRAME *)queue->top; frame != NULL; frame = frame->nxt) {
+      if(frame == queue->top) printf("TOP, cnt=%d\n", queue->cnt);
+      if(frame == queue->active) printf("ACTIVE\n");
+      if(frame == queue->end) printf ("END\n");
       
-      time(&fidtim);
-      fprintf(fidfp,"#RESTART......... %s %.24s\n",
-	       bldFileName(name),ctime(&fidtim));
-      fprintf(fidfp,
-	      "#Axis\tIndex\tDate & Time:SDSStime\tPosition1\tPosition2\n");
-#if 1
-      fflush(fidfp);
-#else
-      fclose(fidfp);
-      fidfp = fopen(bldFileName(name),"a");
-#endif
-   }
-   
-   init_fiducial();
-   if(semLATCH == NULL) {
-      semLATCH = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
-   }
-
-   if(msgDIO316ClearISR == NULL) {
-      msgDIO316ClearISR = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
-      assert(msgDIO316ClearISR != NULL);
-	 
-      taskSpawn("tm_ClrInt", 30, 8, 4000, \
-		(FUNCPTR)DIO316ClearISR_delay, 120, dio316int_bit,
-		0,0,0,0,0,0,0,0);
-   }
-   
-   for(latchidx = -1;; latchidx = (latchidx + 1)%MAX_LATCHED) {
-      if(latchidx < 0) {
-	 latchidx = 0;
-      } else {
-/*
- * send message requesting the latches to rearm, reenabling interrupts
- */
-	 MCP_MSG msg;
-	 STATUS stat;
-
-	 msg.type = DIO316ClearISR_type;
-	 msg.u.DIO316ClearISR.timeout = 120;	
-	 msg.u.DIO316ClearISR.dio316int_bit = dio316int_bit;
- 
-	 stat = msgQSend(msgDIO316ClearISR, (char *)&msg, sizeof(msg),
-			 NO_WAIT, MSG_PRI_NORMAL);
-	 assert(stat == OK);
-      }
-/*
- * The interrupt routine DIO316_interrupt gives semLATCH, so wait for it
- */
-      ret = semTake(semLATCH, WAIT_FOREVER);
-      assert(ret != ERROR);
-      TRACE(8, "Took semLATCH", 0, 0);
-
-      for(i = 15, status = FALSE; status == FALSE && i > 0; i--) {
-	 ret = semTake(semMEI, WAIT_FOREVER);
-	 assert(ret != ERROR);
-	 
-	 status = (int)latch_status();
-	 semGive(semMEI);
-	 
-	 taskDelay(1);
-      }
+      printf("%p: position=%12.8f, velocity=%12.8f, end_time=%12.8f\n",
+	     frame, frame->position, frame->velocity, frame->end_time);
       
-      if(status == FALSE) {		/* we didn't see anything */
-	 latchpos[latchidx].axis = -9;
-	 
-	 if(dio316int_bit & AZIMUTH_INT) {
-	    latchpos[latchidx].axis = -(AZIMUTH+1);
-	 }
-	 if(dio316int_bit & ALTITUDE_INT) {
-	    latchpos[latchidx].axis = -(ALTITUDE+1);
-	 }
-	 if (dio316int_bit & INSTRUMENT_INT) {
-	    latchpos[latchidx].axis = -(INSTRUMENT+1);
-	 }
-
-	 TRACE(4, "BAD LATCH: latchidx = %d", latchidx, 0);
-
-	 continue;
-      }
-/*
- * OK, we read a latch position so do something with it
- */
-      fididx = -1;
-      assert(latchidx >= 0 && latchidx < MAX_LATCHED); 
-      latchpos[latchidx].axis = -9;
-
-      if(dio316int_bit & AZIMUTH_INT) {
-	 latchpos[latchidx].axis = AZIMUTH;
-	 ret = semTake(semMEI,WAIT_FOREVER);
-	 assert(ret != ERROR);
-	 
-	 get_latched_position(0,&latchpos[latchidx].pos1);
-	 get_latched_position(1,&latchpos[latchidx].pos2);
-	 semGive (semMEI);
-
-	 if(LATCH_verbose) {
-	    printf ("\r\nAXIS %d: latched pos0=%f,pos1=%f",
-		    latchpos[latchidx].axis,
-		    (float)latchpos[latchidx].pos1,
-		    (float)latchpos[latchidx].pos2);
-	 }
-
-	 fididx1 = barcode_serial(3); /* backwards from what you'd think */
-	 fididx = barcode_serial(3);	/* read twice...not reliable */
-	 if(fididx > 0 && fididx <= 24) {
-	    if(latchpos[latchidx].pos1 > 0) {
-	       fididx += 24;
-	    }
-	    
-	    if(fidfp != NULL) {
-	       fidtim = time(&fidtim);
-	       time(&fidtim);
-	       
-	       fprintf(fidfp, "%d\t%d\t%.24s:%f\t%ld\t%ld\n",
-		       latchpos[latchidx].axis,fididx,
-		       ctime(&fidtim),sdss_get_time(),
-		       (long)latchpos[latchidx].pos1,
-		       (long)latchpos[latchidx].pos2);
-	       fprintf(fidfp, "#first barcode reading=%d\n",fididx1);
-#if 1
-	       fflush(fidfp);
-#else
-	       fclose(fidfp);
-	       fidfp = fopen(bldFileName(name),"a");
-#endif
-	    }
-	    
-	    if(fididx < 48 && fididx > 0) {
-	       az_fiducial[fididx].last=az_fiducial[fididx].mark;
-	       az_fiducial[fididx].mark=latchpos[latchidx].pos1;
-	       az_fiducial[fididx].err=az_fiducial[fididx].mark-
-		 az_fiducial[fididx].last;
-	       az_fiducial[fididx].poserr=az_fiducial[fididx].mark-
-		 az_fiducial_position[fididx];
-	       az_fiducial[fididx].markvalid=TRUE;
-	       
-	       if((abs(az_fiducial[fididx].poserr)>errmsg_max[0])&&
-		  (az_fiducial_position[fididx]!=0)) {
-		  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-			  latchpos[latchidx].axis,
-			  (long)az_fiducial[fididx].poserr,
-			  (float)latchpos[latchidx].pos1,
-			  (float)latchpos[latchidx].pos2);
-	       }
-	       if(fididx==fiducial[AZIMUTH].index) {
-		  fiducial[AZIMUTH].mark = az_fiducial[fididx].mark;
-		  fiducial[AZIMUTH].markvalid = TRUE;
-	       }
-	       fiducialidx[AZIMUTH] = fididx;
-	    }
-	 }
-      }
-      
-      if(dio316int_bit & ALTITUDE_INT) {
-	 latchpos[latchidx].axis = ALTITUDE;
-	 ret = semTake(semMEI,WAIT_FOREVER);
-	 assert(ret != ERROR);
-	 
-	 get_latched_position(2,&latchpos[latchidx].pos1);
-	 get_latched_position(3,&latchpos[latchidx].pos2);
-	 semGive (semMEI);
-
-	 if(LATCH_verbose) {
-	    printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",
-		    latchpos[latchidx].axis,
-		    (float)latchpos[latchidx].pos1,
-		    (float)latchpos[latchidx].pos2);
-	 }
-/*
- * turned off (failed hardware)
- * clinometer does a better job
- */
-#if 0
-	 fididx = barcode_serial(2);
-	 fididx = barcode_serial(2);
-#endif
-	 fididx=((int)(abs(sdssdc.status.i4.alt_position-altclino_off)*
-		       altclino_sf)+7.5)/15;
-	 fididx++;
-	 if(fididx != -1) {
-	    fididx--;
-	    if (fidfp != NULL) {
-	       fidtim = time(&fidtim);
-	       time(&fidtim);
-	       
-	       fprintf(fidfp, "%d\t%d\t%.24s:%f\t%ld\t%ld\n",
-		       latchpos[latchidx].axis,fididx,
-		       ctime(&fidtim),sdss_get_time(),
-		       (long)latchpos[latchidx].pos1,
-		       (long)latchpos[latchidx].pos2);
-	       fprintf(fidfp, "#alt_position=%d\n",
-		       sdssdc.status.i4.alt_position);
-#if 1
-	       fflush(fidfp);
-#else
-	       fclose(fidfp);
-	       fidfp = fopen(bldFileName(name),"a");
-#endif
-	    }
-	    
-            if(fididx < 7 && fididx >= 0) {
-	       alt_fiducial[fididx].last = alt_fiducial[fididx].mark;
-	       alt_fiducial[fididx].mark = latchpos[latchidx].pos1;
-	       alt_fiducial[fididx].err = alt_fiducial[fididx].mark -
-						     alt_fiducial[fididx].last;
-	       alt_fiducial[fididx].poserr = alt_fiducial[fididx].mark -
-						 alt_fiducial_position[fididx];
-	       alt_fiducial[fididx].markvalid = TRUE;
-
-	       if(abs(alt_fiducial[fididx].poserr) > errmsg_max[1] &&
-					  alt_fiducial_position[fididx] != 0) {
-		  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-			  latchpos[latchidx].axis,
-			  (long)alt_fiducial[fididx].poserr,
-			  (float)latchpos[latchidx].pos1,
-			  (float)latchpos[latchidx].pos2);
-	       }
-	       
-	       if(fididx==fiducial[ALTITUDE].index) {
-		  fiducial[ALTITUDE].mark = alt_fiducial[fididx].mark;
-		  fiducial[ALTITUDE].markvalid = TRUE;
-	       }
-	       fiducialidx[ALTITUDE] = fididx;
-	    }
-	 }
-      }
-      
-      if(dio316int_bit & INSTRUMENT_INT) {
-	 latchpos[latchidx].axis = INSTRUMENT;
-	 ret = semTake(semMEI,WAIT_FOREVER);
-	 assert(ret != ERROR);
-
-#ifdef ROT_ROTARY_ENCODER
-	    /* switch to 5 for optical encoder, when using rotary */
-	 get_latched_position(5,&latchpos[latchidx].pos1);
-	 get_latched_position(4,&latchpos[latchidx].pos2);
-#else
-	 get_latched_position(4, &latchpos[latchidx].pos1);
-	 get_latched_position(5, &latchpos[latchidx].pos2);
-#endif
-	 semGive (semMEI);
-	 
-	 if(LATCH_verbose) {
-	    printf("\r\nAXIS %d: latched pos4=%f,pos5=%f",
-		   latchpos[latchidx].axis,
-		   (float)latchpos[latchidx].pos1,
-		   (float)latchpos[latchidx].pos2);
-	 }
-/*
- * have we already seen a rotator latch? If so, we know which encoder
- * is which
- */
-	 if(rot_latch != 0) {
-            if(abs((long)latchpos[latchidx].pos1 - rot_latch) > 250000) {
-	       fididx =
-		 abs(iround((latchpos[latchidx].pos1 - rot_latch)/800.));
-	      fididx -= 500;
-	    } else {
-	       fididx = 0;
-	    }
-	    
-            if(LATCH_verbose) {
-	       printf("\r\nAXIS %d: latched pos4=%ld,rot_latch=%ld,idx=%d, "
-		      "abspos=%d", latchpos[latchidx].axis,
-		      (long)latchpos[latchidx].pos1, rot_latch,fididx,
-		      abs(iround((latchpos[latchidx].pos1-rot_latch)/800.) ));
-	    }
-
-	    if(fididx == 0) {
-	       ;			/* we just crossed the same fiducial
-					   twice */
-	    } else if(fididx < 0 && fididx > -80) {
-	       fididx = -fididx;
-	       if(fididx > 45 && latchpos[latchidx].pos1 > 0) {
-		  fididx -= 76;
-	       } else {
-		  if(fididx < 35 && latchpos[latchidx].pos1 < 0) {
-		     fididx += 76;
-		  }
-	       }
-	       fididx += 45;
-	       	       
-	       if(LATCH_verbose) {
-		  printf ("\r\n      final fididx=%d",fididx);
-	       }
-	       
-	       if(fididx <= 0 || fididx >= 156) {
-		  fprintf(stderr,"Illegal fididx = %d\n", fididx);
-	 
-		  rot_latch = latchpos[latchidx].pos1;
-		  continue;
-	       }
-	       
-	       rot_fiducial[fididx].mark =
-				  max((long)latchpos[latchidx].pos1,rot_latch);
-	    } else if(fididx > 0 && fididx < 80) {
-	       if(fididx > 45 && latchpos[latchidx].pos1 > 0) {
-		  fididx -= 76;
-	       } else {
-		  if(fididx < 35 && latchpos[latchidx].pos1 < 0) {
-		     fididx += 76;
-		  }
-	       }
-	       fididx += 45;
-	       
-	       if(LATCH_verbose) {
-		  printf ("\r\n      final fididx=%d",fididx);
-	       }
-	       
-	       if(fididx <= 0 || fididx >= 156) {
-		  fprintf(stderr,"Illegal fididx = %d\n", fididx);
-	 
-		  rot_latch = latchpos[latchidx].pos1;
-		  continue;
-	       }
-	       
-	       rot_fiducial[fididx].last = rot_fiducial[fididx].mark;
-	       rot_fiducial[fididx].mark =
-				  min((long)latchpos[latchidx].pos1,rot_latch);
-	       rot_fiducial[fididx].err =
-			 rot_fiducial[fididx].mark - rot_fiducial[fididx].last;
-	    } else {
-	       fprintf(stderr,"Impossible value of fididx: %d\n", fididx);
-	       rot_latch = latchpos[latchidx].pos1;
-	       continue;
-	    }
-
-	    rot_fiducial[fididx].poserr =
-		     rot_fiducial[fididx].mark - rot_fiducial_position[fididx];
-	    rot_fiducial_position[fididx] = latchpos[latchidx].pos1;
-
-	    if(fididx != 0) {
-	       rot_fiducial[fididx].markvalid = TRUE;
-	       fiducialidx[INSTRUMENT] = fididx;
-	    }
-
-	    if(LATCH_error) {
-	       if(abs(rot_fiducial[fididx].poserr) > errmsg_max[2] &&
-					  rot_fiducial_position[fididx] != 0) {
-		  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-			  latchpos[latchidx].axis,
-			  (long)rot_fiducial[fididx].poserr,
-			  (float)latchpos[latchidx].pos1,
-			  (float)latchpos[latchidx].pos2);
-	       }
-	    }
-	    
-	    if(fidfp != NULL) {
-	       fidtim = time(&fidtim);
-	       time (&fidtim);
-	       
-	       fprintf(fidfp, "%d\t%d\t%.24s:%f\t%ld\t%ld\n",
-		       latchpos[latchidx].axis,fididx,
-		       ctime(&fidtim), sdss_get_time(),
-		       (long)latchpos[latchidx].pos1,
-		       (long)latchpos[latchidx].pos2);
-#if 1
-	       fflush(fidfp);
-#else
-	       fclose(fidfp);
-	       fidfp = fopen(bldFileName(name),"a");
-#endif
-	    }
-	 }
-
-	 TRACE(4, "ROT FIDUCIAL %.2f deg",
-	       rot_fiducial[fididx].mark/ROT_TICKS_DEG, 0);
-	 TRACE(4, "             err = %d ticks", rot_fiducial[fididx].err, 0);
-	 
-	 if(LATCH_verbose) {
-            i = fididx;
-            printf ("\r\nROT FIDUCIAL %d:  mark=%ld, pos=%ld, last=%ld",i,
-		    rot_fiducial[i].mark,rot_fiducial_position[i],
-		    rot_fiducial[i].last);
-            printf ("\r\n                  err=%ld, poserr=%ld",
-		    rot_fiducial[i].err,rot_fiducial[i].poserr);
-	 }
-
-	 rot_latch = latchpos[latchidx].pos1;
-	 if(fididx == fiducial[INSTRUMENT].index) {
-            fiducial[INSTRUMENT].mark = rot_fiducial[fididx].mark;
-            fiducial[INSTRUMENT].markvalid = TRUE;
-	 }
+      if(frame->nxt != NULL) {
+	 printf ("      "
+		 "deltas position=%12.8f, velocity=%12.8f, end_time=%12.8f\n",
+		 frame->nxt->position-frame->position,
+		 frame->nxt->velocity-frame->velocity,
+		 frame->nxt->end_time-frame->end_time);
       }
    }
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: DIO316ClearISR_delay
-**
-** DESCRIPTION:
-**	Task is spawned to delay enabling interrupt and arming latch
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	tm_DIO316
-**	semMEI
-**
-**=========================================================================
-*/
-void
-DIO316ClearISR_delay(void)
-{
-   unsigned char dio316int_bit;		/* value read by DIO316_interrupt */
-   MCP_MSG msg;				/* message to read */
-   int status;
-
-   for(;;) {
-/*
- * Wait for a message asking us to do something
- */
-      status =
-	msgQReceive(msgDIO316ClearISR, (char*)&msg, sizeof(msg), WAIT_FOREVER);
-      assert(status != ERROR);
-
-      TRACE(4, "DIO316ClearISR_delay: received message %d %d",
-	    msg.type, msg.u.DIO316ClearISR.dio316int_bit);
-      
-      assert(msg.type == DIO316ClearISR_type);
-      dio316int_bit = msg.u.DIO316ClearISR.dio316int_bit;
-/*
- * OK, we have our orders
- */
-      DIO316ClearISR(tm_DIO316);
-      taskDelay(msg.u.DIO316ClearISR.timeout);
-      
-      status = semTake(semMEI,WAIT_FOREVER);
-      assert(status == OK);
-
-      while((status = arm_latch(TRUE)) != DSP_OK) {
-	 TRACE(4, "Trying to ARM Latch; status=%d", status, 0);
-      }
-      semGive (semMEI);
-
-      if(dio316int_bit & AZIMUTH_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
-      }
-      if(dio316int_bit & ALTITUDE_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
-      }
-      if(dio316int_bit & INSTRUMENT_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
-      }
-   }
-}	 
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: set_primary_fiducials
-**
-** DESCRIPTION:
-**	Each axis has one primary fiducial and it can be adjusted or changed
-**	to a new index.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	fiducial  - structure for the primary set of fiducials
-**	fiducial_position
-**
-**=========================================================================
-*/
-void
-set_primary_fiducials(int axis,
-		      int fididx,
-		      long pos)
-{
-   switch (axis) {
-    case AZIMUTH:
-      if(fididx < 48 && fididx >= 0) {
-	 fiducial[axis].index=fididx;
-	 fiducial[axis].markvalid=FALSE;
-	 fiducial[axis].mark=fididx;
-	 fiducial_position[axis]=pos;
-      }
-      az_fiducial_position[fiducial[axis].index] = fiducial_position[axis];
-      break;	  
-    case ALTITUDE:
-      if(fididx < 7 && fididx >= 0) {
-	 fiducial[axis].index=fididx;
-	 fiducial[axis].markvalid=FALSE;
-	 fiducial[axis].mark=fididx;
-	 fiducial_position[axis]=pos;
-      }
-      alt_fiducial_position[fiducial[axis].index] = fiducial_position[axis];
-      break;
-    case INSTRUMENT:
-      if(fididx < 156 && fididx >= 0) {
-	 fiducial[axis].index=fididx;
-	 fiducial[axis].markvalid=FALSE;
-	 fiducial[axis].mark=fididx;
-	 fiducial_position[axis]=pos;
-      }
-      rot_fiducial_position[fiducial[axis].index] = fiducial_position[axis];
-      break;
-    default:
-      printf("set_primary_fiducials: unknown axis %d\n", axis);
-   }
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: set_fiducials_all
-**	    set_fiducials
-**
-** DESCRIPTION:
-**	Set the last passed position as the "known" position for the fiducial
-**	if it was marked as valid.  This does not automatically save these
-**	settings to shared memory and the fiducials should be calibrated
-**	before executing this function.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	az_fiducial
-**	alt_fiducial
-**	rot_fiducial
-**	az_fiducial_position
-**	alt_fiducial_position
-**	rot_fiducial_position
-**
-**=========================================================================
-*/
-void
-set_fiducials_all ()
-{
-  int i;
-
-  for (i=0;i<3;i++)
-    set_fiducials (i);
-}
-
-void
-set_fiducials (int axis)
-{
-  int i;
-
-  switch (axis)
-  {
-    case 0:
-        for (i=0;i<48;i++)
-        {
-          if (az_fiducial[i].markvalid)
-	  {
-            az_fiducial_position[i]=az_fiducial[i].mark;
-	    az_fiducial[i].poserr=0;
-	  }
-        }
-        break;
-    case 1:
-        for (i=0;i<7;i++)
-        {
-          if (alt_fiducial[i].markvalid)
-	  {
-            alt_fiducial_position[i]=alt_fiducial[i].mark;
-	    alt_fiducial[i].poserr=0;
-          }
-        }
-        break;
-    case 2:
-        for (i=0;i<156;i++)
-        {
-          if (rot_fiducial[i].markvalid)
-	  {
-            rot_fiducial_position[i]=rot_fiducial[i].mark;
-            rot_fiducial[i].poserr=0;
-          }
-        }
-        break;
-    }
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: save_fiducials_all
-**	    save_fiducials
-**	    restore_fiducials_all
-**	    restore_fiducials
-**
-** DESCRIPTION:
-**	Save/restore to/from shared memory the fiducials.  
-**	Does nothing with the primary
-**	fiducials...which is an artifact of getting fiducials to work and
-**	is becoming the working scenario.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	az_fiducial_position
-**	alt_fiducial_position
-**	rot_fiducial_position
-**
-**=========================================================================
-*/
-#define SM_AZ_FIDUCIALS	0x02810000
-#define SM_ALT_FIDUCIALS	0x02811000
-#define SM_ROT_FIDUCIALS	0x02812000
-
-void
-save_fiducials_all ()
-{
-  int i;
-
-  for (i=0;i<3;i++)
-    save_fiducials (i);
-}
-
-void
-save_fiducials (int axis)
-{
-  int i;
-  long *sm;
-
-  switch (axis)
-  {
-    case 0:
-	sm = (long *)SM_AZ_FIDUCIALS;
-        for (i=0;i<48;i++)
-          sm[i]=az_fiducial_position[i];
-        break;
-    case 1:
-	sm = (long *)SM_ALT_FIDUCIALS;
-        for (i=0;i<7;i++)
-          sm[i]=alt_fiducial_position[i];
-        break;
-    case 2:
-	sm = (long *)SM_ROT_FIDUCIALS;
-        for (i=0;i<156;i++)
-          sm[i]=rot_fiducial_position[i];
-        break;
-    }
-}
-
-void
-restore_fiducials_all ()
-{
-  int i;
-
-  for (i=0;i<3;i++)
-    restore_fiducials (i);
-}
-
-void
-restore_fiducials (int axis)
-{
-  int i;
-  long *sm;
-
-  switch (axis) {
-    case 0:
-	sm = (long *)SM_AZ_FIDUCIALS;
-        for (i=0;i<48;i++)
-          az_fiducial_position[i]=sm[i];
-        break;
-    case 1:
-	sm = (long *)SM_ALT_FIDUCIALS;
-        for (i=0;i<7;i++)
-          alt_fiducial_position[i]=sm[i];
-        break;
-    case 2:
-	sm = (long *)SM_ROT_FIDUCIALS;
-        for (i=0;i<156;i++)
-          rot_fiducial_position[i]=sm[i];
-        break;
-    }
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: print_fiducials
-**
-** DESCRIPTION:
-**	Diagnostic to see the fiducial positions and errors.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	az_fiducial
-**	alt_fiducial
-**	rot_fiducial
-**	az_fiducial_position
-**	alt_fiducial_position
-**	rot_fiducial_position
-**
-**=========================================================================
-*/
-void
-print_fiducials(int axis,		/* which axis */
-		int show_all)		/* show all fiducials, including
-					   ones we haven't crossed */
-{
-  int i;
-
-  switch (axis) {
-   case AZIMUTH:
-     for(i = 0;i < 48; i++) {
-	if(fiducial[axis].index==i) {
-	   printf("*");
-	   if(fiducial[axis].markvalid == i) printf ("!");
-	}
-	if(az_fiducial[i].markvalid) {
-	   printf("AZ FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld "
-		  " err=%ld, poserr=%ld\n",
-		  i, (int)(az_fiducial[i].mark/AZ_TICKS_DEG),
-		  az_fiducial[i].mark,az_fiducial_position[i],
-		  az_fiducial[i].last,
-		  az_fiducial[i].err,az_fiducial[i].poserr);
-	} else {
-	   if(show_all) {
-	      printf("AZ FIDUCIAL %d:  pos=%ld\n", i, az_fiducial_position[i]);
-	   }
-	}     
-     }
-     break;
-   case ALTITUDE:
-     for(i = 0;i < 7; i++) {
-	if(fiducial[axis].index == i) {
-	   printf("*");
-	   if(fiducial[axis].markvalid == i) printf ("!");
-	}
-	if(alt_fiducial[i].markvalid) {
-	   printf("ALT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld "
-		  " err=%ld, poserr=%ld\n",
-		  i, (int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
-		  alt_fiducial[i].mark,alt_fiducial_position[i],
-		  alt_fiducial[i].last,
-		  alt_fiducial[i].err,alt_fiducial[i].poserr);
-	} else {
-	   if(show_all) {
-	      printf("ALT FIDUCIAL %d:  pos=%ld\n",i,alt_fiducial_position[i]);
-	   }
-	}
-     }
-     break;
-   case INSTRUMENT:
-     for(i = 0;i < 156; i++) {
-	if(fiducial[axis].index==i) {
-	   printf("*");
-	   if(fiducial[axis].markvalid == i) printf ("!");
-	}
-
-	if(rot_fiducial[i].markvalid) {	   
-	   printf("ROT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld "
-		  " err=%ld, poserr=%ld\n",
-		  i, (int)(rot_fiducial[i].mark/ROT_TICKS_DEG),
-		  rot_fiducial[i].mark,rot_fiducial_position[i],
-		  rot_fiducial[i].last,
-		  rot_fiducial[i].err,rot_fiducial[i].poserr);
-	} else {
-	   if(show_all) {
-	      printf("ROT FIDUCIAL %d:  pos=%ld\n",i,rot_fiducial_position[i]);
-	   }
-	}     
-     }
-     break;
-  }
-}
 /*=========================================================================
 **=========================================================================
 **
@@ -4455,7 +3258,8 @@ print_fiducials(int axis,		/* which axis */
 **
 **=========================================================================
 */
-void ip_shutdown(int type)
+void
+ip_shutdown(int type)
 {
     char *ip;
 /* reset the systran carrier */
@@ -4491,7 +3295,8 @@ void ip_shutdown(int type)
 **
 **=========================================================================
 */
-void amp_reset(int axis)
+void
+amp_reset(int axis)
 {
    TRACE(1, "Resetting amp for axis %s: %d", axis_name(axis/2), axis);
    
@@ -4499,20 +3304,11 @@ void amp_reset(int axis)
    taskDelay (2);
    DIO316_Write_Port(cw_DIO316, AMP_RESET, 0);
 }
+
 /*=========================================================================
 **=========================================================================
-**
-** ROUTINE: sdss_init
-**
-** DESCRIPTION:
 **	General initialization of MEI board...called from startup script.
-**	Initializes queue data structures.  Setups semaphores and gets
-**	tm_latch spawned.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
+**	Initializes queue data structures.  Setups semaphores
 **
 ** GLOBALS REFERENCED:
 **	axis_queue
@@ -4522,84 +3318,89 @@ void amp_reset(int axis)
 **
 **=========================================================================
 */
-int sdss_init()
+int
+sdss_init(void)
 {
-  int i;
-  int err;
-  int axis;
-  double rate;
-  char buffer[MAX_ERROR_LEN] ;
-  double limit;
-  short action;
+   int i;
+   int err;
+   int axis;
+   double rate;
+   char buffer[MAX_ERROR_LEN] ;
+   double limit;
+   short action;
+   
+   for(i = 0; i < 3; i++) {
+      axis_queue[i].top = (struct FRAME *)malloc(sizeof(struct FRAME));
+      if(axis_queue[i].top == NULL) {
+	 printf("SDSS_INIT: no memory for queue\n");
+	 return ERROR;
+      }
+      
+      axis_queue[i].end = axis_queue[i].top;
+      axis_queue[i].active = NULL;
+      axis_queue[i].cnt = 1;
+      axis_queue[i].top->nxt = NULL;
+      axis_queue[i].top->position = 0;
+      axis_queue[i].top->velocity = 0;
+      axis_queue[i].top->end_time = 0;
+   }
+   sdss_was_init = TRUE;
 
-  for (i=0;i<3;i++)
-  {
-    axis_queue[i].top=(struct FRAME *)malloc (sizeof(struct FRAME));
-    if (axis_queue[i].top==NULL)
-    {
-      printf("\r\nSDSS_INIT: no memory for queue");
-      return ERROR;
-    }	
-    axis_queue[i].end=axis_queue[i].top;
-    axis_queue[i].active=NULL;
-    axis_queue[i].cnt=1;
-    axis_queue[i].top->nxt=NULL;
-    axis_queue[i].top->position=0;
-    axis_queue[i].top->velocity=0;
-    axis_queue[i].top->end_time=0;
-  }
-  sdss_was_init=TRUE;
-  err = dsp_init(DSP_IO_BASE);
-  if (err)
-  {
-    error_msg(err, buffer) ;	/* convert an error code to a human message */
-    printf("dsp_init failed--%s (%d)\n", buffer, err);
-/*    return (-1);*/
-  }
-  else 
-    printf("dsp_init Passed!\n");
-  err=dsp_reset();
-  if (err)
-  {
-    error_msg(err, buffer) ;	/* convert an error code to a human message */
-    printf("dsp_reset failed--%s (%d)\n", buffer, err);
-/*    return (-1);*/
-  }
-  else
-    printf("dsp_reset Passed!\n");
-  set_sample_rate(160);
-  printf("\r\n Sample Rate=%d",dsp_sample_rate());
-  for (axis=0;axis<dsp_axes();axis++)
-  {
-    get_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set stop rate=%f\r\n",axis,rate);
-    set_stop_rate(axis,(double)SDSS_STOP_RATE);
-    get_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set stop rate=%f\r\n",axis,rate);
+   err = dsp_init(DSP_IO_BASE);
+   if(err) {
+      error_msg(err, buffer) ;	/* convert an error code to a human message */
+      printf("dsp_init failed--%s (%d)\n", buffer, err);
+      /*    return (-1);*/
+   } else {
+      printf("dsp_init Passed!\n");
+   }
+   
+   err = dsp_reset();
+   if(err) {
+      error_msg(err, buffer) ;	/* convert an error code to a human message */
+      printf("dsp_reset failed--%s (%d)\n", buffer, err);
+      /*    return (-1);*/
+   } else {
+      printf("dsp_reset Passed!\n");
+   }
+   
+   set_sample_rate(160);
+   printf("\r\n Sample Rate=%d", dsp_sample_rate());
+   
+   for(axis = 0; axis < dsp_axes(); axis++) {
+      TRACE(1, "Initialising AXIS %d", axis, 0);
 
-    get_e_stop_rate(axis,&rate);
-    printf ("AXIS %d: old e_stop rate=%f\r\n",axis,rate);
-    set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
-    get_e_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set e_stop rate=%f\r\n",axis,rate);
+      get_stop_rate(axis,&rate);
+      TRACE(3, "old stop rate = %f", rate, 0);
+      set_stop_rate(axis,(double)SDSS_STOP_RATE);
+      get_stop_rate(axis,&rate);
+      TRACE(3, "set stop rate = %f", rate, 0);
+      
+      get_e_stop_rate(axis,&rate);
+      TRACE(3, "old e_stop rate=%f", rate, 0);
+      set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
+      get_e_stop_rate(axis,&rate);
+      TRACE(3, "set e_stop rate=%f", rate, 0);
+      
+      get_error_limit(axis,&limit,&action);
+      TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
+      set_error_limit(axis,24000.,ABORT_EVENT);
+      get_error_limit(axis,&limit,&action);
+      TRACE(3, "set error limit=%ld, action=%d", (long)limit, action);
 
-    get_error_limit(axis,&limit,&action);
-    printf ("AXIS %d: error limit=%ld, action=%d\r\n",axis,(long)limit,action);
-    set_error_limit(axis,24000.,ABORT_EVENT);
-    get_error_limit(axis,&limit,&action);
-    printf ("AXIS %d: SET error limit=%ld, action=%d\r\n",axis,(long)limit,action);
-    set_integration (axis,IM_ALWAYS);
-  }
-  VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
-  init_io(2,IO_INPUT);
-  arm_latch(TRUE);
-  semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-  semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-  taskSpawn ("tmLatch",49,VX_FP_TASK,10000,(FUNCPTR)tm_latch,
-		(long)"latch.log",0,0,0,0,0,0,0,0,0);
-  return 0;
+      set_integration(axis, IM_ALWAYS);
+   }
+   
+   VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
+   init_io(2,IO_INPUT);
+   arm_latch(TRUE);
+   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+   
+   return 0;
 }
-
+
+#if 0
 /*=========================================================================
 **=========================================================================
 **
@@ -4619,82 +3420,19 @@ int sdss_init()
 **
 **=========================================================================
 */
-void save_firmware()
+void
+save_firmware(void)
 {
   upload_firmware_file ("vx_mei_firmware.bin");
 }
-void restore_firmware()
+
+void
+restore_firmware(void)
 {
   download_firmware_file ("vx_mei_firmware.bin");
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: latchstart
-**	    latchverbose
-**	    latchquiet
-**	    latchprint
-**	    latchexcel
-**
-** DESCRIPTION:
-**	Diagnostic routines to capture and analyze the position latches.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void latchstart ()
-{
-  latchidx=0;
-}
-void latchverbose ()
-{
-  LATCH_verbose=TRUE;
-}
-void latchquiet ()
-{
-  LATCH_verbose=FALSE;
-}
-void latchprint (char *description)
-{
-  int i;
-  float ratio;
+#endif
 
-  date();
-  printf ("\r\n%s",description);
-  printf ("\r\n");
-  printf ("\r\naxis\tref\tdata\tlatch pos1\tlatch pos2\tratio");
-  ratio=0.0;
-  for (i=0;i<latchidx;i++)
-  {
-    if (i>0) ratio=(latchpos[i].pos2-latchpos[i-1].pos2)/
-		(latchpos[i].data-latchpos[i-1].data);
-    printf ("\r\n%d\t%d\t%d\t%12.0f\t%12.0f\t%f",latchpos[i].axis,
-			latchpos[i].ref,latchpos[i].data,
-    		(float)latchpos[i].pos1,(float)latchpos[i].pos2,ratio);
-  }
-  printf ("\r\n");
-}
-void latchexcel (int axis)
-{
-  int i;
-
-  date();
-  printf ("\r\naxis\tlatch pos1\tlatch pos2");
-  for (i=0;i<latchidx;i++)
-  {
-    if (axis==latchpos[i].axis)
-      printf ("\r\n%d\t%12.0f\t%12.0f",latchpos[i].axis,
-                (float)latchpos[i].pos1,(float)latchpos[i].pos2);
-  }
-  printf ("\r\n");
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -4712,7 +3450,8 @@ void latchexcel (int axis)
 **
 **=========================================================================
 */
-void print_max ()
+void
+print_max(void)
 {
   int i;
 
@@ -4745,24 +3484,26 @@ void print_max ()
 **
 **=========================================================================
 */
-int diagq_setup(int ks)
+void
+diagq_setup(int ks)
 {
-  diagq_siz=ks*1024;
-  diagq=malloc (diagq_siz*sizeof(struct DIAG_Q));
-  diagq_i=0;
-  return 0;
+  diagq_siz = ks*1024;
+  diagq = malloc(diagq_siz*sizeof(struct DIAG_Q));
+  assert(diagq != NULL);
+  diagq_i = 0;
 }
-int print_diagq()
+
+void
+print_diagq(void)
 {
-  int i;
-  printf ("\r\ni=%d",diagq_i);
-  for (i=0;i<diagq_siz;i++)
-  {
-	printf ("\r\n%d: p=%f tim=%f",i,(diagq+i)->p,(diagq+i)->tim);
-	printf (" v=%f a=%f ji=%f",(diagq+i)->v,(diagq+i)->a,
-		(diagq+i)->ji);
-  }
-  return 0;
+   int i;
+   
+   printf("i=%d\n",diagq_i);
+   for(i = 0; i < diagq_siz; i++) {
+      printf("%c%d: p=%f tim=%f v=%f a=%f ji=%f",
+	     ((i == diagq_i) ? '*' : ' '),
+	     i, diagq[i].p,diagq[i].tim, diagq[i].v,diagq[i].a, diagq[i].ji);
+   }
 }
 
 /*****************************************************************************/
@@ -4805,8 +3546,8 @@ mcp_set_pos(int axis,			/* the axis to set */
       return(-1);
    }
 
-   tm_set_pos(2*axis,pos);
-   tm_set_pos(2*axis + 1,pos);
+   tm_set_pos(2*axis, pos);
+   tm_set_pos(2*axis + 1, pos);
    fiducial[axis].markvalid = FALSE;
    
    return 0;
@@ -4884,50 +3625,6 @@ mcp_set_vel(int axis,			/* the axis to set */
    semGive (semMEI); 
 
    return 0;
-}
-
-/*****************************************************************************/
-/*
- * Set a fiducial
- */
-int
-mcp_set_fiducial(int axis)
-{
-   double pos;
-
-   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_set_fiducial: illegal axis %d\n", axis);
-
-      return(-1);
-   }
-   
-   if(!fiducial[axis].markvalid) {
-      fprintf(stderr,"fiducial for axis %s not crossed", axis_name(axis));
-      return(-1);
-   }
-
-   pos = (*tmaxis[axis]).actual_position +
-			       (fiducial_position[axis] - fiducial[axis].mark);
-
-   if(mcp_set_pos(axis, pos) < 0) {
-      fprintf(stderr,"Failed to set position for axis %s", axis_name(axis));
-      return(-1);
-   } 
-      
-   if (fidfp != NULL) {
-      time_t fidtim;
-      
-      time (&fidtim);
-      fprintf(fidfp, "%s\t%d\t%.25s:%f\t%ld\t%ld\n",
-	      axis_name(axis), fiducial[axis].index,
-	      ctime(&fidtim), sdss_get_time(),
-	      (long)fiducial_position[axis] - fiducial[axis].mark,
-	      (long)(*tmaxis[axis]).actual_position);
-   }
-   
-   fiducial[axis].mark = fiducial_position[axis];
-
-   return(0);
 }
 
 /*****************************************************************************/
