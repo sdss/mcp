@@ -2,7 +2,7 @@ CPU = MC68040
 
 HOST = irix
 
-VW = $(VX_VW_BASE)/
+VW = $(VX_DSC_DIR)/
 VWH = $(VW)h/
 H1 = $(VWH)
 H2 = $(VWH)net/
