@@ -1,23 +1,23 @@
-#include "vxWorks.h"                            
+#include <stdio.h>
+#include <string.h>
 #include <assert.h>
-#include "semLib.h"
-#include "sigLib.h"
-#include "taskLib.h"
-#include "sysLib.h"
-#include "stdio.h"
-#include "logLib.h"
-#include "logLib.h"
-#include "tickLib.h"
-#include "inetLib.h"
+#include <vxWorks.h>
+#include <usrLib.h>
+#include <semLib.h>
+#include <sigLib.h>
+#include <taskLib.h>
+#include <sysLib.h>
+#include <logLib.h>
+#include <tickLib.h>
+#include <inetLib.h>
 #include "in.h"
-#include "tyLib.h"
-#include "ioLib.h"
+#include <tyLib.h>
+#include <ioLib.h>
+#include <intLib.h>
+#include <rebootLib.h>
 #include "timers.h"
 #include "time.h"
 #include "iv.h"
-#include "intLib.h"
-#include "string.h"
-#include "rebootLib.h"
 #include "gendefs.h"
 #include "cw.h"
 #include "ad12f1lb.h"
@@ -31,6 +31,8 @@
 #include "dscTrace.h"
 #include "mcpMsgQ.h"
 #include "mcpTimers.h"
+#include "axis.h"
+#include "cmd.h"
 
 /*****************************************************************************/
 /*
@@ -63,47 +65,6 @@ tMoveCW(void)
       
       semGive(semMoveCWBusy);
    }
-}
-
-void
-tMoveCWInit(void)
-{
-   if(msgMoveCW != NULL) {
-      return;
-   }
-
-   msgMoveCW = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
-   assert(msgMoveCW != NULL);
-
-   msgMoveCWAbort = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
-   assert(msgMoveCWAbort != NULL);
-   
-   semMoveCWBusy = semBCreate(SEM_Q_PRIORITY, SEM_FULL);
-   assert(semMoveCWBusy != NULL);
-   
-   if(taskSpawn("tMoveCW", 60, VX_FP_TASK, 10000,
-		(FUNCPTR)tMoveCW, 0,0,0,0,0,0,0,0,0,0) == ERROR) {
-      TRACE(0, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
-   }
-}
-
-void
-tMoveCWFini(void)
-{
-   if(msgMoveCW == NULL) {
-      return;
-   }
-
-   msgQDelete(msgMoveCW);
-   msgMoveCW = NULL;
-
-   msgQDelete(msgMoveCWAbort);
-   msgMoveCWAbort = NULL;
-   
-   semDelete(semMoveCWBusy);
-   semMoveCWBusy = NULL;
-   
-   taskDelete(taskIdFigure("tMoveCW"));
 }
 
 /*****************************************************************************/
@@ -417,7 +378,7 @@ int
 balance_initialize(unsigned char *addr,
 		   unsigned short vecnum)
 {
-   int i,ii;                          
+   int i;
    short val;
    STATUS stat;                               
    struct IPACK ip;
@@ -434,7 +395,7 @@ balance_initialize(unsigned char *addr,
    }
    
    if(i >= MAX_SLOTS) {
-      printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+      TRACE(0, "****Missing ADC128F1 at %p****", addr, 0);
       return ERROR;
    }
    ADC128F1_CVT_Update_Control(cw_ADC128F1, ENABLE);
@@ -450,7 +411,7 @@ balance_initialize(unsigned char *addr,
   }
   
   if(i >= MAX_SLOTS) {
-     printf ("****Missing DAC128V at %p****\n",addr);
+     TRACE(0, "****Missing DAC128V at %p****", addr, 0);
      return ERROR;
   }
 /*
@@ -459,7 +420,7 @@ balance_initialize(unsigned char *addr,
   for(i = 0; i < DAC128V_CHANS; i++) {
      DAC128V_Read_Reg(cw_DAC128V,i,&val);
      if((val&0xFFF) != 0x800) {
-	printf ("\r\nDAC128V Chan %d Init error %x",i,val);
+	TRACE(0, "DAC128V Chan %d Init error %x", i, val);
      }
   }
 /*
@@ -474,7 +435,7 @@ balance_initialize(unsigned char *addr,
    }
    
    if(i >= MAX_SLOTS) {
-      printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+      TRACE(0, "****Missing DIO316 at %p****", addr, 0);
       return ERROR;
    }
 /*
@@ -483,8 +444,7 @@ balance_initialize(unsigned char *addr,
    stat = intConnect(INUM_TO_IVEC(vecnum),
 		      (VOIDFUNCPTR)cw_DIO316_interrupt,
 		      DIO316_TYPE);
-   printf ("CW vector = %d, interrupt address = %p, result = %8x\r\n",
-	   vecnum,cw_DIO316_interrupt,stat);
+   TRACE(5, "CW vector = %d, result = 0x%8x", vecnum, stat);
    rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
    
    IP_Interrupt_Enable(&ip, DIO316_IRQ);
@@ -502,24 +462,6 @@ balance_initialize(unsigned char *addr,
  * zero the DAC - there is a 2048 offset on the 12 bit DAC
  */
    DAC128V_Write_Reg(cw_DAC128V, CW_MOTOR, 0x800);
-/*
- * Initialize the data structures for nominal operation
- */
-   for(i = 0; i < NUMBER_INST; i++) {
-      for(ii = 0; ii < NUMBER_CW; ii++) {
-	 cw_inst[i].pos_current[ii] = cw_inst[i].pos_error[ii] = 0;
-      }
-    
-      cw_inst[i].updates_per_sec=10;
-      cw_inst[i].accel_rpm=12000.;	/* user specified acceleration */
-      cw_inst[i].vel_rpm=500.;		/* user specified velocity */
-      cw_inst[i].decel_rpm=6000.;	/* user specified deceleration */
-      cw_inst[i].stop_vel_rpm=220.;	/* user specified stop velocity */
-      cw_inst[i].start_decel_position=58;/* start position to begin decel. */
-      cw_inst[i].stop_pos_error=2;	/* stop position error allowed */
-      cw_inst[i].stop_count=6;		/* stop polarity swing counts allowed*/
-      cw_calc(&cw_inst[i]);
-   }
    
    return 0;
 }
@@ -611,14 +553,14 @@ balance(int cw,				/* counter weight to move */
 	    if(msgQReceive(msgMoveCWAbort, (char*)&msg, sizeof(msg), NO_WAIT)
 								    != ERROR) {
 	       assert(msg.type == moveCWAbort_type);
-	       TRACE(0, "Counter weight motion abort", 0, 0);
+	       TRACE(0, "Counterweight %d motion abort", cw + 1, 0);
 	       printf("CWABORT\n");
 	       cw_abort();
 	       return;
 	    }
 	 
 	    if(CW_limit_abort) {
-	       printf ("\r\nLIMIT ABORT");
+	       TRACE(0, "Counterweight %d: limit abort", cw + 1, 0);
 	       cw_status();
 
 	       CW_next = 1;
@@ -720,6 +662,11 @@ balance(int cw,				/* counter weight to move */
 	 cw_brake_on();
 	 DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
 	 if(CW_verbose) printf("\r\n SWITCH: ");
+      }
+
+      if(i == cw_inst[inst].stop_count) {
+	 TRACE(0, "CW %d exceeded stop_count %d",
+	       cw + 1, cw_inst[inst].stop_count);
       }
       
       TRACE(4, "CW %d done", cw + 1, 0);
@@ -1703,3 +1650,217 @@ read_all_ADC (int cnt)
   }
 }
 #endif
+
+/*****************************************************************************/
+/*
+ * Return the status of the counterweights
+ */
+int
+get_cwstatus(char *cwstatus_ans,
+	     int size)			/* dimen of cwstatus_ans */
+{
+   int adc;
+   int i;
+   int idx;
+   int limidx;
+   static char *limitstatus[]={"LU", "L.", ".U", ".."};
+
+   idx = sprintf(cwstatus_ans,"CW   ");
+   for(i = 0; i < 4; i++) {
+      adc = sdssdc.weight[i].pos;
+      if((adc & 0x800) == 0x800) {
+	 adc |= 0xF000;
+      } else {
+	 adc &= 0xFFF;
+      }
+      limidx = (cwLimit >> (i*2)) & 0x3;
+      idx += sprintf(&cwstatus_ans[idx],"%d %s ",
+		     (1000*adc)/2048,limitstatus[limidx]);
+   }
+   cwstatus_ans[idx++] = '\n';
+   cwstatus_ans[idx] = '\0';
+
+   assert(idx < size - 1);
+
+   return(idx);
+}
+
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cwmov_cmd
+**	    cwinst_cmd
+**	    cwpos_cmd
+**	    cwabort_cmd
+**	    cwstatus_cmd
+**
+** DESCRIPTION:
+**	CWMOV - Move specified counter-weight to specified position in units
+**	of volts*100.
+**	CWINST - Move all counter-weights to the instruments specified 
+**	positions.
+**	CWPOS - Move all four counter-weights to specified position in units
+**	of volts*100.
+**	CWABORT - Abort any counter-weight motion provided by spawned tasks.
+**	CWSTATUS - Return status of counter_weights including position and 
+**	limit status.
+**
+** RETURN VALUES:
+**	return NULL string except for status return
+**
+** CALLS TO:
+**	cw_positionv
+**	balance_weight
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semMEIUPD
+**
+**=========================================================================
+*/
+char *
+cwmov_cmd(char *cmd)
+{
+  int cw;
+  int cwpos;
+  const char *ans;
+
+  printf (" CWMOV command fired\r\n");
+
+  if(sscanf(cmd,"%d %d", &cw, &cwpos) != 2) {
+     return("ERR: malformed command arguments");
+  }
+
+  if(mcp_set_cw(INST_DEFAULT, cw, cwpos, &ans) < 0) {
+     return((char *)ans);
+  }
+
+  return "";
+}
+
+char *
+cwinst_cmd(char *cmd)
+{
+   const char *ans;
+   int inst;
+   
+   printf (" CWINST command fired\r\n");
+   while(*cmd == ' ') cmd++;
+   if((inst = cw_get_inst(cmd)) == ERROR) {
+      return "ERR: Invalid Instrument";
+   }
+   
+   mcp_set_cw(inst, ALL_CW, 0, &ans);
+
+   return (char *)ans;
+}
+
+char *
+cwabort_cmd(char *cmd)
+{
+  printf (" CWABORT command fired\r\n");
+
+  mcp_cw_abort();
+
+  return "";
+}
+
+char *
+cwstatus_cmd(char *cmd)
+{
+   static char cwstatus_ans[80];
+   
+   if(semTake(semMEIUPD,60) == ERROR) {
+      TRACE(6, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)",
+	    strerror(errno), errno);
+      return "ERR: semMEIUPD";
+   }
+
+   (void)get_cwstatus(cwstatus_ans, 80);
+
+   semGive(semMEIUPD);
+
+   return cwstatus_ans;
+}
+
+/*****************************************************************************/
+/*
+ * Initialise the counterweights
+ */
+void
+tMoveCWInit(unsigned char *addr,	/* address of ADC */
+	    unsigned short vecnum)	/* vector for cw_DIO316 */
+{
+   int i, j;
+   
+   if(msgMoveCW != NULL) {
+      return;
+   }
+
+   msgMoveCW = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+   assert(msgMoveCW != NULL);
+
+   msgMoveCWAbort = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+   assert(msgMoveCWAbort != NULL);
+   
+   semMoveCWBusy = semBCreate(SEM_Q_PRIORITY, SEM_FULL);
+   assert(semMoveCWBusy != NULL);
+/*
+ * Initialise the hardware
+ */
+   if(balance_initialize(addr, vecnum) < 0) {
+      return;
+   }
+/*
+ * Initialize the data structures for nominal operation
+ */
+   for(i = 0; i < NUMBER_INST; i++) {
+      for(j = 0; j < NUMBER_CW; j++) {
+	 cw_inst[i].pos_current[j] = cw_inst[i].pos_error[j] = 0;
+      }
+    
+      cw_inst[i].updates_per_sec = 10;
+      cw_inst[i].accel_rpm = 12000.;	/* user specified acceleration */
+      cw_inst[i].vel_rpm = 500.;	/* user specified velocity */
+      cw_inst[i].decel_rpm = 6000.;	/* user specified deceleration */
+      cw_inst[i].stop_vel_rpm = 220.;	/* user specified stop velocity */
+      cw_inst[i].start_decel_position = 58;/* start position to begin decel. */
+      cw_inst[i].stop_pos_error = 2;	/* stop position error allowed */
+      cw_inst[i].stop_count = 6;	/* stop polarity swing counts allowed*/
+      
+      cw_calc(&cw_inst[i]);
+   }
+/*
+ * Declare CW commands
+ */
+   define_cmd("CWMOV",     cwmov_cmd,    2, 1, 1);
+   define_cmd("CWINST",    cwinst_cmd,   1, 1, 1);
+   define_cmd("CWABORT",   cwabort_cmd,  0, 1, 1);
+   define_cmd("CW.STATUS", cwstatus_cmd, 0, 0, 1);
+/*
+ * Spawn the task that does the work
+ */   
+   if(taskSpawn("tMoveCW", 60, VX_FP_TASK, 10000,
+		(FUNCPTR)tMoveCW, 0,0,0,0,0,0,0,0,0,0) == ERROR) {
+      TRACE(0, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
+   }
+}
+
+void
+tMoveCWFini(void)
+{
+   if(msgMoveCW == NULL) {
+      return;
+   }
+
+   msgQDelete(msgMoveCW);
+   msgMoveCW = NULL;
+
+   msgQDelete(msgMoveCWAbort);
+   msgMoveCWAbort = NULL;
+   
+   semDelete(semMoveCWBusy);
+   semMoveCWBusy = NULL;
+   
+   taskDelete(taskIdFigure("tMoveCW"));
+}
