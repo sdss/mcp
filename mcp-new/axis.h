@@ -105,24 +105,6 @@ char *hgcdoff_cmd(char *cmd);
 char *ffstatus_cmd(char *cmd);
 char *abstatus_cmd(char *cmd);
 
-#define MEI_VECTOR		27
-#define MEI_IRQ			5
-#define MEI_TYPE		1
-
-#define DIO316_VECTOR		27
-#define DIO316_IRQ		5
-#define DIO316_TYPE		2
-
-#define DID48_VECTOR		29
-#define DID48_IRQ		5
-#define DID48_TYPE		3
-
-#define NIST_INT		0x1
-#define NBS_INT			0x1
-#define AZIMUTH_INT		0x2
-#define ALTITUDE_INT		0x4
-#define INSTRUMENT_INT		0x8
-	
 struct FIDUCIARY {
 	int markvalid;
 	long mark;
