@@ -68,6 +68,10 @@ void VME2_sft_int(int interrupt)
     (*sft_int_routines[interrupt])();
   VMEC2_software_interrupt_clear (interrupt);
 }
+void VME2_pre_scaler (unsigned long adjust)
+{
+  *VMECHIP2_TIMEOUTCR = (unsigned long)((*VMECHIP2_TIMEOUTCR&0xFFFFFF00)|adjust);
+}
 
 void test_interrupt()
 {

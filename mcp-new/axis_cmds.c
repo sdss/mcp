@@ -4744,6 +4744,7 @@ int sdss_init()
   char buffer[MAX_ERROR_LEN] ;
   double limit;
   short action;
+  extern void VME2_pre_scaler();
 
   for (i=0;i<3;i++)
   {
@@ -4803,6 +4804,7 @@ int sdss_init()
     printf ("AXIS %d: SET error limit=%ld, action=%d\r\n",axis,(long)limit,action);
     set_integration (axis,IM_ALWAYS);
   }
+  VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
   init_io(2,IO_INPUT);
   arm_latch(TRUE);
   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
@@ -4872,7 +4874,8 @@ double sdss_get_time()
   extern timer_read(int timer);
   	  unsigned long micro_sec;
 
-          micro_sec = (unsigned long)(1.0312733648*timer_read (1));
+/*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
+          micro_sec = timer_read (1);
 	  if (micro_sec>1000000) micro_sec=999999;
           return (double)(SDSStime+((micro_sec%1000000)/1000000.));
 }
@@ -4881,7 +4884,8 @@ double get_time()
   extern timer_read(int timer);
   	  unsigned long micro_sec;
 
-          micro_sec = (unsigned long)(1.0312733648*timer_read (1));
+/*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
+          micro_sec = timer_read (1);
 	  if (micro_sec>1000000) micro_sec=999999;
 	  printf ("\r\nSDSS time=%lf",
 		(double)(SDSStime+((micro_sec%1000000)/1000000.)));
