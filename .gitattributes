@@ -28,6 +28,7 @@ doc/www/ms.html -text
 etc/Makefile -text
 etc/mcp.login -text
 etc/trace.el -text
+fiducial-tables/Makefile -text
 fiducial-tables/alt.dat -text
 fiducial-tables/az.dat -text
 fiducial-tables/rot.dat -text
