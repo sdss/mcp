@@ -56,7 +56,7 @@
 /*
  * Status buffers for AXIS.STATUS/SYSTEM.STATUS
  */
-#define STATUS_BUFF_SIZE 400
+#define STATUS_BUFF_SIZE 440
 
 extern char axis_status_buff[NAXIS][STATUS_BUFF_SIZE];
 extern char system_status_buff[STATUS_BUFF_SIZE];
