@@ -770,9 +770,10 @@ int negative;
 		  }
 		  else
 		  {
-	            while (Axis_vel[Axis]>10000)
+	            while (abs(Axis_vel[Axis])>10000)
 		    {
-		      Axis_vel[Axis]-=10000;
+		      if (Axis_vel[Axis]>0) Axis_vel[Axis]-=10000;
+		      else Axis_vel[Axis]+=10000;
 	 	      set_velocity(Axis,(double)(Axis_vel[Axis]));
 	              if (Axis==4)
                         while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));

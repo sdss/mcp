@@ -217,6 +217,7 @@ int FRAME_verbose=FALSE;
 #define MAX_CALC 50
 double tim[3][MAX_CALC],p[3][MAX_CALC],v[3][MAX_CALC],a[3][MAX_CALC],ji[3][MAX_CALC];
 float time_off[3]={0.0,0.0,0.0};
+double stop_position[3]={0.0,0.0,0.0};
 int frame_break[3]={FALSE,FALSE,FALSE};
 
 char *correct_cmd(char *cmd)
@@ -287,7 +288,7 @@ char *init_cmd(char *cmd)
   int e ;
   char buffer[MAX_ERROR_LEN] ;
 
-/*  printf (" INIT command fired\r\n");*/
+/*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
   tm_controller_idle (axis_select<<1);
   tm_controller_idle (axis_select<<1);
   tm_controller_idle (axis_select<<1);
@@ -370,9 +371,9 @@ char *move_cmd(char *cmd)
   {
     case -1:
     case 0:
-        tm_get_pos(axis_select<<1,&position);
-        tm_get_vel(axis_select<<1,&velocity);
+        tm_get_pos(axis_select<<1,&stop_position[axis_select]);
 /*
+        tm_get_vel(axis_select<<1,&velocity);
         position = position/ticks_per_degree[axis_select];
 	velocity /= ticks_per_degree[axis_select];
 	frame->end_time = sdss_get_time()+max_acceleration[axis_select]*
@@ -381,13 +382,20 @@ char *move_cmd(char *cmd)
 /*	frame->end_time = sdss_get_time()+2.5;*/
 /*	frame->end_time = ((queue->active)->nxt)->end_time+4.;*/
 /*	printf("\r\n %lf %lf %lf",position,velocity,frame->end_time);*/
+        frame_break[axis_select]=TRUE;
+        queue->active=NULL;
+/*
+	while (tm_frames_to_execute(axis_select)>1)taskDelay (1);
+	printf("\r\n frames to execute=%d",tm_frames_to_execute(axis_select));
+	velocity=(ticks_per_degree[axis_select]*max_velocity[axis_select])/2;
         tm_start_move (axis_select<<1,
 		velocity,
 		(ticks_per_degree[axis_select]*max_acceleration[axis_select])/2,
 		position);
-        printf ("\r\n Repositioning MOVE cmd to position=%lf",position);
-        queue->active=NULL;
-        frame_break[axis_select]=TRUE;
+        printf ("\r\n Repositioning MOVE cmd to position=%lf @vel=%lf,@accel=%lf",
+		position,velocity,
+		(ticks_per_degree[axis_select]*max_acceleration[axis_select])/2);
+*/
 	free (frame);
         return 0;
 /*        break;*/
@@ -751,7 +759,7 @@ void end_frame(int axis,int index,double sf)
       e=frame_m(&frame,"0l xvajt un d",axis<<1,
 	(double)p[axis][index]*sf,(double)0.0,(double)0.0,
 	(double)0.0,
-	(double).00333333,
+	(double)(1./FLTFRMHZ),
 	FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
 /*      tm_start_move (axis<<1,2*sf,4*sf,frame->position);*/
       dsp_set_last_command(dspPtr,axis<<1,(double)p[axis][index]*sf);
@@ -789,10 +797,10 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
     frame=iframe;
       while ((frame!=fframe)&&(frame->nxt!=NULL))
       {
-	frame_break[axis]=FALSE;
         frame_cnt=get_frame_cnt(axis,frame);
         printf ("\r\n frames_cnt=%d",frame_cnt);
         frame_idx=0;
+	frame_break[axis]=FALSE;
         for (i=0;i<((frame_cnt-1)/(LOAD_MAX-1))+1;i++)
         {
 	  if (frame_break[axis]) break;
@@ -871,12 +879,12 @@ void tm_TCC(int axis)
       start_frame (axis,frame->end_time-sdss_get_time());
       while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>0.02))
         taskDelay (1);
-      while (frame->nxt!=NULL)
+      while ((frame->nxt!=NULL) || (axis_queue[axis].active!=NULL))
       {
         while ((lcnt=tm_frames_to_execute(axis))>100)
         {
 /*         printf ("\r\n frames left=%d",lcnt);*/
-          taskDelay(1*30);
+          taskDelay(30);
         }
         frame_cnt=get_frame_cnt(axis,frame);
 /*      printf ("\r\n frames_cnt=%d",frame_cnt);*/
@@ -884,16 +892,25 @@ void tm_TCC(int axis)
 	frame_break[axis]=FALSE;
         for (i=0;i<((frame_cnt-1)/(LOAD_MAX-1))+1;i++)
         {
-	  if (frame_break[axis]) break;
           cnt=calc_frames(axis,frame,frame_idx);
           frame_idx += cnt;
 /*          printf ("\r\n cnt=%d, i=%d",cnt,i);*/
+	  if (frame_break[axis]) 
+	  {
+	    cnt=1;
+            break;
+	  }
 	  if (cnt>0)
             load_frames(axis,cnt,(double)ticks_per_degree[axis]);
-          while ((lcnt=tm_frames_to_execute(axis))>100) taskDelay (1*30);
+          while ((lcnt=tm_frames_to_execute(axis))>100) taskDelay (30);
           if (lcnt<10) printf ("\r\n frames left=%d, i=%d",lcnt,i);
         }
 	frame_break[axis]=FALSE;
+        if (axis_queue[axis].active==NULL) 
+        {
+	  frame=axis_queue[axis].end;
+	  break;
+	}
         frame = frame->nxt;
         axis_queue[axis].active=frame;    
         while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>.02))
@@ -902,6 +919,7 @@ void tm_TCC(int axis)
       }
       printf ("\r\n Ran out: frames left=%d",lcnt);
       axis_queue[axis].active=NULL;    
+      if (cnt==0) cnt=1;
       end_frame(axis,cnt-1,(double)ticks_per_degree[axis]);
     }
     else
@@ -1493,7 +1511,9 @@ struct FIDUCIARY fiducial[3]=
 /*		           120:45:44.9, 14:39:23:286, 005:58:04:130  */
 /*	measured AZ        120:28:03:514, 14:39:23:286, 005:58:04:130  */
 /*			   AZ           , ALT         , ROT      */
-long fiducial_position[3]={31016188     , 3766415+58807     , 640920+288012};
+long fiducial_position[3]={31016188     , 3766415+58807     , 336370};
+/*long fiducial_position[3]={31016188     , 3766415+58807     , 402702};*/
+/*long fiducial_position[3]={31016188     , 3766415+58807     , 640920};*/
 /*	measured AZ */
 /*long fiducial_position[3]={31016188     , 3766415     , 2015795};*/
 /*long fiducial_position[3]={30940462     , 3766415     , 2015795};*/
@@ -1517,7 +1537,7 @@ void init_fiducial()
     az_fiducial[i].poserr=0;
     az_fiducial[i].mark=0;
   }
-  az_fiducial_position[9+24]=31016188;	/* 120:49:20:00 */
+  az_fiducial_position[fiducial[0].index]=fiducial_position[0];	/* 120:49:20:00 */
   for (i=0;i<sizeof(alt_fiducial)/sizeof(struct FIDUCIALS);i++)
   {
     alt_fiducial[i].markvalid=FALSE;
@@ -1526,8 +1546,9 @@ void init_fiducial()
     alt_fiducial[i].poserr=0;
     alt_fiducial[i].mark=0;
   }
+	/* 14:39:23:286 */
+  alt_fiducial_position[fiducial[1].index]=fiducial_position[1];
   alt_fiducial_position[0]=0x0;	/* 00:00:00:00 */
-  alt_fiducial_position[1]=3766415+58807;	/* 090:00:00:00 */
   alt_fiducial_position[6]=0x0160E6C6;	/* 090:00:00:00 */
   for (i=0;i<sizeof(rot_fiducial)/sizeof(struct FIDUCIALS);i++)
   {
@@ -1537,7 +1558,8 @@ void init_fiducial()
     rot_fiducial[i].poserr=0;
     rot_fiducial[i].mark=0;
   }
-  rot_fiducial_position[40+43]=640920;   /* 001:13:35:373 */
+   	/* 001:13:35:373 */
+  rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
 }
 void tm_latch()
 {
@@ -1789,6 +1811,7 @@ void set_primary_fiducials (int axis,int fididx,long pos)
 	  fiducial[axis].mark=fididx;
 	  fiducial_position[axis]=pos;
 	}
+        az_fiducial_position[fiducial[axis].index]=fiducial_position[axis];
 	break;	  
     case 1:
 	if ((fididx<7)&&(fididx>=0))
@@ -1798,6 +1821,7 @@ void set_primary_fiducials (int axis,int fididx,long pos)
 	  fiducial[axis].mark=fididx;
 	  fiducial_position[axis]=pos;
 	}
+        alt_fiducial_position[fiducial[axis].index]=fiducial_position[axis];
 	break;	  
     case 2:
 	if ((fididx<156)&&(fididx>=0))
@@ -1807,6 +1831,7 @@ void set_primary_fiducials (int axis,int fididx,long pos)
 	  fiducial[axis].mark=fididx;
 	  fiducial_position[axis]=pos;
 	}
+        rot_fiducial_position[fiducial[axis].index]=fiducial_position[axis];
 	break;	  
   }  
 }
