@@ -58,21 +58,23 @@ double
 sdss_get_time(void)
 {
    unsigned long micro_sec;
-   int extra;				/* extra second */
+   const long SDSStime0 = SDSStime;	/* initial value of SDSStime */
+   long SDSSnow;			/* current value of SDSStime */
    
 #if 0
    micro_sec = (unsigned long)(1.0312733648*timer_read (1));
 #else
    micro_sec = timer_read (1);
 #endif
+   SDSSnow = SDSStime;
 
-   extra = 0;
-   if(micro_sec > 1000000) {
-      micro_sec -= 1000000;
-      extra++;
+   if(SDSSnow != SDSStime0) {		/* a GPS interrupt arrived */
+      if(micro_sec > 500000) {		/* micro_sec was read before int. */
+	 SDSSnow = SDSStime0;		/* set SDSSnow to before interrupt */
+      }
    }
 
-   return(SDSStime + extra + 1e-6*micro_sec);
+   return(SDSSnow + 1e-6*micro_sec);
 }
 #else
 double
