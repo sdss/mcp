@@ -1562,7 +1562,7 @@ int tm_ffs(short val)
        printf ("\r\n FFS did NOT all close...disabling ");
    }
    tm_ctrl1.mcp_ff_screen_enable = 0;
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[1],2);
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
    if (semTake (semSLC,60)!=ERROR)
    {
      err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
