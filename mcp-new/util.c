@@ -413,14 +413,14 @@ get_mjd(void)
 	   &ldj, &status);
 
    if(status) {
-      char buff[100];
+      static char buff[100];
       sprintf(buff, "%d %d %d",
 	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday);
       TRACE(2, "MJD: %d (%s)", status, buff);
    
       return(-1);
    } else {
-      char buff[100];
+      static char buff[100];
       sprintf(buff, "%d %d %d %d:%d:%d",
 	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday,
 	      Time.tm_hour, Time.tm_min, Time.tm_sec);
