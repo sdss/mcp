@@ -120,7 +120,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  */
       if(semMEIUPD != NULL) {
 	 if(semTake(semMEIUPD, 60) == ERROR) {
-	    TRACE(0, "Cannot take semMEIUPD to process cmd %s (%d)", cmd,errno);
+	    TRACE(5, "Cannot take semMEIUPD to process cmd %s (%d)", cmd,errno);
 	    continue;
 	 }
       }
