@@ -797,8 +797,8 @@ printf("ff_lamps_on_pmt=%d\n",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
 printf("ff_screen_open_pmt=%d\n",sdssdc.status.o1.ol14.ff_screen_open_pmt);
 printf("dcm_status=%d\n",sdssdc.status.i2.il0.dcm_status);
 printf("low_lvl_lighting_req=%d\n",sdssdc.status.i2.il0.low_lvl_lighting_req);
-printf ("wind adr=%p, val=%x\n",&sdssdc.status.i2.il0,sdssdc.status.i2.il0);
-/*printf("wind_alt_perm=%d\n",sdssdc.status.i2.il0.wind_alt_perm);*/
+/*printf ("wind adr=%p, val=%x\n",&sdssdc.status.i2.il0,sdssdc.status.i2.il0);*/
+printf("wind_alt_perm=%d\n",sdssdc.status.i2.il0.wind_alt_perm);
 printf("wind_az_perm=%d\n",sdssdc.status.i2.il0.wind_az_perm);
 printf("wind_alt1_fault=%d\n",sdssdc.status.i2.il0.wind_alt1_fault);
 printf("wind_az3_fault=%d\n",sdssdc.status.i2.il0.wind_az3_fault);

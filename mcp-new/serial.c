@@ -44,6 +44,7 @@
 #include "ioLib.h"
 #include "sysLib.h"
 #include "taskLib.h"
+#include "rebootLib.h"
 #include "mv162IndPackInit.h"
 #include "ipOctalSerial.h"
 
@@ -299,6 +300,7 @@ void tcc_serial(int port)
 void barcode_init(unsigned char *ip_base, unsigned short model, 
 		unsigned int vec, short ch)
 {
+  extern int VME_IP_Interrupt_Enable();
   struct IPACK ip;
   char devName[32];
   OCT_SER_DEV *pOctSerDv;
@@ -373,7 +375,7 @@ FILE *barcode_open(int port)
   ioctl (fileno(stream),FIOBAUDRATE,2400);
   cancel[port].fd=fileno(stream);
   cancel[port].stream=stream;
-  rebootHookAdd(barcode_shutdown);
+  rebootHookAdd((FUNCPTR)barcode_shutdown);
   return stream;
 }
 /*=========================================================================
