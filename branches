@@ -157,3 +157,11 @@ Thu Feb 21 12:29:54 MST 2002
 	in error)
 	cvs tag v5_10_0
 	cvs tag -b -r v5_10_0 v5_10
+
+Thu Mar 21 15:45:45 MST 2002
+	cvs rtag -r v5_10 v5_10_0 mcp
+	(no conflicts => no checkins beyond v5_10_0)
+	cvs update -A
+	(nothing to do)
+	cvs tag v5_11_0
+	cvs tag -b -r v5_11_0 v5_11
