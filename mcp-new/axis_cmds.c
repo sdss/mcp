@@ -1783,6 +1783,91 @@ set_axis_scale(int axis,		/* the axis in question */
 
 /*****************************************************************************/
 /*
+ * Provide an MCP command to set an MEI axis control coeff (e.g. PID)
+ */
+char *
+set_filter_coeff_cmd(char *cmd)
+{
+   const int axis = ublock->axis_select;
+   int ind = -1;			/* index for name */
+   char name[40];			/* name of desired coefficient */
+   int val = 0;				/* new value for coefficient */
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      return("ERR: ILLEGAL DEVICE SELECTION");
+   }
+
+   if(sscanf(cmd, "%s %d", name, &val) != 2) {
+      TRACE(0, "Need name and val for SET.FILTER.COEFF: %s", cmd, 0);
+      return("ERR: missing arguments");
+   }
+
+   if(strcmp(name, "P") == 0) {
+      ind = DF_P;
+   } else if(strcmp(name, "I") == 0) {
+      ind = DF_I;
+   } else if(strcmp(name, "D") == 0) {
+      ind = DF_D;
+   } else if(strcmp(name, "ACCEL_FF") == 0) {
+      ind = DF_ACCEL_FF;
+   } else if(strcmp(name, "VEL_FF") == 0) {
+      ind = DF_VEL_FF;
+   } else if(strcmp(name, "I_LIMIT") == 0) {
+      ind = DF_I_LIMIT;
+   } else if(strcmp(name, "OFFSET") == 0) {
+      ind = DF_OFFSET;
+   } else if(strcmp(name, "DAC_LIMIT") == 0) {
+      ind = DF_DAC_LIMIT;
+   } else if(strcmp(name, "SHIFT") == 0) {
+      ind = DF_SHIFT;
+   } else if(strcmp(name, "FRICT_FF") == 0) {
+      ind = DF_FRICT_FF;
+   } else {
+      TRACE(0, "Unknown coefficient name %s", name, 0);
+      return("ERR: unknown coefficient name");
+   }
+
+   tm_set_filter_coeff(2*axis, ind, val);
+
+   TRACE(3, "Set %s coefficient for axis %s", name, axis_name(axis));
+   TRACE(3, "CONT               to %d", val, 0);
+
+   return("");
+}
+
+/*
+ * Return filter coefficients
+ */
+char *
+get_filter_coeffs_cmd(char *cmd)
+{
+   const int axis = ublock->axis_select;
+   short coeff[COEFFICIENTS];
+   int i, idx;
+   const char *names[COEFFICIENTS] = {
+      "P", "I", "D", "ACCEL_FF", "VEL_FF", "I_LIMIT",
+      "OFFSET", "DAC_LIMIT", "SHIFT", "FRICT_FF"
+   };
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      return("ERR: ILLEGAL DEVICE SELECTION");
+   }
+
+   semTake(semMEI,WAIT_FOREVER);
+   get_filter(2*axis, (P_INT)coeff);
+   semGive(semMEI);
+   
+   idx = 0;
+   idx += sprintf(&ublock->buff[idx],"axis=%s", axis_name(axis));
+   for(i = 0;i < COEFFICIENTS; i++) {
+      idx += sprintf(&ublock->buff[idx]," %s=%d", names[i], coeff[i]);
+   }
+
+   return(ublock->buff);
+}
+
+/*****************************************************************************/
+/*
  * General initialization of MEI board...called from startup script.
  *
  * 
@@ -1937,7 +2022,7 @@ axisMotionInit(void)
    
    coeff[DF_P] = 120;
    coeff[DF_I] = 12;
-   coeff[DF_D] = 600;
+   coeff[DF_D] = 400;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
    coeff[DF_I_LIMIT] = 32767;
@@ -2019,6 +2104,12 @@ axisMotionInit(void)
 	      "All succeeding commands apply to altitude");
    define_cmd("TEL2",          alt_cmd,          0, 0, 0, 0,
 	      "All succeeding commands apply to altitude");
+   define_cmd("SET.FILTER.COEFF", set_filter_coeff_cmd, 2, 1, 0, 1,
+	      "Set a filter (e.g. PID) coefficient for the current axis");
+   define_cmd("GET.FILTER.COEFFS", get_filter_coeffs_cmd, 0, 0, 0, 0,
+	      "Get the filter (PID etc.) coefficients for the current axis");
+   define_cmd("GET.FILTER.COEFF", get_filter_coeffs_cmd, 0, 0, 0, 0,
+	      "Alias for GET.FILTER.COEFFS");
    
    return 0;
 }
