@@ -45,7 +45,7 @@
 ** LOCAL DEFINITIONS
 */
 static const char *rebootedMsg = NULL;	/* the message to send until iacked */
-static SEM_ID semCMD = NULL;
+SEM_ID semCMD = NULL;
 
 /*-------------------------------------------------------------------------
 **
