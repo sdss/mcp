@@ -92,6 +92,7 @@ struct TM_M68K *tmaxis[]={(struct TM_M68K *)&sdssdc.axis[0],
 			(struct TM_M68K *)&sdssdc.axis[1],
 			(struct TM_M68K *)&sdssdc.axis[2]};
 struct AXIS_STAT axis_stat[3]={0,0,0};
+struct AXIS_STAT persistent_axis_stat[3]={0,0,0};
 void swapwords (register short *dp, register unsigned short len);
 int mei_axis_collection(int axis, int secs);
 void mei_data_collection(unsigned long freq);
@@ -195,8 +196,8 @@ void mei_data_collection(unsigned long freq)
 	/*  ****************************************************  **
 		put whatever type of motion you want to sample here.
 	**  ****************************************************  */
-  	if (semMEIDC==NULL) semMEIDC = semBCreate (0,SEM_Q_FIFO);
-  	if (semMEIUPD==NULL) semMEIUPD = semMCreate (SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+  	if (semMEIDC==NULL) semMEIDC = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
+  	if (semMEIUPD==NULL) semMEIUPD = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
         restore_pos();
 	mei_freq=freq;
 	axis0pos=&tmaxis[0]->actual_position;
@@ -252,9 +253,11 @@ void mei_data_collection(unsigned long freq)
 /*	    meichan4=get_analog(4,&meichan4);*/
 /*	    read_axis_analog(5,&meichan0);*/
 /*	    get_position (4,&meipos4);*/
-    	    for(i = 0; i < 3; i++)
-            {
-	      if ((MEIDC_Enable[i])&&(i==MEIDC_Rotate))
+/*    	    for(i = 0; i < 3; i++)
+            {*/
+	      i=MEIDC_Rotate;
+	      if (MEIDC_Enable[i])
+/*	      if ((MEIDC_Enable[i])&&(i==MEIDC_Rotate))*/
               {
 	        pcdsp_transfer_block(dspPtr,TRUE,FALSE,DATA_STRUCT(dspPtr,
 	          i*2,DS_PREV_ENCODER) ,DS_SIZE+4,
@@ -265,6 +268,7 @@ void mei_data_collection(unsigned long freq)
 	          tmaxis[i]->status = dsp_error;
 	          tmaxis[i]->errcnt++;
 	        }
+	        semGive(semMEI);
 	        swapwords ((short *)(&tmaxis[i]->actual_position),1);
 	        swapwords ((short *)(&tmaxis[i]->position),1);
 	        swapwords ((short *)(&tmaxis[i]->time),1);
@@ -272,8 +276,7 @@ void mei_data_collection(unsigned long freq)
 	        swapwords ((short *)(&tmaxis[i]->acceleration),1);
 	        swapwords ((short *)(&tmaxis[i]->actual_position2),1);
 	      }
-	    }
-	    semGive(semMEI);
+/*	    }*/
     	    for(i = 1; i < 4; i++)	/* find next enabled data collection */
 	    {
 	      rotate = (MEIDC_Rotate+i)%3;
@@ -375,7 +378,7 @@ void slc500_data_collection(unsigned long freq)
   extern void cw_data_collection();
   extern void il_data_collection();
 
-  semSLCDC = semBCreate (0,SEM_Q_FIFO);
+  semSLCDC = semBCreate (SEM_Q_FIFO,SEM_EMPTY);
   slc_freq=freq;
     FOREVER
   {
@@ -418,6 +421,7 @@ void slc500_data_collection(unsigned long freq)
       else axis_stat[2].closed_loop=0;
       semGive (semMEI);
     }
+
     if (BCAST_Enable)
       ipsdss_send (&sdssdc,sizeof(struct SDSS_FRAME));
   }

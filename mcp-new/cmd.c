@@ -74,31 +74,46 @@ char *cmd_handler(char *cmd)
 {
   int i;
   struct COMMANDS *cmd_list;
-  static char *cmd_error={"CMD ERROR"};
+  static char *cmd_error={"ERR: CMD ERROR"};
   char *ans;
 
-  for (i=0;i<strlen(cmd);i++) cmd[i]=toupper(cmd[i]);/* upper case the string */
   if (CMD_verbose)
     printf ("cmd_handler:  SDSS Cmd>>%s<<\r\n",cmd);
-/*  for (i=0;i<strlen(cmd);i++) printf ("0x%x ",cmd[i]);*/
+/*
+  if (CMD_verbose)
+  {
+    printf ("\r\n");
+    for (i=0;i<(strlen(cmd)+1);i++) printf ("0x%02x ",cmd[i]); printf ("\r\n");
+  }
+*/
+  for (i=0;i<strlen(cmd);i++) cmd[i]=toupper(cmd[i]);/* upper case the string */
   get_ctrl(semCMD);
   ans=NULL;					/* ans is returned from function */
-  while ((*cmd!=NULL)&&(ans==NULL))
+  while ((cmd!=NULL)&&(*cmd!=NULL)&&(ans==NULL))
   {
+/*    printf ("0x%x ",*cmd);*/
     cmd_list = &axis_cmds[0];			/* top of search list */
     while ((cmd_list->command!=NULL)&&		/* search until found or EOL */
       strncmp(cmd,cmd_list->command,strlen(cmd_list->command)))
+    {
         cmd_list++;
+/*	printf("\r\ncmd_list->command=%s, len=%d",
+		cmd_list->command,strlen(cmd_list->command));*/
+    }
     if (cmd_list->command==NULL)		/* not a valid command */
     {
       if (CMD_verbose)
-        printf ("cmd_handler: CMD ERROR\r\n");
+      {
+        printf ("cmd_handler: CMD ERROR %s %p\r\n",cmd,cmd);
+        for (i=0;i<strlen(cmd);i++) printf ("0x%02x ",cmd[i]);
+      }
       rtn_ctrl(semCMD);
       return cmd_error;				/* return some error string */
     }
     cmd += strlen(cmd_list->command);		/* reposition around command */
     ans=(*cmd_list->function)(cmd);		/* call function, pass remaining string */
-    cmd = strpbrk(cmd,"ABCDEFGHIJKLMNOPQRSTUVWXYZ+");/* reposition to next command */
+    if (*cmd!=NULL)
+      cmd = strpbrk(cmd,"ABCDEFGHIJKLMNOPQRSTUVWXYZ+");/* reposition to next command */
   }
   rtn_ctrl(semCMD);
   if (CMD_verbose)

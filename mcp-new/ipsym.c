@@ -327,7 +327,7 @@ void serverData(int hz, void (*data_routine()))
   extern void serverDataCollection();
 
   rebootHookAdd((FUNCPTR)server_shutdown);
-  semDC = semBCreate (0,SEM_Q_FIFO);
+  semDC = semBCreate (SEM_Q_FIFO,SEM_EMPTY);
 /*  Timer4Start (hz,5,serverDCStart); */
   for (;;)
   {
@@ -792,7 +792,7 @@ void pollTrg()
 }
 void taskTrg()
 {
-  if (semTRG==NULL) semTRG = semBCreate (0,SEM_Q_FIFO);
+  if (semTRG==NULL) semTRG = semBCreate (SEM_Q_FIFO,SEM_EMPTY);
   for (;;)
   {
     if (semTake (semTRG,WAIT_FOREVER)!=ERROR)

@@ -131,7 +131,7 @@ void tcc_serial(int port)
   char *serial_port={"/tyCo/x"};
   FILE *stream;  
   int status;
-  char command_buffer[120];
+  char command_buffer[240];
   char *answer_buffer;
 
   sprintf(serial_port,"/tyCo/%d",port);
