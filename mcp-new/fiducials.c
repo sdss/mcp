@@ -228,11 +228,14 @@ write_fiducial_log(const char *type,	/* type of entry */
  */
    switch (axis) {
     case AZIMUTH:
-      aname = "AZIMUTH";  deg = pos1/AZ_TICKS_DEG; break;
+      aname = "AZIMUTH";  deg = pos1/ticks_per_degree[axis];
+      break;
     case ALTITUDE:
-      aname = "ALTITUDE"; deg = pos1/ALT_TICKS_DEG; break;
+      aname = "ALTITUDE"; deg = pos1/ticks_per_degree[axis];
+      break;
     case INSTRUMENT:
-      aname = "ROTATOR";  deg = (pos1 - ROT_FID_BIAS)/ROT_TICKS_DEG; break;
+      aname = "ROTATOR";  deg = (pos1 - ROT_FID_BIAS)/ticks_per_degree[axis];
+      break;
     case NAXIS:				/* i.e. all axes */
       aname = "ALL"; deg = 0; break;
     default:
@@ -314,10 +317,6 @@ mcp_set_fiducial(int axis)
 
       return(-1);
    }
-
-#ifdef ROT_ROTARY_ENCODER
-#  error I do not know how to read rotary encode fiducial
-#endif
 
    if(semTake(semLatch, 60) == ERROR) {
       return(-1);
@@ -880,7 +879,7 @@ tLatch(const char *name)
 	       fiducial[AZIMUTH].seen_fiducial = TRUE;
 	       
 	       TRACE(4, "az fiducial %.2f deg",
-		     az_fiducial[fididx].mark[1]/AZ_TICKS_DEG, 0);
+		     az_fiducial[fididx].mark[1]/ticks_per_degree[AZIMUTH], 0);
 	       if(az_fiducial[fididx].last[1] == 0) {
 		  TRACE(4, "     err = ???  poserr = %d ticks",
 			az_fiducial[fididx].poserr[1], 0);
@@ -941,7 +940,7 @@ tLatch(const char *name)
 	    fiducial[ALTITUDE].seen_fiducial = TRUE;
 	    
 	    TRACE(4, "alt fiducial %.2f deg",
-		  alt_fiducial[fididx].mark[1]/ALT_TICKS_DEG, 0);
+		  alt_fiducial[fididx].mark[1]/ticks_per_degree[ALTITUDE], 0);
 	    if(alt_fiducial[fididx].last[1] == 0) {
 	       TRACE(4, "     err = ???  poserr = %d ticks",
 		     alt_fiducial[fididx].poserr[1], 0);
@@ -962,9 +961,6 @@ tLatch(const char *name)
 	 ret = semTake(semMEI,WAIT_FOREVER);
 	 assert(ret != ERROR);
 
-#ifdef ROT_ROTARY_ENCODER
-#  error I do not know how to read rotary encoder fiducial
-#endif
 	 get_latched_position_corr(2*INSTRUMENT,
 				   &latchpos[latchidx].pos[1]);
 	 get_latched_position_corr(2*INSTRUMENT + 1,
@@ -990,7 +986,8 @@ tLatch(const char *name)
 
 	 if(fididx < 0) {
 	    TRACE(0, "Failed to identify rotator fiducial at %.2f",
-		  (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ROT_TICKS_DEG, 0);
+		  (latchpos[latchidx].pos[1] -
+		   ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT], 0);
 	    
 	    rot_latch = latchpos[latchidx].pos[1];
 	    semGive(semLatch);
@@ -1049,13 +1046,14 @@ tLatch(const char *name)
 	 if(fididx > 0) {
 	    if(!pos_is_mark) {
 	       TRACE(4, "Intermediate rot fiducial %.2f deg",
-		     (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ROT_TICKS_DEG,
-		     0);
+		     (latchpos[latchidx].pos[1] -
+		      ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT], 0);
 	    } else {
 	       static char pos[20];	/* won't appear properly in TRACE log*/
 
 	       sprintf(pos, "%.2f",
-		  (rot_fiducial[fididx].mark[1] - ROT_FID_BIAS)/ROT_TICKS_DEG);
+		  (rot_fiducial[fididx].mark[1] -
+		   ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 
 	       TRACE(4, "rot fiducial %d (%s) deg", fididx, pos);
       	       TRACE(6, "     pos = %d, rot_latch = %ld",
@@ -1799,7 +1797,7 @@ print_fiducials(int axis,		/* which axis */
 	if(az_fiducial[i].markvalid) {
 	   printf("AZ %d %d degs:  enabled %c pos= %ld mark= %ld last= %ld "
 		  " err= %ld, poserr= %ld\n",
-		  i, (int)(az_fiducial[i].mark[1]/AZ_TICKS_DEG),
+		  i, (int)(az_fiducial[i].mark[1]/ticks_per_degree[AZIMUTH]),
 		  (az_fiducial[i].disabled ? 'N' : 'Y'),
 		  az_fiducial[i].fiducial[1],
 		  az_fiducial[i].mark[1], az_fiducial[i].last[1],
@@ -1817,7 +1815,7 @@ print_fiducials(int axis,		/* which axis */
 	if(alt_fiducial[i].markvalid) {
 	   printf("ALT %d %d degs:  enabled %c pos= %ld, mark= %ld, last= %ld "
 		  " err= %ld, poserr= %ld\n",
-		  i, (int)(alt_fiducial[i].mark[1]/ALT_TICKS_DEG),
+		  i, (int)(alt_fiducial[i].mark[1]/ticks_per_degree[ALTITUDE]),
 		  (alt_fiducial[i].disabled ? 'N' : 'Y'),
 		  alt_fiducial[i].fiducial[1],
 		  alt_fiducial[i].mark[1], alt_fiducial[i].last[1],
@@ -1836,7 +1834,8 @@ print_fiducials(int axis,		/* which axis */
 	if(rot_fiducial[i].markvalid) {	   
 	   printf("ROT %d %d degs: enabled %c pos= %ld, mark= %ld, last= %ld "
 		  " err= %ld, poserr= %ld\n", i,
-		  (int)((rot_fiducial[i].mark[1] -ROT_FID_BIAS)/ROT_TICKS_DEG),
+		  (int)((rot_fiducial[i].mark[1] -
+			 ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]),
 		  (rot_fiducial[i].disabled ? 'N' : 'Y'),
 		  rot_fiducial[i].fiducial[1],
 		  rot_fiducial[i].mark[1], rot_fiducial[i].last[1],

@@ -86,8 +86,8 @@ double max_acceleration[NAXIS] = {0.24, 0.12, 0.275};
 double max_velocity_requested[NAXIS] = {0, 0, 0};
 double max_acceleration_requested[NAXIS]={0, 0, 0};
 
-double sec_per_tick[3]={AZ_TICK, ALT_TICK, ROT_TICK};
-double ticks_per_degree[3]={AZ_TICKS_DEG, ALT_TICKS_DEG, ROT_TICKS_DEG};
+double sec_per_tick[NAXIS];
+double ticks_per_degree[NAXIS];
 
 /*****************************************************************************/
 /*
@@ -109,9 +109,10 @@ float
 axis_ticks_deg(int axis)
 {
    switch (axis) {
-    case AZIMUTH:    return(AZ_TICKS_DEG);
-    case ALTITUDE:   return(ALT_TICKS_DEG);
-    case INSTRUMENT: return(ROT_TICKS_DEG);
+    case AZIMUTH:
+    case ALTITUDE:
+    case INSTRUMENT:
+      return(sec_per_tick[axis]);
     default:
       fprintf(stderr,"axis_ticks_deg: unknown axis %d\n", axis);
       return(1);
@@ -1779,6 +1780,40 @@ restore_pos(void)
 
 /*****************************************************************************/
 /*
+ * Set the axis scales for an axis
+ */
+void
+set_axis_scale(int axis,		/* the axis in question */
+	       double ticksize)		/* size of an encoder tick in asec,
+					   use default if <= 0 */
+{
+   if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "Cannot take semMEI to set scale for %s: %s",
+	    axis_name(axis), strerror(errno))
+   }
+
+   if(ticksize <= 0) {
+      switch (axis) {
+       case AZIMUTH:
+	 ticksize = AZ_TICK0;
+	 break;
+       case ALTITUDE:
+	 ticksize = ALT_TICK0;
+	 break;
+       case INSTRUMENT:
+	 ticksize = ROT_TICK0;
+	 break;
+      }
+   }
+
+   sec_per_tick[axis] = ticksize;
+   ticks_per_degree[axis] = 3600/sec_per_tick[axis];
+
+   semGive(semMEI);
+}
+
+/*****************************************************************************/
+/*
  * General initialization of MEI board...called from startup script.
  *
  * 
@@ -1788,6 +1823,9 @@ restore_pos(void)
  *
  * Declare commands to the command interpreter
  */
+double az_tick, alt_tick, rot_tick;	/* size of an encoder tick in asec */
+double az_ticks_deg, alt_ticks_deg, rot_ticks_deg; /* ticks/degree */
+
 int
 axisMotionInit(void)
 {
@@ -1819,7 +1857,7 @@ axisMotionInit(void)
       taskSuspend(NULL);
    }
 
-   for(i = 0; i < 3; i++) {
+   for(i = 0; i < NAXIS; i++) {
       axis_queue[i].top = (struct FRAME *)malloc(sizeof(struct FRAME));
       if(axis_queue[i].top == NULL) {
 	 TRACE(0, "axisMotionInit: no memory for queue", 0, 0);
@@ -1948,6 +1986,13 @@ axisMotionInit(void)
       TRACE(0, "sizeof(struct AXIS_STAT) != sizeof(long) (%d != %d)",
 	    sizeof(struct AXIS_STAT), sizeof(long));
       abort();
+   }
+/*
+ * Set the default axis scales.  These may be updated later from
+ * the fiducial tables or (eventually) dynamically.
+ */
+   for(i = 0; i < NAXIS; i++) {
+      set_axis_scale(i, 0);
    }
 /*
  * Spawn the tasks that run the axes

@@ -24,38 +24,19 @@
  */
 #define SHARE_MEMORY	0x02800000
 
-/*
- * Charlie says:
- *   multiply AZ times 2000 for FNAL test setup
- * Does this refer to old ticksize of (.0035053554041*4)? RHL.
- * Old AZ_TICK 0.01401671040630 20-Sep-00 DL
- * New AZ_TICK 0.01401678528201 12-Dec-00 DL
- * New AZ_TICK 0.01401693078832 11-Feb-01 EN-JK
- * New AZ_TICK 0.01401666759398 10-May-01 EN-AK
- * New AZ_TICK 0.01401663645595 09-Jun-01 SS-EN
- * New ROT_TICK 0.021315787643528178 09-Jun-01 SS-EN
- * New AZ TICK 0.014016741390743669 04-Dec-01 ANK
- * New AZ_TICK 0.0140168885356226 2002-Jan-02 PRN from MJD 52276 data
- * New ROT_TICK 0.02131578638693693 2002-Jan-02 PRN from MJD 52276 data
- * New AZ_TICK 0.014016677905631868 2002-Mar-30 SAS from MJD 52363 data
- * New ROT_TICK 0.021315787229917133 2002-Mar-30 SAS from MJD 52363 data
- */
-#define AZ_TICK	0.014016690731950178
 #if 1
-#  define ALT_TICK	0.01400002855	/* encoder 1 */
+#  define AZ_TICK0	0.014016690731950178 /* encoder 1 */
 #else
-#  define ALT_TICK 	0.01400914486	/* encoder 2 */
+#  define AZ_TICK0	0.014025846229286947 /* encoder 2 */
 #endif
 
-#if 0
-#  define ROT_ROTARY_ENCODER 1
-#  define ROT_TICK	0.0127597662202 /* rotary encoder */
+#if 1
+#  define ALT_TICK0	0.01400002855	/* encoder 1 */
 #else
-#  define ROT_TICK      0.021315787526207226 /* optical encoder */
+#  define ALT_TICK0 	0.01400914486	/* encoder 2 */
 #endif
-#define AZ_TICKS_DEG	(3600/AZ_TICK)
-#define ALT_TICKS_DEG	(3600/ALT_TICK)
-#define ROT_TICKS_DEG	(3600/ROT_TICK)
+
+#define ROT_TICK0	0.021315787526207226 /* optical encoder */
 /*
  * Dynamically switch PID coefficients?
  */
@@ -88,6 +69,7 @@ double convert_mei_to_mcp(int mei_axis, double pos);
 			  int new_frame);
 #endif
 
+void set_axis_scale(int axis, double ticksize);
 const char *axis_name(int axis);
 float axis_ticks_deg(int axis);
 void enable_pvt(int axis);

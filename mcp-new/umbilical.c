@@ -648,8 +648,8 @@ umbilical_mgt(void)
    if(active_umbilical_control && saddle_is_mounted()) {
       tm_get_position(2*ALTITUDE, &alt);
       tm_get_position(2*INSTRUMENT, &rot);
-      alt /= ALT_TICKS_DEG;
-      rot /= ROT_TICKS_DEG;
+      alt /= ticks_per_degree[ALTITUDE];
+      rot /= ticks_per_degree[INSTRUMENT];
       
       umbilical_move_pos(calc_tower_height(alt, rot));
    } else {
