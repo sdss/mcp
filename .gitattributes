@@ -17,6 +17,7 @@ ab/std_dhp.c -text
 ab/std_dhp.h -text
 ab/vmeinst.c -text
 ip/Makefile -text
+ip/acromag/Makefile -text
 ip/acromag/carrier.c -text
 ip/acromag/cnfg480.c -text
 ip/acromag/drvr480.c -text
