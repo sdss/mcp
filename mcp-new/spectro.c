@@ -1,7 +1,3 @@
-#define tmr_e_abort_ns tmr_e_abort	/* an enum in the next version of
-					   Ron's timerTask; when that appears
-					   it won't compile until this #define
-					   is removed */
 #include <vxWorks.h>
 #include <stdio.h>
 #include <string.h>
@@ -1051,6 +1047,8 @@ spectroInit(void)
 /*
  * define spectro commands to the command interpreter
  */
+   define_cmd("CLAMP.OFF",           clampoff_cmd, 	       0, 1, 1);
+   define_cmd("CLAMP.ON",            clampon_cmd, 	       0, 1, 1);
    define_cmd("FF.OFF",              ffloff_cmd,               0, 0, 1);
    define_cmd("FF.ON",               fflon_cmd,                0, 0, 1);
    define_cmd("FF.STATUS",           ffstatus_cmd,             0, 0, 1);
