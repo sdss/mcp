@@ -179,3 +179,13 @@ Tue May 28 07:29:27 MDT 2002
 
 Tue May 28 14:47 APO time 2002
  created mainline tag v5_13_0 and branch tag v5_13 at that point
+
+Sun Nov 24 18:13:30 MST 2002
+	cvs rtag v5_14_0 mcp
+	cvs rtag -b v5_14 -r v5_14_0 mcp
+
+	Checkin some avoid too-large accelerations PVT code; I
+	failed to reproduce the problem it "fixes", so:
+
+	cvs rtag v5_15_0 mcp
+	cvs rtag -b v5_15 -r v5_15_0 mcp
