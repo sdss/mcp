@@ -450,6 +450,8 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    struct B10_1 tm_ctrl1;   
    int err;
              
+   TRACE(1, "Setting FFS: %d %d", val, enab); /* XXX */
+
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       return(-1);
