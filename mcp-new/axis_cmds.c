@@ -1,9 +1,8 @@
-#include "copyright.h"
 /**************************************************************************
 **
 **	Action routines for commands from the TCC which involve setting up
 **	queues for each axis to execute motion.
-**	tm_TCC is spawned for each axis to excute motion
+**	tm_TCC is spawned for each axis to execute motion
 */
 #include <assert.h>
 #include <string.h>
@@ -291,31 +290,11 @@ id_cmd(char *cmd)
 }
 
 /*=========================================================================
-**=========================================================================
 **
 **      INIT -> Init the axis
 **
 ** RETURN VALUES:
 **      NULL string or "ERR:..."
-**
-** CALLS TO:
-**	tm_axis_state
-**	tm_sem_controller_idle
-**	tm_reset_integrator
-**	amp_reset
-**      tm_sp_az_brake_off
-**      tm_sp_alt_brake_off
-**	tm_sem_controller_run
-**
-** GLOBALS REFERENCED:
-**	axis_select
-**	sdssdc
-**	semMEI
-**	axis_queue
-**	drift_break
-**	frame_break
-**
-**=========================================================================
 */
 char *
 init_cmd(char *cmd)
@@ -362,14 +341,14 @@ init_cmd(char *cmd)
       amp_reset(2*axis_select);		/* two amplifiers, */
       amp_reset(2*axis_select + 1);	/* param is index to bit field */
       if(sdssdc.status.i9.il0.az_brake_en_stat) {
-	 tm_sp_az_brake_off();
+	 mcp_unset_brake(axis_select);
       }
       break;
     case ALTITUDE:
       amp_reset(2*axis_select);		/* two amplifiers */
       amp_reset(2*axis_select + 1);	/* param is index to bit field */
       if(sdssdc.status.i9.il0.alt_brake_en_stat) {
-	 tm_sp_alt_brake_off();           
+	 mcp_unset_brake(axis_select);
       }
       break;
     case INSTRUMENT:
@@ -775,44 +754,6 @@ axis_status_cmd(char *cmd)
    assert(reply_str[200] == '\a');	/* check for overflow */
 
    return(reply_str);
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: brakeon_cmd
-**	    brakeoff_cmd
-**
-** DESCRIPTION:
-**	BRAKE.ON - turn on the selected brake.
-**	BRAKE.OFF - turn off the selected brake.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**	tm_sp_az_brake_on
-**	tm_sp_az_brake_off
-**	tm_sp_alt_brake_on
-**	tm_sp_alt_brake_off
-**
-** GLOBALS REFERENCED:
-**	axis_select
-**
-**=========================================================================
-*/
-char *brakeon_cmd(char *cmd)
-{
-  mcp_set_brake(axis_select);
-  
-  return "";
-}
-
-char *brakeoff_cmd(char *cmd)
-{
-   mcp_unset_brake(axis_select);
-   
-   return "";
 }
 
 /*****************************************************************************/
@@ -1325,78 +1266,6 @@ mcp_set_vel(int axis,			/* the axis to set */
 
 /*****************************************************************************/
 /*
- * Put on a brake
- */
-int
-mcp_set_brake(int axis)
-{
-   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "mcp_set_brake: illegal axis %d", axis, 0);
-
-      return(-1);
-   }
-
-   TRACE(3, "Setting brake for axis %s", axis_name(axis), 0);
-
-   if(axis == AZIMUTH) {
-      tm_sp_az_brake_on();
-   } else if(axis == ALTITUDE) {
-      tm_sp_alt_brake_on();
-   }
-   
-   tm_sem_controller_idle(2*axis);
-   tm_reset_integrator(2*axis);
-
-   return(0);
-}
-
-/*
- * Clear a brake
- */
-int
-mcp_unset_brake(int axis)		/* axis to set */
-{
-   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "mcp_unset_brake: illegal axis %d", axis, 0);
-
-      return(-1);
-   }
-
-   TRACE(3, "Clearing brake for axis %s", axis_name(axis), 0);
-
-   if(axis == AZIMUTH) {
-      tm_sp_az_brake_off();
-   } else if(axis == ALTITUDE) {
-      tm_sp_alt_brake_off();
-   }
-   
-   if(semTake(semMEI,60) == ERROR) {
-      TRACE(0, "mcp_unset_brake: failed to take semMEI: %s (%d)",
-	    strerror(errno), errno);
-      return(-1);
-   }
-
-   TRACE(3, "Putting axis %s into closed loop", axis_name(axis), 0);
-   sem_controller_run(2*axis);
-
-#if SWITCH_PID_COEFFS
-   if(axis == INSTRUMENT) {
-      while(coeffs_state_cts(2*axis, 0) == TRUE) {
-	 ;
-      }
-   }
-#endif
-
-   TRACE(3, "Stopping axis %s", axis_name(axis), 0);
-   v_move(2*axis,(double)0,(double)5000);
-
-   semGive(semMEI);
-
-   return(0);
-}
-
-/*****************************************************************************/
-/*
  * Hold an axis
  */
 int
@@ -1582,8 +1451,6 @@ move_cmd(char *cmd)
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-
-   printf("%s MOVE %s  %f\n", axis_name(axis_select), cmd, sdss_get_time());
 
    cnt = sscanf(cmd,"%lf %lf %lf", &params[0], &params[1], &params[2]);
    if(mcp_move(axis_select, params, cnt) < 0) {
@@ -1911,8 +1778,6 @@ axisMotionInit(void)
    define_cmd("AB.STATUS",     abstatus_cmd, 	  2, 0, 1);
    define_cmd("AMP.RESET",     amp_reset_cmd, 	  0, 1, 1);
    define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0);
-   define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 1);
-   define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 1);
    define_cmd("BUMP.CLEAR",    bump_clear_cmd,    0, 1, 1);
    define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1);
    define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 1);

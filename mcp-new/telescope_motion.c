@@ -592,332 +592,6 @@ void tm_read_all_adc(int cnt)
     printf ("\r\n");
   }
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_az_brake
-**	    tm_az_brake_on
-**	    tm_az_brake_off
-**	    tm_sp_az_brake_on
-**	    tm_sp_az_brake_off
-**
-** DESCRIPTION:
-**      Turn azimuth brakes off/on.  Function available to spawn the task
-**	since return can take some time...useful for TCC which times out
-**	reply.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-static int az_cnt;
-
-int
-tm_az_brake(short val) 
-{
-   int err;
-   unsigned short ctrl;
-   struct B10_0 tm_ctrl;   
-             
-   if (semTake (semSLC,60) == ERROR) {
-      TRACE(0, "tm_az_brake: unable to take semaphore: %s (%d)",
-	    strerror(errno), errno);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-   if(err) {
-      TRACE(0, "tm_az_brake: error reading slc: 0x%04x", err, 0);
-      semGive (semSLC);
-      return err;
-   }
-   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-
-   if(val==1) {
-      tm_ctrl.mcp_az_brk_en_cmd = 1;
-      tm_ctrl.mcp_az_brk_dis_cmd = 0;
-   } else {
-      tm_ctrl.mcp_az_brk_en_cmd = 0;
-      tm_ctrl.mcp_az_brk_dis_cmd = 1;
-   }
-
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-   semGive (semSLC);
-   if(err) {
-      TRACE(0, "tm_az_brake: error writing slc: 0x%04x", err, 0);
-      return err;
-   }
-   
-#ifdef TURNOFF
-   if(val==1) {
-      cnt=120;
-      while(sdssdc.status.i9.il0.az_brake_en_stat == 0 && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-/*   hold on the brake command */
-   } else {
-      cnt=60*6;
-      while(sdssdc.status.i9.il0.az_brake_dis_stat == 0 && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      taskDelay(12*60);
-
-      if(semTake(semSLC,60) == ERROR) {
-	 printf("tm_az_brake: unable to take semaphore to write: %s",
-		strerror(errno));
-	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
-	 return(-1);
-      }
-
-      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-      if(err) {
-	 printf ("R Err=%04x\r\n",err);
-	 semGive (semSLC);
-	 return err;
-      }
-      swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-      
-      tm_ctrl.mcp_az_brk_dis_cmd = 0;
-      
-      swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-      semGive (semSLC);
-      if(err) {
-	 printf("W Err=%04x\r\n",err);
-	 return err;
-      }
-   }
-   az_cnt=cnt;
-#endif
-
-   return 0;
-}
-
-void
-tm_az_brake_on()
-{
-    tm_az_brake (1);
-}
-
-void
-tm_az_brake_off()
-{
-    tm_az_brake (0);
-}
-
-void
-tm_sp_az_brake_on()
-{
-  if (taskIdFigure("tmAzBrk")==ERROR)
-    taskSpawn("tmAzBrk",90,0,2000,(FUNCPTR)tm_az_brake,1,0,0,0,0,0,0,0,0,0);
-}
-
-void
-tm_sp_az_brake_off()
-{
-  if (taskIdFigure("tmAzBrk")==ERROR)
-    taskSpawn("tmAzBrk",90,0,2000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_alt_brake
-**	    tm_alt_brake_on
-**	    tm_alt_brake_off
-**	    tm_sp_alt_brake_on
-**	    tm_sp_alt_brake_off
-**
-** DESCRIPTION:
-**      Turn altitude brakes off/on.  Function available to spawn the task
-**	since return can take some time...useful for TCC which times out
-**	reply.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int alt_cnt;
-int tm_alt_brake(short val) 
-{
-   int err;
-   unsigned short ctrl;
-   struct B10_0 tm_ctrl;   
-
-   TRACE(10, "Taking semaphore", 0, 0);
-   if (semTake(semSLC,60) == ERROR) {
-      printf("tm_alt_brake: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-   
-   TRACE(10, "Reading blok", 0, 0);
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-   if(err) {
-      TRACE(0, "tm_alt_brake: error reading slc: 0x%04x", err, 0);
-      semGive(semSLC);
-      return err;
-   }
-   TRACE(10, "Read 0x%x", *(int *)&ctrl, 0);
-   swab ((char *)&ctrl,(char *)&ctrl,2);
-   TRACE(10, "Swapped to 0x%x", *(int *)&tm_ctrl, 0);
-
-   if(val == 1) {
-      tm_ctrl.mcp_alt_brk_en_cmd = 1;
-      tm_ctrl.mcp_alt_brk_dis_cmd = 0;
-   } else {
-      tm_ctrl.mcp_alt_brk_en_cmd = 0;
-      tm_ctrl.mcp_alt_brk_dis_cmd = 1;
-   }
-
-   TRACE(10, "Swapping back", 0, 0);
-
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-   semGive (semSLC);
-   if(err) {
-      TRACE(0, "tm_alt_brake: error writing slc: 0x%04x", err, 0);
-      return err;
-   }
-
-   TRACE(10, "returning", 0, 0);
-#ifdef TURNOFF
-   if(val == 1) {
-      while(sdssdc.status.i9.il0.alt_brake_en_stat == 0 && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      /*   hold on the brake command */
-   } else {
-      cnt=60*4;
-      while(sdssdc.status.i9.il0.alt_brake_dis_stat == 0 && cnt >0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      taskDelay(60*4);
-      
-      if(semTake (semSLC,60)== ERROR) {
-	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
-	 return(-1);
-      }
-      
-      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-      if(err) {
-	 TRACE(0, "tm_alt_brake: error rereading slc: 0x%04x", err, 0);
-	 semGive (semSLC);
-	 return err;
-      }
-      swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-      
-      tm_ctrl.mcp_alt_brk_dis_cmd = 0;
-      
-      swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-      semGive(semSLC);
-      if(err) {
-	 TRACE(0, "tm_alt_brake: error rewriting slc: 0x%04x", err, 0);
-	 return err;
-      }
-   }
-   alt_cnt=cnt;
-#endif
-   
-   return 0;
-}
-
-void
-tm_alt_brake_on()
-{
-    tm_alt_brake (1);
-}
-
-void
-tm_alt_brake_off()
-{
-    tm_alt_brake (0);
-}
-
-void
-tm_sp_alt_brake_on()
-{
-  if (taskIdFigure("tmAltBrk")==ERROR)
-    taskSpawn("tmAltBrk",90,0,2000,(FUNCPTR)tm_alt_brake,1,0,0,0,0,0,0,0,0,0);
-}
-
-void
-tm_sp_alt_brake_off()
-{
-   if (taskIdFigure("tmAltBrk")==ERROR)
-     taskSpawn("tmAltBrk",90,0,2000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_brake_status
-**
-** DESCRIPTION:
-**      Diagnostic for brake status.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_brake_status()
-{
-  printf("\r\nAZ\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i9.il0.az_brake_en_stat,
-    sdssdc.status.i9.il0.az_brake_dis_stat,az_cnt);
-  printf("\r\nALT\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i9.il0.alt_brake_en_stat,
-    sdssdc.status.i9.il0.alt_brake_dis_stat,alt_cnt);
-  
-#if 0
-  int err;
-  unsigned short ctrl;
-  struct B10_0 tm_ctrl;   
-
-  if(semTake(semSLC,60) == ERROR) {
-     printf("tm_brake_status: unable to take semaphore: %s", strerror(errno));
-     TRACE(0, "Unable to take semaphore: %d", errno, 0);
-     return(-1);
-  }
-  
-  err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-  semGive (semSLC);
-  if(err) {
-     TRACE(0, "tm_brake_status: error reading slc: 0x%04x", err, 0);
-     return err;
-  }
-  swab((char *)&ctrl,(char *)&tm_ctrl,2);
-#endif
-
-  return 0;
-}
 
 /*=========================================================================
 **
@@ -985,8 +659,8 @@ void
 mgt_shutdown(int type)
 {
    TRACE(1, "Safely halting the telescope by braking AZ and ALT", 0, 0);
-   tm_az_brake_on();
-   tm_alt_brake_on();
+   mcp_set_brake(AZIMUTH);
+   mcp_set_brake(ALTITUDE);
 }
 
 void
@@ -1008,13 +682,13 @@ tm_amp_mgt(void)
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
 	       TRACE(0, "MGT: bad az state %s: %s",
 		     axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH));
-	       tm_az_brake_on();
+	       mcp_set_brake(AZIMUTH);
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
 	    if(!az_amp_ok()) {
 	       TRACE(0, "MGT: bad az amp", 0, 0);
 	       tm_sem_controller_idle(2*AZIMUTH);
-	       tm_az_brake_on();
+	       mcp_set_brake(AZIMUTH);
 	       monitor_axis[AZIMUTH]=FALSE;
 	    }
 	 }
@@ -1027,13 +701,13 @@ tm_amp_mgt(void)
 	       TRACE(0, "MGT: bad alt state %s: %s", 
 		     axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE));
 
-	       tm_alt_brake_on();
+	       mcp_set_brake(ALTITUDE);
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	    if(!alt_amp_ok()) {
 	       TRACE(0, "MGT: bad alt amp", 0, 0);
 	       tm_sem_controller_idle(2*ALTITUDE);
-	       tm_alt_brake_on();
+	       mcp_set_brake(AZIMUTH);
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	 }
