@@ -2,14 +2,11 @@
 /*
 **	TCC Command handler both receives, distributes, and answers on
 **	behalf of the action routines.
-**	cmd_handler can be invoked from the serial driver or the shell
-**	so access is arbitrated by a semaphore
 */
 #include "vxWorks.h"
 #include "stdio.h"
 #include "intLib.h"
 #include "iv.h"                                   
-#include "semLib.h"                              
 #include "memLib.h"
 #include "string.h"
 #include "ctype.h"
