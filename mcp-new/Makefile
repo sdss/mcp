@@ -42,8 +42,8 @@ LIBRARIES = $(MEIDSP)/medvxw40.a
 
 .SUFFIXES: .o .c .asm .s                                
 
+#$(CC) $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__ $(INCLUDES) -c $*.c
 .c.o:
-	#$(CC) $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__ $(INCLUDES) -c $*.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $*.c
 
 all dg : $(OBJS) $(LIBRARIES)
