@@ -24,6 +24,7 @@
 #include <symLib.h>
 #include <sysSymTbl.h>
 #include "in.h"
+#include "gendefs.h"
 #include "frame.h"
 #include "ms.h"
 #include "idsp.h"
@@ -32,6 +33,8 @@
 #include "cmd.h"
 #include "dscTrace.h"
 #include "mcpFiducials.h"
+#include "mcpTimers.h"
+#include "mcpUtils.h"
 
 /*------------------------------------------------------------------------
 **
@@ -44,10 +47,20 @@ static SEM_ID semCMD = NULL;
 ** GLOBAL VARIABLES
 */
 
-/* test message buffer  */
-char sdss_version[100];
+SYMTAB_ID cmdSymTbl = NULL;		/* our symbol table */
 
-SYMTAB_ID cmdSymTbl = NULL;
+/*****************************************************************************/
+/*
+ * A command to notify the MCP that we know it rebooted
+ */
+static int iacked = 0;			/* set to 0 on reboot */
+
+char *
+iack_cmd(char *cmd)			/* NOTUSED */
+{
+   iacked = 1;
+   return("");
+}
 
 /*
  * Set up the command interpreter
@@ -66,6 +79,7 @@ cmdInit(void)
 /*
  * Define some misc commands that done belong in any init function
  */
+   define_cmd("IACK",         iack_cmd,      0, 0, 1);
    define_cmd("SET.TIME",     set_time_cmd, -1, 1, 1);
    define_cmd("TICKLOST @ .", ticklost_cmd,  0, 0, 1);
    define_cmd("TIME?",        time_cmd,      0, 0, 1);
@@ -123,21 +137,11 @@ define_cmd(char *name,			/* name of command */
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: cmd_handler
-**
-** DESCRIPTION:
 **      Receives commands and emits an ASCII answer.
 **
 ** RETURN VALUES:
 **      char *	answer to be sent by driver making function invocation.
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
 char *
 cmd_handler(int have_sem,		/* we have semCmdPort */
@@ -148,6 +152,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    char *args;				/* arguments for this command */
    char *cmd_str = cmd;			/* pointer to cmd; or NULL */
    static char *cmd_error = "ERR: CMD ERROR";
+   static int iack_counter = -1;	/* control too many "MCP has rebooted"
+					   messages; wait before the first */
    int lvl;				/* level for TRACE */
    int nskip;				/* number of tokens to skip */
    static char *sem_error = "ERR: I don't have the semCmdPort semaphore";
@@ -156,6 +162,12 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    int varargs;				/* we don't know how many arguments
 					   to expect */
 
+   if(!iacked) {
+      if(iack_counter++%100 == 0) {
+	 TRACE(0, "The MCP has rebooted", 0, 0);
+      }
+   }
+
    semTake(semCMD, WAIT_FOREVER);
    ans=NULL;				/* ans is returned from function */
    
@@ -163,8 +175,9 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    nskip = varargs = 0;
    while((tok = strtok(cmd_str, " \t")) != NULL) {
       cmd_str = NULL;
-      
-      if(*tok == '\0') {		/* more than one separator char */
+
+      while(isspace(*tok)) tok++;	/* skip white space */
+      if(*tok == '\0') {
 	 continue;
       }
       
@@ -178,7 +191,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
       }
       
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
-	 TRACE(1, "Unknown command %s", tok, 0);
+	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
 	 
 	 semGive(semCMD);
 	 return(cmd_error);
@@ -202,11 +215,15 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 if(type & CMD_TYPE_VARARG) {
 	    varargs = 1;
 	 }
-	 if(nskip == 0) {
+	 if(nskip == 0 && !varargs) {
 	    TRACE(lvl, "Command %s:", tok, 0);
 	    args = "";
 	 } else {
-	    args = cmd_str = strtok(cmd_str, "");
+	    args = strtok(cmd_str, "");
+	    if(args == NULL) {
+	       args = "";
+	    }
+	    cmd_str = args;
 	    TRACE(lvl, "Command %s: %s", tok, cmd_str);
 	 }
       }
@@ -230,7 +247,8 @@ print_a_cmd(char *name,			/* name of command */
 	    int ipattern,		/* pattern to match commands, or 0 */
 	    UINT16 group)		/* NOTUSED */
 {
-   char funcname[50] = "";		/* name of function called */
+   char s_funcname[50] = "";		/* space for funcname */
+   char *funcname = s_funcname;		/* name of function called */
    int funcval = 0;			/* value of funcname */
    SYM_TYPE functype = 0;		/* type of function called */
    char *pattern = (ipattern == 0) ? NULL : (char *)ipattern;
@@ -244,8 +262,12 @@ print_a_cmd(char *name,			/* name of command */
    }
 
    symFindByValue(sysSymTbl, val, funcname, &funcval, &functype);
-   if(val != funcval) {
-      strcpy(funcname, "(static)");
+   if(val == funcval) {			/* found it */
+      if(*funcname == '_') {
+	 funcname++;			/* skip leading _ */
+      }
+   } else {
+      funcname = "(static)";
    }
    
    printf("%-20s %-20s  %-4d %-6d %-10d %d\n", name, funcname,
@@ -259,36 +281,10 @@ print_a_cmd(char *name,			/* name of command */
 }
 
 void
-cmdList(char *pattern)
+cmdShow(char *pattern)
 {
    printf("%-20s %-20s  %-4s %-6s %-10s %s\n\n",
 	  "Name", " Function", "Narg", "Vararg", "Restricted", "Print");
 
    symEach(cmdSymTbl, (FUNCPTR)print_a_cmd, (int)pattern);
 }
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: dummy_cmd
-**
-** DESCRIPTION:
-**      Entry for routines which are either not defined or not reasonable
-**	for 2.5M.  Does nothing.
-**
-** RETURN VALUES:
-**      char *	answer to be sent by driver making function invocation.
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *
-dummy_cmd(char *cmd)			/* NOTUSED */
-{
-  printf (" DUMMY command fired\r\n");
-  return "ERR: Dummy command - no action routine";
-}
-
