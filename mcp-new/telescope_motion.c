@@ -36,13 +36,12 @@
 #include "cw.h"
 #include "instruments.h"
 #include "dscTrace.h"
+#include "mcpFiducials.h"
 
 /*-------------------------------------------------------------------------
 **
 ** GLOBAL VARIABLES
 */
-int TM_verbose=FALSE;
-
 short az1vlt,az1cur,az2vlt,az2cur;
 short alt1vlt,alt1cur,alt2vlt,alt2cur;
 short rot1vlt,rot1cur;
@@ -252,24 +251,7 @@ void tm_set_coeffs(int axis, int index, int val)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: tm_clear_pos
-**	    tm_get_pos
-**	    tm_get_vel
-**	    tm_set_sample_rate
-**	    tm_reset_integrator
-**	    tm_set_pos
-**	    tm_set_encoder
-**	    tm_dual_loop
-**
-** DESCRIPTION:
 **      Telescope motion encapsulates with a semaphore the MEI function.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
 **
 **=========================================================================
 */
@@ -304,12 +286,56 @@ void tm_reset_integrator (int axis)
 	reset_integrator (axis);
 	semGive(semMEI);
 }
-void tm_set_pos (int axis,int pos)
+
+void
+tm_set_pos(int axis,int pos)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_position (axis,(double)pos);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   set_position (axis,(double)pos);
+   semGive(semMEI);
 }
+
+int
+tm_adjust_pos(int axis,			/* desired axis */
+	      int offset)		/* how much to offset position */
+{
+   double position;			/* position of axis */
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      TRACE(0, "tm_adjust_pos: invalid axis %d", axis, 0);
+      fprintf(stderr,"tm_adjust_pos: illegal axis %d\n", axis);
+      
+      return(-1);
+   }
+
+   if(semTake(semMEI,60) != OK) {
+      TRACE(0, "adjusting position for axis %s: unable to take semaphore: %s",
+	    axis_name(axis_select), strerror(errno));
+      return(-1);
+   }
+
+   taskLock();
+   
+   if(get_position(2*axis, &position) != DSP_OK) {
+      taskUnlock();
+      semGive(semMEI);
+      TRACE(0, "adjusting position for axis %s: unable to read position",
+	    axis_name(axis_select), 0);
+      return(-1);
+   }
+   
+   position += offset;
+   
+   set_position(2*axis, position);
+   set_position(2*axis + 1, position);	/* the second encoder in az/alt isn't
+					   connected/doesn't exist */
+   
+   taskUnlock();
+   semGive(semMEI);
+   
+   return(0);
+}
+  
 void tm_set_encoder(int axis)
 {
 	semTake(semMEI,WAIT_FOREVER);
@@ -413,7 +439,7 @@ sem_controller_run(int axis)
       controller_run(axis);
    }
    
-   if(i == nretry) {
+   if(i != nretry) {			/* success */
       monitor_axis[axis/2] = TRUE;
    }
 }
@@ -474,83 +500,17 @@ void sem_controller_idle (int axis)
 **
 **=========================================================================
 */
-void tm_set_boot_filter (int axis)
+void
+tm_set_boot_filter(int axis)
 {
-	short coeff[COEFFICIENTS];
+   short coeff[COEFFICIENTS];
+   
+   semTake(semMEI,WAIT_FOREVER);
+   get_filter(axis,(P_INT)coeff);
+   set_boot_filter(axis,(P_INT)coeff);
+   semGive(semMEI);
+}
 
-	semTake(semMEI,WAIT_FOREVER);
-	get_filter(axis,(P_INT)coeff);
-	set_boot_filter(axis,(P_INT)coeff);
-	semGive(semMEI);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: TM_help
-**
-** DESCRIPTION:
-**      Telescope motion help.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *help_TM[]={
-        "TM_help;  axis 0,1=ALT, axis 2,3=AL, axis 4,5=ROT",
-	"TM_Verbose, TM_Quiet",
-	"tmDisplay(int delay)",
-	"tm_start_move(int axis, int vel, int accel, int absolutepos)",
-	"tm_set_coeffs(int axis, int index, int val)",
-	" index=0(P),1(I),2(D),3(AFF),4(VFF),5(ILIM),6(OFF),7(DLIM)",
-	" 8(SHIFT)(-5 is 1/32),9(FFF)",
-	"tm_print_coeffs(int axis)",
-	"tm_clear_pos(int axis)",
-	"tm_set_analog_encoder(int axis, int channel)",
-	"tm_set_encoder(int axis)",
-	"tm_controller_idle(int axis)",
-	"tm_dual_loop(int axis, int dual)",
-	"tm_set_fiducial_pos(int axis); tm_set_pos_off_fiducial()",
-	"tm_print_fiducial(int axis); tm_print_fiducial_all()",
-""
-};                                                         
-void TM_help()
-{
-  int i;
-
-  for (i=0;i<sizeof(help_TM)/sizeof(char *);i++)
-    printf ("%s\r\n",help_TM[i]);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: TM_Verbose
-**	    TM_Quiet
-**
-** DESCRIPTION:
-**      Turns off/on verbosity for diagnostics.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void TM_Verbose()
-{
-	TM_verbose=TRUE;
-}
-void TM_Quiet()
-{
-	TM_verbose=FALSE;
-}
 /*=========================================================================
 **=========================================================================
 **
@@ -570,7 +530,8 @@ void TM_Quiet()
 **
 **=========================================================================
 */
-int ADC128F1_initialize(unsigned char *addr, int occur)
+int
+ADC128F1_initialize(unsigned char *addr, int occur)
 {
   int i;
   struct IPACK ip;
@@ -2004,74 +1965,77 @@ int rot_amp_ok()
 **=========================================================================
 */
 #define TM_WD		4		/* WD channel    15 */
-void mgt_shutdown(int type)
-{
-    printf("mgt: Safely halt the telescope by braking AZ and ALT\n");
-    tm_az_brake_on();
-    tm_alt_brake_on();
-}
-void tm_amp_mgt()
-{
-  int state;
 
-  monitor_axis[0]=monitor_axis[1]=monitor_axis[2]=FALSE;
-  monitor_on[0]=monitor_on[1]=monitor_on[2]=TRUE;
-  rebootHookAdd((FUNCPTR)mgt_shutdown);
-  FOREVER
-  {
-    taskDelay (30);
-    tm_amp_engage();		/* keep amps alive */
-    if (monitor_on[0])
-    {
-      if ((monitor_axis[0])&&(sdssdc.status.i9.il0.az_brake_dis_stat))
-      {
-        if (((state=tm_axis_state(0))>2)&&(state!=STOP_EVENT))
-        {
-	  printf("\r\nMGT: bad az state %d",state);
-          tm_az_brake_on();
-	  monitor_axis[0]=FALSE;
-        }
-        if (!az_amp_ok())
-        {
-	  printf("\r\nMGT: bad az amp");
-          tm_controller_idle(0);
-          tm_az_brake_on();
-	  monitor_axis[0]=FALSE;
-        }
+void
+mgt_shutdown(int type)
+{
+   printf("mgt: Safely halt the telescope by braking AZ and ALT\n");
+   tm_az_brake_on();
+   tm_alt_brake_on();
+}
+
+void
+tm_amp_mgt(void)
+{
+   int state;
+   
+   monitor_axis[AZIMUTH] = monitor_axis[ALTITUDE] =
+					      monitor_axis[INSTRUMENT] = FALSE;
+   monitor_on[AZIMUTH] = monitor_on[ALTITUDE] = monitor_on[INSTRUMENT] = TRUE;
+   rebootHookAdd((FUNCPTR)mgt_shutdown);
+   
+   for(;;) {
+      taskDelay (30);
+      tm_amp_engage();		/* keep amps alive */
+      
+      if(monitor_on[AZIMUTH]) {
+	 if(monitor_axis[AZIMUTH] && sdssdc.status.i9.il0.az_brake_dis_stat) {
+	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
+	       TRACE(0, "MGT: bad az state %d", state, 0);
+	       printf("MGT: bad az state %d\n", state);
+	       tm_az_brake_on();
+	       monitor_axis[AZIMUTH] = FALSE;
+	    }
+	    if(!az_amp_ok()) {
+	       TRACE(0, "MGT: bad az amp", 0, 0);
+	       printf("MGT: bad az amp\n");
+	       tm_controller_idle(2*AZIMUTH);
+	       tm_az_brake_on();
+	       monitor_axis[AZIMUTH]=FALSE;
+	    }
+	 }
       }
-    }
-    if (monitor_on[1])
-    {
-      if ((monitor_axis[1])&&(sdssdc.status.i9.il0.alt_brake_dis_stat))
-      {
-        if (((state=tm_axis_state(2))>2)&&(state!=STOP_EVENT))
-        {
-	  printf("\r\nMGT: bad alt state %d",state);
-          tm_alt_brake_on();
-  	  monitor_axis[1]=FALSE;
-        }
-        if (!alt_amp_ok())
-        {
-	  printf("\r\nMGT: bad alt amp");
-          tm_controller_idle(2);
-          tm_alt_brake_on();
-	  monitor_axis[1]=FALSE;
-        }
+
+      if(monitor_on[ALTITUDE]) {
+	 if(monitor_axis[ALTITUDE] &&
+	    sdssdc.status.i9.il0.alt_brake_dis_stat) {
+	    if((state = tm_axis_state(2*ALTITUDE)) > 2 && state != STOP_EVENT){
+	       TRACE(0, "MGT: bad alt state %d", state, 0);
+	       printf("MGT: bad alt state %d\n", state);
+	       tm_alt_brake_on();
+	       monitor_axis[ALTITUDE] = FALSE;
+	    }
+	    if(!alt_amp_ok()) {
+	       TRACE(0, "MGT: bad alt amp", 0, 0);
+	       printf("MGT: bad alt amp\n");
+	       tm_controller_idle(2*ALTITUDE);
+	       tm_alt_brake_on();
+	       monitor_axis[ALTITUDE] = FALSE;
+	    }
+	 }
       }
-    }
-    if (monitor_on[2])
-    {
-      if (monitor_axis[2])
-      {
-        if (!rot_amp_ok())
-        {
-	  printf("\r\nMGT: bad rot amp");
-          tm_controller_idle(4);
-	  monitor_axis[2]=FALSE;
-        }
+     
+      if(monitor_on[INSTRUMENT]) {
+	 if(monitor_axis[INSTRUMENT]) {
+	    if(!rot_amp_ok()) {
+	       TRACE(0, "MGT: bad rot amp", 0, 0);
+	       printf("MGT: bad rot amp\n");
+	       tm_controller_idle(2*INSTRUMENT);
+	       monitor_axis[INSTRUMENT] = FALSE;
+	    }
+	 }
       }
-    }
-  }
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -2132,219 +2096,40 @@ void tm_print_amp_status()
 **
 **=========================================================================
 */
-void tm_amp_disengage()
+void
+tm_amp_disengage(void)
 {
   StopCounter (&sbrd,TM_WD);
 }
-void tm_amp_engage()
+
+void
+tm_amp_engage(void)
 {
-  if ((axis_alive&0x7)==0x7)
-  {
-    WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
-    StartCounter (&sbrd,TM_WD);
-/*  axis_alive=0; */	/* requires each task to actively set the bits */
-  }
+   if((axis_alive & 0x7) == 0x7) {
+      WriteCounterConstant(&sbrd, TM_WD);		/* 2 Sec */
+      StartCounter(&sbrd, TM_WD);
+#if 0
+      axis_alive = 0;			/* requires each task to actively
+					   set the bits */
+#endif
+   }
 }
-void tm_setup_wd ()
+
+void
+tm_setup_wd(void)
 {
-  SetCounterSize (&sbrd,TM_WD,CtrSize32);
-  SetCounterConstant (&sbrd,TM_WD,2000000);		/* 2 Sec */
-  SetMode (&sbrd,TM_WD,Watchdog);
-  SetDebounce (&sbrd,TM_WD,DebounceOff);
-  SetInterruptEnable(&sbrd,TM_WD,IntEnable);
-  SetClockSource (&sbrd,TM_WD,InC1Mhz);
-  SetTriggerSource (&sbrd,TM_WD,InTrig);
-  SetWatchdogLoad (&sbrd,TM_WD,WDIntLd);
-  SetOutputPolarity (&sbrd,TM_WD,OutPolLow);
-  ConfigureCounterTimer(&sbrd,TM_WD);
+   SetCounterSize(&sbrd, TM_WD, CtrSize32);
+   SetCounterConstant(&sbrd, TM_WD, 2000000);		/* 2 Sec */
+   SetMode(&sbrd, TM_WD, Watchdog);
+   SetDebounce(&sbrd, TM_WD, DebounceOff);
+   SetInterruptEnable(&sbrd, TM_WD, IntEnable);
+   SetClockSource(&sbrd, TM_WD, InC1Mhz);
+   SetTriggerSource(&sbrd, TM_WD, InTrig);
+   SetWatchdogLoad(&sbrd, TM_WD, WDIntLd);
+   SetOutputPolarity(&sbrd, TM_WD, OutPolLow);
+   ConfigureCounterTimer(&sbrd, TM_WD);
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_set_fiducial_pos
-**
-** DESCRIPTION:
-**      Sets the queried setting for position as the fixed fiducial
-**	for the specified axis.  There is only one fixed fiudicial per
-**	axis which gets set.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**	tm_print_fiducial
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void tm_set_fiducial_pos(int axis)
-{
-  int negative;
-  long pos, deg, min, arcsec, marcsec;
-  char buf[16];
-   
-  axis=axis>>1;
-  printf("Set Fiducial Position    xxx:xx:xx:xxx  ");
-  gets(buf);
-  if (buf[0]=='-') 
-  {
-    sscanf (&buf[1],"%ld:%ld:%ld:%ld",
-	&deg,&min,&arcsec,&marcsec);
-    negative=TRUE;
-  }
-  else
-  {
-    sscanf (buf,"%ld:%ld:%ld:%ld",
-    	&deg,&min,&arcsec,&marcsec);
-    negative=FALSE;
-  }
-  switch (axis)
-  {
-    case AZIMUTH:
-      pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-	 (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-      break;
 
-    case ALTITUDE:
-      pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-	 (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-      break;
-
-    case INSTRUMENT:
-      pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-         (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
-      break;
-
-    default:
-      printf ("\r\nIllegal axis=%d",axis);
-      return;
-  }
-  if (negative) pos=-pos;
-  fiducial_position[axis]=pos;
-  tm_print_fiducial(axis<<1);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_print_fiducial_all
-**	    tm_print_fiducial
-**
-** DESCRIPTION:
-**      Print the fiducials
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void tm_print_fiducial_all()
-{
-  int i;
-
-  for(i = 0; i < 3; i++)
-    tm_print_fiducial(i<<1);
-  printf ("\r\n");
-}
-void tm_print_fiducial(int axis)
-{
-  long marcs,arcs,arcm,arcd;
-  double arcsec, farcsec;
-  int i;
-
-  i=axis>>1;
-  switch (i)
-  {
-    case AZIMUTH:
-      printf ("\r\nAxis AZ(0):");
-      arcsec=(AZ_TICK*abs(fiducial_position[i]));
-      farcsec=(AZ_TICK*abs(fiducial[i].mark));
-      break;
-
-    case ALTITUDE:
-      printf ("\r\nAxis ALT(2):");
-      arcsec=(ALT_TICK*abs(fiducial_position[i]));
-      farcsec=(ALT_TICK*abs(fiducial[i].mark));
-      break;
-
-    case INSTRUMENT:
-      printf ("\r\nAxis ROT(4):");
-      arcsec=(ROT_TICK*abs(fiducial_position[i]));
-      farcsec=(ROT_TICK*abs(fiducial[i].mark));
-      break;
-
-    default:
-      printf ("\r\nIllegal axis=%d",axis);
-      return;
-  }
-  arcd=(long)(arcsec)/3600;	     
-  arcm=((long)(arcsec)-(arcd*3600))/60;	     
-  arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
-  marcs = (arcsec-(long)arcsec)*1000;
-  printf ("\r\n Fiducial Position = ");
-  if (fiducial_position[i]<0)
-    printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-  else
-    printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-  arcd=(long)(farcsec)/3600;	     
-  arcm=((long)(farcsec)-(arcd*3600))/60;	     
-  arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
-  marcs = (farcsec-(long)farcsec)*1000;
-  printf (" Fiducial Position Mark = ");
-  if (fiducial[i].markvalid)
-  {
-    if (fiducial[i].mark<0)
-      printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-    else
-      printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-  }
-  else
-    printf("     NOT Valid");
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_set_pos_off_fiducial
-**
-** DESCRIPTION:
-**      Sets the most recent readings for position as the fixed fiducial
-**	for the specified axis.  There is only one fixed fiudicial per
-**	axis which gets set.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void tm_set_pos_off_fiducials(int axis)
-{
-  double pos;
-
-                        if (fiducial[axis/2].markvalid)
-                        {
-                          pos=fiducial_position[axis/2];
-                          pos += ((*tmaxis[axis/2]).actual_position-
-                                fiducial[axis/2].mark);
-                          fiducial[axis/2].mark=fiducial_position[axis/2];
-                          tm_set_pos(axis&0x6,pos);
-/*                        if (axis==0)
-                            tm_set_pos(axis+1,pos);*/
-                          if (axis/2==2)
-                            tm_set_pos(axis+1,pos);
-                          if (axis/2==2)
-                            tm_set_pos(axis-1,pos);
-                        }
-                        else
-                          printf("ERR: fiducial for axis not crossed      ");
-}
 /*=========================================================================
 **=========================================================================
 **
