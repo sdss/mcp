@@ -325,10 +325,18 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
  */
    define_cmd("IACK",         iack_cmd,      0, 0, 0, 1,
 	      "Acknowledge an MCP reboot");
-   define_cmd("LOG.BUFSIZE",  log_bufsize_cmd, 1, 0, 0, 1, "");
-   define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0, 0, "");
-   define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0, 0, "");
-   define_cmd("VERSION",      version_cmd,   0, 0, 0, 0, "");
+   define_cmd("LOG.BUFSIZE",  log_bufsize_cmd, 1, 0, 0, 1,
+	      "Set the number of commands logged before the output file is\n"
+	      "flushed to disk.  Returns the previous value");
+   define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0, 0,
+	      "Flush the mcpCmdLog file to disk");
+   define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0, 0,
+	      "Set the level of command logging\n"
+	      "   -1:  No logging\n"
+	      "    0:  Log `interesting' commands\n"
+	      "    1:  Log all commands\n");
+   define_cmd("VERSION",      version_cmd,   0, 0, 0, 0,
+	      "Return the MCP version string");
    define_cmd("SYS.RESET",    sys_reset_cmd, 1, 0, 0, 1,
 	      "Reset the MCP. If the argument is true, reset the whole crate");
 
@@ -548,7 +556,7 @@ compar(const void *a, const void *b)
 }
 
 /*
- * User-level command
+ * User-level command to show all or some iop-available commands
  */
 void
 cmdShow(char *pattern,			/* pattern to match, or NULL */
@@ -561,6 +569,7 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
    SYM_TYPE functype = 0;		/* type of function in sysSymTbl
 					   (not used) */
    SYM_TYPE type = 0;			/* type of function called */
+   char upattern[100];			/* upper-case version of pattern */
    int val;				/* value of symbol in cmdSymTbl */
 /*
  * Find and sort all commands
@@ -576,6 +585,16 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
       assert(size == ncommand);
 
       qsort(commands, ncommand, sizeof(char *), compar);
+   }
+/*
+ * If pattern is provided, convert it to uppercase
+ */
+   if(pattern != NULL) {
+      for(i = 0; i < sizeof(upattern) - 1 && pattern[i] != '\0'; i++) {
+	 upattern[i] = toupper(pattern[i]);
+      }
+      upattern[i] = '\0';
+      pattern = upattern;
    }
 /*
  * List desired commands
