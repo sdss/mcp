@@ -48,4 +48,4 @@ OBJS =mv162IndPackInit.o ipOctalSerial.o
 .s.o:
 	$(ASM) $(AFLAGS) -o $*.o $*.s
 
-dg: $(ASRCS) $(OBJS) 
+all dg: $(ASRCS) $(OBJS) 

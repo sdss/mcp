@@ -61,7 +61,7 @@ LFLAGS = -r -M
 
 ## actions
 
-default : $(LIBFILE)
+all default : $(LIBFILE)
 
 $(LIBFILE): $(OBJECTS)
 	    $(RM) $(LIBFILE)

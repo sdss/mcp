@@ -46,7 +46,7 @@ DHP_OBJS = std_dhp.o dhpd.o diag.o sbslc.o rdslc.o vmeinst.o
 .s.o:
 	$(ASM) $(AFLAGS) -o $*.o $*.s
 
-dg: $(ASRCS) $(DHP_OBJS)
+all dg: $(ASRCS) $(DHP_OBJS)
 	$(LINK) $(LFLAGS) -o  dhp.out \
 	$(DHP_OBJS) \
 	>$(DESTDIR)dhp.map
