@@ -227,7 +227,7 @@ ms_max_cmd "200"
 #
 rot_cmd				/* ROT */
 ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"; ms_define_cmd
-ms_max_cmd "100"
+ms_max_cmd "200"
 #
 # Adjust tracing now that we're up
 #
