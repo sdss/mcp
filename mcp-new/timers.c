@@ -5,6 +5,7 @@
 #include <rebootLib.h>
 #include <intLib.h>
 #include <sysLib.h>
+#include <systime.h>
 #include <timers.h>
 #include <time.h>
 #include <errno.h>
@@ -124,26 +125,11 @@ test_dt(int t2,int t1)
 }
 
 /*=========================================================================
-**=========================================================================
-**
-** ROUTINE: set_time_cmd
-**	    print_time_changes - diagnostic
 **
 ** DESCRIPTION:
 **	SET.TIME date - sets time to WWVB.
 **	Date can be specified as either "month day year hour minute second" or
 **	"month day year seconds-in-day".
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	SDSStime
-**	time1, time2
-**
-**=========================================================================
 */
 static float time1, time2;
 long SDSStime = -1;
@@ -157,10 +143,65 @@ print_time_changes(void)
 void
 setSDSStimeFromNTP(int quiet, int set)
 {
+   const char *ntpServer = "tcc25m.apo.nmsu.edu";
+   const char *utcServer = "utc-time.apo.nmsu.edu";
+   int leapSeconds;			/* number of leap seconds: utc - tai*/
+   long oSDSStime;			/* old value of SDSStime */
+   double sdss_frac_s;			/* fraction of a sec after GPS tick */
+   struct tm tm;
+   time_t t;
+   struct timeval tai;			/* TAI from NTP */
+   struct timeval utc;			/* UTC from NTP */
+/*
+ * find how many leap seconds TAI is away from UTC
+ */
+   if(setTimeFromNTP(ntpServer, 0, 1, 0, &tai) < 0) {
+      TRACE(0, "failed to get time from %s: %s", ntpServer, strerror(errno));
+      return;
+   }
+   if(setTimeFromNTP(utcServer, 0, 1, 0, &utc) < 0) {
+      TRACE(0, "failed to get time from %s: %s", ntpServer, strerror(errno));
+      return;
+   }
+   leapSeconds =
+     (utc.tv_sec + 1e-6*utc.tv_usec) - (tai.tv_sec + 1e-6*tai.tv_usec) + 0.5;
+/*
+ * Wait until we are more than 50ms away from a GPS tick
+ */
+   {
+      double sdss_time = sdss_get_time() + 1; /* SDSStime may == -1 */
+      sdss_frac_s = sdss_time - (int)sdss_time;
+   }
+   if(sdss_frac_s > 0.95) {
+      taskDelay((int)(60*(1.0 - sdss_frac_s) + 5));
+   }
+
+   oSDSStime = SDSStime;		/* used if !quiet */
+   if(set) {
+      taskLock();
+   
+      t = time(NULL);
+      tm = *localtime(&t);
+      tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
+      
+      SDSStime = (time(NULL) - mktime(&tm) + (ONE_DAY - leapSeconds))%ONE_DAY;
+      
+      taskUnlock();
+   }
+   
+   if(!quiet) {
+      fprintf(stderr,"NTP time: %d SDSStime: %d\n", SDSStime, oSDSStime);
+   }
+}
+
+
+void
+old_setSDSStimeFromNTP(int quiet, int set)
+{
    struct tm tm;
    time_t t;
    
-   setTimeFromNTP("tcc25m.apo.nmsu.edu", 0, 1, 0);
+   setTimeFromNTP("tcc25m.apo.nmsu.edu", 0, 1, 0, NULL);
 
    t = time(NULL);
    tm = *localtime(&t);
@@ -175,7 +216,7 @@ setSDSStimeFromNTP(int quiet, int set)
       SDSStime = (time(NULL) - mktime(&tm))%ONE_DAY;
    }
 
-   setTimeFromNTP("utc-time.apo.nmsu.edu", 0, 1, 0);
+   setTimeFromNTP("utc-time.apo.nmsu.edu", 0, 1, 0, NULL);
 }
 
 int use_NTP = 1;			/* get time from NTP not the TCC */

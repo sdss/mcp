@@ -15,19 +15,30 @@
 #include "tod_prototypes.h"
 #include "ntp.h"
 #include "mcpNtp.h"
-
+/*
+ * Query the specified NTP server for the time
+ *
+ * If time is NULL set the time, otherwise return the time to the
+ * caller leaving the clock unaffected
+ */
 int
 setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
 	       int retryDelay,		/* Delay between retries (ticks) */
 	       unsigned long retryCnt,	/* Retry count (0 means none) */
-	       int forceStep)		/* Force step adjustment? */
+	       int forceStep,		/* Force step adjustment? */
+	       struct timeval *time)	/* if NULL set the time, otherwise
+					   return it */
 {
    int i;
    struct ntpdata NTPstamp;		/* the desired timestamp */
    struct sockaddr_in server;		/* server's address */
    int sock;				/* server socket */
    unsigned long NTPserver;		/* numerical IP address of NTP server*/
-   struct timeval time;			/* the time to set */
+   struct timeval time_s;		/* the time to set it time == NULL */
+
+   if(time == NULL) {
+      time = &time_s;
+   }
 /*
  * Convert that server name; first dotted notation then a name
  */
@@ -111,10 +122,12 @@ setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
       return(-1);
    }
 
-   time.tv_sec  = NTPstamp.xmt.int_part - JAN_1970 + forceStep;
-   time.tv_usec = (unsigned long  int)((NTPstamp.xmt.fraction * 15625) >> 26);
+   time->tv_sec  = NTPstamp.xmt.int_part - JAN_1970 + forceStep;
+   time->tv_usec = (unsigned long)((NTPstamp.xmt.fraction*15625) >> 26);
 
-   settimeofday(&time, (void *)(0));
+   if(time == &time_s) {		/* actually set the time */
+      settimeofday(time, NULL);
+   }
 
    return(0);
 }
