@@ -199,6 +199,7 @@ tcc_serial(int port)
 
      command_buffer[0] = '\0';
      status = sdss_receive(stream, port, command_buffer, 256);
+
      {
 	int lvl = 5;
 	if(strstr(command_buffer, "STATUS") != NULL) {
@@ -211,7 +212,16 @@ tcc_serial(int port)
      }
      
      if(status == 0) {
+	if(command_buffer[0] == '\0') {
+	   status = sdss_transmit(stream, command_buffer, " OK");
+	   if(status != 0) {
+	      TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+	   }
+	   continue;
+	}
+
 	status = sdss_transmit(stream, command_buffer, "");
+
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
 	}
@@ -225,14 +235,13 @@ tcc_serial(int port)
 	   if(nblock > 0) {
 	      int i;
 	      fprintf(stderr, "semCMD: ");
-	      for(i = 0;i < nblock; nblock++) {
+	      for(i = 0;i < nblock; i++) {
 		 fprintf(stderr,"0x%x ", ids[i]);
 	      }
 	      fprintf(stderr,"\n");
 	   }
 	}
 #endif
-
 	answer_buffer =
 	  cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
 		      command_buffer, &cmd_type);
@@ -243,18 +252,16 @@ tcc_serial(int port)
 
 	if(answer_buffer == NULL) {
 	   fprintf(stderr,"RHL Command %s returned NULL\n", command_buffer);
-	   answer_buffer = "";
-	}
-	status = sdss_transmit(stream, answer_buffer, "  OK");
-	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	   answer_buffer = "RHL";
 	}
      } else {
 	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
-	status = sdss_transmit(stream, "ERR: Bad Command", "  OK");
-	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
-	}
+	answer_buffer = "ERR: Bad read from TCC";
+     }
+
+     status = sdss_transmit(stream, answer_buffer, " OK");
+     if(status != 0) {
+	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
      }
   }
 }                                             
