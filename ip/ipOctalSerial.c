@@ -74,6 +74,7 @@ Leif Thuresson,  Control System Group,
 #include "stdlib.h"
 #include "stdio.h"
 #include "ipOctalSerial.h"
+#include "dscTrace.h"
                           
 struct HISTORY_POOL {
 	char outchar;
@@ -601,6 +602,8 @@ LOCAL void octSerInt
 	char	outChar;
 	char    inChar;
 	int	i;
+
+	TRACE0(16, "octSerInt", 0, 0);
 
 	/* We need to find out which channel interrupted.  */
 	for(i=0; i<N_CHANNELS; i++, pOctSerDv++)	{
