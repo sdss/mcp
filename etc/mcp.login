@@ -1,14 +1,105 @@
-shellPromptSet ("mcp->")
+shellPromptSet ("mcp-> ")
 tyBackspaceSet(0x7F)
-hostAdd ("oper","192.41.211.171")
+#
+# Turn on all memory debugging options
+#
+memOptionsSet 0x1ff
+#
+hostAdd ("sdsshost.apo.nmsu.edu", "192.41.211.171")
 #
 routeAdd("0", "192.41.211.1")
-#routeAdd("192.41.211.160", "192.41.211.166")
 #
-netDevCreate("galileo:","galileo",0)
-#nfsMount ("galileo","/export/apotop/visitor1","/vxdsp")
-# get to the version root
+nfsMount("sdsshost.apo.nmsu.edu", "/p", "/p")
+nfsMount("sdsshost.apo.nmsu.edu", "/home", "/home")
+nfsMount("sdsshost.apo.nmsu.edu", "/usrdevel", "/usrdevel")
+#
+# Add user vxboot (pid 5036, gid 5530) to group products
+#
+au_p = malloc(4); *au_p = 4525		/* group products */
+nfsAuthUnixSet "sdsshost.apo.nmsu.edu", 5036, 5530, 1, au_p
+#
+# Go to the version root
+#
 cd "/p/mcpbase"
+
+#
+# Load Ron's tracing tools from vx_tools
+#
+ld < vx_tools/objects/trace.mv167.o
+ld < vx_tools/lib/vxt.mv167.o
+#
+# Load murmur
+#
+ld < vx_tools/objects/dvx_var_dvx.mv167.o
+ld < murmur_client_vx/lib/muruser.m68040.o
+#
+# Load taskSwitchHook utils for the use of the tracer
+#
+ld < util/dscTrace.o
+trace_limPerTimPeriod = 30	/* control throttling of murmur messages */
+#
+# Initialize MVME167 VMEchip2 tick timer 2 for use as a rolling micro-
+# second timer for trace (and for the clk2Read and clk2Diff macros).
+#
+clk2Stop()			/* VMEchip2 tick timer 2 */
+clk2Start ()			/* VMEchip2 tick timer 2 */
+#
+# Enable/disable tracing (via commenting).
+#
+# The main trace philosophy is that higher levels will print out more
+# often as the system runs (if those levels are enabled).  The DA conventions
+# for trace levels are:
+#
+#	   levels	meaning
+#	   ------	-------------------------------------------------------
+#	   0 -  3	Messages of interest during normal operation.
+#	   4 -  7	Messages possibly of interest during normal operation.
+#	   8 - 30	Messages used for debugging.
+#	       31	Messages showing task switches.
+#
+# A further suggestion is to use an even trace level for subroutine entry
+# and that level, plus one, for trace entries within the subroutine.
+#
+traceInit(40000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
+traceInitialOn(0, 30)
+traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
+traceTtyOn 0, 3
+traceMode 5			/* Entry -> queue -> user-defined fn */
+
+taskSwitchHookAdd(trc_tskSwHk)	/* prepare to trace task switches */
+repeat 1, taskDelay, 0		/* need a task switch to create pSwHook */
+traceOn 1, 31,31		/* trace task switches */
+
+#
+# Start MURMUR related items, including the server.
+#
+#  "192.41.211.171" == sdsshost.apo.nmsu.edu
+mur_set_proc_name "MCP"
+
+#taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "192.41.211.171"
+taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdsshost.apo.nmsu.edu"
+taskSpawn "tMurServerRetry", 100, 0, 10000, mur_server_retry, 30
+taskSpawn "tMurRouter", 70, 0, 20000, mur_route_start, 200
+
+#
+# Add hooks for task creation/death
+#
+ld < util/tasks.o
+
+taskCreateHookAdd taskCheckOnCreate
+taskDeleteHookAdd taskCheckOnDelete
+
+repeat 1, taskDelay, 0		/* create/delete a task */
+traceOn 2, 31,31		/* trace task creation */
+traceOn 3, 31,31		/* trace task deletion */
+
+#
+# Spawn idle task
+#
+taskSpawn "tIdleTask", 255, 0, 500, idle
+
+#
+# IndustryPack serial drivers
 #
 ld < ip/ipOctalSerial.o
 ld < ip/mv162IndPackInit.o
@@ -20,8 +111,6 @@ ld < ip/systran/did48.out
 ld < ip/acromag/ip480.out
 ld < util/utiltim.out
 ld < util/timer.o
-ld < /p/vx_tools/v2_11/lib/vxt.mv167.o
-ld < /p/murmur_client_vx/v1_18/lib/muruser.m68040.o
 #
 # Allen-Bradley SLC504
 #
@@ -36,8 +125,12 @@ vmeinst (0x1000, 0x0e0000, 0x00, "ab/sddhp.bin")
 #vmeinst (0x1000, 0x0e0000, 0x00, "sdudhp.bin") 
 #230Kb
 dhpd (10,0xe000,"chasb")
+
+#
+# Load the MCP itself
 #
 ld < mcp-new/mcpnew.out
+
 #BCAST_Enable=0
 #SM_COPY=0
 rebootHookAdd (ip_shutdown)
@@ -51,8 +144,6 @@ taskSpawn "cmdPortServer",100,0,2000,cmdPortServer,31011
 taskPrioritySet (taskIdFigure("tExcTask"),1)
 iptimeSet ("sdsshost",0)
 sdss_init()
-IL_Verbose()
-taskDelay(20)
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
@@ -82,17 +173,21 @@ tm_set_coeffs 4,8,-5
 tm_print_coeffs 0
 tm_print_coeffs 2
 tm_print_coeffs 4
+
 dbgInit
 date
 DIO316_initialize(0xFFF58000,0xB0)
 tm_setup_wd()
-taskSpawn "ampMgt",45,0,1000,tm_amp_mgt
+taskSpawn "ampMgt",45,0,2000,tm_amp_mgt
 start_tm_TCC()
 taskSpawn "taskTrg",100,8,10000,taskTrg
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
-taskSpawn "barcodcan",85,8,1000,cancel_read
+taskSpawn "barcodcan",85,8,1500,cancel_read
+traceOff barcodcan, 16,16
 barcode_init(0xfff58000,0xf022,0xAA,2)
 taskDelay (60)
 #azimuth barcode (2=altitude)
 barcode_open (3)
 #barcode_serial 3
+i
+
