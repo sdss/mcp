@@ -53,7 +53,7 @@ ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o
 .s.o:
 	$(ASM) $(AFLAGS) -o $*.o $*.s
 
-dg: $(ASRCS) $(OBJS)
+all dg: $(ASRCS) $(OBJS)
 	$(LINK) $(LFLAGS) -o dio316.out \
 		dio316dc.o  dio316ie.o  dio316ri.o  dio316rr.o  dio316wr.o \
 		dio316ic.o  dio316oc.o  dio316rp.o  dio316wp.o \
@@ -66,3 +66,7 @@ dg: $(ASRCS) $(OBJS)
 	$(LINK) $(LFLAGS) -o adc128f1.out \
 		ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o \
 	>adc128f1.map
+
+clean :
+	/bin/rm -f *.o *~ *.map *.out
+
