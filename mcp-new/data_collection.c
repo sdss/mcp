@@ -367,7 +367,8 @@ void print_axis_dc (int axis)
            logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t%ld\t%x",i,
 	      *ap, *cp,*ap2,tmaxis[i]->voltage,(long)tmaxis[i]);
 	   semGive (semMEIUPD);
-	 }
+	 } else
+	     logMsg("\r\n" __FUNCTION__ ": couldn't take semMEIUPD semaphore.");
 }
 void print_pos_dc (int axis)
 {
@@ -382,8 +383,9 @@ void print_pos_dc (int axis)
 	    ap2=(long *)&tmaxis[i]->actual_position2;
 	    logMsg("\r\naxis %d:\tap=%ld\tcp=%ld\tap2=%ld\t",i,
 	      *ap, *cp,*ap2,0,0);
-	  semGive (semMEIUPD);
-	 }
+	    semGive (semMEIUPD);
+	 } else
+	     logMsg("\r\n" __FUNCTION__ ": couldn't take semMEIUPD semaphore.");
 }
 /*=========================================================================
 **=========================================================================
@@ -452,6 +454,9 @@ void slc500_data_collection(unsigned long freq)
           taskUnlock();
         }
       }
+    } else {
+	logMsg("\r\n" __FUNCTION__ ": couldn't take semSLCDC semahore.");
+	break;
     }
     cw_data_collection();
     il_data_collection(); 
