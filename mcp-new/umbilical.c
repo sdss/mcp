@@ -364,7 +364,7 @@ short
 umbilical_position(void)
 {
    int err;
-   short pos,position;
+   unsigned short pos,position;
    
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical_position: failed to get semSLC: %s (%d)",
@@ -560,19 +560,18 @@ instrument_id(void)
 int
 saddle_is_mounted(void)
 {
-   int saddle_is_mounted;		/* is the saddle mounted? */
+   int saddle_is_on;			/* is the saddle mounted? */
    
    if(semTake(semSDSSDC, NO_WAIT) == ERROR) {
       return(-1);			/* unknown */
    }
    
-   saddle_is_mounted =
-     (sdssdc.status.i1.il9.sad_mount1 == 1 &&
-      sdssdc.status.i1.il9.sad_mount2 == 1) ? 1 : 0;
+   saddle_is_on = (sdssdc.status.i1.il9.sad_mount1 == 1 &&
+		   sdssdc.status.i1.il9.sad_mount2 == 1) ? 1 : 0;
    
    semGive(semSDSSDC);
 
-   return(saddle_is_mounted);
+   return(saddle_is_on);
 }
 
 /*****************************************************************************/
