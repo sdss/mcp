@@ -38,8 +38,7 @@ tAlgnClmp(void)
    unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */   
-   struct B10_0 tm_ctrl;   
-   struct B10_1 tm_ctrl1;   
+   B10_W0 tm_ctrl;   
 
    for(;;) {
       ret = msgQReceive(msgAlignClamp, (char *)&msg, sizeof(msg),
@@ -78,27 +77,25 @@ tAlgnClmp(void)
 	 continue;
       }
       
-      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
 	 TRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0);
 	 continue;
       }
       
-      swab((char *)&ctrl[0], (char *)&tm_ctrl, 2);
-      swab((char *)&ctrl[1], (char *)&tm_ctrl1, 2);
+      swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
 
       if(engage) {
 	 tm_ctrl.mcp_clamp_engage_cmd = 1;
-	 tm_ctrl1.mcp_clamp_disen_cmd = 0;
+	 tm_ctrl.mcp_clamp_disen_cmd = 0;
       } else {
 	 tm_ctrl.mcp_clamp_engage_cmd = 0;
-	 tm_ctrl1.mcp_clamp_disen_cmd = 1;
+	 tm_ctrl.mcp_clamp_disen_cmd = 1;
       }
       
-      swab((char *)&tm_ctrl, (char *)&ctrl[0], 2);
-      swab((char *)&tm_ctrl1, (char *)&ctrl[1], 2);
-      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+      swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+      err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive(semSLC);
    
       if(err) {
@@ -141,10 +138,10 @@ void
 tSpecDoor(void)
 {
    int err;
-   unsigned short ctrl[1];
+   unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
-   struct B10_1 tm_ctrl1;
+   B10_W0 tm_ctrl;
    int spec;				/* which spectrograph? */
 
    for(;;) {
@@ -166,40 +163,40 @@ tSpecDoor(void)
 	 continue;
       }
 
-      err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+      err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
 	 TRACE(0, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err);
 	 continue;
       }
-      swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+      swab ((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
 
       switch (msg.u.specDoor.op) {
        case OPEN:
 	 if(msg.u.specDoor.spec == SPECTROGRAPH1) {
-	    tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
-	    tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
+	    tm_ctrl.mcp_slit_dr1_opn_cmd = 1;
+	    tm_ctrl.mcp_slit_dr1_cls_cmd = 0;
 	 } else {
-	    tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
-	    tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+	    tm_ctrl.mcp_slit_dr2_opn_cmd = 1;
+	    tm_ctrl.mcp_slit_dr2_cls_cmd = 0;
 	 }
 	 break;
        case CLOSE:
 	 if(msg.u.specDoor.spec == SPECTROGRAPH1) {
-	    tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-	    tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
+	    tm_ctrl.mcp_slit_dr1_opn_cmd = 0;
+	    tm_ctrl.mcp_slit_dr1_cls_cmd = 1;
 	 } else {
-	    tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-	    tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
+	    tm_ctrl.mcp_slit_dr2_opn_cmd = 0;
+	    tm_ctrl.mcp_slit_dr2_cls_cmd = 1;
 	 }
 	 break;
        case CLEAR:
 	 if(msg.u.specDoor.spec == SPECTROGRAPH1) {
-	    tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-	    tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
+	    tm_ctrl.mcp_slit_dr1_opn_cmd = 0;
+	    tm_ctrl.mcp_slit_dr1_cls_cmd = 0;
 	 } else {
-	    tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-	    tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+	    tm_ctrl.mcp_slit_dr2_opn_cmd = 0;
+	    tm_ctrl.mcp_slit_dr2_cls_cmd = 0;
 	 }
 	 break;
        default:
@@ -207,8 +204,8 @@ tSpecDoor(void)
 	 break;
       }
       
-      swab((char *)&tm_ctrl1, (char *)&ctrl[0], 2);
-      err = slc_write_blok(1, 10, BIT_FILE, 1, &ctrl[0], 1);
+      swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+      err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
 
       semGive(semSLC);
       if(err) {
@@ -304,8 +301,8 @@ int
 tm_slithead(short val) 
 {
    int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
+   unsigned short ctrl[2];
+   B10_W0 tm_ctrl;   
              
    if(semTake (semSLC,60) == ERROR) {
       printf("tm_slithead: unable to take semaphore: %s", strerror(errno));
@@ -313,34 +310,34 @@ tm_slithead(short val)
       return(-1);
    }
 
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    if(err) {
       semGive (semSLC);
       printf ("R Err=%04x\r\n",err);
       return err;
    }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+   swab ((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
 
    switch (val) {
     case 3:
-      tm_ctrl1.mcp_slit_latch2_cmd = 1;
+      tm_ctrl.mcp_slit_latch2_cmd = 1;
       break;
     case 2:
-      tm_ctrl1.mcp_slit_latch2_cmd = 0;
+      tm_ctrl.mcp_slit_latch2_cmd = 0;
       break;
     case 1:
-      tm_ctrl1.mcp_slit_latch1_cmd = 1;
+      tm_ctrl.mcp_slit_latch1_cmd = 1;
       break;
     case 0:
-      tm_ctrl1.mcp_slit_latch1_cmd = 0;
+      tm_ctrl.mcp_slit_latch1_cmd = 0;
       break;
    }
    
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   swab ((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+   err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
    if(err) {
-      printf ("W Err=%04x\r\n",err);
+      TRACE(0, "tm_slithead: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -363,8 +360,8 @@ int
 tm_slit_status()
 {
    int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
+   unsigned short ctrl[2];
+   B10_W0 tm_ctrl;
 
    if(semTake(semSLC,60) == ERROR) {
       printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
@@ -372,21 +369,21 @@ tm_slit_status()
       return(-1);
    }
 
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
    if (err) {
       printf ("R Err=%04x\r\n",err);
       return err;
    }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+   swab((char *)&ctrl[0],(char *)&tm_ctrl, sizeof(tm_ctrl));
    
-  printf (" read ctrl = 0x%04x\r\n",(unsigned int)ctrl);
+  printf (" read ctrl = 0x%04lx\r\n", *(unsigned long *)&ctrl);
   printf ("\r\n mcp_slit_dr1_opn_cmd=%d, mcp_slit_dr1_cls_cmd=%d",
-     tm_ctrl1.mcp_slit_dr1_opn_cmd,tm_ctrl1.mcp_slit_dr1_cls_cmd);
+     tm_ctrl.mcp_slit_dr1_opn_cmd,tm_ctrl.mcp_slit_dr1_cls_cmd);
   printf ("\r\n mcp_slit_dr2_opn_cmd=%d, mcp_slit_dr2_cls_cmd=%d",
-     tm_ctrl1.mcp_slit_dr2_opn_cmd,tm_ctrl1.mcp_slit_dr2_cls_cmd);
+     tm_ctrl.mcp_slit_dr2_opn_cmd,tm_ctrl.mcp_slit_dr2_cls_cmd);
   printf ("\r\n mcp_slit_latch1_cmd=%d, mcp_slit_latch2_cmd=%d",
-     tm_ctrl1.mcp_slit_latch1_cmd,tm_ctrl1.mcp_slit_latch2_cmd);
+     tm_ctrl.mcp_slit_latch1_cmd,tm_ctrl.mcp_slit_latch2_cmd);
 
   printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
 	sdssdc.status.i1.il9.slit_head_door1_opn,
@@ -446,8 +443,8 @@ static int
 set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 		 int enab)		/* value of mcp_ff_screen_enable */
 {
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
+   unsigned short ctrl[2];
+   B10_W0 tm_ctrl;   
    int err;
              
    TRACE(1, "Setting FFS: %d %d", val, enab); /* XXX */
@@ -457,21 +454,21 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
       return(-1);
    }
 
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    if(err) {
       semGive (semSLC);
       TRACE(0, "set_mcp_ffs_bits: error reading slc: 0x%04x", err, 0);
       return err;
    }
-   swab((char *)&ctrl[0], (char *)&tm_ctrl1, 2);
+   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
 
    if(val >= 0) {
-      tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
+      tm_ctrl.mcp_ff_scrn_opn_cmd = val;
    }
-   tm_ctrl1.mcp_ff_screen_enable = enab;
+   tm_ctrl.mcp_ff_screen_enable = enab;
 
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   swab ((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+   err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
 
    if(err) {
@@ -605,10 +602,10 @@ void
 tLamps(void)
 {
    int err;
-   unsigned short ctrl[1];
+   unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
-   struct B10_1 tm_ctrl1;   
+   B10_W0 tm_ctrl;   
 
    for(;;) {
       ret = msgQReceive(msgLamps, (char *)&msg, sizeof(msg), WAIT_FOREVER);
@@ -622,33 +619,31 @@ tLamps(void)
 	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
       }
 
-      err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+      err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
 	 printf("R Err=%04x\r\n",err);
       }
 
-      swab((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+      swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
       
       switch (msg.u.lamps.type) {
        case FF_LAMP:
-	 tm_ctrl1.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
+	 tm_ctrl.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        case NE_LAMP:
-	 tm_ctrl1.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
+	 tm_ctrl.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        case HGCD_LAMP:
-	 TRACE(2, "XXX Turning the HgCd lamps %s",
-	       (msg.u.lamps.on_off ? "ON" : "OFF"), 0);
-	 tm_ctrl1.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
+	 tm_ctrl.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        default:
 	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
 	 break;
       }
       
-      swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-      err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+      swab ((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+      err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive (semSLC);
       
       if(err) {
