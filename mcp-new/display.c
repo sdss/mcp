@@ -165,7 +165,7 @@ float altclino_sf=.0049016925256;/*.0048598736;*//*.0047368421 90 deg=19000*//*.
 int altclino_off=8857;/*9048;*/         /*9500*/
 double tickperarcs[3]={AZ_TICK,ALT_TICK,ROT_TICK};
 static int refreshing=FALSE;
-static char *limitstatus[]={"  "," U"," L","UL"};
+static char *limitstatus[]={"UL","U "," L","  "};
 double ilcpos[6]={90,0,120,0,0,0};
 int ilcvel[6]={200000,0,200000,0,500000,0};
 int ilcacc[6]={10000,10000,10000,10000,10000,10000};
@@ -296,6 +296,7 @@ void Menu()
     printf ("\r\nCan't take semMEIUPD...DataCollection task probably at fault");
     return;
   }
+  taskSafe();
   while(Running)
   {
     taskUnsafe();
@@ -1228,7 +1229,7 @@ void PrintMenuPos()
         if ((adc&0x800)==0x800) adc |= 0xF000;
         else adc &= 0xFFF;
 	limidx = (cwLimit>>(i*2))&0x3;
-        printf ("%4.2f\" %4.2fv%s\t",
+        printf ("%5.2f\" %5.2fv%s\t",
 	  (24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
       }
     }
@@ -1677,7 +1678,7 @@ void PrintInstPos()
         if ((adc&0x800)==0x800) adc |= 0xF000;
         else adc &= 0xFFF;
 	limidx = (cwLimit>>(i*2))&0x3;
-        printf ("%4.2f\" %4.2fv%s\t",
+        printf ("%5.2f\" %5.2fv%s\t",
 	  (24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
       }
     }
