@@ -516,7 +516,7 @@ balance(int cw,				/* counter weight to move */
  */
       cw_select(cw);
       
-      TRACE(4, "balance cw = %d inst = %d", cw, inst);
+      TRACE(5, "balance cw = %d inst = %d", cw, inst);
 /*
  * iterate until good or exceed stop count
  */
@@ -560,7 +560,7 @@ balance(int cw,				/* counter weight to move */
 	    }
 	 
 	    if(CW_limit_abort) {
-	       TRACE(0, "Counterweight %d: limit abort", cw + 1, 0);
+	       TRACE(2, "Counterweight %d: limit abort", cw + 1, 0);
 	       cw_status();
 
 	       CW_next = 1;
@@ -677,11 +677,11 @@ balance(int cw,				/* counter weight to move */
       }
 
       if(i == cw_inst[inst].stop_count) {
-	 TRACE(0, "CW %d exceeded stop_count %d",
+	 TRACE(2, "CW %d exceeded stop_count %d",
 	       cw + 1, cw_inst[inst].stop_count);
       }
       
-      TRACE(4, "CW %d done", cw + 1, 0);
+      TRACE(5, "CW %d done", cw + 1, 0);
    }
 
    cw_brake_on();

@@ -49,7 +49,6 @@ trc_tskSwHk(WIND_TCB	*pOldTcb,
       taskSuspend((int)pOldTcb);
       TRACE(31, "disabling trace", 0, 0);
       traceMode(traceModeGet() & ~0x1);
-      traceMode(0);
    }
 #else
    TRACEP(31, "switching to 0x%x%x",
@@ -229,7 +228,7 @@ trc_excHook(  int	tid	/* ID   of    offending    task */
 
     TRACE( 30, "trc_excHook freezing trace buffer", 0,0 );
     traceMode_sav = traceModeGet();
-    traceMode( traceMode_sav & 0xe );
+    traceMode( traceMode_sav & ~0x1);
 
     if (traceMode_sav & 1)
     {   /* 1 to 0 transition ... dump attempt dump of info */

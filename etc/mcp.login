@@ -62,7 +62,7 @@ clk2Start ()			/* VMEchip2 tick timer 2 */
 # A further suggestion is to use an even trace level for subroutine entry
 # and that level, plus one, for trace entries within the subroutine.
 #
-traceInit(30000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
+traceInit(20000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
 traceTtyOn 0, 3

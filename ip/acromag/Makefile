@@ -2,9 +2,11 @@
 # ip480 and the example routines to demonstrate them.
 
 .c.o:
-	$(CC) -c $(SDSS_CFLAGS) $*.c
+	$(CC) -c $(CFLAGS) $*.c
 
 CC = cc68k
+CFLAGS = -g -ansi -O2 -m68040 -DVXWORKS -DCPU=$(CPU) -I$(VX_DSC_DIR)/h
+CPU = MC68040
 
 OBJECTS = rmid480.o drvr480.o carrier.o cnfg480.o vxworks.o
 

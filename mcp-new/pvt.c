@@ -1003,7 +1003,7 @@ tm_TCC(int axis)
 
 	 if(frame == NULL) {
 	    TRACE(0, "%s frame == NULL", axis_name(axis), 0);
-	    traceMode(0);
+	    traceMode(traceModeGet() & ~0x1);
 	    taskSuspend(0);
 	 }
 
@@ -1095,7 +1095,7 @@ tm_TCC(int axis)
 
 	       if(cnt <= 0) {		/* replaces weird Charlie if */
 		  TRACE(0, "cnt == %d <= 0", cnt, 0); /* XXXX */
-		  traceMode(0);
+		  traceMode(traceModeGet() & ~0x1);
 		  taskSuspend(0);
 	       }
 	       TRACE(8, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
@@ -1492,7 +1492,7 @@ mcp_move(int axis,			/* the axis to move */
 	 if(frame != NULL) free(frame);
 	 TRACE(0, "MOVE CMD: requested time=%f", frame->end_time, 0);
 	 TRACE(0, "            current time=%f", sdss_get_time(), 0);
-	 traceMode(0);			/* XXX */
+	 traceMode(traceModeGet() & ~0x1); /* XXX */
 	 return(-1);
       }
       

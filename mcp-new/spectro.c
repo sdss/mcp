@@ -638,6 +638,8 @@ tLamps(void)
 	 tm_ctrl1.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        case HGCD_LAMP:
+	 TRACE(2, "XXX Turning the HgCd lamps %s",
+	       (msg.u.lamps.on_off ? "ON" : "OFF"), 0);
 	 tm_ctrl1.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
 	 break;
        default:

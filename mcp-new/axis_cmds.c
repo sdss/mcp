@@ -219,6 +219,16 @@ start_move_corr(int mei_axis,
 
    pos -= axis_encoder_error[mei_axis]; /* apply correction */
    ret = start_move(mei_axis, pos, vel, acc); /* do move */
+/*
+ * The MEIs seem to sometimes be confused as to whether they are all
+ * ready in place; if they say they are do a tiny offset and try again
+ */
+   if(ret == DSP_NO_DISTANCE) {		/* offset a little and try again */
+      TRACE(2, "start_move failed; offsetting and trying again", 0, 0);
+      r_move(10, pos, vel, acc);
+      ret = start_move(mei_axis, pos, vel, acc); /* do move */
+   }
+   
    if(ret != DSP_OK) {
       TRACE(0, "%s start_move failed: %s",
 	    axis_name(mei_axis/2), _error_msg(dsp_error));
@@ -1305,7 +1315,7 @@ mcp_hold(int axis)			/* desired axis */
 	 taskDelay(1);
       }
       if(i == ntry) {
-	 TRACE(0, "TELL RHL. Failed to get motion_done() for %s: in_seq = %d",
+	 TRACE(0, "Failed to get motion_done() for %s: in_seq = %d",
 	       axis_name(axis), in_sequence(2*axis));
 	 TRACE(0, "           in_mot = %d, frames = %d",
 	       in_motion(2*axis), frames_left(2*axis));
@@ -1696,7 +1706,7 @@ axisMotionInit(void)
       
       get_error_limit(mei_axis, &limit, &action);
       TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
-#if 1
+#if 0
       set_error_limit(mei_axis, 24000, NO_EVENT);
 #else 
       set_error_limit(mei_axis, 24000, ABORT_EVENT);

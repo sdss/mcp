@@ -104,7 +104,7 @@ tBrakes(void)
 
       if(set_brake) {
 	 TRACE(3, "Taking axis %s out of closed loop", axis_name(axis), 0);
-	 sem_controller_run(2*axis);
+	 sem_controller_idle(2*axis);
 	 reset_integrator(2*axis);
       } else {
 	 TRACE(3, "Putting axis %s into closed loop", axis_name(axis), 0);
