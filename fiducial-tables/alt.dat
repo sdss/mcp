@@ -2,16 +2,16 @@
 # altitude fiducials
 #
 # Creator:             prn
-# Time:                2004-08-03 05:43:45Z
-# Input file:          mcpFiducials-53219.dat
-# Scales:              -5.1901842681501097e-08  -5.1935217429341256e-08
+# Time:                2004-10-04 21:50:29Z
+# Input file:          /mcptpm/53282/mcpFiducials-53282.dat
+# Scales:              -5.1908469829754843e-08  -5.1941918304556225e-08
 # Canonical fiducial:  1
-# Arguments:           -mjd 53219 -y pos1 -canon -reset -scale -x time -alt -time0 1091459142 -time1 1091459886 -table alt.dat
+# Arguments:           -mjd 53282 -time0 1096899306 -time1 1096900090 -y pos1 -x deg -reset -canon -alt -scale -table ~/fiducials/alt.dat
 #
 # Fiducial Encoder1 +- error  npoint  Encoder2 +- error  npoint
-1           3825222 +-  24.8   6       3825222 +-  33.0   6
-2           7433948 +-  18.2   6       7431645 +-  25.5   6
-3          11771220 +-   7.5   3      11766061 +-   1.2   3
-4          15432629 +-   0.0   6      15425130 +-   0.0   6
-5          19321090 +-  25.3   6      19311078 +-  15.7   6
-6          23092361 +-  28.3   6      23079979 +-  10.3   6
+1           3825222 +- 143.3   6       3825222 +-  85.2   6
+2           7432710 +-  46.5   6       7430436 +-  12.9   6
+3          11768779 +-  15.4   6      11763739 +-  35.0   6
+4          15431547 +-   0.0   6      15424143 +-   0.0   6
+5          19317494 +-  71.4   6      19307525 +-  56.6   6
+6          23089901 +- 156.7   6      23077495 +- 173.0   6
