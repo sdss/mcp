@@ -52,6 +52,7 @@ char *reboot_cmd(char *cmd);
 char *correct_cmd(char *cmd);
 char *drift_cmd(char *cmd);
 char *id_cmd(char *cmd);
+char *version_cmd(char *cmd);
 char *init_cmd(char *cmd);
 char *maxacc_cmd(char *cmd);
 char *maxvel_cmd(char *cmd);
