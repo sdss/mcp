@@ -127,7 +127,11 @@ struct PVT {
 };
 
 struct B10_1 {
-	unsigned : 5;
+	unsigned mcp_purge_cmd : 1;
+	unsigned mcp_hgcd_lamp_on_cmd : 1;
+	unsigned mcp_ne_lamp_on_cmd : 1;
+	unsigned mcp_ff_lamp_on_cmd : 1;
+	unsigned mcp_ff_scrn_opn_cmd : 1;
 	unsigned mcp_cart_latch2_cmd : 1;
 	unsigned mcp_slit_door2_cls_cmd : 1;
 	unsigned mcp_slit_door2_opn_cmd : 1;
@@ -252,6 +256,41 @@ typedef struct {
 	
 	unsigned : 16;
 }IF1_L9;
+typedef struct {
+	short wind_speed;
+	short wind_baffel_temp;
+}IF1_L12;
+typedef struct {
+	unsigned leaf_8_closed_stat : 1;
+	unsigned leaf_8_open_stat : 1;
+	unsigned leaf_7_closed_stat : 1;
+	unsigned leaf_7_open_stat : 1;
+	unsigned leaf_6_closed_stat : 1;
+	unsigned leaf_6_open_stat : 1;
+	unsigned leaf_5_closed_stat : 1;
+	unsigned leaf_5_open_stat : 1;
+	unsigned leaf_4_closed_stat : 1;
+	unsigned leaf_4_open_stat : 1;
+	unsigned leaf_3_closed_stat : 1;
+	unsigned leaf_3_open_stat : 1;
+	unsigned leaf_2_closed_stat : 1;
+	unsigned leaf_2_open_stat : 1;
+	unsigned leaf_1_closed_stat : 1;
+	unsigned leaf_1_open_stat : 1;
+	
+	unsigned hgcd_4_stat : 1;
+	unsigned hgcd_3_stat : 1;
+	unsigned hgcd_2_stat : 1;
+	unsigned hgcd_1_stat : 1;
+	unsigned ne_4_stat : 1;
+	unsigned ne_3_stat : 1;
+	unsigned ne_2_stat : 1;
+	unsigned ne_1_stat : 1;
+	unsigned ff_4_stat : 1;
+	unsigned ff_3_stat : 1;
+	unsigned ff_2_stat : 1;
+	unsigned ff_1_stat : 1;
+}IF1_L13;
 struct I1 {
 	IF1_L0 il0;
 	unsigned long undefined1;
@@ -265,8 +304,8 @@ struct I1 {
 	IF1_L9 il9;
 	unsigned long undefined10;
 	unsigned long undefined11;
-	unsigned long undefined12;
-	unsigned long undefined13;
+	IF1_L12 il12;
+	IF1_L13 il13;
 	unsigned long undefined14;
 	unsigned long undefined15;
 };
@@ -478,6 +517,12 @@ typedef struct {
 typedef struct {
 	unsigned : 16;
 	
+	unsigned : 15;
+	unsigned purge_air_valve_perm : 1;
+} OF1_L6;
+typedef struct {
+	unsigned : 16;
+	
 	unsigned : 10;
 	unsigned slit_latch2_opn_perm : 1;
 	unsigned slit_dr2_opn_perm : 1;
@@ -486,6 +531,19 @@ typedef struct {
 	unsigned slit_dr1_opn_perm : 1;
 	unsigned slit_dr1_cls_perm : 1;
 } OF1_L9;
+typedef struct {
+	short flex_analog_config;
+	short unused_short1;
+} OF1_L12;
+typedef struct {
+	unsigned : 16;
+	
+	unsigned : 12;
+	unsigned hgcd_lamps_on_pmt : 1;
+	unsigned ne_lamps_on_pmt : 1;
+	unsigned ff_lamps_on_pmt : 1;
+	unsigned ff_screen_open_pmt : 1;
+} OF1_L14;
 struct O1 {
 	unsigned long undefined0;
 	OF1_L1 ol1;
@@ -493,15 +551,15 @@ struct O1 {
 	unsigned long undefined3;
 	OF1_L4 ol4;
 	OF1_L5 ol5;
-	unsigned long undefined6;
+	OF1_L6 ol6;
 	unsigned long undefined7;
 	unsigned long undefined8;
 	OF1_L9 ol9;
 	unsigned long undefined10;
 	unsigned long undefined11;
-	unsigned long undefined12;
+	OF1_L12 ol12;
 	unsigned long undefined13;
-	unsigned long undefined14;
+	OF1_L14 ol14;
 	unsigned long undefined15;
 };
 typedef struct {
@@ -636,7 +694,7 @@ struct AB_SLC500 {
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	6
+#define SDSS_FRAME_VERSION	7
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;

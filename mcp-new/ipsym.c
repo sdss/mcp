@@ -284,7 +284,8 @@ int	serverGetSym()
 int	serverGetData()
 {
   write(sym_s, (char *)&dh,sizeof(struct SYM_HEADER));
-  write(sym_s, (char *)rawdataptr,rawdatasize);
+  if (rawdata!=NULL)
+    write(sym_s, (char *)rawdata,rawdatasize);
   if (dh.trigger_type==CONTINUOUS_TRIGGER) 
     manTrg();
   return 0;
@@ -336,7 +337,7 @@ void serverData(int hz, void (*data_routine()))
       if (data_routine!=NULL) data_routine();
       if ((sym_enable)&&(trig_enable))
       {
-       if (rawdatasize<(dh.buffer1KB*1024))
+       if ( (rawdatasize<(dh.buffer1KB*1024)) && (rawdataptr!=NULL))
          for (i=0;i<dh.cnt;i++)
          {
            switch (sym_len[i])
@@ -418,6 +419,8 @@ int     serverJFile(char *name, char *text)
     bsym += (strlen(bsym)+1);
   }
   fprintf(fp,"\r\n");
+  if (rawdata!=NULL)
+  {
   rd = (long *)rawdata;
   for (i=0;i<rds/(samplesize);i++)
   {
@@ -464,6 +467,7 @@ int     serverJFile(char *name, char *text)
       }
     }
     fprintf (fp,"\r\n");
+  }
   }
   if (dh.trigger_type==CONTINUOUS_TRIGGER)
     manTrg();
@@ -511,6 +515,8 @@ int serverSDDSFile(char *name, char *text)
   }
   fprintf(fp,"&data mode=ascii &end\r\n");
   fprintf(fp,"%d\r\n",rds/samplesize);
+  if (rawdata!=NULL)
+  {
   rd = (long *)rawdata;
   for (i=0;i<rds/(samplesize);i++)
   {
@@ -557,6 +563,7 @@ int serverSDDSFile(char *name, char *text)
       }
     }
     fprintf (fp,"\r\n");
+  }
   }
   if (dh.trigger_type==CONTINUOUS_TRIGGER)
     manTrg();
@@ -604,6 +611,8 @@ int serverMATLABFile(char *name, char *text)
   }
   fprintf(fp,"%%&data mode=ascii &end\r\n");
   fprintf(fp,"%%%d\r\n",rds/samplesize);
+  if (rawdata!=NULL)
+  {
   rd = (long *)rawdata;
   for (i=0;i<rds/(samplesize);i++)
   {
@@ -650,6 +659,7 @@ int serverMATLABFile(char *name, char *text)
       }
     }
     fprintf (fp,"\r\n");
+  }
   }
   if (dh.trigger_type==CONTINUOUS_TRIGGER)
     manTrg();

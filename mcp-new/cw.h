@@ -33,6 +33,10 @@ void cw_posv(int cw, short *pos);
 void cw_position(int cw, double pos);
 void cw_positionv(int cw, short pos);
 int cw_get_inst(char *cmd);
+int cw_select(int cw);
+int cw_rdselect();
+int cw_status();
+
 
 #define __CW_H__             /* do only once */
 

@@ -33,13 +33,16 @@
 #include "timers.h"
 #include "time.h"
 #include "frame.h"
+#include "iv.h"
+#include "intLib.h"
 #include "ms.h"
 #include "idsp.h"
 #include "pcdsp.h"
-#include "dio316ld.h"
-#include "did48ld.h"
-#include "mv162IndPackInit.h"
 #include "gendefs.h"
+#include "dio316dr.h"
+#include "dio316lb.h"
+#include "did48lb.h"
+#include "mv162IndPackInit.h"
 #include "logLib.h"
 #include "ioLib.h"
 #include "data_collection.h"
@@ -89,13 +92,17 @@ void test_rotfiducials_idx (int axis, double pos, int fididx);
 void set_primary_fiducials (int axis,int fididx,long pos);
 void set_fiducials (int axis);
 void save_fiducials (int axis);
+void set_fiducials_all ();
+void save_fiducials_all ();
 void restore_fiducials (int axis);
+void restore_fiducials_all ();
 void print_max ();
 void tm_load_frame();
 void load_frames_trigger(int axisnum);
 void lfStart();
 float sdss_delta_time(float t2, float t1);
 void DIO316ClearISR_delay (int delay, int bit);
+int tm_frames_to_execute(int axis);
 
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
@@ -114,7 +121,7 @@ struct LATCH_POS
 int latchidx=0;
 int LATCH_verbose=FALSE;
 struct LATCH_POS latchpos[MAX_LATCHED];
-
+int errmsg_max[3]={400,200,100};
 SEM_ID semMEI=NULL;
 SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
@@ -162,9 +169,18 @@ int frame_break[3]={FALSE,FALSE,FALSE};
 int drift_break[3]={FALSE,FALSE,FALSE};
 int DRIFT_verbose=FALSE;
 int drift_modify_enable=FALSE;
-struct FRAME offset[3][2];
-struct FRAME *offset_queue_end[3]={NULL,NULL,NULL};
-int offset_idx[3]={0,0,0};
+#define OFF_MAX	8
+struct FRAME offset[3][OFF_MAX][2];
+struct FRAME *offset_queue_end[3][OFF_MAX]={
+				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL},
+				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL},
+				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL}
+				};
+int offset_idx[3][OFF_MAX]={
+			{0,0,0,0,0,0,0,0},
+			{0,0,0,0,0,0,0,0},
+			{0,0,0,0,0,0,0,0}
+};
 
 char *reboot_cmd(char *cmd)
 {
@@ -659,11 +675,11 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
   {
     t=(i+start+1)/FLTFRMHZ;
     timoff[axis][i]=1/FLTFRMHZ;
-    poff[axis][i]=iframe->position+(iframe->velocity*t)+(1/2.)*ai*(t*t)+
+    poff[axis][i]+=iframe->position+(iframe->velocity*t)+(1/2.)*ai*(t*t)+
     			(1/6.)*j*(t*t*t);
-    voff[axis][i]=iframe->velocity+(ai*t)+(1/2.)*j*(t*t);
-    aoff[axis][i]=ai+(j*t);
-    jioff[axis][i]=j;
+    voff[axis][i]+=iframe->velocity+(ai*t)+(1/2.)*j*(t*t);
+    aoff[axis][i]+=ai+(j*t);
+    jioff[axis][i]+=j;
     if (CALCOFF_verbose)
       printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
  	i,t,timoff[axis][i],poff[axis][i],voff[axis][i],aoff[axis][i]);
@@ -672,15 +688,30 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
   {         
     t=(ii+start+1)/FLTFRMHZ;
     timoff[axis][ii]=1/FLTFRMHZ;
-    poff[axis][ii]=fframe->position+(fframe->velocity*(t-dt));
-    voff[axis][ii]=fframe->velocity;
+    poff[axis][ii]+=fframe->position+(fframe->velocity*(t-dt));
+    voff[axis][ii]+=fframe->velocity;
+/*
     aoff[axis][ii]=0;
     jioff[axis][ii]=0;
+*/
     if (CALCOFF_verbose)
       printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
         ii,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],aoff[axis][ii]);
   }
   return i;
+}
+int clroffset(int axis,int cnt)
+{
+  int i;
+
+  for (i=0;i<cnt;i++)
+  {         
+    poff[axis][i]=0;
+    voff[axis][i]=0;
+    aoff[axis][i]=0;
+    jioff[axis][i]=0;
+  }
+  return cnt;
 }
 int addoffset(int axis,int cnt)
 {
@@ -703,8 +734,8 @@ void start_frame(int axis,double time)
 /*
   int e;
   FRAME frame;
-*/
   double pos;
+*/
   int lcnt;
   
   time_off[axis]=0.0;
@@ -1009,7 +1040,7 @@ void stop_frame(int axis,double pos,double sf)
 void drift_frame(int axis,double vel,double sf)
 {
   int e;
-  int lcnt;
+/*  int lcnt;*/
   FRAME frame;
   
   printf ("\r\nDRIFT axis=%d: v=%12.8lf",
@@ -1117,7 +1148,7 @@ void tm_TCC(int axis)
 {
   int cnt, lcnt, cntoff;
   struct FRAME *frame;
-/*  int i;*/
+  int i;
   int frame_cnt, frame_idx;
 /*  extern struct TM_M68K *tmaxis[];*/
   double position;
@@ -1125,6 +1156,7 @@ void tm_TCC(int axis)
   long pos;
   int idx;
   int status;
+  extern int axis_alive;
   
   tm_controller_run (axis<<1);
   printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
@@ -1134,7 +1166,7 @@ void tm_TCC(int axis)
 /* task should idle here with no input pvt */
     while (axis_queue[axis].active==NULL)
     {
-
+      axis_alive |= (1<<axis);
 /* in case drifting, no new pvt, and need to stop */
       if (frame_break[axis])
       {
@@ -1225,47 +1257,47 @@ void tm_TCC(int axis)
         frame_cnt=get_frame_cnt(axis,frame);
 /*        printf ("\r\n frames_cnt=%d",frame_cnt);*/
         frame_idx=0;
-        if (offset_queue_end[axis]==frame)
+        for (i=0;i<OFF_MAX;i++)
 	{
-/*	  printf ("\r\nShutdown offset");*/
-	  if ((offset_idx[axis]/20.)>offset[axis][1].end_time)
+	  if (offset_queue_end[axis][i]==frame)
 	  {
-            frame->position+=(offset[axis][1].position+
-               (offset[axis][1].velocity*(offset_idx[axis]/20.-
-		offset[axis][1].end_time)));
-	    frame->velocity+=offset[axis][1].velocity;
+/*	    printf ("\r\nShutdown offset");*/
+	    if (frame->end_time>offset[axis][i][1].end_time)
+	    {
+              frame->position+=(offset[axis][i][1].position+
+               (offset[axis][i][1].velocity*(offset_idx[axis][i]/20.-
+		offset[axis][i][1].end_time)));
+	      frame->velocity+=offset[axis][i][1].velocity;
+	    }
+	    else
+	    {
+	      clroffset(axis,1);
+	      cntoff=calc_offset(axis,&offset[axis][i][0],offset_idx[axis][i],1);
+	      frame->position+=(poff[axis][0]+
+               (voff[axis][0]*(offset[axis][i][1].end_time/20.-
+		frame->end_time)) );
+	      frame->velocity+=voff[axis][0];
+	    }
+	    offset_idx[axis][i]=0;
+	    offset_queue_end[axis][i]=NULL;
 	  }
-	  else
-	  {
-	    frame->position+=(poff[axis][cntoff-1]+
-               (voff[axis][cntoff-1]*(offset[axis][1].end_time/20.)));
-	    frame->velocity+=voff[axis][cntoff-1];
-	  }
-	  offset_idx[axis]=0;
-	  offset_queue_end[axis]=NULL;
 	}
 	while (frame_cnt>0)
         {
           cnt=calc_frames(axis,frame,frame_idx);
 /* OFFSET */
-	  if (offset_queue_end[axis]!=NULL)
+          for (i=0;i<OFF_MAX;i++)
 	  {
-/*            printf("\r\nCalc offset");*/
-	    cntoff=calc_offset(axis,&offset[axis][0],offset_idx[axis],cnt);
-/*
-            if (cntoff==0)
+	    clroffset(axis,cnt);
+	    if (offset_queue_end[axis][i]!=NULL)
 	    {
-              offset_queue_end[axis]->position+=(offset[axis][1].position+
-               (offset[axis][1].velocity*
-	       sdss_delta_time((float)frame->end_time,sdss_get_time()) ));
-	      offset_queue_end[axis]->velocity+=offset[axis][1].velocity;
-	      offset_idx[axis]=0;
-	      offset_queue_end[axis]=NULL;
+/*            printf("\r\nCalc offset");*/
+	      cntoff=calc_offset(axis,&offset[axis][i][0],
+					offset_idx[axis][i],cnt);
+	      offset_idx[axis][i]+=cnt;
 	    }
-*/
-/*            printf("\r\nAdd offset");*/
+/*          printf("\r\nAdd offset");*/
 	    addoffset(axis,cnt);
-	    offset_idx[axis]+=cnt;
 	  }
 
           frame_idx += cnt;
@@ -1340,6 +1372,11 @@ void tm_TCC(int axis)
       taskLock();
       axis_queue[axis].active=NULL;    
       frame=axis_queue[axis].end;
+      for (i=0;i<OFF_MAX;i++)
+      {
+        offset_idx[axis][i]=0;
+	offset_queue_end[axis][i]=NULL;
+      }
       taskUnlock();
       if (idx<=0) idx=1;
       if (frame_break[axis])
@@ -1409,116 +1446,83 @@ char *plus_move_cmd(char *cmd)
 {
   extern struct SDSS_FRAME sdssdc;
   double position,velocity,frame_time;
-  struct FRAME *nxtque;
+/*  struct FRAME *nxtque;*/
   struct FRAME_QUEUE *queue;
   int cnt;
+  int i;
 
 /*  printf (" +MOVE command fired\r\n");*/
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
+  for (i=0;i<OFF_MAX;i++)
+    if (offset_queue_end[axis_select][i]==NULL) break;
+  if (i>=OFF_MAX) return "ERR: offset active";
   queue = &axis_queue[axis_select];
   cnt=sscanf (cmd,"%lf %lf %lf",&position,&velocity,&frame_time);
-  if (offset_queue_end[axis_select]!=NULL) return "ERR: bump active";
+
   switch (cnt)
   {
     case -1:
     case 0:
         break;		/* NULL offset - does nothing */
     case 1:
-/*
-	if (queue->active!=NULL)
-	{
-	  nxtque = queue->active;
-	  while (nxtque!=NULL)
-	  {
-	    nxtque->position+=position;
-	    nxtque=nxtque->nxt;
-	  }
-	}
-*/
 	if (position==0.0) break;
-        offset[axis_select][0].nxt=&offset[axis_select][1];
-        offset[axis_select][0].position=0;
-        offset[axis_select][1].position=position;
-	offset[axis_select][0].velocity=0;
-	offset[axis_select][1].velocity=0;
-	offset[axis_select][0].end_time=0;
+        offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
+        offset[axis_select][i][0].position=0;
+        offset[axis_select][i][1].position=position;
+	offset[axis_select][i][0].velocity=0;
+	offset[axis_select][i][1].velocity=0;
+	offset[axis_select][i][0].end_time=0;
         if (position<.2)
-	  offset[axis_select][1].end_time=(double).4;
+	  offset[axis_select][i][1].end_time=(double).4;
 	else
-	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
-	offset_queue_end[axis_select]=queue->end;
-	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
-		&offset[axis_select],offset_queue_end[axis_select],
-		offset[axis_select][1].position,
-		offset[axis_select][1].velocity,
-		offset[axis_select][1].end_time);
+	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	offset_idx[axis_select][i]=0;
+	offset_queue_end[axis_select][i]=queue->end;
+/*	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
+		&offset[axis_select][i],offset_queue_end[axis_select][i],
+		offset[axis_select][i][1].position,
+		offset[axis_select][i][1].velocity,
+		offset[axis_select][i][1].end_time);*/
         break;
     case 2:
-/*
-        if (queue->active!=NULL)
-        {
-          nxtque = queue->active;
-          while (nxtque!=NULL)
-          {
-            nxtque->position+=position;
-	    nxtque->velocity+=velocity;
-            nxtque=nxtque->nxt;
-          }
-        }
-*/
 	if ((position==0.0)&&(velocity==0.0)) break;
-        offset[axis_select][0].nxt=&offset[axis_select][1];
-        offset[axis_select][0].position=0;
-        offset[axis_select][1].position=position;
-	offset[axis_select][0].velocity=0;
-	offset[axis_select][1].velocity=velocity;
-	offset[axis_select][0].end_time=0;
+        offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
+        offset[axis_select][i][0].position=0;
+        offset[axis_select][i][1].position=position;
+	offset[axis_select][i][0].velocity=0;
+	offset[axis_select][i][1].velocity=velocity;
+	offset[axis_select][i][0].end_time=0;
         if (position<.2)
-	  offset[axis_select][1].end_time=(double).4;
+	  offset[axis_select][i][1].end_time=(double).4;
 	else
-	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
-	offset_queue_end[axis_select]=queue->end;
-/*	printf("\r\n%p: queue_end=%p, position=%lf, end_time=%lf",
-		&offset[axis_select],offset_queue_end[axis_select],
-		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
+	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	offset_idx[axis_select][i]=0;
+	offset_queue_end[axis_select][i]=queue->end;
         break;
     case 3:
         if (queue->active!=NULL)
-/*
-        {
-          nxtque = queue->active;
-          while (nxtque!=NULL)
-          {
-            nxtque->position+=position;
-            nxtque->velocity+=velocity;
-            nxtque->end_time+=frame_time;
-            nxtque=nxtque->nxt;
-          }
-        }
-*/
 	if ((position==0.0)&&(velocity==0.0)) break;
-        offset[axis_select][0].nxt=&offset[axis_select][1];
-        offset[axis_select][0].position=0;
-        offset[axis_select][1].position=position;
-	offset[axis_select][0].velocity=0;
-	offset[axis_select][1].velocity=velocity;
-	offset[axis_select][0].end_time=0;
+        offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
+        offset[axis_select][i][0].position=0;
+        offset[axis_select][i][1].position=position;
+	offset[axis_select][i][0].velocity=0;
+	offset[axis_select][i][1].velocity=velocity;
+	offset[axis_select][i][0].end_time=0;
         if (position<.2)
-	  offset[axis_select][1].end_time=(double).4;
+	  offset[axis_select][i][1].end_time=(double).4;
 	else
-	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
-	offset_queue_end[axis_select]=queue->end;
-/*	printf("\r\n%p: queue_end=%p, position=%lf, end_time=%lf",
-		&offset[axis_select],offset_queue_end[axis_select],
-		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
+	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	offset_idx[axis_select][i]=0;
+	offset_queue_end[axis_select][i]=queue->end;
         break;
   }
   sdssdc.tccpmove[axis_select].position=
-	(long)(offset[axis_select][1].position*ticks_per_degree[axis_select]);
+	(long)(offset[axis_select][i][1].position*ticks_per_degree[axis_select]);
   sdssdc.tccpmove[axis_select].velocity=
-	(long)(offset[axis_select][1].velocity*ticks_per_degree[axis_select]);
-  sdssdc.tccpmove[axis_select].time=(long)(offset[axis_select][1].end_time*1000);
+	(long)(offset[axis_select][i][1].velocity*ticks_per_degree[axis_select]);
+  sdssdc.tccpmove[axis_select].time=
+	(long)(offset[axis_select][i][1].end_time*1000);
   return "";
 }
 
@@ -1961,6 +1965,7 @@ char *slitstatus_cmd(char *cmd)
   printf (" SLIT.STATUS command fired\r\n");
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  slitstatus_ans[2]=0x31+spectograph_select;
   sprintf (&slitstatus_ans[4],"%s %s %s",
 	slitstatus[sdssdc.status.i1.il9.slit_door1_opn],
 	slitstatus[sdssdc.status.i1.il9.slit_door1_cls+2],
@@ -1970,6 +1975,112 @@ char *slitstatus_cmd(char *cmd)
 	slitstatus[sdssdc.status.i1.il9.slit_door2_cls+2],
 	slitstatus[sdssdc.status.i1.il9.cart_latch2_opn+4]);
   return slitstatus_ans;	
+}
+char *ffsopen_cmd(char *cmd)
+{
+  printf (" FFS.OPEN command fired\r\n");
+  tm_ffs_open();
+  return "";
+}
+char *ffsclose_cmd(char *cmd)
+{
+  printf (" FFS.CLOSE command fired\r\n");
+  tm_ffs_close();
+  return "";
+}
+char *fflon_cmd(char *cmd)
+{
+  printf (" FFL.ON command fired\r\n");
+  tm_ffl_on();
+  return "";
+}
+char *ffloff_cmd(char *cmd)
+{
+  printf (" FFL.OFF command fired\r\n");
+  tm_ffl_off();
+  return "";
+}
+char *neon_cmd(char *cmd)
+{
+  printf (" NE.ON command fired\r\n");
+  tm_neon_on();
+  return "";
+}
+char *neoff_cmd(char *cmd)
+{
+  printf (" NE.OFF command fired\r\n");
+  tm_neon_off();
+  return "";
+}
+char *hgcdon_cmd(char *cmd)
+{
+  printf (" HGCD.ON command fired\r\n");
+  tm_hgcd_on();
+  return "";
+}
+char *hgcdoff_cmd(char *cmd)
+{
+  printf (" HGCD.OFF command fired\r\n");
+  tm_hgcd_off();
+  return "";
+}
+char ffstatus_ans[250];
+char *ffstatus_cmd(char *cmd)
+{
+  extern struct SDSS_FRAME sdssdc;
+  char open[]={' ','O'};
+  char close[]={' ','C'};
+  char *oo[]={"Off"," On"};
+
+  printf (" FF.STATUS command fired\r\n");
+  sprintf (&ffstatus_ans[0],"\r\nLeaf 01 02 03 04 05 06 07 08");
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],
+	"\r\n  FF %c%c  %c%c %c%c %c%c %c%c  %c%c %c%c %c%c",
+	open[sdssdc.status.i1.il13.leaf_1_open_stat],
+	close[sdssdc.status.i1.il13.leaf_1_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_2_open_stat],
+	close[sdssdc.status.i1.il13.leaf_2_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_3_open_stat],
+	close[sdssdc.status.i1.il13.leaf_3_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_4_open_stat],
+	close[sdssdc.status.i1.il13.leaf_4_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_5_open_stat],
+	close[sdssdc.status.i1.il13.leaf_5_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_6_open_stat],
+	close[sdssdc.status.i1.il13.leaf_6_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_7_open_stat],
+	close[sdssdc.status.i1.il13.leaf_7_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_8_open_stat],
+	close[sdssdc.status.i1.il13.leaf_8_closed_stat]
+  );
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nLamp  01  02  03  04");
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  FF %s %s %s %s",
+	oo[sdssdc.status.i1.il13.ff_1_stat],
+	oo[sdssdc.status.i1.il13.ff_2_stat],
+	oo[sdssdc.status.i1.il13.ff_3_stat],
+	oo[sdssdc.status.i1.il13.ff_4_stat]
+  );
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  Ne %s %s %s %s",
+	oo[sdssdc.status.i1.il13.ne_1_stat],
+	oo[sdssdc.status.i1.il13.ne_2_stat],
+	oo[sdssdc.status.i1.il13.ne_3_stat],
+	oo[sdssdc.status.i1.il13.ne_4_stat]
+  );
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nHgCd %s %s %s %s",
+	oo[sdssdc.status.i1.il13.hgcd_1_stat],
+	oo[sdssdc.status.i1.il13.hgcd_2_stat],
+	oo[sdssdc.status.i1.il13.hgcd_3_stat],
+	oo[sdssdc.status.i1.il13.hgcd_4_stat]
+  );
+/*
+  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
+  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rne_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ne_lamps_on_pmt);
+  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rff_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
+  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rff_screen_open_pmt=%d",sdssdc.status.o1.ol14.ff_screen_open_pmt);
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n");
+*/
+  printf ("\r\nffstatus_ans length=%d",strlen(&ffstatus_ans[0]));
+  return &ffstatus_ans[0];	
 }
 char abstatus_ans[5*20];
 char *abstatus_cmd(char *cmd)
@@ -1982,7 +2093,7 @@ char *abstatus_cmd(char *cmd)
   printf (" AB.STATUS command fired\r\n");
   sscanf (cmd,"%d %d",&off,&len);
   if (len>20) return "ERR: bad length";
-  dt=&sdssdc.status;
+  dt=(short *)&sdssdc.status;
   dt+=off;
   idx=0;
   for (i=0;i<len;i++,dt++)
@@ -2016,8 +2127,9 @@ int print_axis_queue(int axis)
     }
     frame = frame->nxt;
   }
+  return 0;
 }
-
+ 
 /**********************************************************************
 NAME
         NBS_interrupt *NBS_interrupt 
@@ -2209,7 +2321,7 @@ void tm_latch()
 	      az_fiducial[fididx].poserr=az_fiducial[fididx].mark-
 		az_fiducial_position[fididx];
 	      az_fiducial[fididx].markvalid=TRUE;
-	      if ((abs(az_fiducial[fididx].poserr)>200)&&
+	      if ((abs(az_fiducial[fididx].poserr)>errmsg_max[0])&&
 		      (az_fiducial_position[fididx]!=0))
                 printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
 		  latchpos[latchidx].axis,
@@ -2260,7 +2372,7 @@ void tm_latch()
 	      alt_fiducial[fididx].poserr=alt_fiducial[fididx].mark-
 		alt_fiducial_position[fididx];
 	      alt_fiducial[fididx].markvalid=TRUE;
-	      if ((abs(alt_fiducial[fididx].poserr)>200)&&
+	      if ((abs(alt_fiducial[fididx].poserr)>errmsg_max[1])&&
 		      (alt_fiducial_position[fididx]!=0))
                 printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
 		  latchpos[latchidx].axis,
@@ -2330,7 +2442,7 @@ void tm_latch()
 		  rot_fiducial_position[fididx];
       	        rot_fiducial[fididx].markvalid=TRUE;
                 fiducialidx[2]=fididx;
-	        if ((abs(rot_fiducial[fididx].poserr)>200)&&
+	        if ((abs(rot_fiducial[fididx].poserr)>errmsg_max[2])&&
 		      (rot_fiducial_position[fididx]!=0))
                   printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
 	  	    latchpos[latchidx].axis,
@@ -2414,7 +2526,7 @@ void tm_latch()
     }
 */
     DIO316ClearISR (tm_DIO316);
-    taskSpawn ("tm_ClrInt",30,8,4000,DIO316ClearISR_delay,120,
+    taskSpawn ("tm_ClrInt",30,8,4000,(FUNCPTR)DIO316ClearISR_delay,120,
 		dio316int_bit,0,0,0,0,0,0,0,0);
   }
 }
@@ -2496,6 +2608,13 @@ void set_primary_fiducials (int axis,int fididx,long pos)
 	break;	  
   }  
 }
+void set_fiducials_all ()
+{
+  int i;
+
+  for (i=0;i<3;i++)
+    set_fiducials (i);
+}
 void set_fiducials (int axis)
 {
   int i;
@@ -2538,6 +2657,13 @@ void set_fiducials (int axis)
 #define SM_AZ_FIDUCIALS	0x02810000
 #define SM_ALT_FIDUCIALS	0x02811000
 #define SM_ROT_FIDUCIALS	0x02812000
+void save_fiducials_all ()
+{
+  int i;
+
+  for (i=0;i<3;i++)
+    save_fiducials (i);
+}
 void save_fiducials (int axis)
 {
   int i;
@@ -2561,6 +2687,13 @@ void save_fiducials (int axis)
           sm[i]=rot_fiducial_position[i];
         break;
     }
+}
+void restore_fiducials_all ()
+{
+  int i;
+
+  for (i=0;i<3;i++)
+    restore_fiducials (i);
 }
 void restore_fiducials (int axis)
 {
@@ -2678,14 +2811,15 @@ void axis_DID48_shutdown(int type)
 void ip_shutdown(int type)
 {
     char *ip;
-
+/* reset the systran carrier */
     ip=(char *)0xffff4501;
-    printf("IP shutdown: reset SYSTRAN carrier ip @%p %d\r\n",ip);
+    printf("IP shutdown: reset SYSTRAN carrier ip @%p\r\n",ip);
     *ip=0x1F;
     taskDelay(20);
     *ip=0x00;
+/* reset MVME162 board */
     ip=(char *)0xfffbc01f;
-    printf("IP shutdown: reset MVME162 ip @%p %d\r\n",ip);
+    printf("IP shutdown: reset MVME162 ip @%p\r\n",ip);
     *ip=0x1;
     taskDelay(20);
     *ip=0x00;
@@ -2782,7 +2916,7 @@ int DIO316_initialize(unsigned char *addr, unsigned short vecnum)
     if (ip.adr[i]!=NULL)
     {
       printf ("\r\nFound at %d, %p",i,ip.adr[i]);
-      tm_DIO316=DIO316Init(ip.adr[i], vecnum);
+      tm_DIO316=DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
       break;
     }
   if (i>=MAX_SLOTS) 
@@ -2834,7 +2968,7 @@ int DID48_initialize(unsigned char *addr, unsigned short vecnum)
     if (ip.adr[i]!=NULL)
     {
       printf ("\r\nFound at %d, %p",i,ip.adr[i]);
-      tm_DID48=DID48Init(ip.adr[i], vecnum);
+      tm_DID48=DID48Init((struct DID48 *)ip.adr[i], vecnum);
       break;
     }
   if (i>=MAX_SLOTS) 
@@ -3293,6 +3427,7 @@ int diagq_setup(int ks)
   diagq_siz=ks*1024;
   diagq=malloc (diagq_siz*sizeof(struct DIAG_Q));
   diagq_i=0;
+  return 0;
 }
 int print_diagq()
 {
@@ -3304,4 +3439,5 @@ int print_diagq()
 	printf (" v=%lf a=%lf ji=%lf",(diagq+i)->v,(diagq+i)->a,
 		(diagq+i)->ji);
   }
+  return 0;
 }

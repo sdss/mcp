@@ -91,10 +91,18 @@ ADC128F1
 #include "ioLib.h"
 #include "timers.h"
 #include "time.h"
-#include "dio316ld.h"
+#include "iv.h"
+#include "intLib.h"
+#include "string.h"
+#include "rebootLib.h"
+#include "gendefs.h"
+#include "dio316dr.h"
+#include "dio316lb.h"
 #include "mv162IndPackInit.h"
 #include "cw.h"
-#include "ad12f1ld.h"
+#include "ad12f1lb.h"
+#include "did48lb.h"
+#include "da128vlb.h"
 #include "da128vrg.h"
 #include "ip480.h"
 #include "data_collection.h"
@@ -107,6 +115,7 @@ ADC128F1
 void cw_DIO316_shutdown(int type);
 void cw_DIO316_interrupt(int type);
 int balance_initialize(unsigned char *addr, unsigned short vecnum);
+int kbd_input();
 
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
@@ -276,7 +285,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
     {
-      cw_ADC128F1 = ADC128F1Init(ip->adr[i]);               
+      cw_ADC128F1 = ADC128F1Init((struct ADC128F1 *)ip->adr[i]);
       break;
     }
   if (i>=MAX_SLOTS)
@@ -291,7 +300,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
     {
-      cw_DAC128V = DAC128VInit(ip->adr[i]);
+      cw_DAC128V = DAC128VInit((struct DAC128V *)ip->adr[i]);
       break;
     }
   if (i>=MAX_SLOTS)
@@ -313,7 +322,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
     {
-      cw_DIO316 = DIO316Init(ip->adr[i], vecnum);               
+      cw_DIO316 = DIO316Init((struct DIO316 *)ip->adr[i], vecnum);
       break;
     }
   if (i>=MAX_SLOTS)
@@ -327,7 +336,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
                                 DIO316_TYPE);
   printf ("CW vector = %d, interrupt address = %p, result = %8x\r\n",
                 vecnum,cw_DIO316_interrupt,stat);
-  rebootHookAdd(cw_DIO316_shutdown);
+  rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
 
   IP_Interrupt_Enable(ip,DIO316_IRQ);
   DIO316_OE_Control (cw_DIO316,3,DIO316_OE_ENA);
@@ -592,8 +601,8 @@ void cw_DIO316_interrupt(int type)
   short vel;
   int cw;
 
-  DIO316ReadISR (cw_DIO316,&int_bit);
-  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,&vel);
+  DIO316ReadISR (cw_DIO316,&int_bit[0]);
+  DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
   vel-=0x800;
   DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&limit);
   cw=cw_rdselect();
@@ -616,23 +625,14 @@ void cw_DIO316_interrupt(int type)
 }
 void cw_DIO316_shutdown(int type)
 {
-    char *ip;
 
-    printf("CW DIO316 shutdown: reset + 4 interrupts for IP %d\r\n",cw_DIO316);
+    printf("CW DIO316 shutdown: 4 interrupts for IP %d\r\n",cw_DIO316);
     if (cw_DIO316!=-1)
     {
       DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_DIS);
       DIO316_Interrupt_Enable_Control (cw_DIO316,1,DIO316_INT_DIS);
       DIO316_Interrupt_Enable_Control (cw_DIO316,2,DIO316_INT_DIS);
       DIO316_Interrupt_Enable_Control (cw_DIO316,3,DIO316_INT_DIS);
-      ip=(char *)0xffff4501;
-      *ip=0x1F;
-      taskDelay(20);
-      *ip=0x00;
-      ip=(char *)0xfffbc01f;
-      *ip=0x1;
-      taskDelay(20);
-      *ip=0x00;
     }
     taskDelay(30);
 }
@@ -673,8 +673,6 @@ void read_all_ADC (int cnt)
 }
 int cw_brake_on()
 {
-	unsigned char val;
-
 	short vel;
 	if (cw_DAC128V==-1) return ERROR;
         DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
@@ -992,31 +990,34 @@ void cw_data_collection()
 }
 int dc_interrupt()
 {
-	unsigned char val;
-	int ikey;
+  unsigned char val;
+  int ikey;
 
-        ikey=intLock();
-	DIO316_Read_Port (cw_DIO316,DC_INTERRUPT,&val);
-	DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val|DC_INTPULSE);
-	DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val);
-	intUnlock(ikey);
+  ikey=intLock();
+  DIO316_Read_Port (cw_DIO316,DC_INTERRUPT,&val);
+  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val|DC_INTPULSE);
+  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val);
+  intUnlock(ikey);
+  return 0;
 }
 int cw_power_disengage()
 {
-extern struct conf_blk sbrd;
+  extern struct conf_blk sbrd;
 
-    StopCounter (&sbrd,CW_WD);
+  StopCounter (&sbrd,CW_WD);
+  return 0;
 }
 int cw_power_engage()
 {
-extern struct conf_blk sbrd;
+  extern struct conf_blk sbrd;
 
-    WriteCounterConstant (&sbrd,CW_WD);         /* 2 Sec */
-    StartCounter (&sbrd,CW_WD);
+  WriteCounterConstant (&sbrd,CW_WD);         /* 2 Sec */
+  StartCounter (&sbrd,CW_WD);
+  return 0;
 }
 int cw_setup_wd ()
 {
-extern struct conf_blk sbrd;
+  extern struct conf_blk sbrd;
 
   SetCounterSize (&sbrd,CW_WD,CtrSize32);
   SetCounterConstant (&sbrd,CW_WD,2000000);             /* 2 Sec */
@@ -1028,4 +1029,5 @@ extern struct conf_blk sbrd;
   SetWatchdogLoad (&sbrd,CW_WD,WDIntLd);
   SetOutputPolarity (&sbrd,CW_WD,OutPolHi);
   ConfigureCounterTimer(&sbrd,CW_WD);
+  return 0;
 }

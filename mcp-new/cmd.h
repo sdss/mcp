@@ -79,6 +79,15 @@ struct COMMANDS axis_cmds[] = {
 	{"CART.LATCH",cartlatch_cmd},
 	{"CART.UNLATCH",cartunlatch_cmd},
 	{"SLIT.STATUS",slitstatus_cmd},
+	{"FFS.CLOSE",ffsclose_cmd},
+	{"FFS.OPEN",ffsopen_cmd},
+	{"FFL.ON",fflon_cmd},
+	{"FFL.OFF",ffloff_cmd},
+	{"NE.ON",neon_cmd},
+	{"NE.OFF",neoff_cmd},
+	{"HGCD.ON",hgcdon_cmd},
+	{"HGCD.OFF",hgcdoff_cmd},
+	{"FF.STATUS",ffstatus_cmd},
 	{"AB.STATUS",abstatus_cmd},
 	{NULL,dummy_cmd}		/* termination */
 };

@@ -99,6 +99,15 @@ char *slitclose_cmd(char *cmd);
 char *cartlatch_cmd(char *cmd);
 char *cartunlatch_cmd(char *cmd);
 char *slitstatus_cmd(char *cmd);
+char *ffsopen_cmd(char *cmd);
+char *ffsclose_cmd(char *cmd);
+char *fflon_cmd(char *cmd);
+char *ffloff_cmd(char *cmd);
+char *neon_cmd(char *cmd);
+char *neoff_cmd(char *cmd);
+char *hgcdon_cmd(char *cmd);
+char *hgcdoff_cmd(char *cmd);
+char *ffstatus_cmd(char *cmd);
 char *abstatus_cmd(char *cmd);
 
 #define CONTROL_BUFFER_EMPTY	00000001L
@@ -180,6 +189,8 @@ void set_rot_dnlimit (int state, int val);
 void set_rot_state (int state);
 int coeffs_state_deg (int axis, double degs);
 int coeffs_state_cts (int axis, int cts);
+float sdss_get_time();
+float get_time();
 
 #define __AXIS_H__             /* do only once */
 

@@ -14,7 +14,7 @@ Routines to control the display screen
 These functions can be used with a Vt220 terminal to position the cursor,
 erase the screen etc.
 ******************************************************************************/
-#define SoftwareVersion_	14
+#define SoftwareVersion_	15
 /* INCLUDES */
 #include "display.h"
 #include "stdio.h"
@@ -31,12 +31,10 @@ erase the screen etc.
 #include "tm.h"
 #include "cw.h"
 void Menu();
-static void PrintMenu();
 static void PrintMenuBanner();
 void PrintMenuMove();
 void PrintMenuPos();
 void Inst();
-static void PrintInst();
 static void PrintInstBanner();
 void PrintInstPos();
 /******************************************************************************/
@@ -47,8 +45,6 @@ void PrintInstPos();
 */
 #define ESC '\033'
 #define CSI "\033["
-/******************************************************************************/
-static char scm[]="@(#)display.c	1.1 04/04/96 13:46:57";
 /******************************************************************************/
 void EraseDisplayAll()
 {
@@ -151,6 +147,7 @@ int GetString(char *buf, int cnt)
 }
 /*--------------------------------------------------------------------*/
 #include "data_collection.h"
+int question_mark=0;
 int Axis=4;
 static int STOPed[6]={TRUE,TRUE,TRUE,TRUE,TRUE,TRUE};
 int adjpos[6]={0,0,0,0,0,0};
@@ -177,15 +174,7 @@ int last_door1;
 int last_door2;
 int last_azbrake;
 int last_altbrake;
-/****************************************************************************/
-static void PrintMenu()
-{
-  CursPos(1,22);
-  EraseDisplayRest();
-  printf("/////////////////////////////// SDSS ////////////////////////////////\n\r");
-  printf("R=Rotator Z=aZimuth L=aLtitude S=Stop H=Hold ?=help X=eXit......Command->\n\r");
-}  
-
+int check_stop_in();
 /****************************************************************************/
 static void PrintMenuBanner()
 {
@@ -211,7 +200,7 @@ static void PrintMenuBanner()
   CursPos(1,12);    
   printf("Alt Clinomator=       degrees\n\r");
   CursPos(1,13);    
-  printf("ALIGN Clamp               SP1 Slit                  SP2 Slit                 \n\r");
+  printf("ALIGN Clamp            SP1 Slit                     SP2 Slit                 \n\r");
   CursPos(1,14);    
   printf("AZ Brake\n\r");
   CursPos(1,15);    
@@ -278,7 +267,6 @@ void Menu()
   extern long fiducial_position[3];
   int cwpos;
   int cw;
-  float fpos;
   int inst;
   int Options;
   long pos, deg, min, arcsec, marcsec;
@@ -687,42 +675,110 @@ void Menu()
 
          case '{':
 	   CursPos(20,24);
-	   printf("SP1 Latch               ");
-	   tm_cart_latch(SPECTOGRAPH1);
-/*
 	   printf("SP1 Latch Toggled               ");
-	   if (sdssdc.status.i1.il9.cart_latch1_opn)
+	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+/*	   if (sdssdc.status.i1.il9.cart_latch1_opn)*/
 	   {
 	     tm_cart_unlatch(SPECTOGRAPH1);
 	     break;
 	   }
-	   if (!sdssdc.status.i1.il9.cart_latch2_opn)
+	   if (!sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+/*	   if (!sdssdc.status.i1.il9.cart_latch1_opn)*/
 	   {
 	     tm_cart_latch(SPECTOGRAPH1);
 	     break;
 	   }
 	   printf("ERR: Inconsistent State  ");
-*/
 	   break;
 
          case '}':
 	   CursPos(20,24);
-	   printf("SP1 UnLatch                ");
-	   tm_cart_unlatch(SPECTOGRAPH1);
-/*
 	   printf("SP2 Latch Toggled               ");
-	   if (sdssdc.status.i1.il9.cart_latch2_opn)
+	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+/*	   if (sdssdc.status.i1.il9.cart_latch2_opn)*/
 	   {
 	     tm_cart_unlatch(SPECTOGRAPH2);
 	     break;
 	   }
-	   if (!sdssdc.status.i1.il9.cart_latch2_opn)
+	   if (!sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+/*	   if (!sdssdc.status.i1.il9.cart_latch2_opn)*/
 	   {
 	     tm_cart_latch(SPECTOGRAPH2);
 	     break;
 	   }
 	   printf("ERR: Inconsistent State  ");
-*/
+	   break;
+
+         case '~':
+	   CursPos(20,24);
+	   printf("Flat Field Screen Toggled ");
+	   if (sdssdc.status.o1.ol14.ff_screen_open_pmt)
+	   {
+	     printf("Close ");
+	     tm_ffs_close();
+	     break;
+	   }
+	   if (!sdssdc.status.o1.ol14.ff_screen_open_pmt)
+	   {
+	     printf("Open  ");
+	     tm_ffs_open();
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case '|':
+	   CursPos(20,24);
+	   printf("Flat Field Lamps Toggled ");
+	   if (sdssdc.status.o1.ol14.ff_lamps_on_pmt)
+	   {
+	     printf("Off   ");
+	     tm_ffl_off();
+	     break;
+	   }
+	   if (!sdssdc.status.o1.ol14.ff_lamps_on_pmt)
+	   {
+	     printf("On    ");
+	     tm_ffl_on();
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case '"':
+	   CursPos(20,24);
+	   printf("Flat Field Neon Toggled ");
+	   if (sdssdc.status.o1.ol14.ne_lamps_on_pmt)
+	   {
+	     printf("Off     ");
+	     tm_neon_off();
+	     break;
+	   }
+	   if (!sdssdc.status.o1.ol14.ne_lamps_on_pmt)
+	   {
+	     printf("On     ");
+	     tm_neon_on();
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case ':':
+	   CursPos(20,24);
+	   printf("Flat Field HgCd Toggled ");
+	   if (sdssdc.status.o1.ol14.hgcd_lamps_on_pmt)
+	   {
+	     printf("Off    ");
+	     tm_hgcd_off();
+	     break;
+	   }
+	   if (!sdssdc.status.o1.ol14.hgcd_lamps_on_pmt)
+	   {
+	     printf("On     ");
+	     tm_hgcd_on();
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case 'X': case 'x':
@@ -910,8 +966,10 @@ void Menu()
 	   break;
 
          case '?': 
+	   if (question_mark==0)
+	   {
 	     CursPos(1,1);
-printf("Extended Help...*=AMP Reset; +|-=Align Close|Open; B|C=Brake Enable|Disable   \n");
+printf("Extended Help1..*=AMP Reset; +|-=Align Close|Open; B|C=Brake Enable|Disable    \n");
 	     CursPos(1,2);
 printf(" D=Dest Position; O=Offset Position V=Set Velocity; A=AdjCnt Position;        \n");
 	     CursPos(1,3);
@@ -919,10 +977,28 @@ printf(" M=Move to Position G=Gang Az+Alt Move; S(state)=*(running),Stop,Estop,A
 	     CursPos(1,4);
 printf(" K=pos; J=neg; S=Stop Motion; H=Hold Motion I=Set Velocity Increment;         \n");
 	     CursPos(1,5);
-printf(" P=SetPosition; F=SetFiducial; sp=RstScrn X=eXit; A(amp)=*(ok),Stop-in,?(unknown)    \n");
+printf(" P=SetPosition; F=SetFiducial; sp=RstScrn X=eXit; A(amp)=*(ok),Stop-in,?(TBD) \n");
 	     CursPos(1,6);
-printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                       \n");
-
+printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                      \n");
+	   }
+	   if (question_mark==1)
+	   {
+	     CursPos(1,1);
+printf("Extended Help2..(|)=slit1|slit2 toggle; {|}=cart latch1|cart latch2 toggle    \n");
+	     CursPos(1,2);
+printf(" |=flat field lamp toggle; ""=Ne lamp toggle; :=HgCd lamp toggle               \n");
+	     CursPos(1,3);
+printf(" ~=flat field screen toggle                                                   \n");
+	     CursPos(1,4);
+printf("                                                                              \n");
+	     CursPos(1,5);
+printf("                                                                              \n");
+	     CursPos(1,6);
+printf("                                                                              \n");
+	   }
+	   question_mark = (question_mark+1)%2;
+	   break;
+	
 	 case 'S': case 's':	     
 	   Axis_vel[Axis]=0;
 	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
@@ -1343,7 +1419,7 @@ void PrintMenuPos()
 		      (sdssdc.status.o10.ol0.clamp_disen_cmd<<3)) )
       {
       CursPos(14,13);
-      printf("             ");
+      printf("          ");
       CursPos(14,13);
       if (sdssdc.status.i11.ol0.clamp_engaged_st)
         printf("On  ");
@@ -1361,41 +1437,49 @@ void PrintMenuPos()
 
       if (last_door1!=(int)((sdssdc.status.i1.il9.slit_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_door1_cls<<1)|
-		      (sdssdc.status.i1.il9.cart_latch1_opn<<2)) )
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2))
+/*		      (sdssdc.status.i1.il9.cart_latch1_opn<<2))*/ 
+								)
       {
-      CursPos(36,13);
-      printf("               ");
-      CursPos(36,13);
+      CursPos(33,13);
+      printf("                  ");
+      CursPos(33,13);
       if (sdssdc.status.i1.il9.slit_door1_opn)
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_door1_cls)
         printf("Closed ");
-      if (sdssdc.status.i1.il9.cart_latch1_opn)
-        printf("Latch ");
+      if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+/*      if (sdssdc.status.i1.il9.cart_latch1_opn)*/
+        printf("LatchCmd   ");
       else
-        printf("UnLatch ");
+        printf("UnLatchCmd ");
       last_door1=(sdssdc.status.i1.il9.slit_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_door1_cls<<1)|
-		      (sdssdc.status.i1.il9.cart_latch1_opn<<2);
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2);
+/*		      (sdssdc.status.i1.il9.cart_latch1_opn<<2);*/ 
       }
       if (last_door2!=(int)((sdssdc.status.i1.il9.slit_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
-		      (sdssdc.status.i1.il9.cart_latch2_opn<<2)) )
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2))
+/*		      (sdssdc.status.i1.il9.cart_latch2_opn<<2))*/ 
+		      						)
       {
       CursPos(62,13);
-      printf("               ");
+      printf("                  ");
       CursPos(62,13);
       if (sdssdc.status.i1.il9.slit_door2_opn)
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_door2_cls)
         printf("Closed ");
-      if (sdssdc.status.i1.il9.cart_latch2_opn)
-        printf("Latch ");
+      if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+/*      if (sdssdc.status.i1.il9.cart_latch2_opn)*/
+        printf("LatchCmd ");
       else
-        printf("UnLatch ");
+        printf("UnLatchCmd ");
       last_door2=(sdssdc.status.i1.il9.slit_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
-		      (sdssdc.status.i1.il9.cart_latch2_opn<<2);
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
+/*		      (sdssdc.status.i1.il9.cart_latch2_opn<<2);*/ 
       }
       if (last_azbrake!=(int)((sdssdc.status.i7.il0.az_brake_engaged)|
 		      (sdssdc.status.i7.il0.az_brake_disengaged<<1)|
@@ -1476,19 +1560,11 @@ void PrintMenuPos()
   }
 }
 /****************************************************************************/
-static void PrintInst()
-{
-  CursPos(1,22);
-  EraseDisplayRest();
-  printf("/////////////////////////////// SDSS ////////////////////////////////\n\r");
-  printf("R=Rotator Z=aZimuth L=aLtitude S=Stop H=Hold ?=help X=eXit......Command->\n\r");
-}  
-
-/****************************************************************************/
 static void PrintInstBanner()
 {
   CursPos(1,1);
   MenuInput[21]=NULL;
+  last_clamp=last_door1=last_door2=last_azbrake=last_altbrake=-1;
   EraseDisplayRest();
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie Briegel        \n");
@@ -1508,7 +1584,7 @@ static void PrintInstBanner()
   CursPos(1,12);    
   printf("Alt Clinomator=       degrees\n\r");
   CursPos(1,13);    
-  printf("ALIGN Clamp\n\r");
+  printf("ALIGN Clamp            SP1 Slit                     SP2 Slit                 \n\r");
   CursPos(1,16);    
   printf("CW1\tCW2\tCW3\tCW4\n\r");
   CursPos(1,19);
@@ -1536,8 +1612,8 @@ void Inst()
   extern void manTrg();
   extern int cw_abort();
   extern int fsm();
+  int cwpos;
   int cw;
-  float fpos;
   int inst;
   int Options;
 
@@ -1647,6 +1723,78 @@ void Inst()
 	   tm_clamp_off();
 	   break;
 
+         case '(':
+	   CursPos(20,24);
+	   printf("SP1 Slit Door Toggled          ");
+	   if ((sdssdc.status.i1.il9.slit_door1_opn)&&
+               (!sdssdc.status.i1.il9.slit_door1_cls))		
+	   {
+	     tm_sp_slit_close(SPECTOGRAPH1);
+	     break;
+	   }
+	   if ((!sdssdc.status.i1.il9.slit_door1_opn)&&
+               (sdssdc.status.i1.il9.slit_door1_cls))		
+	   {
+	     tm_sp_slit_open(SPECTOGRAPH1);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case ')':
+	   CursPos(20,24);
+	   printf("SP2 Slit Door Toggled           ");
+	   if ((sdssdc.status.i1.il9.slit_door2_opn)&&
+               (!sdssdc.status.i1.il9.slit_door2_cls))		
+	   {
+	     tm_sp_slit_close(SPECTOGRAPH2);
+	     break;
+	   }
+	   if ((!sdssdc.status.i1.il9.slit_door2_opn)&&
+               (sdssdc.status.i1.il9.slit_door2_cls))		
+	   {
+	     tm_sp_slit_open(SPECTOGRAPH2);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case '{':
+	   CursPos(20,24);
+	   printf("SP1 Latch Toggled               ");
+	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+/*	   if (sdssdc.status.i1.il9.cart_latch1_opn)*/
+	   {
+	     tm_cart_unlatch(SPECTOGRAPH1);
+	     break;
+	   }
+	   if (!sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+/*	   if (!sdssdc.status.i1.il9.cart_latch1_opn)*/
+	   {
+	     tm_cart_latch(SPECTOGRAPH1);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case '}':
+	   CursPos(20,24);
+	   printf("SP2 Latch Toggled               ");
+	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+/*	   if (sdssdc.status.i1.il9.cart_latch2_opn)*/
+	   {
+	     tm_cart_unlatch(SPECTOGRAPH2);
+	     break;
+	   }
+	   if (!sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+/*	   if (!sdssdc.status.i1.il9.cart_latch2_opn)*/
+	   {
+	     tm_cart_latch(SPECTOGRAPH2);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
          case 'X': case 'x':
 	   Running=FALSE;
 	   ioctl(0,FIOOPTIONS,Options); /* back to normal */
@@ -1714,17 +1862,17 @@ void Inst()
 	   CursPos(20,24);
 	   if (buf[0]=='@') cw = 2;
 	   else cw = buf[0]-0x20;
-	   printf("CW %d pp.pp                             ",cw);
+	   printf("CW %d vvv                              ",cw);
 	   cw--;
 	   if (GetString(&MenuInput[0],20))
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%f",&fpos);
+	     sscanf (buf,"%ld",&cwpos);
 	     CursPos(20,24);
-	     if ((fpos<.1)||(fpos>24.0))
+	     if ((cwpos<10)||(cwpos>800))
 	     {
-	       printf("ERR: Position out of Range (.1-24.0)    ");
+	       printf("ERR: Position out of Range (10-800)    ");
 	       break;
 	     }
              if (taskIdFigure("cw")!=ERROR)
@@ -1738,11 +1886,49 @@ void Inst()
 	       break;
 	     }
 	     if (sdssdc.status.i7.il0.alt_brake_engaged)
-	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_pos,
-			  (int)cw,(int)&fpos,0,0,0,0,0,0,0,0);
+	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
+			  (int)cw,(int)cwpos,0,0,0,0,0,0,0,0);
 	     else
              {
 	       printf ("Alt Brake NOT Engaged                  ");
+	       break;
+	     }
+	   }
+	   CursPos(20,24);
+	   printf("                                        ");
+	   break;
+
+         case '^': 
+	   CursPos(20,24);
+	   printf("All CW vvv                             ");
+	   if (GetString(&MenuInput[0],20))
+	   {
+	     memcpy(&buf[0],&MenuInput[0],21);
+	     memset(&MenuInput[0],' ',20);
+	     sscanf (buf,"%ld",&cwpos);
+	     CursPos(20,24);
+	     if ((cwpos<10)||(cwpos>800))
+	     {
+	       printf("ERR: Position out of Range (10-800)    ");
+	       break;
+	     }
+             if (taskIdFigure("cw")!=ERROR)
+	     {
+	       printf("ERR: CW task still active...be patient  ");
+	       break;
+	     }
+             if (taskIdFigure("cwp")!=ERROR)
+	     {
+	       printf("ERR: CWP task still active..be patient  ");
+	       break;
+	     }
+	     cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
+	     if (sdssdc.status.i7.il0.alt_brake_engaged)
+	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+			  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
+	     else
+	     {
+	       printf("ERR: Altitude Brake NOT Engaged         ");
 	       break;
 	     }
 	   }
@@ -1759,14 +1945,33 @@ void Inst()
 	   break;
 
          case '?': 
+	   if (question_mark==0)
+	   {
 	   CursPos(1,1);
-printf("Extended Help...+|-=Align Close|Open;                                  \n");
+printf("Extended Help1..+|-=Align Close|Open;                                  \n");
 	   CursPos(1,5);
 printf(" sp=RstScrn X=eXit                                                     \n");
 	   CursPos(1,6);
 printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                                \n");
+	   }
+	   if (question_mark==1)
+	   {
+	     CursPos(1,1);
+printf("Extended Help2..(|)=slit1|slit2 toggle; {|}=cart latch1|cart latch2 toggle    \n");
+	     CursPos(1,2);
+printf(" |=flat field lamp toggle; ""=Ne lamp toggle; :=HgCd lamp toggle               \n");
+	     CursPos(1,3);
+printf(" ~=flat field screen toggle                                                   \n");
+	     CursPos(1,4);
+printf("                                                                              \n");
+	     CursPos(1,5);
+printf("                                                                              \n");
+	     CursPos(1,6);
+printf("                                                                              \n");
+	   }
+	   question_mark = (question_mark+1)%2;
 	   break;
-
+	
          default:  
 	   refreshing=TRUE;
  	   PrintInstBanner();
@@ -1788,6 +1993,7 @@ void PrintInstPos()
 {
   extern struct SDSS_FRAME sdssdc;
   extern SEM_ID semMEIUPD;
+  extern SEM_ID semMEI;
   extern int rawtick;
   extern struct TM_M68K *tmaxis[];
   extern struct FIDUCIARY fiducial[3];
@@ -1796,6 +2002,7 @@ void PrintInstPos()
   extern struct FIDUCIALS alt_fiducial[];
   extern struct FIDUCIALS rot_fiducial[];
   int fidsign;
+  int state;
   int i;
   long ap,cp,ap2;
   double arcsec, farcsec;
@@ -1829,8 +2036,32 @@ void PrintInstPos()
         cp=(*tmaxis[i]).position,
 /*	ap2=(*tmaxis[i]).actual_position2;*/
         ap2=(*tmaxis[i]).voltage;
+        if (semTake (semMEI,NO_WAIT)!=ERROR)
+        {
+	  state=axis_state(i<<1);
+	  semGive(semMEI);
+	  switch (state)
+          {
+	    case NO_EVENT: case 1: case NEW_FRAME: printf ("*");
+	     break;
+	    case STOP_EVENT: printf ("S");
+	     break;
+	    case E_STOP_EVENT: printf ("E");
+	     break;
+	    case ABORT_EVENT: printf ("A");
+	     break;
+	    default: printf ("?");
+	  }
+	}
         if (i==0)
         {
+	  if (az_amp_ok()) printf ("*");
+	  else
+	  {
+	    if (check_stop_in()) printf ("S");
+            else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
+	      else printf ("?");
+	  }
           arcsec=(AZ_TICK*abs(ap));
           farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
           if (az_fiducial[fiducialidx[i]].mark<0)
@@ -1840,6 +2071,13 @@ void PrintInstPos()
         }
         if (i==1)
         {
+	  if (alt_amp_ok()) printf ("*");
+	  else
+	  {
+	    if (check_stop_in()) printf ("S");
+            else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
+	      else printf ("?");
+	  }
           arcsec=(ALT_TICK*abs(ap));
           farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
           if (alt_fiducial[fiducialidx[i]].mark<0)
@@ -1849,6 +2087,12 @@ void PrintInstPos()
         }
         if (i==2)
         {
+	  if (rot_amp_ok()) printf ("*");
+	  else
+	  {
+	    if (check_stop_in()) printf ("S");
+	      else printf ("?");
+	  }
           arcsec=(ROT_TICK*abs(ap));
           farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
           if (rot_fiducial[fiducialidx[i]].mark<0)
@@ -1893,11 +2137,80 @@ void PrintInstPos()
       printf("\t\tR2=%10ld\tR3=%10ld\n",
         ap,
         ap2);
-      printf("\t\tOn=%d\tOff=%d\tOnCmd=%d\tOffCmd=%d\n",
-        sdssdc.status.i11.ol0.clamp_engaged_st,
-        sdssdc.status.i11.ol0.clamp_disengaged_st,
-	sdssdc.status.o10.ol0.clamp_engage_cmd,
-	sdssdc.status.o10.ol0.clamp_disen_cmd);
+      semGive (semMEIUPD);
+    }
+    taskDelay(30);
+    if (semTake (semMEIUPD,60)!=ERROR)
+    {
+      if (last_clamp!=(int)((sdssdc.status.i11.ol0.clamp_engaged_st)|
+		      (sdssdc.status.i11.ol0.clamp_disengaged_st<<1)|
+		      (sdssdc.status.o10.ol0.clamp_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.clamp_disen_cmd<<3)) )
+      {
+      CursPos(14,13);
+      printf("          ");
+      CursPos(14,13);
+      if (sdssdc.status.i11.ol0.clamp_engaged_st)
+        printf("On  ");
+      if (sdssdc.status.i11.ol0.clamp_disengaged_st)
+        printf("Off ");
+      if (sdssdc.status.o10.ol0.clamp_engage_cmd)
+        printf("OnCmd ");
+      if (sdssdc.status.o10.ol0.clamp_disen_cmd)
+        printf("OffCmd ");
+      last_clamp=(sdssdc.status.i11.ol0.clamp_engaged_st)|
+		      (sdssdc.status.i11.ol0.clamp_disengaged_st<<1)|
+		      (sdssdc.status.o10.ol0.clamp_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.clamp_disen_cmd<<3);
+      }
+
+      if (last_door1!=(int)((sdssdc.status.i1.il9.slit_door1_opn)|
+		      (sdssdc.status.i1.il9.slit_door1_cls<<1)|
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2))
+/*		      (sdssdc.status.i1.il9.cart_latch1_opn<<2))*/ 
+		      						)
+      {
+      CursPos(33,13);
+      printf("                  ");
+      CursPos(33,13);
+      if (sdssdc.status.i1.il9.slit_door1_opn)
+        printf("Open ");
+      if (sdssdc.status.i1.il9.slit_door1_cls)
+        printf("Closed ");
+      if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+/*      if (sdssdc.status.i1.il9.cart_latch1_opn)*/
+        printf("LatchCmd ");
+      else
+        printf("UnLatchCmd ");
+      last_door1=(sdssdc.status.i1.il9.slit_door1_opn)|
+		      (sdssdc.status.i1.il9.slit_door1_cls<<1)|
+      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2);
+/*		      (sdssdc.status.i1.il9.cart_latch1_opn<<2);*/ 
+      }
+      if (last_door2!=(int)((sdssdc.status.i1.il9.slit_door2_opn)|
+		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2))
+/*		      (sdssdc.status.i1.il9.cart_latch2_opn<<2))*/ 
+		      						)
+      {
+      CursPos(62,13);
+      printf("                  ");
+      CursPos(62,13);
+      if (sdssdc.status.i1.il9.slit_door2_opn)
+        printf("Open ");
+      if (sdssdc.status.i1.il9.slit_door2_cls)
+        printf("Closed ");
+      if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+/*      if (sdssdc.status.i1.il9.cart_latch2_opn)*/
+        printf("LatchCmd ");
+      else
+        printf("UnLatchCmd ");
+      last_door2=(sdssdc.status.i1.il9.slit_door2_opn)|
+		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
+      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
+/*		      (sdssdc.status.i1.il9.cart_latch2_opn<<2);*/ 
+      }
+
       CursPos(1,17);
       for (i=0;i<4;i++)
       {
@@ -2013,16 +2326,13 @@ int cw_lower()
 {
   extern char *balance_weight(int inst);
 
-             if (taskIdFigure("cw")!=ERROR)
-	     {
-	       printf("ERR: CW task still active...be patient  ");
-	     }
-             if (taskIdFigure("cwp")!=ERROR)
-	     {
-	       printf("ERR: CWP task still active..be patient  ");
-	     }
-	     taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+  if (taskIdFigure("cw")!=ERROR)
+    printf("ERR: CW task still active...be patient  ");
+  if (taskIdFigure("cwp")!=ERROR)
+    printf("ERR: CWP task still active..be patient  ");
+  taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)3,0,0,0,0,0,0,0,0,0);
+  return 0;
 }
 int cw_status_msg()
 {

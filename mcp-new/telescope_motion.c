@@ -35,15 +35,13 @@
 #include "abdh.h"
 #include "idsp.h"
 #include "pcdsp.h"
-#include "dio316ld.h"
-#include "did48ld.h"
-#include "ad12f1ld.h"
+#include "gendefs.h"
+#include "ad12f1lb.h"
 #include "ip480.h"
 #include "mv162IndPackInit.h"
 #include "axis.h"
 #include "frame.h"
 #include "data_collection.h"
-#include "gendefs.h"
 #include "tm.h"
 
 #define NULLFP (void(*)()) 0
@@ -69,6 +67,7 @@ short rot1vlt,rot1cur;
 #define TM_ALT2VLT	6
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
+int axis_alive=0;
 
 void tm_move_time (int axis, int vel, int accel, int time)
 {
@@ -438,7 +437,7 @@ int ADC128F1_initialize(unsigned char *addr, int occur)
       if (occur==0)
       {	
         printf ("\r\nFound one at %d, %p",i,ip.adr[i]);
-        tm_ADC128F1=ADC128F1Init(ip.adr[i]);
+        tm_ADC128F1=ADC128F1Init((struct ADC128F1 *)ip.adr[i]);
 	printf ("\r\n tm_ADC128F1=%d",tm_ADC128F1);
         ADC128F1_CVT_Update_Control(tm_ADC128F1,ENABLE);
 	break;
@@ -450,6 +449,7 @@ int ADC128F1_initialize(unsigned char *addr, int occur)
     printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
     return ERROR;
   }
+  return 0;
 }
 void tm_data_collection()
 {
@@ -605,7 +605,8 @@ int tm_az_brake(short val)
    }
 /*   printf ("\r\n cnt=%d",cnt);
    tm_brake_status();*/
-	az_cnt=cnt;
+   az_cnt=cnt;
+   return 0;
 }
 void tm_az_brake_on()
 {
@@ -869,11 +870,7 @@ int tm_clamp_status()
   unsigned short ctrl[0];
   struct B10 tm_ctrl;   
   extern SEM_ID semSLC;
-  extern struct SDSS_FRAME sdssdc;
 
-  printf("\r\nCLAMP\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i11.ol0.clamp_engaged_st,
-    sdssdc.status.i11.ol0.clamp_disengaged_st,alt_cnt);
   if (semTake (semSLC,60)!=ERROR)
   {
     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
@@ -896,8 +893,6 @@ int tm_slit(short val)
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
-   extern struct SDSS_FRAME sdssdc;
-   int cnt;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -993,8 +988,6 @@ int tm_cart(short val)
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
-   extern struct SDSS_FRAME sdssdc;
-   int cnt;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1052,10 +1045,6 @@ void tm_sp_cart_unlatch(int door)
 }
 int tm_slit_status()
 {
-  int err;
-  unsigned short ctrl[0];
-  struct B10 tm_ctrl;   
-  extern SEM_ID semSLC;
   extern struct SDSS_FRAME sdssdc;
 
   printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
@@ -1066,6 +1055,269 @@ int tm_slit_status()
 	sdssdc.status.i1.il9.slit_door2_opn,
 	sdssdc.status.i1.il9.slit_door2_cls,
 	sdssdc.status.i1.il9.cart_latch2_opn);
+  return 0;
+}
+
+int tm_ffs(short val) 
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+             
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+ /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+   tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
+/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   return 0;
+}
+void tm_ffs_open()
+{
+    tm_ffs (1);
+}
+void tm_ffs_close()
+{
+    tm_ffs (0);
+}
+void tm_sp_ffs_open()
+{
+  if (taskIdFigure("tmFFS")!=NULL)
+    taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_ffs_close()
+{
+  if (taskIdFigure("tmFFS")!=NULL)
+    taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
+}
+
+int tm_ffl(short val) 
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+             
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+ /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+   tm_ctrl1.mcp_ff_lamp_on_cmd = val;
+/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   return 0;
+}
+void tm_ffl_on()
+{
+    tm_ffl (1);
+}
+void tm_ffl_off()
+{
+    tm_ffl (0);
+}
+void tm_sp_ffl_on()
+{
+  if (taskIdFigure("tmFFL")!=NULL)
+    taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_ffl_off()
+{
+  if (taskIdFigure("tmFFL")!=NULL)
+    taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,0,0,0,0,0,0,0,0,0,0);
+}
+
+int tm_neon(short val) 
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+             
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+ /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+   tm_ctrl1.mcp_ne_lamp_on_cmd = val;
+/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   return 0;
+}
+void tm_neon_on()
+{
+    tm_neon (1);
+}
+void tm_neon_off()
+{
+    tm_neon (0);
+}
+void tm_sp_neon_on()
+{
+  if (taskIdFigure("tmNeon")!=NULL)
+    taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_neon_off()
+{
+  if (taskIdFigure("tmNeon")!=NULL)
+    taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,0,0,0,0,0,0,0,0,0,0);
+}
+int tm_hgcd(short val) 
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+             
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+ /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+   tm_ctrl1.mcp_hgcd_lamp_on_cmd = val;
+/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   return 0;
+}
+void tm_hgcd_on()
+{
+    tm_hgcd (1);
+}
+void tm_hgcd_off()
+{
+    tm_hgcd (0);
+}
+void tm_sp_hgcd_on()
+{
+  if (taskIdFigure("tmHgCd")!=NULL)
+    taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_hgcd_off()
+{
+  if (taskIdFigure("tmHgCd")!=NULL)
+    taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,0,0,0,0,0,0,0,0,0,0);
+}
+int tm_ff_status()
+{
+  extern struct SDSS_FRAME sdssdc;
+  char open[]={' ','O'};
+  char close[]={' ','C'};
+  char *oo[]={"Off"," On"};
+
+  printf ("\r\nLeaf 01 02 03 04 05 06 07 08");
+  printf ("\r\n  FF %c%c  %c%c %c%c %c%c %c%c  %c%c %c%c %c%c",
+	open[sdssdc.status.i1.il13.leaf_1_open_stat],
+	close[sdssdc.status.i1.il13.leaf_1_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_2_open_stat],
+	close[sdssdc.status.i1.il13.leaf_2_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_3_open_stat],
+	close[sdssdc.status.i1.il13.leaf_3_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_4_open_stat],
+	close[sdssdc.status.i1.il13.leaf_4_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_5_open_stat],
+	close[sdssdc.status.i1.il13.leaf_5_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_6_open_stat],
+	close[sdssdc.status.i1.il13.leaf_6_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_7_open_stat],
+	close[sdssdc.status.i1.il13.leaf_7_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_8_open_stat],
+	close[sdssdc.status.i1.il13.leaf_8_closed_stat]
+  );
+  printf ("\r\nLamp  01  02  03  04");
+  printf ("\r\n  FF %s %s %s %s",
+	oo[sdssdc.status.i1.il13.ff_1_stat],
+	oo[sdssdc.status.i1.il13.ff_2_stat],
+	oo[sdssdc.status.i1.il13.ff_3_stat],
+	oo[sdssdc.status.i1.il13.ff_4_stat]
+  );
+  printf ("\r\n  Ne %s %s %s %s",
+	oo[sdssdc.status.i1.il13.ne_1_stat],
+	oo[sdssdc.status.i1.il13.ne_2_stat],
+	oo[sdssdc.status.i1.il13.ne_3_stat],
+	oo[sdssdc.status.i1.il13.ne_4_stat]
+  );
+  printf ("\r\nHgCd %s %s %s %s",
+	oo[sdssdc.status.i1.il13.hgcd_1_stat],
+	oo[sdssdc.status.i1.il13.hgcd_2_stat],
+	oo[sdssdc.status.i1.il13.hgcd_3_stat],
+	oo[sdssdc.status.i1.il13.hgcd_4_stat]
+  );
+  printf("\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
+  printf("\n\rne_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ne_lamps_on_pmt);
+  printf("\n\rff_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
+  printf("\n\rff_screen_open_pmt=%d",sdssdc.status.o1.ol14.ff_screen_open_pmt);
+  printf ("\r\n");
   return 0;
 }
 
@@ -1162,8 +1414,11 @@ void tm_amp_engage()
 {
   extern struct conf_blk sbrd;
 
-  WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
-  StartCounter (&sbrd,TM_WD);
+  if ((axis_alive&0x7)==0x7)
+  {
+    WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
+    StartCounter (&sbrd,TM_WD);
+  }
 }
 void tm_setup_wd ()
 {
@@ -1210,7 +1465,7 @@ void tm_set_fiducial(int axis)
     pos=(long)((abs(deg)*3600000.)+(min*60000.)+
 	 (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
   if (axis==2)
-     pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+    pos=(long)((abs(deg)*3600000.)+(min*60000.)+
          (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
   if (negative) pos=-pos;
   fiducial_position[axis]=pos;
