@@ -612,13 +612,13 @@ Menu(void)
          case '+': case '=':
 	   CursPos(20,24);
 	   printf("ALIGNment Clamp Turned On               ");
-	   tm_clamp_on();
+	   (void)clampon_cmd(NULL);
 	   break;
 
          case '_': case '-':
            CursPos(20,24);
 	   printf("ALIGNment Clamp Turned Off              ");
-	   tm_clamp_off();
+	   (void)clampoff_cmd(NULL);
 	   break;
 
          case '(':
@@ -627,35 +627,34 @@ Menu(void)
 	   if ((sdssdc.status.i1.il9.slit_head_door1_opn)&&
 	       (!sdssdc.status.i1.il9.slit_head_door1_cls))
 	   {
-	     tm_sp_slit_close(SPECTOGRAPH1);
+	     mcp_specdoor_close(SPECTROGRAPH1);
 	     break;
 	   }
 	   if ((!sdssdc.status.i1.il9.slit_head_door1_opn)&&
 	       (sdssdc.status.i1.il9.slit_head_door1_cls))
 	   {
-	     tm_sp_slit_open(SPECTOGRAPH1);
+	     mcp_specdoor_open(SPECTROGRAPH1);
 	     break;
 	   }
-	   tm_sp_slit_open(SPECTOGRAPH1);
+	   mcp_specdoor_open(SPECTROGRAPH1);
 	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case ')':
 	   CursPos(20,24);
 	   printf("SP2 Slit Door Toggled          ");
-	   if ((sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
-	       (!sdssdc.status.i1.il9.slit_head_door2_cls))
-	   {
-	     tm_sp_slit_close(SPECTOGRAPH2);
-	     break;
+	   if(sdssdc.status.o1.ol9.slit_dr2_opn_perm &&
+	      !sdssdc.status.i1.il9.slit_head_door2_cls) {
+	      mcp_specdoor_close(SPECTROGRAPH2);
+	      break;
 	   }
-	   if ((!sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
-	       (sdssdc.status.i1.il9.slit_head_door2_cls))
-	   {
-	     tm_sp_slit_open(SPECTOGRAPH2);
-	     break;
+	   if(!sdssdc.status.o1.ol9.slit_dr2_opn_perm &&
+	      sdssdc.status.i1.il9.slit_head_door2_cls) {
+	      mcp_specdoor_open(SPECTROGRAPH2);
+	      break;
 	   }
-	   tm_sp_slit_open(SPECTOGRAPH2);
+
+	   mcp_specdoor_open(SPECTROGRAPH2);
 	   printf("ERR: Inconsistent State  ");
 	   break;
 
@@ -663,18 +662,18 @@ Menu(void)
 	   CursPos(20,24);
 	   printf("SP1 Latch Toggled               ");
 	   if (sdssdc.status.o1.ol9.slit_latch1_ext_perm)
-	     tm_cart_unlatch(SPECTOGRAPH1);
+	     mcp_slithead_latch_open(SPECTROGRAPH1);
 	   else
-	     tm_cart_latch(SPECTOGRAPH1);
+	     mcp_slithead_latch_close(SPECTROGRAPH1);
 	   break;
 
          case '}':
 	   CursPos(20,24);
 	   printf("SP2 Latch Toggled               ");
 	   if (sdssdc.status.o1.ol9.slit_latch2_ext_perm)
-	     tm_cart_unlatch(SPECTOGRAPH2);
+	     mcp_slithead_latch_open(SPECTROGRAPH2);
 	   else
-	     tm_cart_latch(SPECTOGRAPH2);
+	     mcp_slithead_latch_close(SPECTROGRAPH2);
 	   break;
 
          case '~':
@@ -682,10 +681,10 @@ Menu(void)
 	   printf("Flat Field Screen Toggled ");
 	   if(sdssdc.status.o1.ol14.ff_screen_open_pmt) {
 	      printf("Close ");
-	      tm_sp_ffs_move(FFS_CLOSE);
+	      (void)ffsclose_cmd(NULL);
 	   } else {
 	      printf("Open  ");
-	      tm_sp_ffs_move(FFS_OPEN);
+	      (void)ffsopen_cmd(NULL);
 	   }
 	   break;
 
@@ -695,12 +694,12 @@ Menu(void)
 	   if (sdssdc.status.o1.ol14.ff_lamps_on_pmt)
 	   {
 	     printf("Off   ");
-	     tm_ffl_off();
+	     (void)ffloff_cmd(NULL);
 	   }
 	   else
 	   {
 	     printf("On    ");
-	     tm_ffl_on();
+	     (void)fflon_cmd(NULL);
 	   }
 	   break;
 
@@ -710,12 +709,12 @@ Menu(void)
 	   if (sdssdc.status.o1.ol14.ne_lamps_on_pmt)
 	   {
 	     printf("Off     ");
-	     tm_neon_off();
+	     (void)neoff_cmd(NULL);
 	   }
 	   else
 	   {
 	     printf("On     ");
-	     tm_neon_on();
+	     (void)neon_cmd(NULL);
 	   }
 	   break;
 
@@ -725,12 +724,12 @@ Menu(void)
 	   if (sdssdc.status.o1.ol14.hgcd_lamps_on_pmt)
 	   {
 	     printf("Off    ");
-	     tm_hgcd_off();
+	     (void)hgcdoff_cmd(NULL);
 	   }
 	   else
 	   {
 	     printf("On     ");
-	     tm_hgcd_on();
+	     (void)hgcdon_cmd(NULL);
 	   }
 	   break;
 
