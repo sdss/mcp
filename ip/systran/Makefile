@@ -67,6 +67,9 @@ all dg: $(ASRCS) $(OBJS)
 		ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o \
 	>adc128f1.map
 
+#
+# Don't delete did48.out, we cannot (yet) recreate it
+#
 clean :
-	/bin/rm -f *.o *~ *.map *.out
+	/bin/rm -f *.o *~ *.map
 

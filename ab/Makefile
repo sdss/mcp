@@ -41,6 +41,8 @@ DHP_OBJS = std_dhp.o dhpd.o diag.o sbslc.o rdslc.o vmeinst.o
 
 all dg: $(DHP_OBJS)
 	$(LINK) $(LFLAGS) -o  dhp.out $(DHP_OBJS) > $(DESTDIR)dhp.map
-
+#
+# Don't delete sddhp.bin sdhdhp.bin sdudhp.bin; we don't have source for them
+#
 clean:
-	rm -rf *.o *.out *.map *.bin
+	rm -rf *.o *.out *.map
