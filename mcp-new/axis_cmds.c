@@ -313,7 +313,8 @@ char *init_cmd(char *cmd)
 /*  int e;*/
 /*  char buffer[MAX_ERROR_LEN];*/
   int state;
-/*  extern struct SDSS_FRAME sdssdc;*/
+  int retry;
+  extern struct SDSS_FRAME sdssdc;
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
   if ((axis_select<AZIMUTH) ||
@@ -323,8 +324,6 @@ char *init_cmd(char *cmd)
 /*  {*/
     if (state>2)		/* normal...NOEVENT,running, or NEW_FRAME */
       printf ("\r\n  INIT axis %d: not running, state=%x",axis_select<<1,state);
-    tm_controller_idle (axis_select<<1);
-    tm_controller_idle (axis_select<<1);
     tm_controller_idle (axis_select<<1);
     tm_reset_integrator(axis_select<<1);
     taskDelay(1);
@@ -338,13 +337,13 @@ char *init_cmd(char *cmd)
     amp_reset(axis_select<<1);
     amp_reset((axis_select<<1)+1);
   }
-/*
+
   if (axis_select==0)
   {
     if (sdssdc.status.i7.il0.az_brake_engaged)
     {
       printf("Azimuth Brake Turned Off                ");
-      tm_az_brake_off();
+      tm_sp_az_brake_off();
     }
   }
   if (axis_select==1)
@@ -352,13 +351,16 @@ char *init_cmd(char *cmd)
     if (sdssdc.status.i7.il0.alt_brake_engaged)
     {
       printf("Altitude Brake Turned Off               ");
-      tm_alt_brake_off();           
+      tm_sp_alt_brake_off();           
     }
   }
-*/
-  tm_controller_run (axis_select<<1);
-  tm_controller_run (axis_select<<1);
-  tm_controller_run (axis_select<<1);
+
+  retry=4;
+  while ((tm_axis_state(axis_select<<1)>2)&&(retry>0))
+  {
+    tm_controller_run (axis_select<<1);
+    taskDelay(20);
+  }
   if (semTake (semMEI,60)!=ERROR)
   {
     v_move(axis_select<<1,(double)0,(double)5000);
@@ -3069,10 +3071,12 @@ int sdss_init()
     get_e_stop_rate(axis,&rate);
     printf ("AXIS %d:  set e_stop rate=%f\r\n",axis,rate);
 
+/*
     printf ("AXIS %d:  AMP level high, Controller Idle, Disable AMP\r\n",axis);
     set_amp_enable_level(axis,TRUE);
     controller_idle (axis);
     disable_amplifier (axis);
+*/
     get_error_limit(axis,&limit,&action);
     printf ("AXIS %d: error limit=%d, action=%d\r\n",axis,(long)limit,action);
     set_error_limit(axis,24000.,ABORT_EVENT);
@@ -3081,15 +3085,9 @@ int sdss_init()
     init_coeffs(axis);
   }
   init_io(2,IO_INPUT);
-/*  init_io(2,IO_OUTPUT);
-  set_io(2,0xFF);*/
   arm_latch(TRUE);
   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-/*
-  semMEI = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
-  semSLC = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
-*/
   taskSpawn ("tmLatch",49,VX_FP_TASK,10000,(FUNCPTR)tm_latch,0,0,0,0,0,0,0,0,0,0);
   return 0;
 }

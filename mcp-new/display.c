@@ -693,8 +693,6 @@ void Menu()
 	   }
            STOPed[Axis]=TRUE;
            tm_controller_idle (Axis);
-           tm_controller_idle (Axis);
-           tm_controller_idle (Axis);
            tm_reset_integrator(Axis);
 	   break;
 
@@ -716,9 +714,7 @@ void Menu()
              if (STOPed[Axis])
              {
                STOPed[Axis]=FALSE;
-               controller_run (Axis);
-               controller_run (Axis);
-               controller_run (Axis);
+               sem_controller_run (Axis);
                if (Axis==4)
                while (coeffs_state_cts (Axis,0));
                  v_move(Axis,(double)0,(double)5000);
@@ -1053,9 +1049,7 @@ void Menu()
 	     {
 	       Axis_vel[Axis]=0;
                STOPed[Axis]=FALSE;
-               controller_run (Axis);
-               controller_run (Axis);
-               controller_run (Axis);
+               sem_controller_run (Axis);
                if (Axis==4)
                  while (coeffs_state_cts (Axis,0));
                v_move(Axis,(double)0,(double)5000);
@@ -1126,9 +1120,7 @@ printf("                                                                        
            STOPed[Axis]=TRUE;
            if (semTake (semMEI,60)!=ERROR)
 	   {
-             controller_idle (Axis);
-             controller_idle (Axis);
-             controller_idle (Axis);
+             sem_controller_idle (Axis);
              reset_integrator(Axis);
 	     semGive (semMEI); 
            }
@@ -1161,16 +1153,12 @@ printf("                                                                        
              if (STOPed[0])
              {
                STOPed[0]=FALSE;
-               controller_run (0);
-               controller_run (0);
-               controller_run (0);
+               sem_controller_run (0);
              }
              if (STOPed[2])
              {
                STOPed[2]=FALSE;
-               controller_run (2);
-               controller_run (2);
-               controller_run (2);
+               sem_controller_run (2);
              }
 	     Axis_vel[0]=0;
 	     Axis_vel[2]=0;
@@ -1213,9 +1201,7 @@ printf("                                                                        
              STOPed[Axis]=FALSE;
              if (semTake (semMEI,60)!=ERROR)
 	     {
-               controller_run (Axis);
-               controller_run (Axis);
-               controller_run (Axis);
+               sem_controller_run (Axis);
   	       Axis_vel[Axis]=0;
 	       start_move(Axis,(double)(adjpos[Axis]),
 		 (double)adjvel[Axis],(double)adjacc[Axis]);
@@ -1270,9 +1256,7 @@ printf("                                                                        
              STOPed[Axis]=FALSE;
              if (semTake (semMEI,60)!=ERROR)
 	     {
-               controller_run (Axis);
-               controller_run (Axis);
-               controller_run (Axis);
+               sem_controller_run (Axis);
 	       v_move(Axis,(double)0,(double)5000);
                taskDelay (10);
 	       if (Axis==4)
@@ -1326,9 +1310,7 @@ printf("                                                                        
              STOPed[Axis]=FALSE;
              if (semTake (semMEI,60)!=ERROR)
 	     {
-               controller_run (Axis);
-               controller_run (Axis);
-               controller_run (Axis);
+               sem_controller_run (Axis);
                v_move(Axis,(double)0,(double)5000);
                taskDelay(10);
 	       if (Axis==4)
@@ -1815,23 +1797,17 @@ void Inst()
              if (STOPed[0])
              {
                STOPed[0]=FALSE;
-               controller_run (0);
-               controller_run (0);
-               controller_run (0);
+               sem_controller_run (0);
              }
              if (STOPed[2])
              {
                STOPed[2]=FALSE;
-               controller_run (2);
-               controller_run (2);
-               controller_run (2);
+               sem_controller_run (2);
              }
              if (STOPed[4])
              {
                STOPed[4]=FALSE;
-               controller_run (4);
-               controller_run (4);
-               controller_run (4);
+               sem_controller_run (4);
              }
 	     Axis_vel[0]=0;
 	     Axis_vel[2]=0;
@@ -2515,23 +2491,17 @@ int tm_move_instchange ()
              if (STOPed[0])
              {
                STOPed[0]=FALSE;
-               controller_run (0);
-               controller_run (0);
-               controller_run (0);
+               sem_controller_run (0);
              }
              if (STOPed[2])
              {
                STOPed[2]=FALSE;
-               controller_run (2);
-               controller_run (2);
-               controller_run (2);
+               sem_controller_run (2);
              }
              if (STOPed[4])
              {
                STOPed[4]=FALSE;
-               controller_run (4);
-               controller_run (4);
-               controller_run (4);
+               sem_controller_run (4);
              }
 	     Axis_vel[0]=0;
 	     Axis_vel[2]=0;

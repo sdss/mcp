@@ -67,6 +67,7 @@ short rot1vlt,rot1cur;
 #define TM_ALT2VLT	6
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
+int monitor_axis[3];
 int axis_alive=0;
 
 void tm_move_time (int axis, int vel, int accel, int time)
@@ -350,20 +351,50 @@ void tm_set_analog_channel(int axis, int channel)
 void tm_controller_run (int axis)
 {
 	extern SEM_ID semMEI;
+	int retry;
 
+	retry=12;
 	semTake(semMEI,WAIT_FOREVER);
-	controller_run (axis);
-	controller_run (axis);
-	controller_run (axis);
+  	while ((axis_state(axis)>2)&&(--retry>0)) 
+	{
+	  taskDelay(20);
+	  controller_run (axis);
+	}
 	semGive(semMEI);
+	if (retry!=0)
+	  monitor_axis[axis/2]=TRUE;
+}
+void sem_controller_run (int axis)
+{
+	int retry;
+
+	retry=12;
+  	while ((axis_state(axis)>2)&&(--retry>0)) 
+	{
+	  taskDelay(20);
+	  controller_run (axis);
+	}
+	if (retry!=0)
+	  monitor_axis[axis/2]=TRUE;
 }
 void tm_controller_idle (int axis)
 {
 	extern SEM_ID semMEI;
+	int retry;
 
+	retry=6;
 	semTake(semMEI,WAIT_FOREVER);
-	controller_idle (axis);
+  	while ((axis_state(axis)<=2)&&(--retry>0)) 
+	  controller_idle (axis);
 	semGive(semMEI);
+}
+void sem_controller_idle (int axis)
+{
+	int retry;
+
+	retry=6;
+  	while ((axis_state(axis)<=2)&&(--retry>0)) 
+	  controller_idle (axis);
 }
 void tm_dual_loop (int axis, int dual)
 {
@@ -1346,29 +1377,57 @@ int rot_amp_ok()
 	return FALSE;
 }
 #define TM_WD		4		/* WD channel    15 */
+void mgt_shutdown(int type)
+{
+    printf("\r\nmgt: Safely halt the telescope by braking AZ and ALT");
+    tm_az_brake_on();
+    tm_alt_brake_on();
+}
 void tm_amp_mgt()
 {
+  extern struct SDSS_FRAME sdssdc;
+
+  monitor_axis[0]=monitor_axis[1]=monitor_axis[2]=FALSE;
+  rebootHookAdd((FUNCPTR)mgt_shutdown);
   FOREVER
   {
-    taskDelay (60);
-    tm_amp_engage();
-    if (!az_amp_ok())
+    taskDelay (30);
+    tm_amp_engage();		/* keep amps alive */
+    if ((monitor_axis[0])&&(sdssdc.status.i7.il0.az_brake_disengaged))
     {
-      tm_controller_idle(0);
-      tm_controller_idle(0);
-      tm_controller_idle(0);
+      if (tm_axis_state(0)>2)
+      {
+        tm_sp_az_brake_on();
+	monitor_axis[0]=FALSE;
+      }
+      if (!az_amp_ok())
+      {
+        tm_controller_idle(0);
+        tm_sp_az_brake_on();
+	monitor_axis[0]=FALSE;
+      }
     }
-    if (!alt_amp_ok())
+    if ((monitor_axis[1])&&(sdssdc.status.i8.il0.alt_brake_disengaged))
     {
-      tm_controller_idle(2);
-      tm_controller_idle(2);
-      tm_controller_idle(2);
+      if (tm_axis_state(2)>2)
+      {
+        tm_sp_alt_brake_on();
+	monitor_axis[1]=FALSE;
+      }
+      if (!alt_amp_ok())
+      {
+        tm_controller_idle(2);
+        tm_sp_alt_brake_on();
+	monitor_axis[1]=FALSE;
+      }
     }
-    if (!rot_amp_ok())
+    if (monitor_axis[2])
     {
-      tm_controller_idle(4);
-      tm_controller_idle(4);
-      tm_controller_idle(4);
+      if (!alt_amp_ok())
+      {
+        tm_controller_idle(4);
+	monitor_axis[2]=FALSE;
+      }
     }
   }
 }
