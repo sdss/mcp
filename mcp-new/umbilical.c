@@ -170,7 +170,7 @@ static char* datafile = "umbil.tab";
 int *umbiltab[NEL];
 int umbildat[NEL*NROT];
 /* if you need to save space, these can be shorts; you will need to
- * modify the format in sscanf() in getumbiltab() to ("%d %hd %hd .... ) if
+ * modify the format in sscanf() in getumbiltab() to ("%d %hd %hd ...." ) if
  * you do this
  */
 int gotdata=0;
