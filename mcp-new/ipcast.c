@@ -15,6 +15,7 @@
 #include "errnoLib.h"
 #include "sockLib.h"
 #include "socket.h"
+#include "trace.h"
 
 /*------------------------------------------------------------------------
 **
