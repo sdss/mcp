@@ -22,7 +22,7 @@ ld < mcp/ip/systran/dio316.out
 ld < mcp/ip/systran/dac128v.out
 ld < mcp/ip/systran/adc128f1.out
 ld < mcp/ip/systran/did48.out
-ld < mcp/ip/acromag/ip470.out
+#ld < mcp/ip/acromag/ip470.out
 ld < mcp/ip/acromag/ip480.out
 ld < mcp/util/utiltim.out
 ld < mcp/util/timer.o
