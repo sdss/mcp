@@ -1488,7 +1488,7 @@ struct FIDUCIARY fiducial[3]=
 /*		           120:45:44.9, 14:39:23:286, 005:58:04:130  */
 /*	measured AZ        120:28:03:514, 14:39:23:286, 005:58:04:130  */
 /*			   AZ           , ALT         , ROT      */
-long fiducial_position[3]={31016188     , 3766415+58807     , 336370};
+long fiducial_position[3]={31016188     , 3766415+58807     , 336370/2};
 /*long fiducial_position[3]={31016188     , 3766415+58807     , 402702};*/
 /*long fiducial_position[3]={31016188     , 3766415+58807     , 640920};*/
 /*	measured AZ */
@@ -1674,8 +1674,8 @@ void tm_latch()
 	      (float)latchpos[latchidx].pos2);
 	  if (rot_latch!=0)
           {
-            if (abs((long)latchpos[latchidx].pos1-rot_latch)>500000)
-	      fididx = abs(iround((latchpos[latchidx].pos1-rot_latch)/1600.) )-500;
+            if (abs((long)latchpos[latchidx].pos1-rot_latch)>250000)
+	      fididx = abs(iround((latchpos[latchidx].pos1-rot_latch)/800.) )-500;
 	    else
 	      fididx = 0;
             if (LATCH_verbose)
@@ -1683,7 +1683,7 @@ void tm_latch()
                 latchpos[latchidx].axis,
                 (long)latchpos[latchidx].pos1,
                 rot_latch,fididx,
-	        abs(iround((latchpos[latchidx].pos1-rot_latch)/1600.) ));
+	        abs(iround((latchpos[latchidx].pos1-rot_latch)/800.) ));
 	    if ((fididx<0)&&(fididx>-80))
 	    {
 	      fididx = -fididx;
@@ -2188,7 +2188,7 @@ int sdss_init()
     disable_amplifier (axis);
     get_error_limit(axis,&limit,&action);
     printf ("AXIS %d: error limit=%d, action=%d\r\n",axis,(long)limit,action);
-    set_error_limit(axis,16000.,ABORT_EVENT);
+    set_error_limit(axis,24000.,ABORT_EVENT);
     get_error_limit(axis,&limit,&action);
     printf ("AXIS %d: SET error limit=%d, action=%d\r\n",axis,(long)limit,action);
     init_coeffs(axis);
