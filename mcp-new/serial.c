@@ -221,6 +221,7 @@ tcc_serial(int port)
   char serial_port[] = "/tyCo/x";
   FILE *stream;  
   int status;
+  char command_buffer_in[256];
   char command_buffer[256];
   char *answer_buffer;
 
@@ -239,19 +240,20 @@ tcc_serial(int port)
 
      command_buffer[0] = '\0';
      status = sdss_receive(stream, port, command_buffer, 256);
-     TRACE(1,  "command from TCC: %s", command_buffer, 0);
+     TRACE(5,  "command from TCC: %s", command_buffer, 0);
      TRACE(16, "        cccccccc: 0x%08x%08x",
 	   ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
      
      if(status == 0) {
+	strcpy(command_buffer_in, command_buffer);
 	answer_buffer = cmd_handler(1, command_buffer);	/* allow all cmds */
-	status = sdss_transmit(stream, command_buffer, answer_buffer);
+	status = sdss_transmit(stream, command_buffer_in, answer_buffer);
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
 	}
      } else {
 	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
-	status = sdss_transmit (stream,&command_buffer[0],"ERR: Bad Command");
+	status = sdss_transmit(stream, command_buffer, "ERR: Bad Command");
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
 	}
