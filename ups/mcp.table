@@ -6,16 +6,6 @@ Product=mcp
 Group:
   Flavor=IRIX+6
   Qualifiers=""
-
-Common:
-   Action=setup
-      proddir()
-      setupenv()
-      pathPrepend(PATH, ${UPS_PROD_DIR}/bin)
-End:
-
-Group:
-  Flavor=IRIX+6
   Qualifiers="build"
 
 Common:
