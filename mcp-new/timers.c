@@ -471,19 +471,24 @@ DID48_interrupt(int type)
    NIST_cnt++;
    if(did48int_bit & NIST_INT) {
       SDSS_cnt++;
-      if(SDSStime >= 0) {
-	 SDSStime = (SDSStime + 1)%ONE_DAY;
+
+      if(SDSStime < 0) {		/* we haven't set time yet */
+	 timer_start(1);		/* reset microsecond timer */
+	 return;
       }
       
+      taskLock();
+
+      SDSStime = (SDSStime + 1)%ONE_DAY;
       NIST_sec = timer_read(1);
+      timer_start(1);			/* reset microsecond timer */
+
+      taskUnlock();
+
       if(NIST_sec < 1000000 - dt) {
-	 if(SDSStime >= 0) {		/* we've set our time */
-	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
-	 }
+	 TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
       } else if(NIST_sec > 1000000 + dt) {
-	 if(SDSStime >= 0) {		/* we've set our time */
-	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
-	 }
+	 TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
 
 	 axis_stat[AZIMUTH][0].clock_loss_signal = 
 	   axis_stat[ALTITUDE][0].clock_loss_signal =
@@ -497,8 +502,6 @@ DID48_interrupt(int type)
 	   axis_stat[ALTITUDE][1].clock_loss_signal =
 	     axis_stat[INSTRUMENT][1].clock_loss_signal = 0;
       }
-      
-      timer_start(1);
    }
 
    DID48_Write_Reg (tm_DID48,4,0x20);
