@@ -609,13 +609,13 @@ Menu(void)
          case '+': case '=':
 	   CursPos(20,24);
 	   printf("ALIGNment Clamp Turned On               ");
-	   (void)cmd_handler(1, "CLAMP.ON");
+	   (void)cmd_handler(1, "CLAMP.ON", NULL);
 	   break;
 
          case '_': case '-':
            CursPos(20,24);
 	   printf("ALIGNment Clamp Turned Off              ");
-	   (void)cmd_handler(1, "CLAMP.OFF");
+	   (void)cmd_handler(1, "CLAMP.OFF", NULL);
 	   break;
 
          case '(':
@@ -678,10 +678,10 @@ Menu(void)
 	   printf("Flat Field Screen Toggled ");
 	   if(sdssdc.status.o1.ol14.ff_screen_open_pmt) {
 	      printf("Close ");
-	      (void)cmd_handler(1, "FFS.CLOSE");
+	      (void)cmd_handler(1, "FFS.CLOSE", NULL);
 	   } else {
 	      printf("Open  ");
-	      (void)cmd_handler(1, "FFS.OPEN");
+	      (void)cmd_handler(1, "FFS.OPEN", NULL);
 	   }
 	   break;
 
@@ -690,10 +690,10 @@ Menu(void)
 	   printf("Flat Field Lamps Toggled ");
 	   if (sdssdc.status.o1.ol14.ff_lamps_on_pmt) {
 	      printf("Off   ");
-	      (void)cmd_handler(1, "FFL.OFF");
+	      (void)cmd_handler(1, "FFL.OFF", NULL);
 	   } else {
 	      printf("On    ");
-	      (void)cmd_handler(1, "FFL.ON");
+	      (void)cmd_handler(1, "FFL.ON", NULL);
 	   }
 	   break;
 
@@ -702,10 +702,10 @@ Menu(void)
 	   printf("Flat Field Neon Toggled ");
 	   if(sdssdc.status.o1.ol14.ne_lamps_on_pmt) {
 	      printf("Off     ");
-	      (void)cmd_handler(1, "NE.OFF");
+	      (void)cmd_handler(1, "NE.OFF", NULL);
 	   } else {
 	      printf("On     ");	
-	      (void)cmd_handler(1, "NE.ON");
+	      (void)cmd_handler(1, "NE.ON", NULL);
 	   }
 	   break;
 
@@ -714,10 +714,10 @@ Menu(void)
 	   printf("Flat Field HgCd Toggled ");
 	   if(sdssdc.status.o1.ol14.hgcd_lamps_on_pmt) {
 	      printf("Off    ");
-	      (void)cmd_handler(1, "HGCD.OFF");
+	      (void)cmd_handler(1, "HGCD.OFF", NULL);
 	   } else {
 	      printf("On     ");	
-	      (void)cmd_handler(1, "HGCD.ON");
+	      (void)cmd_handler(1, "HGCD.ON", NULL);
 	   }
 	   break;
 
