@@ -977,4 +977,6 @@ extern struct SDSS_FRAME sdssdc;
 extern struct TM_M68K *tmaxis[];
 extern int rawtick;
 extern struct TM_M68K *tmaxis[];
-extern SEM_ID semSLCDC;
+#if defined(__INCsemLibh)
+   extern SEM_ID semSLCDC;
+#endif
