@@ -296,13 +296,10 @@ void Menu()
     printf ("\r\nCan't take semMEIUPD...DataCollection task probably at fault");
     return;
   }
-  taskSafe();
   while(Running)
   {
-    taskUnsafe();
     buf[0]=getchar();
  /*     gets(buf);  */
-    taskSafe();
     if (semTake (semMEIUPD,60)!=ERROR)
     {
      switch(buf[0])
