@@ -317,7 +317,7 @@ char *correct_cmd(char *cmd)
       if (fidfp!=NULL)
       {
 	time (&fidtim);
-        fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%d\t%d",
+        fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%ld\t%ld",
 	          axis_select,fiducial[axis_select].index,
 	          ctime(&fidtim),sdss_get_time(),
 	          (long)fiducial_position[axis_select]-fiducial[axis_select].mark,
@@ -480,7 +480,7 @@ char *init_cmd(char *cmd)
     case AZIMUTH:
       amp_reset(axis_select<<1);	/* two amplifiers, */
       amp_reset((axis_select<<1)+1);	/* param is index to bit field */
-      if (sdssdc.status.i7.il0.az_brake_engaged)
+      if (sdssdc.status.i9.il0.az_brake_en_stat)
       {
         printf("Azimuth Brake Turned Off                ");
         tm_sp_az_brake_off();
@@ -490,7 +490,7 @@ char *init_cmd(char *cmd)
     case ALTITUDE:
       amp_reset(axis_select<<1);	/* two amplifiers */
       amp_reset((axis_select<<1)+1);	/* param is index to bit field */
-      if (sdssdc.status.i7.il0.alt_brake_engaged)
+      if (sdssdc.status.i9.il0.alt_brake_en_stat)
       {
         printf("Altitude Brake Turned Off               ");
         tm_sp_alt_brake_off();           
@@ -1622,7 +1622,7 @@ char *cwmov_cmd(char *cmd)
     return "ERR: CW task still active";
   if (taskIdFigure("cwp")!=ERROR)
     return "ERR: CWP task still active";
-  if (sdssdc.status.i7.il0.alt_brake_engaged)
+  if (sdssdc.status.i9.il0.alt_brake_en_stat)
     taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
 			  cw,cwpos,0,0,0,0,0,0,0,0);
   else
@@ -1644,7 +1644,7 @@ char *cwinst_cmd(char *cmd)
     return "ERR: CW task still active";
   if (taskIdFigure("cwp")!=ERROR)
     return "ERR: CWP task still active";
-  if (sdssdc.status.i7.il0.alt_brake_engaged)
+  if (sdssdc.status.i9.il0.alt_brake_en_stat)
     taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)inst,0,0,0,0,0,0,0,0,0);
   else
@@ -1665,7 +1665,7 @@ char *cwpos_cmd(char *cmd)
   if (taskIdFigure("cwp")!=ERROR)
     return "ERR: CWP task still active";
   cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
-  if (sdssdc.status.i7.il0.alt_brake_engaged)
+  if (sdssdc.status.i9.il0.alt_brake_en_stat)
     taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 		  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
   else
@@ -1950,13 +1950,12 @@ char *slitstatus_cmd(char *cmd)
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
   slitstatus_ans[2]=0x31+spectograph_select;
   sprintf (&slitstatus_ans[4],"%s %s %s",
-	slitstatus[sdssdc.status.i1.il9.slit_door1_opn],
-	slitstatus[sdssdc.status.i1.il9.slit_door1_cls+2],
-	slitstatus[sdssdc.status.i1.il9.cart_latch1_opn+4]);
-  sprintf (&slitstatus_ans[26],"%s %s %s",
-	slitstatus[sdssdc.status.i1.il9.slit_door2_opn],
-	slitstatus[sdssdc.status.i1.il9.slit_door2_cls+2],
-	slitstatus[sdssdc.status.i1.il9.cart_latch2_opn+4]);
+	slitstatus[sdssdc.status.i1.il9.slit_head_door1_opn],
+	slitstatus[sdssdc.status.i1.il9.slit_head_door1_cls+2],
+	slitstatus[sdssdc.status.i1.il9.slit_head_latch1_opn+4],
+	slitstatus[sdssdc.status.i1.il9.slit_head_door2_opn],
+	slitstatus[sdssdc.status.i1.il9.slit_head_door2_cls+2],
+	slitstatus[sdssdc.status.i1.il9.slit_head_latch2_opn+4]);
   return slitstatus_ans;	
 }
 
@@ -3726,7 +3725,7 @@ void tm_latch(char *name)
             if (fidfp!=NULL)
 	    {
    	      time (&fidtim);
-	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
 	      latchpos[latchidx].axis,fididx,
 	      ctime(&fidtim),sdss_get_time(),
 	      (long)latchpos[latchidx].pos1,
@@ -3747,7 +3746,7 @@ void tm_latch(char *name)
 	      az_fiducial[fididx].markvalid=TRUE;
 	      if ((abs(az_fiducial[fididx].poserr)>errmsg_max[0])&&
 		      (az_fiducial_position[fididx]!=0))
-                printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+                printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
 		  latchpos[latchidx].axis,
 	          (long)az_fiducial[fididx].poserr,
 	          (float)latchpos[latchidx].pos1,
@@ -3789,7 +3788,7 @@ void tm_latch(char *name)
             if (fidfp!=NULL)
 	    {
 	      time (&fidtim);
-	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
 	      latchpos[latchidx].axis,fididx,
 	      ctime(&fidtim),sdss_get_time(),
 	      (long)latchpos[latchidx].pos1,
@@ -3811,7 +3810,7 @@ void tm_latch(char *name)
 	      alt_fiducial[fididx].markvalid=TRUE;
 	      if ((abs(alt_fiducial[fididx].poserr)>errmsg_max[1])&&
 		      (alt_fiducial_position[fididx]!=0))
-                printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+                printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
 		  latchpos[latchidx].axis,
 	          (long)alt_fiducial[fididx].poserr,
 	          (float)latchpos[latchidx].pos1,
@@ -3852,7 +3851,7 @@ void tm_latch(char *name)
 	    else
 	      fididx = 0;
             if (LATCH_verbose)
-              printf ("\r\nAXIS %d: latched pos4=%d,rot_latch=%d,idx=%d,abspos=%d",
+              printf ("\r\nAXIS %d: latched pos4=%ld,rot_latch=%d,idx=%d, abspos=%d",
                 latchpos[latchidx].axis,
                 (long)latchpos[latchidx].pos1,
                 rot_latch,fididx,
@@ -3870,7 +3869,7 @@ void tm_latch(char *name)
               if (fidfp!=NULL)
 	      {
 	        time (&fidtim);
-	        fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	        fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
 	        latchpos[latchidx].axis,fididx,
 	        ctime(&fidtim),sdss_get_time(),
 	        (long)latchpos[latchidx].pos1,
@@ -3915,7 +3914,7 @@ void tm_latch(char *name)
                 if (fidfp!=NULL)
 	        {
 	          time (&fidtim);
-	          fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	          fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
 	          latchpos[latchidx].axis,fididx,
 	          ctime(&fidtim),sdss_get_time(),
 	          (long)latchpos[latchidx].pos1,
@@ -4290,15 +4289,15 @@ void print_fiducials (int axis)
 	  }
           if (az_fiducial[i].markvalid)
 	  {
-	    printf ("AZ FIDUCIAL %d(%d degs):  mark=%d, pos=%d, last=%d",i,
+	    printf ("AZ FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld",i,
 		(int)(az_fiducial[i].mark/AZ_TICKS_DEG),
 		az_fiducial[i].mark,az_fiducial_position[i], az_fiducial[i].last);
-	    printf ("\r\n                 err=%d, poserr=%d",
+	    printf ("\r\n                 err=%ld, poserr=%ld",
 		az_fiducial[i].err,az_fiducial[i].poserr);
           }
 	  else
 	  {
-	    printf ("AZ FIDUCIAL %d:  pos=%d",i,
+	    printf ("AZ FIDUCIAL %d:  pos=%ld",i,
 		az_fiducial_position[i]);
 	  }     
 	}

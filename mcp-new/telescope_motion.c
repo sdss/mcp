@@ -783,7 +783,7 @@ int tm_az_brake(short val)
    if (val==1)
    {
      cnt=120;
-     while ((sdssdc.status.i7.il0.az_brake_engaged==0)&&(cnt>0)) 
+     while ((sdssdc.status.i9.il0.az_brake_en_stat==0)&&(cnt>0)) 
      {
        taskDelay(1);
        cnt--;
@@ -793,7 +793,7 @@ int tm_az_brake(short val)
    else
    {
      cnt=60*6;
-     while ((sdssdc.status.i7.il0.az_brake_disengaged==0)&&(cnt>0))
+     while ((sdssdc.status.i9.il0.az_brake_dis_stat==0)&&(cnt>0))
      {
        taskDelay(1);
        cnt--;
@@ -914,7 +914,7 @@ int tm_alt_brake(short val)
    cnt=60*4;
    if (val==1)
    {
-     while ((sdssdc.status.i7.il0.alt_brake_engaged==0)&&(cnt>0))
+     while ((sdssdc.status.i9.il0.alt_brake_en_stat==0)&&(cnt>0))
      {
         taskDelay(1);
         cnt--;
@@ -923,7 +923,7 @@ int tm_alt_brake(short val)
    }
    else
    {
-     while ((sdssdc.status.i8.il0.alt_brake_disengaged==0)&&(cnt>0)) 
+     while ((sdssdc.status.i9.il0.alt_brake_dis_stat==0)&&(cnt>0)) 
      {
        taskDelay(1);
        cnt--;
@@ -1003,11 +1003,11 @@ int tm_brake_status()
   extern struct SDSS_FRAME sdssdc;
 
   printf("\r\nAZ\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i7.il0.az_brake_engaged,
-    sdssdc.status.i7.il0.az_brake_disengaged,az_cnt);
+    sdssdc.status.i9.il0.az_brake_en_stat,
+    sdssdc.status.i9.il0.az_brake_dis_stat,az_cnt);
   printf("\r\nALT\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i7.il0.alt_brake_engaged,
-    sdssdc.status.i8.il0.alt_brake_disengaged,alt_cnt);
+    sdssdc.status.i9.il0.alt_brake_en_stat,
+    sdssdc.status.i9.il0.alt_brake_dis_stat,alt_cnt);
   if (semTake (semSLC,60)!=ERROR)
   {
     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
@@ -1098,12 +1098,12 @@ int tm_clamp(short val)
    cnt=60*5;
    if (val==1) 
    {
-     while ((sdssdc.status.i11.ol0.clamp_engaged_st==0)&&(cnt>0))
+     while ((sdssdc.status.i9.il0.clamp_en_stat==0)&&(cnt>0))
      {
         taskDelay(1);
         cnt--;
      }
-     if (sdssdc.status.i11.ol0.clamp_engaged_st==0) /* did not work */
+     if (sdssdc.status.i9.il0.clamp_en_stat==0) /* did not work */
      {
        tm_ctrl.mcp_clamp_en_cmd = 0;
        printf ("\r\n Clamp did NOT engage...turning off ");
@@ -1111,7 +1111,7 @@ int tm_clamp(short val)
    }
    else
    {
-     while ((sdssdc.status.i11.ol0.clamp_disengaged_st==0)&&(cnt>0)) 
+     while ((sdssdc.status.i9.il0.clamp_dis_stat==0)&&(cnt>0)) 
      {
        taskDelay(1);
        cnt--;
@@ -1223,33 +1223,33 @@ int tm_slit(short val)
 /*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    if (val==5)
    {
-     tm_ctrl1.mcp_slit_door2_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
+     tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
    }
    if (val==4)
    {
-     tm_ctrl1.mcp_slit_door2_opn_cmd = 1;
-     tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
+     tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
+     tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
    }
    if (val==3)
    {
-     tm_ctrl1.mcp_slit_door2_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_door2_cls_cmd = 1;
+     tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
    }
    if (val==2)
    {
-     tm_ctrl1.mcp_slit_door1_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_door1_cls_cmd = 0;
+     tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
    }
    if (val==1) 
    {
-     tm_ctrl1.mcp_slit_door1_opn_cmd = 1;
-     tm_ctrl1.mcp_slit_door1_cls_cmd = 0;
+     tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
+     tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
    }
    if (val==0)
    {
-     tm_ctrl1.mcp_slit_door1_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_door1_cls_cmd = 1;
+     tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
    }
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
@@ -1333,13 +1333,13 @@ int tm_cart(short val)
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
  /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    if (val==3)
-     tm_ctrl1.mcp_cart_latch2_cmd = 1;
+     tm_ctrl1.mcp_slit_latch2_cmd = 1;
    if (val==2)
-     tm_ctrl1.mcp_cart_latch2_cmd = 0;
+     tm_ctrl1.mcp_slit_latch2_cmd = 0;
    if (val==1)
-     tm_ctrl1.mcp_cart_latch1_cmd = 1;
+     tm_ctrl1.mcp_slit_latch1_cmd = 1;
    if (val==0)
-     tm_ctrl1.mcp_cart_latch1_cmd = 0;
+     tm_ctrl1.mcp_slit_latch1_cmd = 0;
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
    if (semTake (semSLC,60)!=ERROR)
@@ -1379,13 +1379,13 @@ int tm_slit_status()
   extern struct SDSS_FRAME sdssdc;
 
   printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
-	sdssdc.status.i1.il9.slit_door1_opn,
-	sdssdc.status.i1.il9.slit_door1_cls,
-	sdssdc.status.i1.il9.cart_latch1_opn);
+	sdssdc.status.i1.il9.slit_head_door1_opn,
+	sdssdc.status.i1.il9.slit_head_door1_cls,
+	sdssdc.status.i1.il9.slit_head_latch1_opn);
   printf ("\r\n slit_door2_opn=%d, slit_door2_cls=%d, cart_latch2_opn=%d",
-	sdssdc.status.i1.il9.slit_door2_opn,
-	sdssdc.status.i1.il9.slit_door2_cls,
-	sdssdc.status.i1.il9.cart_latch2_opn);
+	sdssdc.status.i1.il9.slit_head_door2_opn,
+	sdssdc.status.i1.il9.slit_head_door2_cls,
+	sdssdc.status.i1.il9.slit_head_latch2_opn);
   return 0;
 }
 /*=========================================================================
@@ -1783,8 +1783,8 @@ int az_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i6.il0.az_mtr_ccw) &&
-	(sdssdc.status.i6.il0.az_mtr_cw))
+  if ((sdssdc.status.o11.ol0.az_mtr_ccw_perm) &&
+	(sdssdc.status.o11.ol0.az_mtr_cw_perm))
 	return TRUE;
   else
 	return FALSE;
@@ -1793,13 +1793,13 @@ int alt_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i7.il0.alt_mtr_dn) &&
-	(sdssdc.status.i7.il0.alt_mtr_up))
+  if ((sdssdc.status.o11.ol0.alt_mtr_dn_perm) &&
+	(sdssdc.status.o11.ol0.alt_mtr_up_perm))
 	return TRUE;
   else
-    if (!(sdssdc.status.i7.il0.alt_mtr_dn) &&
-	(sdssdc.status.i7.il0.alt_mtr_up) &&
-	(sdssdc.status.i7.il0.alt_less_than_19_deg))
+    if (!(sdssdc.status.o11.ol0.alt_mtr_dn_perm) &&
+	(sdssdc.status.o11.ol0.alt_mtr_up_perm) &&
+	(sdssdc.status.o11.ol0.alt_plc_perm))
       return TRUE;
     else
 	return FALSE;
@@ -1809,8 +1809,8 @@ int rot_amp_ok()
   extern struct SDSS_FRAME sdssdc;
 
   if ((sdssdc.status.i8.il0.rot_mtr_rdy) &&
-        (sdssdc.status.i8.il0.rot_mtr_ccw) &&
-        (sdssdc.status.i8.il0.rot_mtr_cw))
+        (sdssdc.status.o11.ol0.rot_mtr_ccw_perm) &&
+        (sdssdc.status.o11.ol0.rot_mtr_cw_perm))
 	return TRUE;
   else
 	return FALSE;
@@ -1861,7 +1861,7 @@ void tm_amp_mgt()
     tm_amp_engage();		/* keep amps alive */
     if (monitor_on[0])
     {
-      if ((monitor_axis[0])&&(sdssdc.status.i7.il0.az_brake_disengaged))
+      if ((monitor_axis[0])&&(sdssdc.status.i9.il0.az_brake_dis_stat))
       {
         if (((state=tm_axis_state(0))>2)&&(state!=STOP_EVENT))
         {
@@ -1880,7 +1880,7 @@ void tm_amp_mgt()
     }
     if (monitor_on[1])
     {
-      if ((monitor_axis[1])&&(sdssdc.status.i8.il0.alt_brake_disengaged))
+      if ((monitor_axis[1])&&(sdssdc.status.i9.il0.alt_brake_dis_stat))
       {
         if (((state=tm_axis_state(2))>2)&&(state!=STOP_EVENT))
         {
@@ -1933,22 +1933,22 @@ void tm_print_amp_status()
   extern struct SDSS_FRAME sdssdc;
 
     if (!az_amp_ok())
-      printf ("\r\nAz Amp Disengaged: az_mtr_ccw=%d,az_mtr_cw=%d",
-	sdssdc.status.i6.il0.az_mtr_ccw,
-	sdssdc.status.i6.il0.az_mtr_cw);
+      printf ("\r\nAz Amp Disengaged: az_mtr_ccw_perm=%d,az_mtr_cw_perm=%d",
+	sdssdc.status.o11.ol0.az_mtr_ccw_perm,
+	sdssdc.status.o11.ol0.az_mtr_cw_perm);
     else
       printf ("\r\nAZ Amp OK");
     if (!alt_amp_ok())
-      printf ("\r\nAlt Amp Disengaged: alt_mtr_dn=%d,alt_mtr_up=%d",
-	sdssdc.status.i7.il0.alt_mtr_dn,
-	sdssdc.status.i7.il0.alt_mtr_up);
+      printf ("\r\nAlt Amp Disengaged: alt_mtr_dn_perm=%d,alt_mtr_up_perm=%d",
+	sdssdc.status.o11.ol0.alt_mtr_dn_perm,
+	sdssdc.status.o11.ol0.alt_mtr_up_perm);
     else
       printf ("\r\nALT Amp OK");
     if (!rot_amp_ok())
-      printf ("\r\nRot Amp Disengaged: rot_mtr_rdy=%d,rot_mtr_ccw=%d,rot_mtr_cw=%d",
+      printf ("\r\nRot Amp Disengaged: rot_mtr_rdy=%d,rot_mtr_ccw_perm=%d,rot_mtr_cw_perm=%d",
 	sdssdc.status.i8.il0.rot_mtr_rdy,
-	sdssdc.status.i8.il0.rot_mtr_ccw,
-	sdssdc.status.i8.il0.rot_mtr_cw);
+	sdssdc.status.o11.ol0.rot_mtr_ccw_perm,
+	sdssdc.status.o11.ol0.rot_mtr_cw_perm);
     else
       printf ("\r\nROT Amp OK");
 }

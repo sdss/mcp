@@ -119,36 +119,13 @@ struct PVT_M68K {
 };
 struct PVT {
 	short position_hi;
-	short position_lo;
+	unsigned short position_lo;
 	short velocity_hi;
-	short velocity_lo;
+	unsigned short velocity_lo;
 	short time_hi;
-	short time_lo;
+	unsigned short time_lo;
 };
 
-struct B10_2 {
-	unsigned : 14;
-	unsigned mcp_t_bar_latch_cmd : 1;	/* bit 16 */
-	unsigned mcp_t_bar_unlatch_cmd : 1;	/* bit 16 */
-};
-struct B10_1 {
-	unsigned mcp_ff_screen_enable_cmd : 1;
-	unsigned mcp_hgcd_lamp_on_cmd : 1;
-	unsigned mcp_ne_lamp_on_cmd : 1;
-	unsigned mcp_ff_lamp_on_cmd : 1;
-	unsigned mcp_ff_scrn_opn_cmd : 1;
-	unsigned mcp_cart_latch2_cmd : 1;
-	unsigned mcp_slit_door2_cls_cmd : 1;
-	unsigned mcp_slit_door2_opn_cmd : 1;
-	unsigned mcp_cart_latch1_cmd : 1;
-	unsigned mcp_slit_door1_cls_cmd : 1;
-	unsigned mcp_slit_door1_opn_cmd : 1;
-	unsigned mcp_umbilical_off_on_cmd : 1;	/* bit 20 on=1, off=0 */
-	unsigned mcp_umbilical_dn_up_cmd : 1;	/* bit 19 dn=1, up=0 */
-	unsigned mcp_15_deg_stop_out_cmd : 1;
-	unsigned mcp_15_deg_stop_in_cmd : 1;
-	unsigned mcp_clamp_dis_cmd : 1;	/* bit 16 */
-};
 struct B10_0 {
 	unsigned mcp_clamp_en_cmd : 1;
 	unsigned mcp_alt_brk_en_cmd : 1;
@@ -161,22 +138,53 @@ struct B10_0 {
 	unsigned mcp_lift_up : 4;
 	unsigned mcp_lift_high_psi : 1;
 };
+struct B10_1 {
+	unsigned mcp_ff_screen_enable_cmd : 1;
+	unsigned mcp_hgcd_lamp_on_cmd : 1;
+	unsigned mcp_ne_lamp_on_cmd : 1;
+	unsigned mcp_ff_lamp_on_cmd : 1;
+	unsigned mcp_ff_scrn_opn_cmd : 1;
+	unsigned mcp_slit_latch2_cmd : 1;
+	unsigned mcp_slit_dr2_cls_cmd : 1;
+	unsigned mcp_slit_dr2_opn_cmd : 1;
+	unsigned mcp_slit_latch1_cmd : 1;
+	unsigned mcp_slit_dr1_cls_cmd : 1;
+	unsigned mcp_slit_dr1_opn_cmd : 1;
+	unsigned mcp_umbilical_on_off_cmd : 1;	/* bit 20 on=1, off=0 */
+	unsigned mcp_umbilical_up_dn_cmd : 1;	/* bit 19 dn=1, up=0 */
+	unsigned mcp_15_deg_stop_ret_cmd : 1;
+	unsigned mcp_15_deg_stop_ext_cmd : 1;
+	unsigned mcp_clamp_dis_cmd : 1;	/* bit 16 */
+};
+struct B10_2 {
+	unsigned : 5;
+	unsigned mcp_inst_chg_alert : 1;
+	unsigned mcp_inst_chg_prompt : 1;
+	unsigned mcp_sad_latch_opn_cmd : 1;
+	unsigned mcp_sad_latch_cls_cmd : 1;
+	unsigned mcp_sec_latch_opn_cmd : 1;
+	unsigned mcp_sec_latch_cls_cmd : 1;
+	unsigned mcp_pri_latch_opn_cmd : 1;
+	unsigned mcp_pri_latch_cls_cmd : 1;
+	unsigned mcp_t_bar_latch_cmd : 1;	
+	unsigned mcp_t_bar_unlatch_cmd : 1;	/* bit 16 */
+};
 struct B10 {
 	struct B10_0 ctrl0;
 	struct B10_1 ctrl1;
 	struct B10_2 ctrl2;
 };
 
-typedef struct {
-	unsigned : 1;			/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
+typedef struct {		/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
+	unsigned rack_0_grp_0_bit_15 : 1;
 	unsigned az_bump_ccw : 1;		/* AZCCWC	*/
 	unsigned az_bump_cw : 1;		/* AZCWC	*/
-	unsigned imager_serv_cart : 1;
-	unsigned imager_ops_cart : 1;
+	unsigned rack_0_grp_0_bit_12 : 1;
+	unsigned ops_cart_in_pos : 1;
 	unsigned fiber_cart_pos2 : 1;	/* cart locked in second position - put */
 	unsigned fiber_cart_pos1 : 1;	/* cart locked in first position - get */
-	unsigned inst_lift_low : 1;	/* */
-	unsigned inst_lift_high : 1;	/* */
+	unsigned inst_lift_low_force : 1;	/* */
+	unsigned inst_lift_high_force : 1;	/* */
 	unsigned inst_lift_man : 1;	/* lift is in manual or local mode */
 	unsigned inst_lift_dn : 1;	/* lift is in down position */
 	unsigned inst_lift_sw4 : 1;	/* fiber cartridge on cart floor */
@@ -186,7 +194,14 @@ typedef struct {
 	unsigned inst_lift_pump_on : 1;	/* pump status */
 
 	unsigned low_lvl_light_req : 1;	/* msw bit - 15 I:1/31, i.e. 0x8000 */
-	unsigned : 8;
+	unsigned rack_0_grp_1_bit_14 : 1;
+	unsigned rack_0_grp_1_bit_13 : 1;
+	unsigned rack_0_grp_1_bit_12 : 1;
+	unsigned rack_0_grp_1_bit_11 : 1;
+	unsigned rack_0_grp_1_bit_10 : 1;
+	unsigned rack_0_grp_1_bit_9 : 1;
+	unsigned rack_0_grp_1_bit_8 : 1;
+	unsigned rack_0_grp_1_bit_7 : 1;
 	unsigned optical_bench_cls : 1;
 	unsigned optical_bench_opn : 1;
 	unsigned ops_cart_in_house : 1;
@@ -202,22 +217,22 @@ typedef struct {
 	unsigned sec_latch_cls_cmd : 1;
 	unsigned pri_latch_opn_cmd : 1;
 	unsigned pri_latch_cls_cmd : 1;
-	unsigned alt_bump_dn : 1;		/* ALLWC	*/
-	unsigned alt_bump_up : 1;		/* ALRWC	*/
+	unsigned rack_1_grp_0_bit_9 : 1;
+	unsigned rack_1_grp_0_bit_8 : 1;
 	unsigned sad_man_valve_cls : 1;
 	unsigned sec_man_valve_cls : 1;
 	unsigned inst_man_valve_cls : 1;
 	unsigned ilcb_pres_good : 1;
-	unsigned rot_280_ccw : 1;		/* ROCCWSL	*/
-	unsigned rot_280_cw : 1;		/* ROCWSL	*/
+	unsigned rot_370_ccw : 1;		/* ROCCWSL	*/
+	unsigned rot_190_cw : 1;		/* ROCWSL	*/
 	unsigned rot_inst_chg_b : 1;
 	unsigned rot_inst_chg_a : 1;		/* ROICHG	*/
 
 	unsigned : 16;
 }IF1_L4;
 typedef struct {
-	unsigned : 1;
-  	unsigned spec_lens3 : 1;
+	unsigned rack_2_grp_0_bit_15 : 1;
+	unsigned rack_2_grp_0_bit_14 : 1;
   	unsigned spec_lens2 : 1;
   	unsigned spec_lens1 : 1;
   	unsigned inst_id3_4 : 1;
@@ -233,10 +248,10 @@ typedef struct {
   	unsigned inst_id1_2 : 1;
   	unsigned inst_id1_1 : 1;
 
-    	unsigned ter_latch2_cls : 1;
-    	unsigned ter_latch2_opn : 1;
-    	unsigned ter_latch1_cls : 1;
-    	unsigned ter_latch1_opn : 1;
+    	unsigned prot_bolt2_cls : 1;
+    	unsigned prot_bolt2_opn : 1;
+    	unsigned prot_bolt1_cls : 1;
+    	unsigned prot_bolt1_opn : 1;
     	unsigned sec_latch3_cls : 1;
     	unsigned sec_latch3_opn : 1;
     	unsigned sec_latch2_cls : 1;
@@ -251,13 +266,16 @@ typedef struct {
     	unsigned pri_latch1_opn : 1;
 }IF1_L8;
 typedef struct {
-	unsigned : 4;
-	unsigned cart_latch2_opn : 1;
-	unsigned slit_door2_cls : 1;
-	unsigned slit_door2_opn : 1;
-	unsigned cart_latch1_opn : 1;
-	unsigned slit_door1_cls : 1;
-	unsigned slit_door1_opn : 1;
+	unsigned rack_2_grp_2_bit_15 : 1;
+	unsigned rack_2_grp_2_bit_14 : 1;
+	unsigned slit_head_2_in_place : 1;
+	unsigned slit_head_latch2_opn : 1;
+	unsigned slit_head_door2_cls : 1;
+	unsigned slit_head_door2_opn : 1;
+	unsigned slit_head_1_in_place : 1;
+	unsigned slit_head_latch1_opn : 1;
+	unsigned slit_head_door1_cls : 1;
+	unsigned slit_head_door1_opn : 1;
 	unsigned sad_mount2 : 1;
 	unsigned sad_mount1 : 1;
 	unsigned sad_latch2_cls : 1;
@@ -267,10 +285,6 @@ typedef struct {
 	
 	unsigned : 16;
 }IF1_L9;
-typedef struct {
-	short wind_speed;
-	short wind_baffel_temp;
-}IF1_L12;
 typedef struct {
 	unsigned leaf_8_closed_stat : 1;
 	unsigned leaf_8_open_stat : 1;
@@ -289,7 +303,10 @@ typedef struct {
 	unsigned leaf_1_closed_stat : 1;
 	unsigned leaf_1_open_stat : 1;
 	
-	unsigned : 4;
+	unsigned rack_3_grp_3_bit_15 : 1;
+	unsigned rack_3_grp_3_bit_14 : 1;
+	unsigned rack_3_grp_3_bit_13 : 1;
+	unsigned rack_3_grp_3_bit_12 : 1;
 	unsigned hgcd_4_stat : 1;
 	unsigned hgcd_3_stat : 1;
 	unsigned hgcd_2_stat : 1;
@@ -303,6 +320,26 @@ typedef struct {
 	unsigned ff_2_stat : 1;
 	unsigned ff_1_stat : 1;
 }IF1_L13;
+typedef struct {
+	unsigned rack_3_grp_4_bit_15 : 1;
+	unsigned rack_3_grp_4_bit_14 : 1;
+	unsigned rack_3_grp_4_bit_13 : 1;
+	unsigned rack_3_grp_4_bit_12 : 1;
+	unsigned rack_3_grp_4_bit_11 : 1;
+	unsigned rack_3_grp_4_bit_10 : 1;
+	unsigned rack_3_grp_4_bit_9 : 1;
+	unsigned rack_3_grp_4_bit_8 : 1;
+	unsigned rack_3_grp_4_bit_7 : 1;
+	unsigned rack_3_grp_4_bit_6 : 1;
+	unsigned rack_3_grp_4_bit_5 : 1;
+	unsigned man_hgcd_lamp_on_cmd : 1;
+	unsigned man_ne_lamp_on_cmd : 1;
+	unsigned man_ff_lamp_on_cmd : 1;
+	unsigned man_ff_scrn_en_cmd : 1;
+	unsigned man_ff_scrn_opn_cmd : 1;
+	
+	unsigned : 16;
+}IF1_L14;
 struct I1 {
 	IF1_L0 il0;
 	unsigned long undefined1;
@@ -316,9 +353,9 @@ struct I1 {
 	IF1_L9 il9;
 	unsigned long undefined10;
 	unsigned long undefined11;
-	IF1_L12 il12;
+	unsigned long undefined12;
 	IF1_L13 il13;
-	unsigned long undefined14;
+	IF1_L14 il14;
 	unsigned long undefined15;
 };
 typedef struct {
@@ -371,13 +408,23 @@ struct I4 {
 	short umbilical_dist;
 	short inst_lift_force;
 	short inst_lift_dist;
-	unsigned short undefined3;
-	unsigned short undefined4;
+	short i_4_analog_6_spare;
+	short i_4_analog_7_spare;
+};
+struct I5 {
+	short counterweight_1_pos;
+	short counterweight_2_pos;			/* ROMTRV	*/
+	short counterweight_3_pos;			/* ROMTRC	*/
+	short counterweight_4_pos;
+	short i_5_analog_4_spare;
+	short i_5_analog_5_spare;
+	short i_5_analog_6_spare;
+	short i_5_analog_7_spare;
 };
 typedef struct {
-	unsigned dog_house_cls: 1;
-	unsigned hatch_closed : 1;
-	unsigned bldg_clear : 1;
+	short spare_s2_c7;
+	short spare_s2_c6;
+	unsigned s_wind_stop : 1;
 	unsigned w_lower_stop : 1;
 	unsigned e_lower_stop : 1;
 	unsigned s_lower_stop : 1;
@@ -388,100 +435,189 @@ typedef struct {
 	unsigned n_fork_stop : 1;
 	unsigned n_wind_stop : 1;
 	unsigned fiber_signal_loss : 1;
-	unsigned interlock_reset : 1;
+	unsigned spare_s1_c2 : 1;
 	unsigned cr_stop : 1;
 	unsigned tcc_stop : 1;
 	
-	unsigned : 16;
-} IF5_L0;
-struct I5 {
-	IF5_L0	il0;
-};
-typedef struct {
-	unsigned deg_15_stop_out : 1;
-	unsigned deg_15_stop_in : 1;
-	unsigned az_mtr2_perm : 1;
-	unsigned az_mtr1_perm : 1;
-	unsigned az_mtr_ccw : 1;
-	unsigned az_mtr_cw : 1;
-	unsigned splitter_bypass_enab : 1;
-	unsigned az_plc_permit_in : 1;
-	unsigned az_mtr2_rdy : 1;
-	unsigned az_mtr1_rdy : 1;
-	unsigned az_290_ccw : 1;		/* AZCCWHL */
-	unsigned az_290_cw : 1;			/* AZCWHL */
-	unsigned az_280_ccw : 1;		/* AZCCWSL */
-	unsigned az_280_cw : 1;			/* AZCWSL */
-	unsigned az_dir_ccw : 1;
-	unsigned az_dir_cw : 1;
-
-	unsigned : 16;
+	unsigned az_stow_3b : 1;
+	unsigned wind_az_plc_perm_in : 1;
+	unsigned az_plc_perm_in : 1;
+	unsigned wind_az_mtr_perm_in : 1;
+	unsigned az_mtr2_perm_in : 1;
+	unsigned az_mtr1_perm_in : 1;
+	unsigned az_mtr_ccw_perm_in : 1;
+	unsigned az_mtr_cw_perm_in : 1;
+	unsigned az_stow_3a : 1;
+	unsigned wind_alt_plc_perm_in : 1;
+	unsigned alt_plc_perm_in : 1;
+	unsigned wind_alt_mtr_perm_in : 1;
+	unsigned alt_mtr2_perm_in : 1;
+	unsigned alt_mtr1_perm_in : 1;
+	unsigned alt_mtr_dn_perm_in : 1;
+	unsigned alt_mtr_up_perm_in : 1;
 } IF6_L0;
 struct I6 {
 	IF6_L0	il0;
 };
 typedef struct {
-	unsigned alt_brake_engaged: 1;
-	unsigned az_brake_disengaged: 1;
-	unsigned az_brake_engaged: 1;
-	unsigned az_stow_b : 1;
-	unsigned az_stow_a : 1;
-	unsigned alt_stow : 1;			/* ALSTOW	*/
-	unsigned alt_mtr2_perm : 1;
-	unsigned alt_mtr1_perm : 1;
-	unsigned alt_mtr_dn : 1;
-	unsigned alt_mtr_up : 1;
-	unsigned alt_plc_permit_in : 1;
-	unsigned alt_mtr2_rdy : 1;
-	unsigned alt_mtr1_rdy : 1;
-	unsigned alt_90_5_limit : 1;		/* ALP100	*/
-	unsigned alt_20_limit : 1;		/* ALP20	*/
-	unsigned alt_0_6_limit : 1;		/* ALP-2	*/
-	
-	unsigned : 12;
-	unsigned az_stow_center_sw : 1;
-	unsigned locking_pin_out : 1;
-	unsigned alt_less_than_19_deg : 1;
-	unsigned bldg_on : 1;
+	unsigned az_stow_1b : 1;
+	unsigned az_stow_1a : 1;
+	unsigned alt_grt_18d6_limit_1 : 1;		/* AZCWHL */
+	unsigned az_109_131_limit_1 : 1;
+	unsigned bldg_on_alt : 1;			/* AZCWHL */
+	unsigned alt_les_90d5_limit : 1;		/* AZCWHL */
+	unsigned alt_locking_pin_out : 1;		/* AZCCWHL */
+	unsigned alt_grt_0d3_limit : 1;			/* AZCWHL */
+	unsigned alt_les_2d5_limit : 1;			/* AZCWHL */
+	unsigned hatch_cls : 1;				/* AZCCWSL */
+	unsigned rot_plc_perm_in : 1;			/* AZCWSL */
+	unsigned bldg_perm_in : 1;
+	unsigned spare_s5_c3 : 1;
+	unsigned rot_mtr_perm_in : 1;
+	unsigned rot_mtr_ccw_perm_in : 1;
+	unsigned rot_mtr_cw_perm_in : 1;
+
+	unsigned spare_s8_c7 : 1;
+	unsigned spare_s8_c6 : 1;
+	unsigned az_pos_410b_ccw : 1;
+	unsigned az_neg_170b_cw : 1;
+	unsigned az_pos_410a_ccw : 1;
+	unsigned az_neg_170a_cw : 1;
+	unsigned az_dir_ccw : 1;
+	unsigned az_dir_cw : 1;
+	unsigned alt_velocity_limit : 1;
+	unsigned alt_slip : 1;
+	unsigned alt_grt_18d6_limit_2 : 1;			/* AZCWHL */
+	unsigned alt_15_deg_stop_ext : 1;
+	unsigned az_stow_2b : 1;
+	unsigned az_stow_2a : 1;
+	unsigned bldg_clear_alt : 1;
+	unsigned alt_grt_83_limit_1 : 1;			/* AZCWHL */
 } IF7_L0;
 struct I7 {
 	IF7_L0	il0;
 };
 typedef struct {
-	unsigned s_wind_e_stop : 1;
-	unsigned lift_estop_sw : 1;
-	unsigned lift_dn_sw : 1;
-	unsigned lift_up_sw : 1;
-	unsigned deg_15_in_permit : 1;
-	unsigned : 1;
-	unsigned alt_brake_disengaged: 1;
-	unsigned rot_mtr_perm : 1;
-	unsigned rot_mtr_ccw : 1;
-	unsigned rot_mtr_cw : 1;
-	unsigned rot_plc_permit_in : 1;
-	unsigned rot_mtr_rdy : 1;
-	unsigned rot_290_ccw : 1;		/* ROCCWHL	*/
-	unsigned rot_290_cw : 1;		/* ROCWHL	*/
+	unsigned rot_velocity_limit : 1;			/* ALSTOW	*/
+	unsigned rot_slip : 1;
+	unsigned rot_pos_380b_ccw : 1;
+	unsigned rot_neg_200b_cw : 1;
+	unsigned rot_pos_380a_ccw : 1;
+	unsigned rot_neg_200a_cw : 1;
 	unsigned rot_dir_ccw : 1;
 	unsigned rot_dir_cw : 1;
-
-	unsigned : 11;
-	unsigned man_ff_screen_enable : 1;
-	unsigned man_hgcd_lamp_on_cmd : 1;
-	unsigned man_ne_lamp_on_cmd : 1;
-	unsigned man_ff_lamp_on_cmd : 1;
-	unsigned man_ff_scrn_open_cmd : 1;
+	unsigned az_velocity_limit : 1;
+	unsigned az_slip : 1;
+	unsigned spare_s9_c5 : 1;
+	unsigned bldg_clear_az : 1;		/* ALP100	*/
+	unsigned alt_grt_83_limit_2 : 1;		/* ALP-2	*/
+	unsigned az_109_131_limit_2 : 1;		/* ALP-2	*/
+	unsigned bldg_on_az : 1;		/* ALP20	*/
+	unsigned alt_grt_18D6_limit_3 : 1;		/* ALP-2	*/
+	
+	unsigned tbar_latch_stat : 1;
+	unsigned in_8_bit_30_spare : 1;
+	unsigned in_8_bit_29_spare : 1;
+	unsigned in_8_bit_28_spare : 1;
+	unsigned alt_15_deg_stop_ret : 1;
+	unsigned e_stop_byp_sw : 1;
+	unsigned umbilical_strain_sw : 1;
+	unsigned rot_mtr_rdy : 1;
+	unsigned alt_mtr2_rdy : 1;
+	unsigned alt_mtr1_rdy : 1;
+	unsigned az_mtr2_rdy : 1;
+	unsigned az_mtr1_rdy : 1;
+	unsigned az_pos_400_ccw : 1;
+	unsigned az_neg_165_cw : 1;
+	unsigned az_110_130_limit : 1;
+	unsigned az_stow_cntr_sw : 1;
 } IF8_L0;
 struct I8 {
 	IF8_L0	il0;
+};
+typedef struct {
+	unsigned in_9_bit_15_spare: 1;
+	unsigned in_9_bit_14_spare: 1;
+	unsigned in_9_bit_13_spare: 1;
+	unsigned in_9_bit_12_spare: 1;
+	unsigned in_9_bit_11_spare: 1;
+	unsigned in_9_bit_10_spare: 1;
+	unsigned in_9_bit_9_spare: 1;
+	unsigned in_9_bit_8_spare: 1;
+	unsigned in_9_bit_7_spare: 1;
+	unsigned alt_brake_dis_stat : 1;
+	unsigned alt_brake_en_stat : 1;
+	unsigned az_brake_dis_stat : 1;
+	unsigned az_brake_en_stat : 1;
+	unsigned clamp_dis_stat : 1;
+	unsigned clamp_en_stat : 1;
+	unsigned tbar_unlatch_stat : 1;
+
+	unsigned s2_c7_bypass_sw : 1;
+	unsigned s2_c6_bypass_sw : 1;
+	unsigned s2_c5_bypass_sw : 1;
+	unsigned s2_c4_bypass_sw : 1;
+	unsigned s2_c3_bypass_sw : 1;
+	unsigned s2_c2_bypass_sw : 1;
+	unsigned s2_c1_bypass_sw : 1;
+	unsigned s2_c0_bypass_sw : 1;
+	unsigned s1_c7_bypass_sw : 1;
+	unsigned s1_c6_bypass_sw : 1;
+	unsigned s1_c5_bypass_sw : 1;
+	unsigned s1_c4_bypass_sw : 1;
+	unsigned s1_c3_bypass_sw : 1;
+	unsigned s1_c2_bypass_sw : 1;
+	unsigned s1_c1_bypass_sw : 1;
+	unsigned s1_c0_bypass_sw : 1;
+} IF9_L0;
+struct I9 {
+	IF9_L0	il0;
+};
+typedef struct {
+	unsigned in_10_bit_15_spare: 1;
+	unsigned in_10_bit_14_spare: 1;
+	unsigned in_10_bit_13_spare: 1;
+	unsigned in_10_bit_12_spare: 1;
+	unsigned in_10_bit_11_spare: 1;
+	unsigned in_10_bit_10_spare: 1;
+	unsigned in_10_bit_9_spare: 1;
+	unsigned in_10_bit_8_spare: 1;
+	unsigned in_10_bit_7_spare: 1;
+	unsigned in_10_bit_6_spare: 1;
+	unsigned in_10_bit_5_spare: 1;
+	unsigned in_10_bit_4_spare: 1;
+	unsigned in_10_bit_3_spare: 1;
+	unsigned in_10_bit_2_spare: 1;
+	unsigned in_10_bit_1_spare: 1;
+	unsigned in_10_bit_0_spare: 1;
+
+	unsigned in_10_bit_31_spare: 1;
+	unsigned in_10_bit_30_spare: 1;
+	unsigned in_10_bit_29_spare: 1;
+	unsigned in_10_bit_28_spare: 1;
+	unsigned in_10_bit_27_spare: 1;
+	unsigned in_10_bit_26_spare: 1;
+	unsigned in_10_bit_25_spare: 1;
+	unsigned in_10_bit_24_spare: 1;
+	unsigned in_10_bit_23_spare: 1;
+	unsigned in_10_bit_22_spare: 1;
+	unsigned in_10_bit_21_spare: 1;
+	unsigned in_10_bit_20_spare: 1;
+	unsigned in_10_bit_19_spare: 1;
+	unsigned in_10_bit_18_spare: 1;
+	unsigned in_10_bit_17_spare: 1;
+	unsigned in_10_bit_16_spare: 1;
+} IF10_L0;
+struct I10 {
+	IF10_L0	il0;
 };
 typedef struct {
 	unsigned low_lvl_light_2 : 1;
 	unsigned low_lvl_light_1 : 1;
 	unsigned az_stow_light : 1;
 	unsigned stop_bypass_strobe : 1;
-	unsigned az_stow_center_lt : 1;
-	unsigned opt_bench_opn_perm : 1;
+	unsigned az_stow_center_light : 1;
+	unsigned rack_0_grp_2_bit10 : 1;
 	unsigned inst_lift_perm : 1;
   	unsigned inst_lift_dn_4 : 1;
   	unsigned inst_lift_dn_3 : 1;
@@ -502,7 +638,8 @@ typedef struct {
 	unsigned sad_latch2_opn_led : 1;
 	unsigned sad_latch1_cls_led : 1;
 	unsigned sad_latch1_opn_led : 1;
-	unsigned : 2;
+	unsigned rack_1_grp_1_bit11 : 1;
+	unsigned rack_1_grp_1_bit10 : 1;
 	unsigned sad_man_req : 1;
 	unsigned sad_latch_perm : 1;
 	unsigned sad_unlatch_perm : 1;
@@ -515,10 +652,10 @@ typedef struct {
 	unsigned ilcb_pres_led : 1;
 } OF1_L4;
 typedef struct {
-	unsigned ter_latch2_cls_led : 1;
-	unsigned ter_latch2_opn_led : 1;
-	unsigned ter_latch1_cls_led : 1;
-	unsigned ter_latch1_opn_led : 1;
+	unsigned prot_bolt2_cls_led : 1;
+	unsigned prot_bolt2_opn_led : 1;
+	unsigned prot_bolt1_cls_led : 1;
+	unsigned prot_bolt1_opn_led : 1;
 	unsigned sec_latch3_cls_led : 1;
 	unsigned sec_latch3_opn_led : 1;
 	unsigned sec_latch2_cls_led : 1;
@@ -537,13 +674,36 @@ typedef struct {
 typedef struct {
 	unsigned : 16;
 	
-	unsigned : 15;
+	unsigned audio_warning_2 : 1;
+	unsigned rack_1_grp_5_bit14 : 1;
+	unsigned rack_1_grp_5_bit13 : 1;
+	unsigned rack_1_grp_5_bit12 : 1;
+	unsigned rack_1_grp_5_bit11 : 1;
+	unsigned rack_1_grp_5_bit10 : 1;
+	unsigned rack_1_grp_5_bit9 : 1;
+	unsigned rack_1_grp_5_bit8 : 1;
+	unsigned rack_1_grp_5_bit7 : 1;
+	unsigned rack_1_grp_5_bit6 : 1;
+	unsigned rack_1_grp_5_bit5 : 1;
+	unsigned rack_1_grp_5_bit4 : 1;
+	unsigned rack_1_grp_5_bit3 : 1;
+	unsigned rack_1_grp_5_bit2 : 1;
+	unsigned rack_1_grp_5_bit1 : 1;
 	unsigned purge_air_valve_perm : 1;
 } OF1_L6;
 typedef struct {
 	unsigned : 16;
 	
-	unsigned : 10;
+	unsigned rack_2_grp_3_bit15 : 1;
+	unsigned rack_2_grp_3_bit14 : 1;
+	unsigned rack_2_grp_3_bit13 : 1;
+	unsigned rack_2_grp_3_bit12 : 1;
+	unsigned rack_2_grp_3_bit11 : 1;
+	unsigned rack_2_grp_3_bit10 : 1;
+	unsigned rack_2_grp_3_bit9 : 1;
+	unsigned rack_2_grp_3_bit8 : 1;
+	unsigned rack_2_grp_3_bit7 : 1;
+	unsigned rack_2_grp_3_bit6 : 1;
 	unsigned slit_latch2_opn_perm : 1;
 	unsigned slit_dr2_opn_perm : 1;
 	unsigned slit_dr2_cls_perm : 1;
@@ -558,10 +718,21 @@ typedef struct {
 typedef struct {
 	unsigned : 16;
 	
-	unsigned : 12;
+	unsigned audio_warning : 1;
+	unsigned rack_4_grp_5_bit14 : 1;
+	unsigned rack_4_grp_5_bit13 : 1;
+	unsigned rack_4_grp_5_bit12 : 1;
+	unsigned rack_4_grp_5_bit11 : 1;
+	unsigned rack_4_grp_5_bit10 : 1;
+	unsigned rack_4_grp_5_bit9 : 1;
+	unsigned rack_4_grp_5_bit8 : 1;
+	unsigned rack_4_grp_5_bit7 : 1;
+	unsigned rack_4_grp_5_bit6 : 1;
+	unsigned rack_4_grp_5_bit5 : 1;
 	unsigned hgcd_lamps_on_pmt : 1;
 	unsigned ne_lamps_on_pmt : 1;
 	unsigned ff_lamps_on_pmt : 1;
+	unsigned ff_screen_enable_pmt : 1;
 	unsigned ff_screen_open_pmt : 1;
 } OF1_L14;
 struct O1 {
@@ -612,87 +783,80 @@ struct O2 {
 	unsigned long undefined15;
 };
 typedef struct {
-	unsigned wind_dog_house_dr_cl : 1;
-	unsigned : 1;
-	unsigned wind_alt_plc_perm : 1;
-	unsigned wind_az_plc_perm : 1;
-	unsigned deg_15_stop_in_perm : 1;
-	unsigned deg_15_stop_out_perm : 1;
-	unsigned : 1;
-	unsigned rot_plc_ccw_perm : 1;
-	unsigned rot_plc_cw_perm : 1;
+	unsigned s_ll_led: 1;
+	unsigned n_ll_led: 1;
+	unsigned w_rail_led: 1;
+	unsigned s_rail_led: 1;
+	unsigned n_rail_led: 1;
 	unsigned rot_plc_perm : 1;
-	unsigned alt_plc_dn_perm : 1;
-	unsigned alt_plc_up_perm : 1;
-	unsigned alt_plc_perm : 1;
-	unsigned az_plc_ccw_perm : 1;
-	unsigned az_plc_cw_perm : 1;
+	unsigned rot_mtr_ccw_perm : 1;
+	unsigned rot_mtr_cw_perm : 1;
+	unsigned wind_az_plc_perm : 1;
 	unsigned az_plc_perm : 1;
+	unsigned az_mtr_ccw_perm : 1;
+	unsigned az_mtr_cw_perm : 1;
+	unsigned wind_alt_plc_perm : 1;
+	unsigned alt_plc_perm : 1;
+	unsigned alt_mtr_dn_perm : 1;
+	unsigned alt_mtr_up_perm : 1;
 
-	unsigned : 14;
+	unsigned clamp_en : 1;
+	unsigned clamp_dis : 1;
 	unsigned t_bar_unlatch_pmt : 1;
 	unsigned t_bar_latch_pmt : 1;
-} OF9_L0;
-struct O9 {
-	OF9_L0	ol0;
+	unsigned out_11_bit_27_spare : 1;
+	unsigned lift_pump_on : 1;
+	unsigned out_11_bit_25_spare : 1;
+	unsigned out_11_bit_24_spare : 1;
+	unsigned deg_15_stop_ret_perm : 1;
+	unsigned deg_15_stop_ext_perm : 1;
+	unsigned lift_solenoid_en: 1;
+	unsigned s_wind_led: 1;
+	unsigned n_fork_led: 1;
+	unsigned n_wind_led: 1;
+	unsigned w_ll_led: 1;
+	unsigned e_ll_led: 1;
+} OF11_L0;
+struct O11 {
+	OF11_L0	ol0;
 };
 typedef struct {
-	unsigned : 3;
-	unsigned umbilical_dir_cmd : 1;
-	unsigned umbilical_motor_cmd : 1;
-	unsigned alt_brake_engage_cmd : 1;
-	unsigned alt_brake_disen_cmd : 1;
-	unsigned az_brake_engage_cmd : 1;
-	unsigned az_brake_disen_cmd : 1;
-	unsigned clamp_engage_cmd : 1;
-	unsigned clamp_disen_cmd : 1;
-	unsigned solenoid_enable : 1;
-	unsigned pump_on_cmd : 1;
-	unsigned lift_estop_light : 1;
-	unsigned lift_dn_light : 1;
-	unsigned lift_up_light : 1;
+	unsigned out_12_bit_15_spare : 1;
+	unsigned out_12_bit_14_spare : 1;
+	unsigned out_12_bit_13_spare : 1;
+	unsigned out_12_bit_12_spare : 1;
+	unsigned out_12_bit_11_spare : 1;
+	unsigned out_12_bit_10_spare : 1;
+	unsigned out_12_bit_9_spare : 1;
+	unsigned out_12_bit_8_spare : 1;
+	unsigned out_12_bit_7_spare : 1;
+	unsigned out_12_bit_6_spare : 1;
+	unsigned umbilical_up_dn : 1;
+	unsigned umbilical_on_off : 1;
+	unsigned alt_brake_en : 1;
+	unsigned alt_brake_dis : 1;
+	unsigned az_brake_en : 1;
+	unsigned az_brake_dis : 1;
 
-	unsigned : 16;
-} OF10_L0;
-struct O10 {
-	OF10_L0	ol0;
-};
-typedef struct {
-	unsigned stop_bypass_enabled : 1;
-	unsigned : 12;
-	unsigned umbilical_strain_sw : 1;
-	unsigned clamp_disengaged_st : 1;
-	unsigned clamp_engaged_st : 1;
-
-	unsigned s2_c7_bypassed : 1;
-	unsigned s2_c6_bypassed : 1;
-	unsigned s2_c5_bypassed : 1;
-	unsigned s2_c4_bypassed : 1;
-	unsigned s2_c3_bypassed : 1;
-	unsigned s2_c2_bypassed : 1;
-	unsigned s2_c1_bypassed : 1;
-	unsigned s2_c0_bypassed : 1;
-	unsigned s1_c7_bypassed : 1;
-	unsigned s1_c6_bypassed : 1;
-	unsigned s1_c5_bypassed : 1;
-	unsigned s1_c4_bypassed : 1;
-	unsigned s1_c3_bypassed : 1;
-	unsigned s1_c2_bypassed : 1;
-	unsigned s1_c1_bypassed : 1;
-	unsigned s1_c0_bypassed : 1;
-} I11_L0;
-struct I11 {
-	I11_L0	ol0;
-};
-typedef struct {
-	unsigned : 14;
-	unsigned tbar_latch_opn_perm : 1;
-	unsigned tbar_latch_cls_perm : 1;
-
-	unsigned : 16;
-} O12_L0;
+	unsigned out_12_bit_31_spare : 1;
+	unsigned out_12_bit_30_spare : 1;
+	unsigned out_12_bit_29_spare : 1;
+	unsigned out_12_bit_28_spare : 1;
+	unsigned out_12_bit_27_spare : 1;
+	unsigned out_12_bit_26_spare : 1;
+	unsigned out_12_bit_25_spare : 1;
+	unsigned out_12_bit_24_spare : 1;
+	unsigned out_12_bit_23_spare : 1;
+	unsigned out_12_bit_22_spare : 1;
+	unsigned out_12_bit_21_spare : 1;
+	unsigned out_12_bit_20_spare : 1;
+	unsigned out_12_bit_19_spare : 1;
+	unsigned out_12_bit_18_spare : 1;
+	unsigned out_12_bit_17_spare : 1;
+	unsigned out_12_bit_16_spare : 1;
+} OF12_L0;
 struct O12 {
-	O12_L0	ol0;
+	OF12_L0	ol0;
 };
 
 struct AB_SLC500 {
@@ -708,15 +872,15 @@ struct AB_SLC500 {
 	struct I6 i6;
 	struct I7 i7;
 	struct I8 i8;
-	struct O9 o9;
-	struct O10 o10;
-	struct I11 i11;
+	struct I9 i9;
+	struct I10 i10;
+	struct O11 o11;
 	struct O12 o12;
 };
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	9
+#define SDSS_FRAME_VERSION	10
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;

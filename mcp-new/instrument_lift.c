@@ -1522,8 +1522,8 @@ int il_umbilical_move(int val)
    }
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
-   il_ctrl.mcp_umbilical_dn_up_cmd = val;
-/*   printf ("\r\n mcp_umbilical_dn_up_cmd=%d, ",il_ctrl.mcp_umbilical_dn_up_cmd);*/
+   il_ctrl.mcp_umbilical_up_dn_cmd = val;
+/*   printf ("\r\n mcp_umbilical_up_dn_cmd=%d, ",il_ctrl.mcp_umbilical_up_dn_cmd);*/
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
@@ -1565,8 +1565,8 @@ int il_umbilical(int val)
    }
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
-   il_ctrl.mcp_umbilical_off_on_cmd = val;
-/*   printf ("\r\n mcp_umbilical_off_on_cmd=%d, ",il_ctrl.mcp_umbilical_off_on_cmd);*/
+   il_ctrl.mcp_umbilical_on_off_cmd = val;
+/*   printf ("\r\n mcp_umbilical_on_off_cmd=%d, ",il_ctrl.mcp_umbilical_on_off_cmd);*/
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
@@ -2058,8 +2058,8 @@ void il_status()
 	else
 	  printf ("\r\nLIFT OFF FLOOR");
 
-	if (sdssdc.status.i1.il0.inst_lift_low) printf ("\r\nSTRAIN LOW");
-	if (sdssdc.status.i1.il0.inst_lift_high) printf ("\r\nSTRAIN HIGH");
+	if (sdssdc.status.i1.il0.inst_lift_low_force) printf ("\r\nSTRAIN LOW");
+	if (sdssdc.status.i1.il0.inst_lift_high_force) printf ("\r\nSTRAIN HIGH");
 
 	if (is_pump_on())
 	  printf ("\r\nPUMP ON");
