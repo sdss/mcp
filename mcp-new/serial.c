@@ -236,7 +236,8 @@ tcc_serial(int port)
 	      int i;
 	      fprintf(stderr, "semCMD: ");
 	      for(i = 0;i < nblock; i++) {
-		 fprintf(stderr,"0x%x ", ids[i]);
+		 fprintf(stderr,"semCmd blocks on 0x%x ", ids[i]);
+		 TRACE(3, "semCmd blocks on 0x%x", ids[i], 0);
 	      }
 	      fprintf(stderr,"\n");
 	   }
