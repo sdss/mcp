@@ -113,7 +113,11 @@ double get_time(void);
 void amp_reset(int axis);
 const char *getCvsTagname(void);
 void restore_pos(void);
-extern double sdss_get_time(void);
+double sdss_get_time(void);
+float read_clinometer(void);
+
+int get_ffstatus(char *ffstatus_ans, int size);
+int get_slitstatus(char *slitstatus_ans, int size);
 
 int mcp_set_monitor(int axis, int on_off);
 int mcp_set_pos(int axis, double pos);
@@ -127,7 +131,6 @@ int mcp_cw_abort(void);
 int mcp_set_cw(int inst, int cw, int cwpos, const char **ans);
 int mcp_stop_axis(int axis);
 int mcp_move_va(int axis, long pos, long vel, long acc);
-int mcp_set_tbars(int val);
 
 int mcp_slit_clear(int spec);
 int mcp_slit_open(int spec);
@@ -152,7 +155,5 @@ extern struct FRAME_QUEUE axis_queue[3];
 extern struct AXIS_STAT axis_stat[3];
 extern struct AXIS_STAT persistent_axis_stat[3];
 extern int axis_alive;
-extern int altclino_off;
-extern float altclino_sf;
 
 #endif
