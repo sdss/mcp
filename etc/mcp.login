@@ -91,9 +91,10 @@ traceOn 2, 31,31		/* trace task creation */
 traceOn 3, 31,31		/* trace task deletion */
 
 #
-# Spawn idle task
+# Spawn idle and timer tasks
 #
 taskSpawn "tIdleTask", 255, 0, 500, idle
+timerStart 0, 0, 60
 
 #
 # IndustryPack serial drivers
