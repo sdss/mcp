@@ -21,6 +21,7 @@
 #include "axis.h"
 #include "cmd.h"
 #include "dscTrace.h"
+#include "mcpUtils.h"
 
 #define STATIC static			/*  */
 
@@ -36,20 +37,6 @@ SEM_ID semCmdPort = NULL;		/* semaphore to control permission
 					   to axis motions etc. */
 SEM_ID semPleaseGiveCmdPort = NULL;	/* semaphore to request its owner
 					   to give up semCmdPort */
-
-/*****************************************************************************/
-/*
- * Return the task ID of the process holding a semaphore
- */
-long
-getSemTaskId(SEM_ID sem)
-{
-   if(sem == NULL) {
-      return(0);
-   } else {
-      return((long)sem->state.owner);
-   }
-}
 
 /*****************************************************************************/
 /*
@@ -113,15 +100,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	       fprintf(stderr,"Unable to give semCmdPort semaphore: %s",
 		       strerror(errno));
 	    }
-	 }
-      }
-/*
- * Take the sem that display.c used to take; XXX
- */
-      if(semMEIUPD != NULL) {
-	 if(semTake(semMEIUPD, 60) == ERROR) {
-	    TRACE(5, "Cannot take semMEIUPD to process cmd %s (%d)", cmd,errno);
-	    continue;
 	 }
       }
 /*
@@ -195,9 +173,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 } else {
 	    if(force) {
 	       (void)semMGiveForce(semCmdPort);
-	       if(semMEIUPD != NULL) {
-		  (void)semMGiveForce(semMEIUPD);
-	       }
 	    }
 
 	    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
@@ -250,15 +225,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 		 buff, cmd, strerror(errno));
 	 errno = 0;			/* we've already handled error */
 
-	 if(semMEIUPD != NULL) {
-	    semGive(semMEIUPD);
-	 }
-
 	 break;
-      }
-
-      if(semMEIUPD != NULL) {
-	 semGive(semMEIUPD);
       }
    }
 
@@ -267,9 +234,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    }
 
    (void)semGive(semCmdPort);
-   if(semMEIUPD != NULL) {
-      (void)semGive(semMEIUPD);
-   }
 
    close(fd);
 
