@@ -136,7 +136,7 @@ long SDSStime = -1;			/* integral part of TAI */
 static void
 setSDSStimeFromNTP(int quiet)
 {
-   const char *ntpServer = "tcc25m.apo.nmsu.edu";
+   const char *taiServer = "tai-time.apo.nmsu.edu";
    const char *utcServer = "utc-time.apo.nmsu.edu";
    struct tm tm;
    time_t t;
@@ -146,8 +146,8 @@ setSDSStimeFromNTP(int quiet)
  */
    {
       int delay = 0;			/* number of ticks to delay */
-      double sdss_time = sdss_get_time() + 1; /* SDSStime may == -1 */
-      float sdss_frac_s = sdss_time - (int)sdss_time;
+      double sdss_timep1 = sdss_get_time() + 1; /* SDSStime may == -1 */
+      float sdss_frac_s = sdss_timep1 - (int)sdss_timep1;
 
       if(sdss_frac_s < 0.20) {
 	 delay = 60*(0.2 - sdss_frac_s);
@@ -168,8 +168,8 @@ setSDSStimeFromNTP(int quiet)
  */
    taskLock();
    
-   if(setTimeFromNTP(ntpServer, 0, 1, 0, &tai) < 0) {
-      TRACE(0, "failed to get time from %s: %s", ntpServer, strerror(errno));
+   if(setTimeFromNTP(taiServer, 0, 1, 0, &tai) < 0) {
+      TRACE(0, "failed to get time from %s: %s", taiServer, strerror(errno));
       taskUnlock();
       return;
    }
