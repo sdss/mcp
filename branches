@@ -102,3 +102,11 @@ Wed Nov 21 07:21:14 MST 2001
 	(removed all mention of a cut v5_7_3 from ups)
 	cvs update -j v5_7_0 -j v5_7_3
 	cvs ci -m "merged from v5_7 branch at point v5_7_3"
+
+Wed Nov 21 16:08:42 MST 2001
+	cvs update -A
+	(no changes)
+	cvs tag v5_8_0
+	cvs tag -r v5_8_0 -b v5_8
+
+
