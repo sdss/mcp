@@ -33,7 +33,7 @@ struct LATCH_POS {
    double pos2;				/* second encoder position */
 };
 
-static void DIO316ClearISR_delay(void);
+void DIO316ClearISR_delay(void);
 static void restore_fiducials(int axis);
 static void tm_print_fiducial(int axis);
 
@@ -698,20 +698,9 @@ tLatch(const char *name)
 	    TRACE(0, "Invalid barcode in azimuth: fididx = %d, pos = %d",
 		  fididx, latchpos[latchidx].pos1);
 	 } else {
-#if 0
 	    if(sdssdc.status.i7.il0.az_dir_cw) {
 	       fididx += 24;
 	    }
-#else
-	    if(sdssdc.status.i7.il0.az_dir_cw) {
-	       printf("New: Adding 24 to az fididx ");
-	    }
-	    if(latchpos[latchidx].pos1 > 0) {
-	       fididx += 24;
-	       printf(" Old: Adding 24 to az fididx ");
-	    }
-	    printf("\n");
-#endif
 	    
 	    write_fiducial_log("AZ_FIDUCIAL", AZIMUTH, fididx,
 			       az_fiducial_position[fididx],
@@ -953,7 +942,7 @@ tLatch(const char *name)
 **
 **=========================================================================
 */
-static void
+void
 DIO316ClearISR_delay(void)
 {
    unsigned char dio316int_bit;		/* value read by DIO316_interrupt */
