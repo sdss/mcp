@@ -1110,7 +1110,8 @@ tm_TCC(int axis)
 	    taskDelay(1);
 	 }
 	 tm_start_move(2*axis, frame->position*ticks_per_degree[axis],
-		       1*ticks_per_degree[axis], 0.05*ticks_per_degree[axis]);
+		       max_velocity[axis]/2*ticks_per_degree[axis],
+		       max_acceleration[axis]/2*ticks_per_degree[axis]);
 
 	 TRACE(3, "Repositioning %s by TCC cmd", aname, 0);
 	 TRACE(3, "    from pos=%ld to pos=%ld",
