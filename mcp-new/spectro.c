@@ -22,6 +22,7 @@
 #include "mcpMsgQ.h"
 
 MSG_Q_ID msgLamps = NULL;		/* control lamps */
+MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
 
 /*=========================================================================
 **
@@ -168,144 +169,160 @@ int tm_clamp_status()
    
    return 0;
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_slit
-**	    tm_slit_clear
-**	    tm_slit_open
-**	    tm_slit_close
-**	    tm_sp_slit_open
-**	    tm_sp_slit_close
-**
-** DESCRIPTION:
-**      Open/close/clear the slit door.  Clear neither closes nor opens the
-**	door, the actuator is inactive.  There are two spectographs so the
-**	door must be specified.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_slit(short val) 
+
+/*****************************************************************************/
+/*
+ * Control the spectrographs' slithead doors
+ */
+void
+tSpecDoor(void)
 {
    int err;
    unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("tm_slit: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
+   MCP_MSG msg;				/* message to pass around */
+   int ret;				/* return code */
+   struct B10_1 tm_ctrl1;
+   int spec;				/* which spectrograph? */
+
+   for(;;) {
+      ret = msgQReceive(msgSpecDoor, (char *)&msg, sizeof(msg), WAIT_FOREVER);
+      assert(ret != ERROR);
+
+      TRACE(8, "read msg in tSpecDoor", 0, 0);
+      assert(msg.type == specDoor_type);
+      spec = msg.u.specDoor.spec;
+      
+      if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+	 TRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0);
+	 continue;
+      }
+
+      if(semTake(semSLC,60) == ERROR) {
+	 TRACE(0, "tSpecDoor: SP%d unable to take semSLM semaphore: %s",
+	       spec, strerror(errno));
+	 continue;
+      }
+
+      err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+      if(err) {
+	 semGive(semSLC);
+	 TRACE(0, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err);
+	 continue;
+      }
+      swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+
+      switch (msg.u.specDoor.op) {
+       case OPEN:
+	 if(msg.u.specDoor.spec == SPECTROGRAPH1) {
+	    tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
+	    tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
+	 } else {
+	    tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
+	    tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+	 }
+	 break;
+       case CLOSE:
+	 if(msg.u.specDoor.spec == SPECTROGRAPH1) {
+	    tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
+	    tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
+	 } else {
+	    tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
+	    tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
+	 }
+	 break;
+       case CLEAR:
+	 if(msg.u.specDoor.spec == SPECTROGRAPH1) {
+	    tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
+	    tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
+	 } else {
+	    tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
+	    tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+	 }
+	 break;
+       default:
+	 TRACE(0, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op);
+	 break;
+      }
+      
+      swab((char *)&tm_ctrl1, (char *)&ctrl[0], 2);
+      err = slc_write_blok(1, 10, BIT_FILE, 1, &ctrl[0], 1);
+
+      semGive(semSLC);
+      if(err) {
+	 TRACE(0, "tSpecDoor: SP%d error writing slc: 0x%04x", spec + 1, err);
+	 continue;
+      }
+   }
+}
+
+/*
+ * Commands to send messages to the tSpecDoor task
+ */
+int
+mcp_specdoor_clear(int spec)
+{
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
       return(-1);
    }
+   
+   msg.type = specDoor_type;
+   msg.u.specDoor.spec = spec;
+   msg.u.specDoor.op = CLEAR;
 
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+   ret = msgQSend(msgSpecDoor, (char *)&msg, sizeof(msg),
+		  NO_WAIT, MSG_PRI_NORMAL);
+   assert(ret == OK);
 
-   switch (val) {
-    case 5:
-      tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
-      break;
-    case 4:
-      tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
-      tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
-      break;
-    case 3:
-      tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
-      break;
-    case 2:
-      tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
-      break;
-    case 1:
-      tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
-      tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
-      break;
-    case 0:
-      tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
-      break;
-   }
-
-   swab((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   if(err) {
-      printf("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_slit_clear(int door)
-{
-    tm_slit (2+(door*3));
-}
-void tm_slit_open(int door)
-{
-    tm_slit (1+(door*3));
-}
-void tm_slit_close(int door)
-{
-    tm_slit (0+(door*3));
+   return(0);
 }
 
-void
-tm_sp_slit_clear(int door)
+int
+mcp_specdoor_open(int spec)
 {
-   if(taskIdFigure("tmSlit") == ERROR) {
-      taskSpawn("tmSlit",90,0,2000,
-		(FUNCPTR)tm_slit_clear, door,
-		0,0,0,0,0,0,0,0,0);
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      return(-1);
    }
+   
+   msg.type = specDoor_type;
+   msg.u.specDoor.spec = spec;
+   msg.u.specDoor.op = OPEN;
+
+   ret = msgQSend(msgSpecDoor, (char *)&msg, sizeof(msg),
+		  NO_WAIT, MSG_PRI_NORMAL);
+   assert(ret == OK);
+
+   return(0);
 }
 
-void
-tm_sp_slit_open(int door)
+int
+mcp_specdoor_close(int spec)
 {
-   if(taskIdFigure("tmSlit") == ERROR) {
-      taskSpawn("tmSlit",90,0,2000,
-		(FUNCPTR)tm_slit_open, door,
-		0,0,0,0,0,0,0,0,0);
-   }
-}
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
 
-void
-tm_sp_slit_close(int door)
-{
-   if(taskIdFigure("tmSlit") == ERROR) {
-      taskSpawn("tmSlit",90,0,2000,
-		(FUNCPTR)tm_slit_close, door,
-		0,0,0,0,0,0,0,0,0);
+   if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      return(-1);
    }
+   
+   msg.type = specDoor_type;
+   msg.u.specDoor.spec = spec;
+   msg.u.specDoor.op = CLOSE;
+
+   ret = msgQSend(msgSpecDoor, (char *)&msg, sizeof(msg),
+		  NO_WAIT, MSG_PRI_NORMAL);
+   assert(ret == OK);
+
+   return(0);
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_cart
-**	    tm_cart_latch
-**	    tm_cart_unlatch
-**	    tm_sp_cart_latch
-**	    tm_sp_cart_unlatch
-*
-** DESCRIPTION:
 **      Latch/unlatch the fiber cartridge latch for the selected spectograph
 **	specified by the door.
 **
@@ -321,14 +338,14 @@ tm_sp_slit_close(int door)
 **=========================================================================
 */
 int
-tm_cart(short val) 
+tm_slithead(short val) 
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
              
    if(semTake (semSLC,60) == ERROR) {
-      printf("tm_cart: unable to take semaphore: %s", strerror(errno));
+      printf("tm_slithead: unable to take semaphore: %s", strerror(errno));
       TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
@@ -366,23 +383,17 @@ tm_cart(short val)
 
    return 0;
 }
-void tm_cart_latch(int door)
+
+void
+tm_slithead_latch(int spec)
 {
-    tm_cart (1+(door*2));
+   tm_slithead(2*spec + 1);
 }
-void tm_cart_unlatch(int door)
+
+void
+tm_slithead_unlatch(int spec)
 {
-    tm_cart (0+(door*2));
-}
-void tm_sp_cart_latch(int door)
-{
-  if (taskIdFigure("tmCart")==ERROR)
-    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_latch,door,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_cart_unlatch(int door)
-{
-  if (taskIdFigure("tmCart")==ERROR)
-    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_unlatch,door,0,0,0,0,0,0,0,0,0);
+   tm_slithead(2*spec);
 }
 
 int
@@ -437,50 +448,15 @@ tm_slit_status()
 /*
  * Commands to control the spectrograph doors/latches
  */
-int
-mcp_slit_clear(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_sp_slit_clear(spec);
-
-   return(0);
-}
-
-int
-mcp_slit_open(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_sp_slit_open(spec);
-
-   return(0);
-}
-
-int
-mcp_slit_close(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_sp_slit_close(spec);
-
-   return(0);
-}
 
 int
 mcp_slithead_latch_open(int spec)
 {
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+   if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
       return(-1);
    }
    
-   tm_cart_unlatch(spec);
+   tm_slithead_unlatch(spec);
 
    return(0);
 }
@@ -488,11 +464,11 @@ mcp_slithead_latch_open(int spec)
 int
 mcp_slithead_latch_close(int spec)
 {
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+   if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
       return(-1);
    }
    
-   tm_cart_latch(spec);
+   tm_slithead_latch(spec);
 
    return(0);
 }
@@ -501,8 +477,6 @@ mcp_slithead_latch_close(int spec)
 **=========================================================================
 **
 ** ROUTINE: tm_ffs
-**	    tm_ffs_open
-**	    tm_ffs_close
 **          tm_ffs_enable
 **	    tm_sp_ffs_move
 **	    tm_ffs_open_status
@@ -620,18 +594,6 @@ tm_ffs_enable(int val)
 }
 
 void
-tm_ffs_open(void)
-{
-   tm_ffs(FFS_OPEN);
-}
-
-void
-tm_ffs_close(void)
-{
-   tm_ffs(FFS_CLOSE);
-}
-
-void
 tm_sp_ffs_move(int open_close)		/* FFS_CLOSE or FFS_OPEN */
 {
    if(taskIdFigure("tmFFS") == ERROR) {
@@ -693,7 +655,7 @@ tLamps(void)
       assert(ret != ERROR);
 
       TRACE(8, "read msg on msgLamps", 0, 0);
-      assert(msg.type == lamp_type);
+      assert(msg.type == lamps_type);
       
       if(semTake(semSLC,60) == ERROR) {
 	 printf("Unable to take semaphore: %s", strerror(errno));
@@ -833,7 +795,7 @@ clampoff_cmd(char *cmd)			/* NOTUSED */
 
 /*****************************************************************************/
 /*
- * Flatfield screen and the various lamps
+ * Flatfield screen
  */
 char *
 ffstatus_cmd(char *cmd)			/* NOTUSED */
@@ -869,7 +831,7 @@ fflon_cmd(char *cmd)			/* NOTUSED */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
-   msg.type = lamp_type;
+   msg.type = lamps_type;
    msg.u.lamps.type = FF_LAMP;
    msg.u.lamps.on_off = ON;
 
@@ -885,7 +847,7 @@ ffloff_cmd(char *cmd)			/* NOTUSED */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
-   msg.type = lamp_type;
+   msg.type = lamps_type;
    msg.u.lamps.type = FF_LAMP;
    msg.u.lamps.on_off = OFF;
 
@@ -901,7 +863,7 @@ neon_cmd(char *cmd)			/* NOTUSED */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
-   msg.type = lamp_type;
+   msg.type = lamps_type;
    msg.u.lamps.type = NE_LAMP;
    msg.u.lamps.on_off = ON;
 
@@ -917,7 +879,7 @@ neoff_cmd(char *cmd)			/* NOTUSED */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
-   msg.type = lamp_type;
+   msg.type = lamps_type;
    msg.u.lamps.type = NE_LAMP;
    msg.u.lamps.on_off = OFF;
 
@@ -933,7 +895,7 @@ hgcdon_cmd(char *cmd)			/* NOTUSED */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
-   msg.type = lamp_type;
+   msg.type = lamps_type;
    msg.u.lamps.type = HGCD_LAMP;
    msg.u.lamps.on_off = ON;
 
@@ -949,7 +911,7 @@ hgcdoff_cmd(char *cmd)			/* NOTUSED */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
-   msg.type = lamp_type;
+   msg.type = lamps_type;
    msg.u.lamps.type = HGCD_LAMP;
    msg.u.lamps.on_off = OFF;
 
@@ -974,7 +936,7 @@ static int spectograph_select = -1;	/* -1 == ERROR  */
 char *
 sp1_cmd(char *cmd)
 {
-  spectograph_select = SPECTOGRAPH1;
+  spectograph_select = SPECTROGRAPH1;
   
   return("");
 }
@@ -982,7 +944,7 @@ sp1_cmd(char *cmd)
 char *
 sp2_cmd(char *cmd)
 {
-  spectograph_select = SPECTOGRAPH2;
+  spectograph_select = SPECTROGRAPH2;
 
   return("");
 }
@@ -1006,7 +968,7 @@ slitstatus_cmd(char *cmd)		/* NOTUSED */
 char *
 slitdoor_clear_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_slit_clear(spectograph_select) < 0) {
+   if(mcp_specdoor_clear(spectograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1019,7 +981,7 @@ slitdoor_clear_cmd(char *cmd)		/* NOTUSED */
 char *
 slitdoor_open_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_slit_open(spectograph_select) < 0) {
+   if(mcp_specdoor_open(spectograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1032,7 +994,7 @@ slitdoor_open_cmd(char *cmd)		/* NOTUSED */
 char *
 slitdoor_close_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_slit_close(spectograph_select) < 0) {
+   if(mcp_specdoor_close(spectograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1085,6 +1047,14 @@ spectroInit(void)
       assert(msgLamps != NULL);
 
       ret = taskSpawn("tLamps",90,0,2000,(FUNCPTR)tLamps,0,0,0,0,0,0,0,0,0,0);
+      assert(ret != ERROR);
+
+      msgSpecDoor = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+      assert(msgSpecDoor != NULL);
+
+      ret = taskSpawn("tSpecDoor",90,0,2000,
+		      (FUNCPTR)tSpecDoor,
+		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
    }
 /*
