@@ -12,15 +12,19 @@
 
 #define SDSS_STOP_RATE		-24000
 #define SDSS_E_STOP_RATE	-24000
-/* .01401665166 bill's on 22-oct-99 */
-/* mulitply AZ times 2000 for FNAL test setupd */
-#define AZ_TICK		(.0140167104063)   /* (.0035053554041*4)*/
-#define ALT_TICK 	(.0140091448584)   /* (.0035022862146*4)*/
+
+/*
+ * Charlie says:
+ *   multiply AZ times 2000 for FNAL test setup
+ * Does this refer to old ticksize of (.0035053554041*4)? RHL.
+ */
+#define AZ_TICK		0.0140167104063
+#define ALT_TICK 	0.0140091448584
 #if 0
 #  define ROT_ROTARY_ENCODER 1
-#  define ROT_TICK	(.0127597662202) /* rotary encoder */
+#  define ROT_TICK	0.0127597662202 /* rotary encoder */
 #else
-#  define ROT_TICK	(.0106578926333*2) /* optical encoder */
+#  define ROT_TICK      0.0213157852666	/* optical encoder */
 #endif
 #define AZ_TICKS_DEG	(3600/AZ_TICK)
 #define ALT_TICKS_DEG	(3600/ALT_TICK)
@@ -29,66 +33,25 @@
  * Dynamically switch PID coefficients?
  */
 #define SWITCH_PID_COEFFS 0
+/*
+ * function prototypes
+ */
+/*
+ * Routines to deal with encoder errors; they convert between the MCP's
+ * idea of the encoder position and the MEI's
+ */
+int get_axis_encoder_error(int axis);
+void set_axis_encoder_error(int axis, int error);
+int get_position_corr(int mei_axis, double *position);
+int set_position_corr(int mei_axis, double position);
+int get_latched_position_corr(int mei_axis, double *position);
+int start_move_corr(int mei_axis, double pos, double vel, double acc);
+double convert_mei_to_mcp(int axis, double pos);
 
-/* function prototypes */
 const char *axis_name(int axis);
-char *reboot_cmd(char *cmd);
-char *axis_status_cmd(char *cmd);
-char *drift_cmd(char *cmd);
-char *id_cmd(char *cmd);
-char *version_cmd(char *cmd);
-char *init_cmd(char *cmd);
-char *maxacc_cmd(char *cmd);
-char *maxvel_cmd(char *cmd);
-char *mc_dump_cmd(char *cmd);
-char *mc_maxacc_cmd(char *cmd);
-char *mc_maxpos_cmd(char *cmd);
-char *mc_maxvel_cmd(char *cmd);
-char *mc_minpos_cmd(char *cmd);
-char *move_cmd(char *cmd);
-char *plus_move_cmd(char *cmd);
-char *mr_dump_cmd(char *cmd);
-char *ms_dump_cmd(char *cmd);
-char *ms_map_dump_cmd(char *cmd);
-char *ms_map_load_cmd(char *cmd);
+float axis_ticks_deg(int axis);
+
 char *ms_off_cmd(char *cmd);
-char *ms_on_cmd(char *cmd);
-char *ms_pos_dump_cmd(char *cmd);
-char *remap_cmd(char *cmd);
-char *rot_cmd(char *cmd);
-char *set_limits_cmd(char *cmd);
-char *set_position_cmd(char *cmd);
-char *set_time_cmd(char *cmd);
-char *stats_cmd(char *cmd);
-char *status_cmd(char *cmd);
-char *status_long_cmd(char *cmd);
-char *system_status_cmd(char *cmd);
-char *tel1_cmd(char *cmd);
-char *tel2_cmd(char *cmd);
-char *ticklost_cmd(char *cmd);
-char *time_cmd(char *cmd);
-char *dummy_cmd(char *cmd);
-char *brakeon_cmd(char *cmd);
-char *brakeoff_cmd(char *cmd);
-char *clampon_cmd(char *cmd);
-char *clampoff_cmd(char *cmd);
-char *cwmov_cmd(char *cmd);
-char *cwinst_cmd(char *cmd);
-char *cwabort_cmd(char *cmd);
-char *cwstatus_cmd(char *cmd);
-char *sp1_cmd(char *cmd);
-char *sp2_cmd(char *cmd);
-char *slitstatus_cmd(char *cmd);
-char *ffsopen_cmd(char *cmd);
-char *ffsclose_cmd(char *cmd);
-char *fflon_cmd(char *cmd);
-char *ffloff_cmd(char *cmd);
-char *neon_cmd(char *cmd);
-char *neoff_cmd(char *cmd);
-char *hgcdon_cmd(char *cmd);
-char *hgcdoff_cmd(char *cmd);
-char *ffstatus_cmd(char *cmd);
-char *abstatus_cmd(char *cmd);
 
 #if defined(COEFFICIENTS)
    struct SW_COEFFS {
@@ -106,13 +69,12 @@ void set_rot_coeffs(int state, int index, short val);
 void print_rot_coeffs(void);
 void set_rot_uplimit(int state, int val);
 void set_rot_dnlimit(int state, int val);
-int coeffs_state_cts(int axis, int cts);
+int coeffs_state_cts(int mei_axis, int cts);
 #endif
 double sdss_get_time(void);
 double get_time(void);
-void amp_reset(int axis);
+void amp_reset(int mei_axis);
 const char *getCvsTagname(void);
-void restore_pos(void);
 double sdss_get_time(void);
 float read_clinometer(void);
 
