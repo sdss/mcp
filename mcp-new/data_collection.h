@@ -922,7 +922,7 @@ struct SDSS_FRAME {
 #define SDSS_FRAME_VERSION	11
 	unsigned char type;
 #define DATA_TYPE	1
-	unsigned short binary_len;
+	unsigned short CRC;		/* CRC for sdssdc */
 	time_t ctime;
 	struct TM axis[3];
 	struct IL inst;

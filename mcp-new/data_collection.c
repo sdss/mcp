@@ -439,17 +439,34 @@ DataCollectionTrigger(void)
       if(semTake(semSDSSDC, WAIT_FOREVER) == ERROR) {
 	 TRACE(0, "failed to take semSDSSDC: %s", strerror(errno), 0);
       } else {
+	 unsigned short CRC;		/* CRC of sdssdc, starting offset
+					   bytes into struct */
+	 const int offset = offsetof(struct SDSS_FRAME, ctime);
+
 	 if(sdssdc.status.i1.il6.sec_mir_force_limits) {
 	    printf("RHL XXX sec_mir_force_limits is true\n");
 	 }
+
+	 sdssdc.CRC = phCrcCalc(0, (char *)&sdssdc + offset,
+				sizeof(sdssdc) - offset) & 0xFFFF;
+	 
 	 *(short *)SHARE_MEMORY = TRUE;
-	 memcpy((char *)(SHARE_MEMORY+2),
-		(char *)&sdssdc, sizeof(struct SDSS_FRAME));
+	 memcpy((char *)(SHARE_MEMORY + 2), (char *)&sdssdc, sizeof(sdssdc));
 	 *(short *)SHARE_MEMORY = FALSE;
 
 	 semGive(semSDSSDC);
 
 	 dc_interrupt();
+/*
+ * check that CRC
+ */
+	 CRC = phCrcCalc(0, (char *)(SHARE_MEMORY + 2) + offset,
+			 sizeof(sdssdc) - offset) & 0xFFFF;
+
+	 if(sdssdc.CRC != CRC) {
+	    printf("RHL: CRC has changed: 0x%x v. 0x%x",
+		   sdssdc.CRC, CRC);
+	 }
       }
    }
 }
