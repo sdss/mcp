@@ -31,18 +31,12 @@
 /* mulitply AZ times 2000 for FNAL test setupd */
 #define AZ_TICK		(.0140167104063)   /* (.0035053554041*4)*/
 #define ALT_TICK 	(.0140091448584)   /* (.0035022862146*4)*/
-#ifdef ROT_ROTARY_ENCODER
-#define ROT_ROTARY_ENCODER	1
-#define ROT_TICK	(.0127597662202) /* rotary encoder */
+#if 0
+#  define ROT_ROTARY_ENCODER 1
+#  define ROT_TICK	(.0127597662202) /* rotary encoder */
 #else
-#define ROT_TICK	(.0106578926333*2) /* optical encoder */
+#  define ROT_TICK	(.0106578926333*2) /* optical encoder */
 #endif
-#define OPT_TICK	(.0106578926333*2) /* optical encoder */
-/*#define ROT_TICK	(.0106578926333*4) *//* optical encoder */
-/*#define ROT_TICK	(.0031823575754*4)*/
-#define ROT4_TICK 	(.0031823575754*4)
-#define ROT5_TICK       (.0031823575754*4*4.607)
-#define ROT2_TICK_SF	4.607
 #define AZ_TICKS_DEG	(3600/AZ_TICK)
 #define ALT_TICKS_DEG	(3600/ALT_TICK)
 #define ROT_TICKS_DEG	(3600/ROT_TICK)
