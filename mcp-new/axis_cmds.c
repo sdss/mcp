@@ -417,8 +417,9 @@ char *id_cmd(char *cmd)
 /*  printf (" ID command fired\r\n");*/
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (id_ans,"%d %s %s\r\nDSP Firmware=V%f R%d S%d, Option=%d, Axes=%d",
+  sprintf (id_ans,"%d %s %s\r\n%s\r\nDSP Firmware=V%f R%d S%d, Option=%d, Axes=%d",
 		axis_select,axis_name[axis_select+1],__DATE__,
+		"$Name$",
 		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
 		dsp_option()&0xFFF,dsp_axes());
   return id_ans;
@@ -2891,7 +2892,7 @@ void stop_frame(int axis,double pos,double sf)
 void stp_frame(int axis,double pos,double sf)
 {
   int stopped;
-  int state;
+/*  int state;*/
   int e;
   FRAME frame;
   double position;
