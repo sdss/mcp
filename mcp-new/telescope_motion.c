@@ -1332,3 +1332,61 @@ tm_show_axis(int axis)
 
    semGive(semMEI);
 }
+
+/*****************************************************************************/
+/*
+ * Clear the sticky versions of the bump switches
+ */
+void
+clear_sticky_bumps(int axis)
+{
+   switch (axis) {
+    case AZIMUTH:
+      axis_stat[AZIMUTH].bump_up_ccw_sticky = 0;
+      axis_stat[AZIMUTH].bump_dn_cw_sticky = 0;
+      break;
+    case ALTITUDE:
+      axis_stat[ALTITUDE].bump_up_ccw_sticky = 0;
+      axis_stat[ALTITUDE].bump_dn_cw_sticky = 0;
+      break;
+    case INSTRUMENT:
+      break;
+    default:
+      TRACE(0, "Illegal axis %d in clear_sticky_bumps", axis, 0);
+   }
+}
+
+void
+show_bump(void)
+{
+   printf("Windscreen bump switches:\n");
+
+   printf("Azimuth: ");
+
+   if(sdssdc.status.i1.il0.az_bump_cw) {
+      printf(" in contact CW");
+   } else if(axis_stat[AZIMUTH].bump_dn_cw_sticky) {
+      printf(" touched CW   ");
+   }
+
+   if(sdssdc.status.i1.il0.az_bump_ccw) {
+      printf(" in contact CCW");
+   } else if(axis_stat[AZIMUTH].bump_up_ccw_sticky) {
+      printf(" touched CCW   ");
+   }
+   printf("\n");
+
+   printf("Altitude:");
+   if(sdssdc.status.i1.il6.alt_bump_up) {
+      printf(" in contact UP");
+   } else if(axis_stat[ALTITUDE].bump_up_ccw_sticky) {
+      printf(" touched UP   ");
+   }
+
+   if(sdssdc.status.i1.il6.alt_bump_dn) {
+      printf(" in contact DOWN");
+   } else if(axis_stat[ALTITUDE].bump_dn_cw_sticky) {
+      printf(" touched DOWN   ");
+   }
+   printf("\n"); 
+}
