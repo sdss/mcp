@@ -1,16 +1,16 @@
 #
 # altitude fiducials
 #
-# Time:    Sun Feb 11 18:39:33 MST 2001
-# File:    /mcptpm/51951/mcpFiducials-51951.dat
+# Time:    Wed Apr 11 03:27:08 MDT 2001
+# File:    /mcptpm/52010/mcpFiducials-52010.dat
 # Encoder: pos1
-# Scale:   0
-# Arguments: -mjd 51951 -alt -time0 981865683 -time1 981866668 -y pos1 -canon -reset -table alt.dat
+# Scale:   0.01400002855
+# Arguments: -al -y pos1 -canon -reset -scale -time0 986966829 -time1 986967598 -table al_pos1.dat
 #
 # Fiducial Mark +- error  npoint
-1      3825222 +-      58.5 4
-2      7433747 +-      16.7 7
-3     11772280 +-       7.4 6
-4     15433037 +-       0.0 6
-5     19322724 +-      30.6 6
-6     23091382 +-       5.3 6
+1      3825222 +-      97.7 3
+2      7433766 +-      38.5 6
+3     11772301 +-       0.0 4
+4     15433040 +-      29.6 4
+5     19322686 +-      27.5 4
+6     23091423 +-       5.5 4
