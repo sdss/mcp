@@ -37,6 +37,7 @@
 #include "cmd.h"
 #include "dscTrace.h"
 #include "mcpFiducials.h"
+#include "mcpMsgQ.h"
 #include "mcpTimers.h"
 #include "mcpUtils.h"
 
@@ -72,7 +73,7 @@ iack_cmd(char *cmd)			/* NOTUSED */
 /*
  * Reset the MCP board and maybe the whole VME crate
  */
-static char *
+char *
 sys_reset_cmd(char *args)
 {
    int reset_crate = 0;
@@ -93,84 +94,133 @@ sys_reset_cmd(char *args)
  * vxWorks fflush doesn't seem to work, at least on NFS filesystems,
  * so we reopen the file every so many lines
  */
-SEM_ID semLogfile = NULL;
 static int log_command_bufsize = 5;	/* max. no. of lines before flushing */
 static int log_all_commands = 0;	/* should I log everything? */
+
+/*****************************************************************************/
+
+MSG_Q_ID msgCmdLog = NULL;		/* control command logging */
+typedef struct {
+   MCP_MSG msg;				/* message to send */
+   char buff[UBLOCK_SIZE];		/* space for command being logged */
+} MCP_CMD_MSG;
 
 void
 log_mcp_command(int type,		/* type of command */
 		const char *cmd)	/* command, or NULL to flush file */
 {
-   static FILE *mcp_log_fd = NULL;	/* fd for logfile */
-   static int nline = 0;		/* number of lines written */
-#if 1
-   int tick0 = tickGet(), tick1;	/* initial/final tick around semGet */
-#endif
-
-   if(cmd != NULL) {
-      if(log_all_commands < 0) {	/* log no commands */
-	 return;			
-      }
-      
-      if(log_all_commands == 0 && (type == -1 || !(type & CMD_TYPE_MURMUR))) {
-	 return;			/* don't log this command */
-      }
-   }
-   
-#if 0
-   if(semTake(semLogfile, WAIT_FOREVER) != OK) {
-      TRACE(0, "Cannot take semLogfile %d: %s", errno, strerror(errno));
-      taskSuspend(0);
-   }
-#else
-   if(semTake(semLogfile, 30) != OK) {
-      TRACE(2, "Cannot take semLogfile %d: %s", errno, strerror(errno));
-   }
-#endif
-   
-#if 1
-   tick1 = tickGet();
-   if(tick1 - tick0 > 30) {		/* 1/2 second */
-      TRACE(3, "Waited %.2fs for semLogfile", (tick1 - tick0)/60.0, 0);
-   }
-#endif
-
+   MCP_CMD_MSG msg;			/* message to send */
+     
    if(cmd == NULL) {			/* flush log file */
-      if(mcp_log_fd != NULL) {
-	 fclose(mcp_log_fd); mcp_log_fd = NULL;
-	 nline = 0;
-      }
+      msg.msg.type = cmdFlush_type;
 
-      semGive(semLogfile);
+      switch (msgQSend(msgCmdLog, (char *)&msg, sizeof(msg),
+		       NO_WAIT, MSG_PRI_NORMAL)) {
+       case OK:
+	 break;
+       case S_objLib_OBJ_UNAVAILABLE:
+	 TRACE(0, "No room on msgQueue to flush logfile", 0, 0);
+	 break;
+       default:
+	 TRACE(0, "Failed to flush mcpCmdLog", 0, 0);
+	 break;
+      }
 
       return;
    }
 
-   if(mcp_log_fd == NULL) {
-      /*
-       * Open logfile
-       */
-      char filename[100];
+   if(log_all_commands < 0) {		/* log no commands */
+      return;			
+   }
+   
+   if(log_all_commands == 0 && (type == -1 || !(type & CMD_TYPE_MURMUR))) {
+      return;				/* don't log this command */
+   }
+/*
+ * We have work to do. 
+ */
+   msg.msg.type = cmdLog_type;
+   sprintf(msg.msg.u.cmdLog.cmd, "%d:%d:%s\n", time(NULL), ublock->pid, cmd);
+   
+   switch (msgQSend(msgCmdLog, (char *)&msg, sizeof(msg),
+		    NO_WAIT, MSG_PRI_NORMAL)) {
+    case OK:
+      break;
+    case S_objLib_OBJ_UNAVAILABLE:
+      TRACE(0, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd);
+      break;
+    default:
+      TRACE(0, "Failed to send message to tCmdLog", 0, 0);
+      break;
+   }
+}
 
-      sprintf(filename, "mcpCmdLog-%d.dat", mjd());
-      if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
-	 TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
-	 semGive(semLogfile);
+/*****************************************************************************/
+/*
+ * Here's the spawned task that actually does the work of writing the log file
+ */
+void
+tCmdLog(void)
+{
+   MCP_CMD_MSG msg;			/* message to pass around */
+   static FILE *mcp_log_fd = NULL;	/* fd for logfile */
+   static int nline = 0;		/* number of lines written */
+   int ret;				/* return code */
+
+   for(;;) {
+      ret = msgQReceive(msgCmdLog, (char *)&msg, sizeof(msg), WAIT_FOREVER);
+      assert(ret != ERROR);
+
+      TRACE(8, "read msg on msgCmdLog", 0, 0);
+
+      switch (msg.msg.type) {
+       case cmdFlush_type:
+	 if(mcp_log_fd != NULL) {
+	    fclose(mcp_log_fd); mcp_log_fd = NULL;
+	    nline = 0;
+	 }
 	 
-	 return;
+	 continue;
+       case cmdLog_type:
+/*
+ * Open logfile if needs be
+ */
+	 if(mcp_log_fd == NULL) {
+	    char filename[100];
+	    
+	    sprintf(filename, "mcpCmdLog-%d.dat", mjd());
+	    if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
+	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
+	       
+	       continue;
+	    }
+	 }
+
+	 if(fputs(msg.msg.u.cmdLog.cmd, mcp_log_fd) == EOF) {
+	    TRACE(0, "Error logging command: %d (%s)",
+		  errno, strerror(errno));
+	    TRACE(0, "    %s", msg.msg.u.cmdLog.cmd, 0);
+	 } else {
+	    nline++;
+	 }
+/*
+ * Flush to disk?
+ */
+	 if(nline >= log_command_bufsize) {
+	    fclose(mcp_log_fd); mcp_log_fd = NULL;
+	    nline = 0;
+	 }
+
+	 break;
+       default:
+	 TRACE(0, "Impossible message type: %d", msg.msg.type, 0);
+
+	 continue;
       }
    }
-
-   fprintf(mcp_log_fd, "%d:%d:%s\n", time(NULL), ublock->pid, cmd);
-   nline++;
-
-   if(nline >= log_command_bufsize) {
-      fclose(mcp_log_fd); mcp_log_fd = NULL;
-      nline = 0;
-   }
-
-   semGive(semLogfile);
 }
+
+/*****************************************************************************/
 
 char *
 log_flush_cmd(char *cmd)		/* NOTUSED */
@@ -235,6 +285,8 @@ new_ublock(int pid,
 int
 cmdInit(const char *rebootStr)		/* the command to use until iacked */
 {
+   int ret;				/* return code */
+   
    rebootedMsg = rebootStr;
 
    if(semCMD == NULL) {
@@ -251,15 +303,21 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
       assert(docSymTbl != NULL);
    }
 /*
- * Create semaphore that controls access to logfile
+ * Create message queue of commands to write to disk.  The elements of the
+ * queue must be declared to be of size (sizeof(MCP_MSG) + UBLOCK_SIZE) as
+ * we didn't include the full buffer size in MCP_MSG.u.cmdLog as that would
+ * have made _all_ MCP_MSGs much larger.
  */
-   if(semLogfile == NULL) {
-      semLogfile = semMCreate(SEM_Q_FIFO);
-      assert(semLogfile != NULL);
-   }
+   msgCmdLog = msgQCreate(40, sizeof(MCP_CMD_MSG), MSG_Q_FIFO);
+   assert(msgCmdLog != NULL);
+   
+   ret = taskSpawn("tCmdLog",90,0,10000,(FUNCPTR)tCmdLog,
+		   0,0,0,0,0,0,0,0,0,0);
+   assert(ret != ERROR);   
 /*
  * log this reboot
  */
+   printf("About to log the reboot\n");
    log_mcp_command(CMD_TYPE_MURMUR, "rebooted");
    log_mcp_command(CMD_TYPE_MURMUR, mcpVersion(NULL, 0));
 /*
@@ -511,6 +569,7 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
       int size = cmdSymTbl->nsymbols/2;	/* there are upper and lower case names
 					   but we only want lower */
       commands = malloc(size*sizeof(char *));
+      assert(commands != NULL);
 
       ncommand = 0;
       symEach(cmdSymTbl, (FUNCPTR)get_command_names, (int)0);
