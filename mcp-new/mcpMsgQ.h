@@ -33,10 +33,15 @@ typedef struct {
       TbarsLatchCheck_type,		/* check that imager t-bars latched */
       TbarsUnlatchCheck_type,		/* check that imager t-bars unlatched*/
 
+      brakesSet_type,			/* set the brakes */
+      brakesUnset_type,			/* clear the brakes */
+
       specDoor_type			/* control spectrograph doors */
    } type;
    
    union {
+      struct s_tmr_msg tmr;		/* a message type from tTimerTask */
+
       struct {
 	 enum {ENGAGE, DISENGAGE} op;
       } alignClamp;
@@ -79,7 +84,9 @@ typedef struct {
 	 enum { OPEN, CLOSE, CLEAR } op; /* desired operation */
       } specDoor;
 
-      struct s_tmr_msg tmr;		/* a message type from tTimerTask */
+      struct {
+	 int axis;			/* which axis */
+      } brakes;
    } u;
 } MCP_MSG;
 
