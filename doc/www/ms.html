@@ -10,6 +10,7 @@ memory on the MCP, and may be loaded from files on the unix host.
 <UL>
 <LI> <A HREF="#commands">`MS' Commands</A>
 <LI> <A HREF="#logfiles">Fiducial Log Files</A>
+<LI> <A HREF="#iopCommands">IOP Commands to Manipulate mcpFiducial Files</A>
 </UL>
 
 <H2><A NAME="commands">`MS' Commands</A></H2>
@@ -150,7 +151,11 @@ value for that fiducial, followed by its error; and finally the number of
 points that were averaged together to derive the value.  Only the
 first two values are used, except that the special error value
 <CODE>-9999</CODE> is used to label a missing value.
+<P>
 
+When you switch to a new version of the MCP (using <CODE>switchMCP</CODE>)
+the fiducial tables in the new version are installed in
+<CODE>/p/mcpbase</CODE>; they are downloaded to the MCP itself at boot time.
 
 <H3><A NAME="ms_save_cmd">MS.SAVE</A></H3>
 Save the `correct' values of the fiducials to shared memory.
@@ -209,8 +214,8 @@ The <CODE>typedef</CODE>s in the file are:
 
 <DT> ALT_FIDUCIAL
 <DD> An altitude fiducial has been crossed.
-The fiducial index, its `correct' position, two encoder positions, and
-the raw clinometer reading are logged.
+The fiducial index, its `correct' position, two encoder positions, the
+velocity, and the raw clinometer reading are logged.
 
 The clinometer reading may be decoded using:
 <PRE>
@@ -219,13 +224,13 @@ The clinometer reading may be decoded using:
 
 <DT> AZ_FIDUCIAL
 <DD>
-The fiducial index, its `correct' position, and two encoder positions
-are logged.
+The fiducial index, its `correct' position, and two encoder positions,
+and the velocity are logged.
 
 <DT> ROT_FIDUCIAL
 <DD>
 The fiducial index (negative if the index is one of the intermediate
-dithered values), `correct' position, two encoder readings, and
+dithered values), `correct' position, two encoder readings, velocity, and
 the position of the previous fiducial crossed are logged.
 
 <DT> DEFINE_FIDUCIALS
@@ -250,7 +255,82 @@ offset are logged.
 <DD> The MCP's idea of the encoder error in this axis has been updated. The
 axis and new error are logged.
 
+<DT> DISABLE_MS_CORRECTION
+<DD> The TCC has requested the MCP to disable MS.ON updates to the encoder
+positions as too large a correction (or too many large corrections) have
+been requested. The time, axis, and offending correction are logged.
+
+<DT> MS_ON
+<DD> The TCC has sent the MCP an MS.ON command. The time and axis are logged.
+
+<DT> MS_OFF
+<DD> The TCC has sent the MCP an MS.OFF command. The time and axis are logged.
 
 </DL>
+
+<H2><A NAME="iopCommands">IOP Commands to Manipulate mcpFiducial Files</A></H2>
+
+There are a number (well, one <EM>is</EM> a number) of commands in iop to
+manipulate and analyse the mcpFiducials files that the MCP writes:
+
+<DL>
+<DT> readMcpFiducials
+<DD>
+Read and analyze an mcpFiducials file
+e.g.
+<PRE>
+ readMcpFiducials -mjd 51799 \\
+       -alt -y pos1 -x time -reset -canon -updown -table stdout
+</PRE>
+
+The file (by default the current one) is read, and the readings of
+the specified encoder for the specified axis are analysed.
+
+If you specify <CODE>-x</CODE> and <CODE>-y</CODE> a plot of
+<CODE>x</CODE> v. <CODE>y</CODE> is generated; useful choices for
+<CODE>x</CODE> are <CODE>fididx</CODE> (fiducial index), <CODE>time</CODE>,
+or <CODE>index</CODE>; you will usually want to use <CODE>pos1</CODE>
+or <CODE>pos2</CODE> for <CODE>y</CODE>.  Unless you specify
+<CODE>-absolute</CODE>, the value for each encoder will have a mean
+value subtracted; exactly how that mean is determined is described in
+the next paragraph.
+<P>
+
+There are a number of flags to control how the mean value for each
+fiducial is determined:
+<DL>
+<DT> -absolute
+<DD>
+Don't subtract any mean; use raw values
+
+<DT> -canonical
+<DD>
+Adjust the value of the `canonical' fiducial to have the `canonical'
+value; currently these are:
+<BR>
+<TABLE>
+   <TR> <TD> Azimuth  <TD ALIGN=right> 33 <TD ALIGN=right> 31016188 </TR>
+   <TR> <TD> Altitude <TD ALIGN=right>  1 <TD ALIGN=right>  3825222 </TR>
+   <TR> <TD> Rotator  <TD ALIGN=right> 83 <TD ALIGN=right> 40168185 </TR>
+</TABLE>
+
+<DT> -reset
+<DD>
+Everytime the first fiducial in the mcpFiducials file is passed, reset
+the encoders to have the initial value.  This is equivalent to
+refiducialising the telescope just after passing that fiducial, and
+is used to take out secular changes.
+
+<DT> -updown
+<DD>
+Analyse the encoder positions measured when the telescope wa moving up and down
+(or clockwise and anticlockwise) separately.  The mean `up' and `down'
+values are then averaged together.
+
+</DL>
+<P>
+
+Optionally, a fiducial table in the correct format for MS.READ can be
+generated (using the <CODE>-table</CODE> flag).
 
 </HTML>
