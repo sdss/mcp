@@ -1721,7 +1721,7 @@ read_fiducials(const char *file,	/* file to read from */
 	    continue;
 	 }
 
-	 if(error < 0) {		/* invalid position */
+	 if(error >= 0) {		/* invalid position */
 	    fiducials[fid] = mark + bias;
 	 }
       } else {
