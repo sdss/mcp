@@ -40,6 +40,7 @@
 #		endif
 #	endif
 #	ifdef MEI_VW
+#	include <intLib.h>
 	extern int16 MEIKEY;
 #		define	CRITICAL			MEIKEY=intLock()
 #		define	ENDCRITICAL			intUnlock(MEIKEY)
