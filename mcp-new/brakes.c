@@ -54,6 +54,17 @@ tBrakes(void)
 	 continue;
       }
 /*
+ * Is this an axis with a brake?
+ */
+      if(axis == AZIMUTH || axis == ALTITUDE) {
+	 ;				/* OK */
+      } else if(axis == INSTRUMENT) {
+	 continue;
+      } else {
+	 TRACE(0, "illegal axis %d", axis, 0);
+	 continue;
+      }
+/*
  * set the bits that control the brakes
  */
       TRACE(10, "Taking semSLC semaphore", 0, 0);
@@ -79,11 +90,9 @@ tBrakes(void)
       } else if(axis == AZIMUTH) {
 	 tm_ctrl.mcp_az_brk_en_cmd =  set_brake ? 1 : 0;
 	 tm_ctrl.mcp_az_brk_dis_cmd = set_brake ? 0 : 1;
-      } else if(axis == INSTRUMENT) {
-	 continue;
       } else {
-	 TRACE(0, "illegal axis %d", axis, 0);
-	 continue;
+	 TRACE(0, "Impossible instrument %d", axis, 0);
+	 abort();
       }
       
       swab((char *)&tm_ctrl, (char *)&ctrl, 2);
