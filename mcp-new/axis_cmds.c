@@ -315,6 +315,25 @@ init_cmd(char *cmd)
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 /*
+ * If we are the TCC, try to take the semCmdPort semaphore; if the
+ * axis init fails we'll still have it (but it can be stolen).
+ *
+ * The TCC's AXIS STOP command issues a MOVE command, which gives
+ * up the semaphore.
+ */
+   if(taskIdSelf() == taskNameToId("TCC")) {
+      char name[100];			/* name of initer */
+
+      TRACE(2, "AXIS INIT: taking semCmdPort", 0, 0);
+
+      sprintf(name, "%s:%d", ublock->uname, ublock->pid);
+
+      if(take_semCmdPort(60, name) != OK) {
+	 TRACE(0, "init_cmd: failed to take semCmdPort semaphore", 0, 0);
+	 return("ERR: failed to take semCmdPort semaphore");
+      }
+   }
+/*
  * send MS.OFF to stop updating of axis position from fiducials
  */
    if(set_ms_off(axis, 0) < 0) {
@@ -446,19 +465,6 @@ init_cmd(char *cmd)
  */
    clear_sticky_bumps(axis, 0);
    clear_sticky_bumps(axis, 1);
-/*
- * If we are the TCC, try to take the semCmdPort semaphore; if the
- * axis init fails we'll still have it (but it can be stolen).
- *
- * The TCC's AXIS STOP command issues a MOVE command, which gives
- * up the semaphore.
- */
-   if(taskIdSelf() == taskNameToId("TCC")) {
-      TRACE(2, "AXIS INIT: taking semCmdPort", 0, 0);
-      if(take_semCmdPort(NO_WAIT, "TCC") == ERROR) {
-	 TRACE(1, "AXIS INIT failed to take semCmdPort semaphore", 0, 0);
-      }
-   }
 /*
  * flush the MCP command logfile
  */
@@ -1831,7 +1837,7 @@ axisMotionInit(void)
    define_cmd("HALT",          hold_cmd, 	  0, 1, 1);
    define_cmd("HOLD",          hold_cmd, 	  0, 1, 1);
    define_cmd("ID",            id_cmd, 		  0, 0, 1);
-   define_cmd("INIT",          init_cmd, 	  0, 1, 1);
+   define_cmd("INIT",          init_cmd, 	  0, 0, 1);
    define_cmd("ROT",           rot_cmd, 	  0, 0, 0);
    define_cmd("IR",            rot_cmd, 	  0, 0, 0);
    define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 1);
