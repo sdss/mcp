@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                 
    unsigned no_inst_in_place : 1;            
    unsigned disc_cable : 1;                  
-   unsigned version_id : 16;                  /* Version 8 : v8  */
+   unsigned version_id : 16;                  /* Version 11 : v11  */
 } B3_L1;
 
 typedef struct {
@@ -331,10 +331,10 @@ typedef struct {
    unsigned spare_b3_13_15 : 1;              
    unsigned spare_b3_13_14 : 1;              
    unsigned spare_b3_13_13 : 1;              
-   unsigned spare_b3_13_12 : 1;              
-   unsigned spare_b3_13_11 : 1;              
-   unsigned spare_b3_13_10 : 1;              
-   unsigned spare_b3_13_9 : 1;               
+   unsigned alt_bump_dn_delay : 1;           
+   unsigned alt_bump_up_delay : 1;           
+   unsigned az_bump_ccw_delay : 1;           
+   unsigned az_bump_cw_delay : 1;            
    unsigned lh_les_6d0_5 : 1;                
    unsigned lh_les_6d0_4 : 1;                
    unsigned lh_les_6d0_3 : 1;                
@@ -542,17 +542,17 @@ typedef struct {
 } I1_L0;
 
 typedef struct {
-   unsigned spare_i1_l1 : 1;                 
+   unsigned spare_i1_l1 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L1;
 
 typedef struct {
-   unsigned spare_i1_l2 : 1;                 
+   unsigned spare_i1_l2 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L2;
 
 typedef struct {
-   unsigned spare_i1_l3 : 1;                 
+   unsigned spare_i1_l3 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L3;
 
@@ -592,17 +592,17 @@ typedef struct {
 } I1_L4;
 
 typedef struct {
-   unsigned spare_i1_l5 : 1;                 
+   unsigned spare_i1_l5 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L5;
 
 typedef struct {
-   unsigned spare_i1_l6 : 1;                 
+   unsigned spare_i1_l6 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L6;
 
 typedef struct {
-   unsigned spare_i1_l7 : 1;                 
+   unsigned spare_i1_l7 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L7;
 
@@ -674,7 +674,7 @@ typedef struct {
    unsigned rack_2_grp_4_bit_6 : 1;           /* Spare PLC input bit. */
    unsigned rack_2_grp_4_bit_5 : 1;           /* Spare PLC input bit. */
    unsigned rack_2_grp_4_bit_4 : 1;           /* Spare PLC input bit. */
-   unsigned sec_mir_force_limits : 1;         /* Spare PLC input bit. */
+   unsigned sec_mir_force_limits : 1;         /* Secondary Mirror Force Limit bit. */
    unsigned alt_bump_dn : 1;                  /* Altitude telescope to windscreen down bump switch. */
    unsigned alt_bump_up : 1;                  /* Altitude telescope to windscreen up bump switch. */
    unsigned purge_air_pressur_sw : 1;         /* Purge air pressure switch */
@@ -682,12 +682,12 @@ typedef struct {
 } I1_L10;
 
 typedef struct {
-   unsigned spare_i1_l11 : 1;                
+   unsigned spare_i1_l11 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L11;
 
 typedef struct {
-   unsigned spare_i1_l12 : 1;                
+   unsigned spare_i1_l12 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 15;                            
    unsigned rack_3_grp_1_bit_15 : 1;          /* Spare PLC input bit. */
    unsigned rack_3_grp_1_bit_14 : 1;          /* Spare PLC input bit. */
@@ -763,7 +763,7 @@ typedef struct {
 } I1_L14;
 
 typedef struct {
-   unsigned spare_i1_l15 : 1;                
+   unsigned spare_i1_l15 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } I1_L15;
 
@@ -966,7 +966,7 @@ typedef struct {
    unsigned in_9_bit_12_spare : 1;            /* Spare PLC Input Bit */
    unsigned in_9_bit_11_spare : 1;            /* Spare PLC Input Bit */
    unsigned in_9_bit_10_spare : 1;            /* Spare PLC Input Bit */
-   unsigned in_9_bit_9_spare : 1;             /* Spare PLC Input Bit */
+   unsigned alt_locking_pin_in : 1;           /* Altitude Locking Pin In place bit. */
    unsigned solenoid_engage_sw : 1;           /* Solenoid engage (dead mans switch) */
    unsigned low_lvl_lighting_req : 1;         /* Low lever lighting state change request bit. */
    unsigned alt_brake_dis_stat : 1;           /* Altitude brake disabled status */
@@ -1030,12 +1030,12 @@ typedef struct {
 } I10_L0;
 
 typedef struct {
-   unsigned spare_o1_l0 : 1;                 
+   unsigned spare_o1_l0 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L0;
 
 typedef struct {
-   unsigned spare_o1_l1 : 1;                 
+   unsigned low_lvl_light_2 : 1;              /* Low level lighting enable bit 2 */
    unsigned low_lvl_light_1 : 1;              /* Low level lighting enable bit 1 */
    unsigned az_stow_light : 1;                /* Azimuth stow indicator light output bit */
    unsigned stop_bypass_strobe : 1;           /* E-Stop bypass warning strobe enable bit */
@@ -1055,17 +1055,17 @@ typedef struct {
 } O1_L1;
 
 typedef struct {
-   unsigned spare_o1_l2 : 1;                 
+   unsigned spare_o1_l2 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L2;
 
 typedef struct {
-   unsigned spare_o1_l3 : 1;                 
+   unsigned spare_01_l3 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L3;
 
 typedef struct {
-   unsigned spare_o1_l4 : 1;                 
+   unsigned spare_o1_l4 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L4;
 
@@ -1140,17 +1140,17 @@ typedef struct {
 } O1_L6;
 
 typedef struct {
-   unsigned spare_o1_l7 : 1;                 
+   unsigned spare_o1_l7 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L7;
 
 typedef struct {
-   unsigned spare_o1_l8 : 1;                 
+   unsigned spare_o1_l8 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L8;
 
 typedef struct {
-   unsigned spare_o1_l9 : 1;                 
+   unsigned spare_o1_l9 : 1;                  /* MCP Place Holder. Not used in logic code. */
    unsigned : 15;                            
    unsigned rack_2_grp_3_bit_15 : 1;          /* Spare PLC output bit. */
    unsigned rack_2_grp_3_bit_14 : 1;          /* Spare PLC output bit. */
@@ -1171,7 +1171,7 @@ typedef struct {
 } O1_L9;
 
 typedef struct {
-   unsigned spare_o1_l10 : 1;                
+   unsigned spare_o1_l10 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 15;                            
    unsigned audio_warning_2 : 1;              /* Audio warning used for instrument change error */
    unsigned rack_2_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
@@ -1192,22 +1192,22 @@ typedef struct {
 } O1_L10;
 
 typedef struct {
-   unsigned spare_o1_l11 : 1;                
+   unsigned spare_o1_l11 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L11;
 
 typedef struct {
-   unsigned spare_o1_l12 : 1;                
+   unsigned spare_o1_l12 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L12;
 
 typedef struct {
-   unsigned spare_o1_l13 : 1;                
+   unsigned spare_o1_l13 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L13;
 
 typedef struct {
-   unsigned spare_o1_l14 : 1;                
+   unsigned spare_o1_l14 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 15;                            
    unsigned audio_warning_1 : 1;              /* Audio warning used for instrument change error */
    unsigned rack_4_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
@@ -1228,7 +1228,7 @@ typedef struct {
 } O1_L14;
 
 typedef struct {
-   unsigned spare_o1_l15 : 1;                
+   unsigned spare_o1_l15 : 1;                 /* MCP Place Holder. Not used in logic code. */
    unsigned : 31;                            
 } O1_L15;
 
@@ -1377,7 +1377,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 8 : v8";
+   static char plcVersion[] = "Version 11 : v11";
 #endif
 /*
  * End of machine generated code
