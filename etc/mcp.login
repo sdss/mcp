@@ -169,6 +169,7 @@ tLatchInit
 spectroInit
 tBarsInit
 timeInit
+tBrakesInit
 
 #BCAST_Enable=0
 #SM_COPY=0
@@ -212,3 +213,4 @@ barcode_open (3)
 #
 traceOff barcodcan, 16,16
 traceTtyOn 0, 4
+
