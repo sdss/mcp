@@ -47,6 +47,7 @@ void tm_clamp_off();
 void tm_sp_clamp_on();
 void tm_sp_clamp_off();
 int tm_clamp_status();
+void tm_slit_clear(int door);
 void tm_slit_open(int door);
 void tm_slit_close(int door);
 void tm_sp_slit_open(int door);

@@ -74,6 +74,7 @@ struct COMMANDS axis_cmds[] = {
 	{"CWSTATUS",cwstatus_cmd},
 	{"SP1",sp1_cmd},
 	{"SP2",sp2_cmd},
+	{"SLIT.CLEAR",slitclear_cmd},
 	{"SLIT.CLOSE",slitclose_cmd},
 	{"SLIT.OPEN",slitopen_cmd},
 	{"CART.LATCH",cartlatch_cmd},

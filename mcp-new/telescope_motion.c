@@ -906,15 +906,25 @@ int tm_slit(short val)
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
 /*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
-   if (val==3)
+   if (val==5)
+   {
+     tm_ctrl1.mcp_slit_door2_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
+   }
+   if (val==4)
    {
      tm_ctrl1.mcp_slit_door2_opn_cmd = 1;
      tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
    }
-   if (val==2)
+   if (val==3)
    {
      tm_ctrl1.mcp_slit_door2_opn_cmd = 0;
      tm_ctrl1.mcp_slit_door2_cls_cmd = 1;
+   }
+   if (val==2)
+   {
+     tm_ctrl1.mcp_slit_door1_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_door1_cls_cmd = 0;
    }
    if (val==1) 
    {
@@ -942,13 +952,17 @@ int tm_slit(short val)
    tm_slit_status();*/
    return 0;
 }
+void tm_slit_clear(int door)
+{
+    tm_slit (2+(door*3));
+}
 void tm_slit_open(int door)
 {
-    tm_slit (1+(door*2));
+    tm_slit (1+(door*3));
 }
 void tm_slit_close(int door)
 {
-    tm_slit (0+(door*2));
+    tm_slit (0+(door*3));
 }
 void tm_sp_slit_open(int door)
 {

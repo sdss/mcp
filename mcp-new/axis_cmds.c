@@ -1924,6 +1924,14 @@ char *sp2_cmd(char *cmd)
   spectograph_select=SPECTOGRAPH2;
   return 0;
 }
+char *slitclear_cmd(char *cmd)
+{
+  printf (" SLIT.CLEAR command fired\r\n");
+  if ((spectograph_select<SPECTOGRAPH1) ||
+    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  tm_slit_clear(spectograph_select-SPECTOGRAPH1);
+  return "";
+}
 char *slitopen_cmd(char *cmd)
 {
   printf (" SLIT.OPEN command fired\r\n");

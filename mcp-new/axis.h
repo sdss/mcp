@@ -94,6 +94,7 @@ char *cwabort_cmd(char *cmd);
 char *cwstatus_cmd(char *cmd);
 char *sp1_cmd(char *cmd);
 char *sp2_cmd(char *cmd);
+char *slitclear_cmd(char *cmd);
 char *slitopen_cmd(char *cmd);
 char *slitclose_cmd(char *cmd);
 char *cartlatch_cmd(char *cmd);
