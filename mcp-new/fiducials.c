@@ -131,6 +131,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "   int pos2;\n");
    fprintf(fd, "   float deg;\n");
    fprintf(fd, "   float alt_pos;\n");
+   fprintf(fd, "   float velocity;\n");
    fprintf(fd, "} ALT_FIDUCIAL;\n");
    fprintf(fd, "\n");
       
@@ -141,6 +142,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "   int pos1;\n");
    fprintf(fd, "   int pos2;\n");
    fprintf(fd, "   float deg;\n");
+   fprintf(fd, "   float velocity;\n");
    fprintf(fd, "} AZ_FIDUCIAL;\n");
    fprintf(fd, "\n");
       
@@ -152,6 +154,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "   int pos2;\n");
    fprintf(fd, "   float deg;\n");
    fprintf(fd, "   int latch;\n");
+   fprintf(fd, "   float velocity;\n");
    fprintf(fd, "} ROT_FIDUCIAL;\n");
    fprintf(fd, "\n");
       
@@ -225,7 +228,8 @@ write_fiducial_log(const char *type,	/* type of entry */
 		   int true,		/* the "true" position of the fid. */
 		   int pos1,		/* position of axis */
 		   int pos2,		/* second position, if available */
-		   float arg0)		/* something else to write */
+		   float arg0,		/* something else to write */
+		   float arg1)		/* yet something else to write */
 {
    float deg;				/* position in degrees */
    FILE *fd;				/* fd for logfile */
@@ -261,18 +265,21 @@ write_fiducial_log(const char *type,	/* type of entry */
  * Write the entry
  */
    if(strcmp(type, "ALT_FIDUCIAL") == 0) {
-      int alt_pos = arg0;
-      
-      fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d\n", type, time(NULL),
-	      fididx, true, pos1, pos2, deg, alt_pos);
+      float vel = arg0;
+      int alt_pos = arg1;
+
+      fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d %9.0f\n", type,time(NULL),
+	      fididx, true, pos1, pos2, deg, alt_pos, vel);
    } else if(strcmp(type, "AZ_FIDUCIAL") == 0) {
-      fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f\n", type, time(NULL),
-	      fididx, true, pos1, pos2, deg);
+      float vel = arg0;
+      fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f %9.0f\n", type, time(NULL),
+	      fididx, true, pos1, pos2, deg, vel);
    } else if(strcmp(type, "ROT_FIDUCIAL") == 0) {
-      int rot_latch = arg0;
+      float vel = arg0;
+      int rot_latch = arg1;
       
-      fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d\n", type, time(NULL),
-	      fididx, true, pos1, pos2, deg, rot_latch);
+      fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d %9.0f\n", type,time(NULL),
+	      fididx, true, pos1, pos2, deg, rot_latch, vel);
    } else if(strcmp(type, "DEFINE_FIDUCIALS") == 0) {
       fprintf(fd, "%s %d %s\n", type, time(NULL), axis_name(axis));
    } else if(strcmp(type, "START_FIDUCIAL") == 0) {
@@ -346,7 +353,7 @@ mcp_set_fiducial(int axis)
 
    write_fiducial_log("SET_FIDUCIAL", axis, fiducial[axis].index,
 		      fiducial[axis].known_position,
-		      tmaxis[axis]->actual_position, 0, correction);
+		      tmaxis[axis]->actual_position, 0, correction, 0);
   
    fiducial[axis].mark = fiducial[axis].known_position;
 
@@ -440,19 +447,21 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 		  semGive(semSLCDC);
 
 		  write_fiducial_log("DISABLE_MS_CORRECTION", axis,
-				     0, 0, 0, 0, correction);
+				     0, 0, 0, 0, correction, 0);
 	       }
 	    } else {
-	       TRACE(2, "Not disabling MS.ON even with error of %d "
-		     "(max allowed: %d)",
-		     correction, fiducial[axis].max_correction);
+	       if(fiducial[axis].max_correction > 0) {
+		  TRACE(2, "Not disabling MS.ON even with error of %d "
+			"(max allowed: %d)",
+			correction, fiducial[axis].max_correction);
+	       }
 	    }
 	    
 	    return;
 	 }
       }
       
-      set_axis_encoder_error(axis, correction);
+      set_axis_encoder_error(axis, correction, 1);
       update_fiducial_errors(axis, correction);
       fiducial[axis].error = 0;
 
@@ -613,6 +622,7 @@ tLatch(const char *name)
 #if LATCH_ALL_AXES
    unsigned char true_dio316int_bit;	/* original value of dio316int_bit */
 #endif
+   double vel;				/* an axis' velocity */
    
    for(latchidx = -1;; latchidx = (latchidx + 1)%MAX_LATCHED) {
       if(latchidx < 0) {
@@ -675,7 +685,7 @@ tLatch(const char *name)
 	 
 	 semGive(semLatch);
 
-	 write_fiducial_log("MS_ON", axis, 0, 0, 0, 0, 0);
+	 write_fiducial_log("MS_ON", axis, 0, 0, 0, 0, 0, 0);
 	 continue;
        case ms_off_az_type:		/* an MS.OFF command; maybe sent by */
        case ms_off_alt_type:		/* timerTask hence the various types */
@@ -698,7 +708,7 @@ tLatch(const char *name)
 	 
 	 semGive(semLatch);
 
-	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0);
+	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0, 0);
 	 continue;
        default:
 	 TRACE(0, "Impossible message type: %d", msg.type, 0);
@@ -750,8 +760,9 @@ tLatch(const char *name)
 	 ret = semTake(semMEI,WAIT_FOREVER);
 	 assert(ret != ERROR);
 	 
-	 get_latched_position_corr(0, &latchpos[latchidx].pos1);
-	 get_latched_position_corr(1, &latchpos[latchidx].pos2);
+	 get_latched_position_corr(2*AZIMUTH,     &latchpos[latchidx].pos1);
+	 get_latched_position_corr(2*AZIMUTH + 1, &latchpos[latchidx].pos2);
+	 get_velocity(2*AZIMUTH, &vel);
 	 semGive(semMEI);
 
 #if LATCH_ALL_AXES
@@ -775,7 +786,7 @@ tLatch(const char *name)
 	    write_fiducial_log("AZ_FIDUCIAL", AZIMUTH, fididx,
 			       az_fiducial_position[fididx],
 			       latchpos[latchidx].pos1,
-			       latchpos[latchidx].pos2, 0);
+			       latchpos[latchidx].pos2, vel, 0);
 	    
 	    if(fididx < 0 || fididx >= N_AZ_FIDUCIALS) {
 	       TRACE(0, "Invalid azimuth fiducial %d, pos = %d",
@@ -822,8 +833,9 @@ tLatch(const char *name)
 	 ret = semTake(semMEI,WAIT_FOREVER);
 	 assert(ret != ERROR);
 	 
-	 get_latched_position_corr(2,&latchpos[latchidx].pos1);
-	 get_latched_position_corr(3,&latchpos[latchidx].pos2);
+	 get_latched_position_corr(2*ALTITUDE,     &latchpos[latchidx].pos1);
+	 get_latched_position_corr(2*ALTITUDE + 1, &latchpos[latchidx].pos2);
+	 get_velocity(2*ALTITUDE, &vel);
 	 semGive(semMEI);
 
 #if LATCH_ALL_AXES
@@ -851,7 +863,7 @@ tLatch(const char *name)
 			       alt_fiducial_position[fididx],
 			       latchpos[latchidx].pos1,
 			       latchpos[latchidx].pos2, 
-			       sdssdc.status.i4.alt_position);
+			       vel, sdssdc.status.i4.alt_position);
 	    
 	    alt_fiducial[fididx].last = alt_fiducial[fididx].mark;
 	    alt_fiducial[fididx].mark = latchpos[latchidx].pos1;
@@ -893,11 +905,12 @@ tLatch(const char *name)
 
 #ifdef ROT_ROTARY_ENCODER
 	    /* switch to 5 for optical encoder, when using rotary */
-	 get_latched_position_corr(5,&latchpos[latchidx].pos1);
-	 get_latched_position_corr(4,&latchpos[latchidx].pos2);
+	 get_latched_position_corr(2*INSTRUMENT + 1, &latchpos[latchidx].pos1);
+	 get_latched_position_corr(2*INSTRUMENT,     &latchpos[latchidx].pos2);
 #else
-	 get_latched_position_corr(4, &latchpos[latchidx].pos1);
-	 get_latched_position_corr(5, &latchpos[latchidx].pos2);
+	 get_latched_position_corr(2*INSTRUMENT,     &latchpos[latchidx].pos1);
+	 get_latched_position_corr(2*INSTRUMENT + 1, &latchpos[latchidx].pos2);
+	 get_velocity(2*INSTRUMENT, &vel);
 
 	 latchpos[latchidx].pos1 += ROT_FID_BIAS; /* make always +ve */
 	 latchpos[latchidx].pos2 += ROT_FID_BIAS;
@@ -976,7 +989,7 @@ tLatch(const char *name)
 			       (pos_is_mark ? fididx : -fididx),
 			       rot_fiducial_position[fididx],
 			       latchpos[latchidx].
-			       pos1,latchpos[latchidx].pos2, rot_latch);
+			       pos1,latchpos[latchidx].pos2, vel, rot_latch);
 	 }
       
 	 if(fididx > 0) {
@@ -1188,7 +1201,7 @@ define_fiducials(int axis)
       return(-1);
    }
 
-   write_fiducial_log("DEFINE_FIDUCIALS", axis, 0, 0, 0, 0, 0);
+   write_fiducial_log("DEFINE_FIDUCIALS", axis, 0, 0, 0, 0, 0, 0);
       
    return(0);
 }
@@ -2084,7 +2097,7 @@ tLatchInit(void)
 {
    int i;
 
-   write_fiducial_log("START_FIDUCIAL", NAXIS, 0, 0, 0, 0, 0);
+   write_fiducial_log("START_FIDUCIAL", NAXIS, 0, 0, 0, 0, 0, 0);
 /*
  * Create semaphore and message queues
  */
@@ -2131,12 +2144,10 @@ tLatchInit(void)
       alt_fiducial[i].mark=0;
       alt_fiducial_position[i]=0;
    }
-/*
- * n.b. disable non-existent fiducials
- */
+
    for(i = 0; i < sizeof(rot_fiducial)/sizeof(struct FIDUCIALS); i++) {
       rot_fiducial[i].markvalid = FALSE;
-      rot_fiducial[i].disabled = (i < 6 || i > 123) ? TRUE : FALSE;      
+      rot_fiducial[i].disabled = FALSE;
       rot_fiducial[i].last=0;
       rot_fiducial[i].err=0;
       rot_fiducial[i].poserr=0;
