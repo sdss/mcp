@@ -105,6 +105,7 @@ mcp-new/ipcast.c -text
 mcp-new/ipcast.h -text
 mcp-new/ipsym.c -text
 mcp-new/mcpMsgQ.h -text
+mcp-new/mcpTimers.h -text
 mcp-new/mcpUtils.h -text
 mcp-new/ms.h -text
 mcp-new/mv162.h -text
@@ -114,6 +115,7 @@ mcp-new/tagname.c -text
 mcp-new/telescope_motion.c -text
 mcp-new/telnetCmds.c -text
 mcp-new/timerint.h -text
+mcp-new/timers.c -text
 mcp-new/tm.h -text
 mcp-new/umbilical.c -text
 mcp-new/util.c -text
