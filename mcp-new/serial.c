@@ -229,17 +229,20 @@ tcc_serial(int port)
 #if 1
 	{
 	   extern SEM_ID semCMD;
-
 	   int ids[10], nblock;
-	   nblock = semInfo(semCMD, ids, 10);
-	   if(nblock > 0) {
+	   int j;
+	   
+	   for(j = 0; (nblock = semInfo(semCMD, ids, 10)) > 0; j++) {
 	      int i;
 	      fprintf(stderr, "semCMD: ");
 	      for(i = 0;i < nblock; i++) {
-		 fprintf(stderr,"tcc_serial blocks on 0x%x ", ids[i]);
-		 TRACE(3, "tcc_serial blocks on 0x%x", ids[i], 0);
+		 fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]",
+						  ids[i], taskName(ids[i]), j);
+		 TRACE(3, "tcc_serial blocks on %s [%d]", taskName(ids[i]), j);
 	      }
 	      fprintf(stderr,"\n");
+
+	      taskDelay(1);
 	   }
 	}
 #endif
