@@ -867,7 +867,7 @@ void Menu()
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     if ((buf[0]>='0')||(buf[0]<='9'))
+	     if ((buf[0]>='0')&&(buf[0]<='9'))
 	     {
 	       sscanf (buf,"%d",&inst);
 	       if ((inst<0)||(inst>16)) 
