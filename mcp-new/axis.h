@@ -7,8 +7,8 @@
 #define ALTITUDE		1
 #define	INSTRUMENT		2
 
-#define	SPECTOGRAPH1		0
-#define	SPECTOGRAPH2		1
+#define	SPECTROGRAPH1		0
+#define	SPECTROGRAPH2		1
 
 #define SDSS_STOP_RATE		-24000
 #define SDSS_E_STOP_RATE	-24000
@@ -132,9 +132,9 @@ int mcp_set_cw(int inst, int cw, int cwpos, const char **ans);
 int mcp_stop_axis(int axis);
 int mcp_move_va(int axis, long pos, long vel, long acc);
 
-int mcp_slit_clear(int spec);
-int mcp_slit_open(int spec);
-int mcp_slit_close(int spec);
+int mcp_specdoor_clear(int spec);
+int mcp_specdoor_open(int spec);
+int mcp_specdoor_close(int spec);
 int mcp_slithead_latch_open(int spec);
 int mcp_slithead_latch_close(int spec);
 
