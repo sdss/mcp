@@ -1997,7 +1997,7 @@ axisMotionInit(void)
    }
 
    coeff[DF_P] = 160;
-   coeff[DF_I] = 6;
+   coeff[DF_I] = 4;
    coeff[DF_D] = 700;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
@@ -2009,7 +2009,7 @@ axisMotionInit(void)
    set_filter(2*AZIMUTH, (P_INT)coeff);
 
    coeff[DF_P] = 120;
-   coeff[DF_I] = 6;
+   coeff[DF_I] = 4;
    coeff[DF_D] = 600;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
