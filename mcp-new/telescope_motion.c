@@ -692,6 +692,7 @@ mgt_shutdown(int type)
 void
 tm_amp_mgt(void)
 {
+   int amp_ok;
    int state;
    
    monitor_axis[AZIMUTH] = monitor_axis[ALTITUDE] =
@@ -712,8 +713,9 @@ tm_amp_mgt(void)
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
 	    if(!az_amp_ok(0)) {
-	       TRACE(2, "MGT: bad az amp (now %d %d)",
-		     az_amp_ok(0), az_amp_ok(1));
+	       taskDelay(1);
+	       amp_ok = az_amp_ok(0);
+	       TRACE(2, "MGT: bad az amp (now %d %d)", amp_ok, az_amp_ok(1));
 	       if(!az_amp_ok(1)) {
 		  TRACE(0, "MGT: bad az amp; aborting", 0, 0);
 		  tm_sem_controller_idle(2*AZIMUTH);
@@ -735,8 +737,10 @@ tm_amp_mgt(void)
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	    if(!alt_amp_ok(0)) {
-	       TRACE(2, "MGT: bad alt amp (now %d %d)",
-		     alt_amp_ok(0), alt_amp_ok(1));
+	       taskDelay(1);
+	       amp_ok = alt_amp_ok(0);
+
+	       TRACE(2, "MGT: bad alt amp (now %d %d)", amp_ok, alt_amp_ok(1));
 	       if(!alt_amp_ok(1)) {
 		  TRACE(0, "MGT: bad alt amp; aborting", 0, 0);
 		  tm_sem_controller_idle(2*ALTITUDE);
@@ -757,8 +761,10 @@ tm_amp_mgt(void)
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
 	    if(!rot_amp_ok(0)) {
-	       TRACE(2, "MGT: bad rot amp (now %d %d)",
-		     rot_amp_ok(0), rot_amp_ok(1));
+	       taskDelay(1);
+	       amp_ok = alt_amp_ok(0);
+
+	       TRACE(2, "MGT: bad rot amp (now %d %d)", amp_ok, rot_amp_ok(1));
 
 	       if(!rot_amp_ok(1)) {
 		  TRACE(0, "MGT: bad rot amp; aborting", 0, 0);
