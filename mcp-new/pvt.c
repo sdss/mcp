@@ -966,15 +966,10 @@ tm_TCC(int axis)
 	    TRACE(8, "%s waiting for second frame", aname, 0);
 	    taskDelay (3);
 	 }
-#if 0					/* Charlie's version */
-	 while ( (frame->nxt!=NULL) || (axis_queue[axis].active!=NULL) &&
-		((!frame_break)&&(!drift_break)) ) ;
-#else  /* re-written for clarity */
+
 	 while(frame->nxt != NULL ||
 	       (axis_queue[axis].active != NULL &&
-					       !frame_break && !drift_break)) {
-
-#endif
+				    !frame_break[axis] && !drift_break[axis])) {
 	    frame_cnt = get_frame_cnt(axis,frame);
 
 	    TRACE(8, "%s frames_cnt=%d", aname, frame_cnt);
