@@ -195,9 +195,9 @@ ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
 taskSpawn "SLC_DC",70,8,10000,slc500_data_collection,100
-TimerStart (100,5,serverDCStart)
+TimerStart 100, 5, serverDCStart
 ipsdss_ini
-serverSetSym
+
 set_rot_state -1
 ffs_enable 1		/* enable the Flat Field Screen */
 
@@ -206,7 +206,6 @@ date
 DIO316_initialize(0xFFF58000,0xB0)
 tm_setup_wd()
 taskSpawn "ampMgt",45,0,2000,tm_amp_mgt
-taskSpawn "taskTrg",100,8,10000,taskTrg
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 taskSpawn "barcodcan",85,8,2500,cancel_read
 barcode_init(0xfff58000,0xf022,0xAA,2)
@@ -215,19 +214,24 @@ taskDelay (60)
 barcode_open (3)
 #barcode_serial 3
 #
+# Start the task that controls the umbilical tower; argument is
+# interval between checks (in seconds)
+#
+tUmbilicalInit 1
+#
 # Load fiducials tables
 #
 tel1_cmd			/* AZ */
 ms_read_cmd "/p/mcpbase/fiducial-tables/az.dat"; ms_define_cmd
-ms_max_cmd "300"
+ms_max_cmd "600"
 #
 tel2_cmd			/* ALT */
 ms_read_cmd "/p/mcpbase/fiducial-tables/alt.dat"; ms_define_cmd
-ms_max_cmd "200"
+ms_max_cmd "600"
 #
 rot_cmd				/* ROT */
 ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"; ms_define_cmd
-ms_max_cmd "300"
+ms_max_cmd "600"
 #
 # Adjust tracing now that we're up
 #
