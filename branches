@@ -54,3 +54,7 @@ Thu Jun 28 11:11:06 MDT 2001		RHL
 
 	cvs rtag v5_3_0 mcp
 	cvs rtag -b -r v5_3_0 v5_3 mcp
+
+Fri Sep  7 14:23:50 MDT 2001
+	cvs update -j v5_3_0 -j v5_3_1
+	cvs ci -m "merged from v5_3 branch at point v5_3_1"
