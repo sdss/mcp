@@ -76,7 +76,7 @@ tm_move_instchange(void)
    int axis;
    
    if(semTake(semMEI, 60) == ERROR) {
-      printf("Err: Could not take semMEI semphore\n");
+      TRACE(0, "tm_move_instchange: could not take semMEI semphore", 0, 0);
       return ERROR;
    }
 
@@ -264,7 +264,6 @@ tm_adjust_pos(int axis,			/* desired axis */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       TRACE(0, "tm_adjust_pos: invalid axis %d", axis, 0);
-      fprintf(stderr,"tm_adjust_pos: illegal axis %d\n", axis);
       
       return(-1);
    }
@@ -650,14 +649,14 @@ tm_az_brake(short val)
    struct B10_0 tm_ctrl;   
              
    if (semTake (semSLC,60) == ERROR) {
-      printf("tm_az_brake: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
+      TRACE(0, "tm_az_brake: unable to take semaphore: %s (%d)",
+	    strerror(errno), errno);
       return(-1);
    }
 
    err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
    if(err) {
-      printf ("R Err=%04x\r\n",err);
+      TRACE(0, "tm_az_brake: error reading slc: 0x%04x", err, 0);
       semGive (semSLC);
       return err;
    }
@@ -675,7 +674,7 @@ tm_az_brake(short val)
    err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
    semGive (semSLC);
    if(err) {
-      printf ("W Err=%04x\r\n",err);
+      TRACE(0, "tm_az_brake: error writing slc: 0x%04x", err, 0);
       return err;
    }
    
@@ -793,7 +792,7 @@ int tm_alt_brake(short val)
    TRACE(10, "Reading blok", 0, 0);
    err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
    if(err) {
-      printf ("R Err=%04x\r\n",err);
+      TRACE(0, "tm_alt_brake: error reading slc: 0x%04x", err, 0);
       semGive(semSLC);
       return err;
    }
@@ -815,7 +814,7 @@ int tm_alt_brake(short val)
    err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
    semGive (semSLC);
    if(err) {
-      printf ("W Err=%04x\r\n",err);
+      TRACE(0, "tm_alt_brake: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -836,15 +835,13 @@ int tm_alt_brake(short val)
       taskDelay(60*4);
       
       if(semTake (semSLC,60)== ERROR) {
-	 printf("tm_alt_brake: unable to take semaphore for write: %s",
-		strerror(errno));
-	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
+	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
 	 return(-1);
       }
       
       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
       if(err) {
-	 printf ("R Err=%04x\r\n",err);
+	 TRACE(0, "tm_alt_brake: error rereading slc: 0x%04x", err, 0);
 	 semGive (semSLC);
 	 return err;
       }
@@ -856,7 +853,7 @@ int tm_alt_brake(short val)
       err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
       semGive(semSLC);
       if(err) {
-	 printf ("W Err=%04x\r\n",err);
+	 TRACE(0, "tm_alt_brake: error rewriting slc: 0x%04x", err, 0);
 	 return err;
       }
    }
@@ -935,7 +932,7 @@ tm_brake_status()
   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
   semGive (semSLC);
   if(err) {
-     printf ("R Err=%04x\r\n",err);
+     TRACE(0, "tm_brake_status: error reading slc: 0x%04x", err, 0);
      return err;
   }
   swab((char *)&ctrl,(char *)&tm_ctrl,2);
@@ -1009,7 +1006,7 @@ rot_amp_ok(void)
 void
 mgt_shutdown(int type)
 {
-   printf("mgt: Safely halt the telescope by braking AZ and ALT\n");
+   TRACE(1, "Safely halting the telescope by braking AZ and ALT", 0, 0);
    tm_az_brake_on();
    tm_alt_brake_on();
 }
@@ -1032,13 +1029,11 @@ tm_amp_mgt(void)
 	 if(monitor_axis[AZIMUTH] && sdssdc.status.i9.il0.az_brake_dis_stat) {
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
 	       TRACE(0, "MGT: bad az state %d", state, 0);
-	       printf("MGT: bad az state %d\n", state);
 	       tm_az_brake_on();
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
 	    if(!az_amp_ok()) {
 	       TRACE(0, "MGT: bad az amp", 0, 0);
-	       printf("MGT: bad az amp\n");
 	       tm_controller_idle(2*AZIMUTH);
 	       tm_az_brake_on();
 	       monitor_axis[AZIMUTH]=FALSE;
@@ -1051,13 +1046,11 @@ tm_amp_mgt(void)
 	    sdssdc.status.i9.il0.alt_brake_dis_stat) {
 	    if((state = tm_axis_state(2*ALTITUDE)) > 2 && state != STOP_EVENT){
 	       TRACE(0, "MGT: bad alt state %d", state, 0);
-	       printf("MGT: bad alt state %d\n", state);
 	       tm_alt_brake_on();
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	    if(!alt_amp_ok()) {
 	       TRACE(0, "MGT: bad alt amp", 0, 0);
-	       printf("MGT: bad alt amp\n");
 	       tm_controller_idle(2*ALTITUDE);
 	       tm_alt_brake_on();
 	       monitor_axis[ALTITUDE] = FALSE;
@@ -1069,7 +1062,6 @@ tm_amp_mgt(void)
 	 if(monitor_axis[INSTRUMENT]) {
 	    if(!rot_amp_ok()) {
 	       TRACE(0, "MGT: bad rot amp", 0, 0);
-	       printf("MGT: bad rot amp\n");
 	       tm_controller_idle(2*INSTRUMENT);
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
