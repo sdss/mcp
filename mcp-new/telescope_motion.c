@@ -236,10 +236,11 @@ tm_set_position(int mei_axis, int pos)
 }
 
 int
-tm_adjust_position(int axis,			/* desired axis */
-	      int offset)		/* how much to offset position */
+tm_adjust_position(int axis,		/* desired axis */
+		   long *offset)	/* how much to offset position */
 {
-   double position;			/* position of axis */
+   int i;
+   double position[3];			/* positions of axes; [0] is unused */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       TRACE(0, "tm_adjust_position: invalid axis %d", axis, 0);
@@ -255,28 +256,31 @@ tm_adjust_position(int axis,			/* desired axis */
    
    taskLock();
    
-   set_axis_encoder_error(axis, offset, 1); /* correct the current error */
+   for(i = 1; i <= 2; i++) {		/* correct the current error */
+      set_axis_encoder_error(axis, i, offset[i], 1);
+   }
 
-   if(get_position_corr(2*axis, &position) != DSP_OK) {
+   if(get_position_corr(2*axis, &position[1]) != DSP_OK ||
+      get_position_corr(2*axis + 1, &position[2]) != DSP_OK) {
       taskUnlock();
       semGive(semMEI);
-      TRACE(0, "adjusting position for axis %s: unable to read position",
+      TRACE(0, "adjusting position for axis %s: unable to read positions",
 	    axis_name(axis), 0);
       return(-1);
    }
-   
-   write_fiducial_log("UPDATE_ENCODER", axis, 0, 0, position, 0,
-		      get_axis_encoder_error(axis), 0);
 
-   position += get_axis_encoder_error(axis); /* include software correction */
-   
-   set_position_corr(2*axis, position);
-   set_position_corr(2*axis + 1, position); /* second az/alt encoder isn't
-					       connected/doesn't exist */
+   for(i = 1; i <= 2; i++) {
+      write_fiducial_log("UPDATE_ENCODER", axis, 0, 0, 0, position[i], 0,
+			 get_axis_encoder_error(axis, i), 0);
+      
+      position[i] += get_axis_encoder_error(axis, i); /* include software
+							 correction */
+      set_position_corr(2*axis + (i - 1), position[i]);
 /*
  * zero software correction term
  */
-   set_axis_encoder_error(axis, -get_axis_encoder_error(axis), 0);
+      set_axis_encoder_error(axis, i, -get_axis_encoder_error(axis, i), 0);
+   }
 
    taskUnlock();
    semGive(semMEI);

@@ -69,13 +69,13 @@ extern char system_status_buff[STATUS_BUFF_SIZE];
  * Routines to deal with encoder errors; they convert between the MCP's
  * idea of the encoder position and the MEI's
  */
-int get_axis_encoder_error(int axis);
-void set_axis_encoder_error(int axis, int error, int write_log);
+int get_axis_encoder_error(int axis, int encoder);
+void set_axis_encoder_error(int axis, int encoder, long error, int write_log);
 int get_position_corr(int mei_axis, double *position);
 int set_position_corr(int mei_axis, double position);
 int get_latched_position_corr(int mei_axis, double *position);
 int start_move_corr(int mei_axis, double pos, double vel, double acc);
-double convert_mei_to_mcp(int axis, double pos);
+double convert_mei_to_mcp(int mei_axis, double pos);
 #if defined(__IDSP_H)
    int dsp_set_last_command_corr(PDSP pdsp, int16 mei_axis, double final);
    int frame_m_xvajt_corr(PFRAME frame, char *cmd_str, int mei_axis,

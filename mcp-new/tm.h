@@ -8,7 +8,7 @@ void tm_get_position(int mei_axis, double *position);
 void tm_get_velocity(int mei_axis, double *velocity);
 void tm_set_sample_rate(unsigned short rate);
 void tm_set_position(int mei_axis, int pos);
-int tm_adjust_position(int axis, int offset);
+int tm_adjust_position(int axis, long *offset);
 void sem_controller_run(int mei_axis);
 void tm_sem_controller_run(int mei_axis);
 void sem_controller_idle(int mei_axis);

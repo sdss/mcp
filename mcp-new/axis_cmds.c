@@ -128,26 +128,30 @@ axis_ticks_deg(int axis)
 /* static */ int axis_encoder_error[2*NAXIS] = { 0, 0, 0, 0, 0, 0 };
 
 int 
-get_axis_encoder_error(int axis)	/* the axis in question */
+get_axis_encoder_error(int axis,	/* the axis in question */
+		       int encoder)	/* which encoder? 1 or 2 */
 {
    assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
+   assert(encoder == 1 || encoder == 2);
 
-   return(axis_encoder_error[2*axis]);
+   return(axis_encoder_error[2*axis + (encoder - 1)]);
 }
 
 void
 set_axis_encoder_error(int axis,	/* the axis in question */
-		       int error,	/* value of error */
+		       int encoder,	/* the encoder in question */
+		       long error,	/* value of errors */
 		       int write_log)	/* write a log entry? */
 {
    assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
+   assert(encoder == 1 || encoder == 2);
 
    if(write_log) {
-      write_fiducial_log("SET_FIDUCIAL_ERROR", axis, 0, 0, 0, 0, error, 0);
+      write_fiducial_log("SET_FIDUCIAL_ERROR", axis,
+			 0, 0, 0, 0, 0, error, encoder);
    }
 
-   axis_encoder_error[2*axis] += error;
-   axis_encoder_error[2*axis + 1] = axis_encoder_error[2*axis];
+   axis_encoder_error[2*axis + (encoder - 1)] += error;
 }
 
 /*
@@ -159,10 +163,10 @@ set_axis_encoder_error(int axis,	/* the axis in question */
  * ALL COMMUNICATION OF POSITIONS TO/FROM THE MEIs MUST USE THESE ROUTINES!
  */
 double
-convert_mei_to_mcp(int axis,
+convert_mei_to_mcp(int mei_axis,
 		   double pos)
 {
-   return(pos + axis_encoder_error[2*axis]);
+   return(pos + axis_encoder_error[mei_axis]);
 }
 
 int
@@ -409,20 +413,23 @@ init_cmd(char *cmd)
    if(semTake(semLatch, 60) == ERROR) {
       TRACE(0, "ERR: init cannot take semLatch", 0, 0);
    } else {
-      int correction;			/* how much to correct encoder pos */
+      long correction[3];		/* how much to correct encoder posns */
       
       for(i = 0; i < NAXIS; i++) {
 	 if(fiducial[i].max_correction == 0) {
 	    continue;
 	 }
 
-	 correction = get_axis_encoder_error(i);
-	 if(correction > 0) {
-	    TRACE(3,"Adjusting position of %s by %d", axis_name(i),correction);
+	 correction[0] = 0;		/* unused */
+	 correction[1] = get_axis_encoder_error(i, 1);
+	 correction[2] = get_axis_encoder_error(i, 2);
+	 if(correction[1] > 0) {
+	    TRACE(3,"Adjusting position of %s by %d",
+		  axis_name(i), correction[1]);
 	    
-	    if(abs(correction) >= fiducial[i].max_correction) {
+	    if(abs(correction[1]) >= fiducial[i].max_correction) {
 	       TRACE(0, "    correction %ld is too large (max %ld)",
-		     correction, fiducial[i].max_correction);
+		     correction[1], fiducial[i].max_correction);
 	       continue;
 	    }
 	    
@@ -507,7 +514,7 @@ init_cmd(char *cmd)
 **      MC.MAX.ACC -> Display the maximum permitted acceleration.
 **
 ** RETURN VALUES:
-**      "F@ F. acc" or "ERR:..."
+**      "acc" or "ERR:..."
 */
 char *
 mc_maxacc_cmd(char *cmd)
@@ -518,7 +525,7 @@ mc_maxacc_cmd(char *cmd)
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   sprintf(ublock->buff ,"F@ F. %12f", max_acceleration[axis]);
+   sprintf(ublock->buff ,"%12f", max_acceleration[axis]);
 
    return(ublock->buff);
 }
@@ -536,27 +543,15 @@ mc_maxvel_cmd(char *cmd)		/* NOTUSED */
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   sprintf(ublock->buff,"F@ F. %12f", max_velocity[axis]);
+   sprintf(ublock->buff,"%12f", max_velocity[axis]);
    
    return(ublock->buff);
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: rot_cmd
-**	    tel1_cmd
-**	    tel2_cmd
-**
-** DESCRIPTION:
-**	IR - instrument rotator axis selected, originally described as "ROT"
-**	TEL1 - azimuth axis selected
-**	TEL2 - altitude axis selected
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-
-*/
+/*****************************************************************************/
+/*
+ * Select an instrument
+ */
 char *
 rot_cmd(char *cmd)			/* NOTUSED */
 {
@@ -565,14 +560,14 @@ rot_cmd(char *cmd)			/* NOTUSED */
 }
 
 char *
-tel1_cmd(char *cmd)			/* NOTUSED */
+az_cmd(char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = AZIMUTH;
    return "";
 }
 
 char *
-tel2_cmd(char *cmd)			/* NOTUSED */
+alt_cmd(char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = ALTITUDE;
    return "";
@@ -637,8 +632,7 @@ status_cmd(char *cmd)
 	   (*tmaxis[axis]).actual_position/ticks_per_degree[axis],
 	   (*tmaxis[axis]).velocity/ticks_per_degree[axis],
 	   sdss_time,
-	   (*(long *)&axis_stat[axis][0] & ~STATUS_MASK),
-	   fiducial[axis].mark/ticks_per_degree[axis]);
+	   (*(long *)&axis_stat[axis][0] & ~STATUS_MASK), 0.0);
    
    axis_stat[axis][0] = axis_stat[axis][1];
    *(long *)&axis_stat[axis][1] &= STATUS_MASK;
@@ -792,15 +786,15 @@ axis_status_cmd(char *cmd)
    switch (axis) {
     case AZIMUTH:
       brake_is_on = sdssdc.status.i9.il0.az_brake_en_stat;
-      fid_mark = az_fiducial[fiducialidx[axis]].mark;
+      fid_mark = az_fiducial[fiducialidx[axis]].mark[1];
       break;
     case ALTITUDE:
       brake_is_on = sdssdc.status.i9.il0.alt_brake_en_stat;
-      fid_mark = alt_fiducial[fiducialidx[axis]].mark;
+      fid_mark = alt_fiducial[fiducialidx[axis]].mark[1];
       break;
     case INSTRUMENT:
       brake_is_on = -1;			/* there is no brake */
-      fid_mark = rot_fiducial[fiducialidx[axis]].mark - ROT_FID_BIAS;
+      fid_mark = rot_fiducial[fiducialidx[axis]].mark[1] - ROT_FID_BIAS;
       break;
     default:
       semGive(semMEIUPD);
@@ -935,15 +929,15 @@ set_status(int axis,			/* axis, or NOINST for system status */
       switch (axis) {
        case AZIMUTH:
 	 brake_is_on = sdssdc.status.i9.il0.az_brake_en_stat;
-	 fid_mark = az_fiducial[fiducialidx[axis]].mark;
+	 fid_mark = az_fiducial[fiducialidx[axis]].mark[1];
 	 break;
        case ALTITUDE:
 	 brake_is_on = sdssdc.status.i9.il0.alt_brake_en_stat;
-	 fid_mark = alt_fiducial[fiducialidx[axis]].mark;
+	 fid_mark = alt_fiducial[fiducialidx[axis]].mark[1];
 	 break;
        case INSTRUMENT:
 	 brake_is_on = -1;			/* there is no brake */
-	 fid_mark = rot_fiducial[fiducialidx[axis]].mark - ROT_FID_BIAS;
+	 fid_mark = rot_fiducial[fiducialidx[axis]].mark[1] - ROT_FID_BIAS;
 	 break;
        default:
 	 fprintf(stderr,"axis_status_cmd: impossible instrument %d\n",
@@ -957,7 +951,7 @@ set_status(int axis,			/* axis, or NOINST for system status */
 	      ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
 	      tmaxis[axis]->actual_position, tmaxis[axis]->position,
 	      tmaxis[axis]->voltage, tmaxis[axis]->velocity,
-	      fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
+	      fiducialidx[axis], 0, fid_mark,
 	      check_stop_in(0), brake_is_on, *(long *)&axis_stat[axis][0],
 	      read_clinometer());
    }
@@ -1327,7 +1321,6 @@ mcp_set_pos(int axis,			/* the axis to set */
 
    tm_set_position(2*axis, pos);
    tm_set_position(2*axis + 1, pos);
-   fiducial[axis].seen_index = FALSE;
    
    return 0;
 }
@@ -1973,18 +1966,24 @@ axisMotionInit(void)
    define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0, 0, "");
    define_cmd("BUMP.CLEAR",    bump_clear_cmd,    0, 1, 0, 1, "");
    define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1, 1, "");
-   define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 0, 1, "");
+   define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 1, 1,
+	      "Go to a POSITION with specified VELOCITY and ACCELERATION");
    define_cmd("HALT",          hold_cmd, 	  0, 1, 0, 1, "");
    define_cmd("HOLD",          hold_cmd, 	  0, 1, 0, 1, "");
    define_cmd("ID",            id_cmd, 		  0, 0, 0, 1, "");
    define_cmd("INIT",          init_cmd, 	  0, 0, 1, 1, "");
-   define_cmd("ROT",           rot_cmd, 	  0, 0, 0, 0, "");
-   define_cmd("IR",            rot_cmd, 	  0, 0, 0, 0, "");
-   define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 0, 1, "");
-   define_cmd("MC.MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1, "");
+   define_cmd("ROT",           rot_cmd, 	  0, 0, 0, 0,
+	      "All succeeding commands apply to the rotator");
+   define_cmd("IR",            rot_cmd, 	  0, 0, 0, 0,
+	      "All succeeding commands apply to the rotator");
+   define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 0, 1,
+	      "Return current axis's maximum permitted acceleration");
+   define_cmd("MC.MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1,
+	      "Return current axis's maximum permitted velocity");
    define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, "");
    define_cmd("SET.MONITOR",   set_monitor_cmd,   1, 1, 0, 1, "");
-   define_cmd("SET.POS.VA",    goto_pos_va_cmd,   3, 1, 0, 1, "");
+   define_cmd("SET.POS.VA",    goto_pos_va_cmd,   3, 1, 1, 1,
+	      "Go to a POSITION with specified VELOCITY and ACCELERATION");
    define_cmd("SET.POSITION",  set_pos_cmd, 	  1, 1, 0, 1, "");
    define_cmd("SET.VELOCITY",  set_vel_cmd, 	  1, 1, 0, 1, "");
    define_cmd("STATS",         stats_cmd, 	  0, 0, 0, 1, "");
@@ -1992,10 +1991,14 @@ axisMotionInit(void)
    define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 0, 1, "");
    define_cmd("STOP",          stop_cmd, 	  0, 1, 0, 1, "");
    define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0, 0, "");
-   define_cmd("AZ",            tel1_cmd,          0, 0, 0, 0, "");
-   define_cmd("TEL1",          tel1_cmd,          0, 0, 0, 0, "");
-   define_cmd("ALT",           tel2_cmd,          0, 0, 0, 0, "");
-   define_cmd("TEL2",          tel2_cmd,          0, 0, 0, 0, "");
+   define_cmd("AZ",            az_cmd,          0, 0, 0, 0,
+	      "All succeeding commands apply to azimuth");
+   define_cmd("TEL1",          az_cmd,          0, 0, 0, 0,
+	      "All succeeding commands apply to azimuth");
+   define_cmd("ALT",           alt_cmd,          0, 0, 0, 0,
+	      "All succeeding commands apply to altitude");
+   define_cmd("TEL2",          alt_cmd,          0, 0, 0, 0,
+	      "All succeeding commands apply to altitude");
    
    return 0;
 }

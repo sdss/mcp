@@ -1080,7 +1080,7 @@ PrintMenuPos()
 	switch (i)
 	{
           case AZIMUTH:
-            farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
+            farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark[1]));
 	    if (az_amp_ok(0)) printf ("*");
 	    else
 	    {
@@ -1088,14 +1088,15 @@ PrintMenuPos()
               else if (sdssdc.status.i9.il0.az_brake_en_stat) printf ("B");
 	        else printf ("?");
 	    }
-            if (az_fiducial[fiducialidx[i]].mark<0)
+            if (az_fiducial[fiducialidx[i]].mark[1] < 0)
               fidsign=-1;
             else
               fidsign=1;
             break;
 
           case ALTITUDE:
-            farcsec=(sec_per_tick[i]*abs(alt_fiducial[fiducialidx[i]].mark));
+            farcsec =
+	      (sec_per_tick[i]*abs(alt_fiducial[fiducialidx[i]].mark[1]));
 	    if (alt_amp_ok(0)) printf ("*");
 	    else
 	    {
@@ -1103,7 +1104,7 @@ PrintMenuPos()
               else if (sdssdc.status.i9.il0.alt_brake_en_stat) printf ("B");
 	        else printf ("?");
 	    }
-            if (alt_fiducial[fiducialidx[i]].mark<0)
+            if (alt_fiducial[fiducialidx[i]].mark[1] < 0)
               fidsign=-1;
             else
               fidsign=1;
@@ -1111,7 +1112,7 @@ PrintMenuPos()
 
           case INSTRUMENT:
             farcsec=(sec_per_tick[i]*
-		     abs(rot_fiducial[fiducialidx[i]].mark - ROT_FID_BIAS));
+		     abs(rot_fiducial[fiducialidx[i]].mark[1] - ROT_FID_BIAS));
 	    if(rot_amp_ok(0)) {
 	       printf ("*");
 	    } else {
@@ -1119,7 +1120,7 @@ PrintMenuPos()
 	       else printf ("?");
 	    }
 	    
-            if(rot_fiducial[fiducialidx[i]].mark < ROT_FID_BIAS) {
+            if(rot_fiducial[fiducialidx[i]].mark[1] < ROT_FID_BIAS) {
 	       fidsign=-1;
             } else {
 	       fidsign=1;
@@ -1149,8 +1150,7 @@ PrintMenuPos()
           marcs = (farcsec-(long)farcsec)*1000;
           if (fiducialidx[i]!=-1)
           {
-            if (fiducial[i].seen_index) printf("  V");
-            else printf("   ");
+	    printf("   ");
             if (fidsign<0)
               printf("%3d;-%03ld:%02ld:%02ld:%03ld\n",
 	        fiducialidx[i],arcd,arcm,arcs,marcs);

@@ -195,12 +195,15 @@ set_time_cmd
 #
 # N.b. The `frequencies' supplied to the *_data_collection routines
 # are interpreted relative to the rate that TimerStart calls serverDCStart,
-# so if they equal the data_collection will take place at 1Hz
+#
+# The other `frequencies' are really _inverse_ frequencies; they set the
+# number of DC_freq ticks between calls to various data collection tasks
 #
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
 taskSpawn "SLC_DC",70,8,10000,slc500_data_collection,20
+check_encoder_freq = 20*60
 TimerStart 20, 5, serverDCStart
 ipsdss_ini
 
@@ -227,17 +230,20 @@ tUmbilicalInit 1
 #
 # Load fiducials tables
 #
-tel1_cmd			/* AZ */
-ms_read_cmd "/p/mcpbase/fiducial-tables/az.dat"; ms_define_cmd
+az_cmd
+ms_read_cmd "/p/mcpbase/fiducial-tables/az.dat"
 ms_max_cmd "600"
+min_encoder_mismatch_cmd "1000"
 #
-tel2_cmd			/* ALT */
-ms_read_cmd "/p/mcpbase/fiducial-tables/alt.dat"; ms_define_cmd
+alt_cmd
+ms_read_cmd "/p/mcpbase/fiducial-tables/alt.dat"
 ms_max_cmd "600"
+min_encoder_mismatch_cmd "1000"
 #
-rot_cmd				/* ROT */
-ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"; ms_define_cmd
+rot_cmd
+ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"
 ms_max_cmd "600"
+min_encoder_mismatch_cmd "1000"
 #
 # Now that we're up, listen to the TCC and mcpMenu. They may have been trying
 # to talk to us all of this time

@@ -45,6 +45,7 @@
 #include "dscTrace.h"
 #include "cmd.h"
 #include "mcpUtils.h"
+#include "mcpFiducials.h"
 
 /*========================================================================
 **========================================================================
@@ -73,9 +74,17 @@ SEM_ID semStatusCmd = NULL;
 int rawtick=0;
 /* Enables for axis 0, 2, 4: Azimuth(0), Altitude(2), Rotator(4) */
 int MEIDC_Enable[]={TRUE,TRUE,TRUE};
+/*
+ * DC_freq is incremented every time that DataCollectionTrigger() is called;
+ * that's set in mcp.login
+ *
+ * The other `frequencies' are really _inverse_ frequencies; they set the
+ * number of DC_freq ticks between calls to various data collection tasks
+ */
 unsigned long DC_freq=0;
 unsigned long mei_freq=1;
 unsigned long slc_freq=100;
+unsigned long check_encoder_freq = 20*60;
 int BCAST_Enable=TRUE;
 
 float sdss_time_dc;
@@ -243,13 +252,30 @@ mei_data_collection(unsigned long freq)
 	 swapwords((short *)(&tmaxis[i]->actual_position2), 1);
 	 
 	 tmaxis[i]->position =
-	   convert_mei_to_mcp(i, tmaxis[i]->position);
+	   convert_mei_to_mcp(2*i, tmaxis[i]->position);
 	 tmaxis[i]->actual_position =
-	   convert_mei_to_mcp(i, tmaxis[i]->actual_position);
+	   convert_mei_to_mcp(2*i, tmaxis[i]->actual_position);
 	 tmaxis[i]->actual_position2 =
-	   convert_mei_to_mcp(i, tmaxis[i]->actual_position2);
+	   convert_mei_to_mcp(2*i + 1, tmaxis[i]->actual_position2);
 
 	 semGive(semSDSSDC);
+/*
+ * Check if the encoders agree?
+ */
+	 if(DC_freq%check_encoder_freq < NAXIS) { /* check all axes */
+	    if(fiducial[i].scale_ratio_12 > 0 &&
+				       fiducial[i].min_encoder_mismatch >= 0) {
+	       const long canon = fiducial[i].canonical_position;
+	       long predict_2 = canon + fiducial[i].scale_ratio_12*
+					 (tmaxis[i]->actual_position2 - canon);
+	       long diff = predict_2 - tmaxis[i]->actual_position;
+	       
+	       if(abs(diff) > fiducial[i].min_encoder_mismatch) {
+		  TRACE(2, "Encoders for axis %s differ by %d",
+			axis_name(i), diff);
+	       }
+	    }
+	 }
       }
       
       for(i = 1; i < 4; i++) {	/* find next enabled data collection */
