@@ -472,16 +472,20 @@ DID48_interrupt(int type)
 	 SDSStime = (SDSStime + 1)%ONE_DAY;
       }
       
-      NIST_sec=timer_read(1);
+      NIST_sec = timer_read(1);
       if(NIST_sec > 1000100) {
-	 axis_stat[AZIMUTH].clock_loss_signal = 1;
+	 axis_stat[AZIMUTH][0].clock_loss_signal = 
+	   axis_stat[ALTITUDE][0].clock_loss_signal =
+	     axis_stat[INSTRUMENT][0].clock_loss_signal = 1;
+	 
+	 axis_stat[AZIMUTH][1].clock_loss_signal = 
+	   axis_stat[ALTITUDE][1].clock_loss_signal =
+	     axis_stat[INSTRUMENT][1].clock_loss_signal = 1;
       } else {
-	 axis_stat[AZIMUTH].clock_loss_signal = 0;
+	 axis_stat[AZIMUTH][1].clock_loss_signal = 
+	   axis_stat[ALTITUDE][1].clock_loss_signal =
+	     axis_stat[INSTRUMENT][1].clock_loss_signal = 0;
       }
-      
-      axis_stat[INSTRUMENT].clock_loss_signal =
-	axis_stat[ALTITUDE].clock_loss_signal =
-	  axis_stat[AZIMUTH].clock_loss_signal;
       
       timer_start(1);
    }

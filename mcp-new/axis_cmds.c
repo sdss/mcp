@@ -337,30 +337,18 @@ init_cmd(char *cmd)
    tm_reset_integrator(2*axis_select);
    enable_pvt(axis_select);
 /*
- * clear the axis status, but then give the data collection routines a chance
- * to reset bits
+ * Clear the axis status; well, don't actually _clear_ it, set it to
+ * the last non-sticky value. That way the TCC will see the current
+ * set of bad bits.
  */
    while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
       TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
       taskSuspend(NULL);
    }
-   *(long *)&axis_stat[axis_select] = 0;
+ 
+   axis_stat[axis_select][0] = axis_stat[axis_select][1];
+
    semGive(semMEIUPD);
-
-   if(semMEIDC != NULL) {
-      semGive(semMEIDC);		/* trigger taking data */
-
-      while(getSemTaskId(semMEIDC) == 0) {
-	 taskDelay(1);			/* give it a chance to do something*/
-      }
-   }
-   if(semSLCDC != NULL) {
-      semGive(semSLCDC);		/* trigger taking data */
-      
-      while(getSemTaskId(semSLCDC) == 0) {
-	 taskDelay(1);			/* give it a chance to do something*/
-      }
-   }
 /*
  * OK, the axis status is updated
  */
@@ -457,7 +445,8 @@ init_cmd(char *cmd)
 /*
  * Clear the status of the bump switches
  */
-   clear_sticky_bumps(axis_select);
+   clear_sticky_bumps(axis_select, 0);
+   clear_sticky_bumps(axis_select, 1);
 /*
  * If we are the TCC, try to take the semCmdPort semaphore; if the
  * axis init fails we'll still have it (but it can be stolen).
@@ -637,10 +626,11 @@ status_cmd(char *cmd)
    sprintf(status_ans,"%f %f %f %ld %f",
 	  (*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
 	   (*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
-	   sdss_time, (*(long *)&axis_stat[axis_select] & ~STATUS_MASK),
+	   sdss_time, (*(long *)&axis_stat[axis_select][0] & ~STATUS_MASK),
 	   fiducial[axis_select].mark/ticks_per_degree[axis_select]);
 
-   *(long *)&axis_stat[axis_select] = 0;
+   axis_stat[axis_select][0] = axis_stat[axis_select][1];
+   *(long *)&axis_stat[axis_select][1] &= STATUS_MASK;
 
    semGive(semMEIUPD);
 
@@ -789,7 +779,7 @@ axis_status_cmd(char *cmd)
 	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
 	   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
 	   fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
-	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis],
+	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis][0],
 	   read_clinometer());
 
    TRACE(8, "giving semMEIUPD", 0, 0);
@@ -1639,7 +1629,8 @@ set_vel_cmd(char *cmd)
 char *
 bump_clear_cmd(char *cmd)		/* NOTUSED */
 {
-   clear_sticky_bumps(axis_select);
+   clear_sticky_bumps(axis_select, 0);
+   clear_sticky_bumps(axis_select, 1);
 
    return("");
 }

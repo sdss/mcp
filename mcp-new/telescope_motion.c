@@ -1008,16 +1008,16 @@ tm_show_axis(int axis)
  * Clear the sticky versions of the bump switches
  */
 void
-clear_sticky_bumps(int axis)
+clear_sticky_bumps(int axis, int which)
 {
    switch (axis) {
     case AZIMUTH:
-      axis_stat[AZIMUTH].bump_up_ccw_sticky = 0;
-      axis_stat[AZIMUTH].bump_dn_cw_sticky = 0;
+      axis_stat[AZIMUTH][which].bump_up_ccw_sticky = 0;
+      axis_stat[AZIMUTH][which].bump_dn_cw_sticky = 0;
       break;
     case ALTITUDE:
-      axis_stat[ALTITUDE].bump_up_ccw_sticky = 0;
-      axis_stat[ALTITUDE].bump_dn_cw_sticky = 0;
+      axis_stat[ALTITUDE][which].bump_up_ccw_sticky = 0;
+      axis_stat[ALTITUDE][which].bump_dn_cw_sticky = 0;
       break;
     case INSTRUMENT:
       break;
@@ -1035,13 +1035,13 @@ show_bump(void)
 
    if(sdssdc.status.i1.il0.az_bump_cw) {
       printf(" in contact CW");
-   } else if(axis_stat[AZIMUTH].bump_dn_cw_sticky) {
+   } else if(axis_stat[AZIMUTH][0].bump_dn_cw_sticky) {
       printf(" touched CW   ");
    }
 
    if(sdssdc.status.i1.il0.az_bump_ccw) {
       printf(" in contact CCW");
-   } else if(axis_stat[AZIMUTH].bump_up_ccw_sticky) {
+   } else if(axis_stat[AZIMUTH][0].bump_up_ccw_sticky) {
       printf(" touched CCW   ");
    }
    printf("\n");
@@ -1049,13 +1049,13 @@ show_bump(void)
    printf("Altitude:");
    if(sdssdc.status.i1.il6.alt_bump_up) {
       printf(" in contact UP");
-   } else if(axis_stat[ALTITUDE].bump_up_ccw_sticky) {
+   } else if(axis_stat[ALTITUDE][0].bump_up_ccw_sticky) {
       printf(" touched UP   ");
    }
 
    if(sdssdc.status.i1.il6.alt_bump_dn) {
       printf(" in contact DOWN");
-   } else if(axis_stat[ALTITUDE].bump_dn_cw_sticky) {
+   } else if(axis_stat[ALTITUDE][0].bump_dn_cw_sticky) {
       printf(" touched DOWN   ");
    }
    printf("\n"); 

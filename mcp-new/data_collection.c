@@ -84,7 +84,22 @@ struct TM_M68K *tmaxis[NAXIS] = {
    (struct TM_M68K *)&sdssdc.axis[ALTITUDE],
    (struct TM_M68K *)&sdssdc.axis[INSTRUMENT]
 };
-struct AXIS_STAT axis_stat[NAXIS] = {0x0, 0x0, 0x0};
+/*
+ * There are two AXIS_STATs for each axis.  axis_stat[][0] is sticky,
+ * and is only cleared by an INIT or STATUS command.  axis_stat[][1]
+ * is the latest value, and is ORd into axis_stat[][0] after being
+ * updated.
+ *
+ * The axis_stat[][1] is kept around so that we can set axis_stat[][0]
+ * to it when we would usually clear it (i.e. INIT and STATUS don't
+ * actually clear all the bits, but set it to the state that it would
+ * have after we next ran data collection).
+ */
+struct AXIS_STAT axis_stat[NAXIS][2] = {
+   {0x0, 0x0},
+   {0x0, 0x0},
+   {0x0, 0x0},
+};
 
 int meistatcnt=0;
 #define	DATA_STRUCT(dsp, axis, offset)	(P_DSP_DM)((dsp)->data_struct+(DS_SIZE* (axis)) + offset)
@@ -314,51 +329,61 @@ slc500_data_collection(unsigned long freq)
 	 taskSuspend(NULL);
       }
       
-      axis_stat[AZIMUTH].stop_in =
-	axis_stat[ALTITUDE].stop_in =
-	  axis_stat[INSTRUMENT].stop_in = (check_stop_in() ? 1 : 0);
+      axis_stat[AZIMUTH][1].stop_in =
+	axis_stat[ALTITUDE][1].stop_in =
+	  axis_stat[INSTRUMENT][1].stop_in = (check_stop_in() ? 1 : 0);
 
       {
 	 const int cmdPortTask = getSemTaskId(semCmdPort);
 
-	 axis_stat[AZIMUTH].semCmdPort_taken =
-	   axis_stat[ALTITUDE].semCmdPort_taken =
-	     axis_stat[INSTRUMENT].semCmdPort_taken =
+	 axis_stat[AZIMUTH][1].semCmdPort_taken =
+	   axis_stat[ALTITUDE][1].semCmdPort_taken =
+	     axis_stat[INSTRUMENT][1].semCmdPort_taken =
 	       (cmdPortTask == ERROR ||
 		cmdPortTask == 0 ||
 		cmdPortTask == taskNameToId("TCC")) ? 0 : 1;
       }
       
-      axis_stat[AZIMUTH].amp_bad = az_amp_ok()  ? 0 : 1;
-      axis_stat[ALTITUDE].amp_bad = alt_amp_ok() ? 0 : 1;
-      axis_stat[INSTRUMENT].amp_bad = rot_amp_ok() ? 0 : 1;
+      axis_stat[AZIMUTH][1].amp_bad = az_amp_ok()  ? 0 : 1;
+      axis_stat[ALTITUDE][1].amp_bad = alt_amp_ok() ? 0 : 1;
+      axis_stat[INSTRUMENT][1].amp_bad = rot_amp_ok() ? 0 : 1;
 /*
  * Set sticky versions of bump switches; these stay on until explicitly
  * cleared with clear_sticky_bumps() (called by e.g. init_cmd())
  */
       if(sdssdc.status.i1.il0.az_bump_ccw) {
-	 if(!axis_stat[AZIMUTH].bump_up_ccw_sticky) {
+	 if(!axis_stat[AZIMUTH][0].bump_up_ccw_sticky) {
 	    TRACE(0, "Windscreen touched in azimuth: CCW", 0, 0);
 	 }
-	 axis_stat[AZIMUTH].bump_up_ccw_sticky = 1;
+	 axis_stat[AZIMUTH][1].bump_up_ccw_sticky = 1;
+      } else {
+	 axis_stat[AZIMUTH][1].bump_up_ccw_sticky = 0;
       }
+      
       if(sdssdc.status.i1.il0.az_bump_cw)  {
-	 if(!axis_stat[AZIMUTH].bump_dn_cw_sticky) {
+	 if(!axis_stat[AZIMUTH][0].bump_dn_cw_sticky) {
 	    TRACE(0, "Windscreen touched in azimuth: CW", 0, 0);
 	 }
-	 axis_stat[AZIMUTH].bump_dn_cw_sticky = 1;
+	 axis_stat[AZIMUTH][1].bump_dn_cw_sticky = 1;
+      } else {
+	 axis_stat[AZIMUTH][1].bump_dn_cw_sticky = 0;
       }
+      
       if(sdssdc.status.i1.il6.alt_bump_up) {
-	 if(!axis_stat[ALTITUDE].bump_up_ccw_sticky) {
+	 if(!axis_stat[ALTITUDE][0].bump_up_ccw_sticky) {
 	    TRACE(0, "Windscreen touched in altitude: UP", 0, 0);
 	 }
-	 axis_stat[ALTITUDE].bump_up_ccw_sticky = 1;
+	 axis_stat[ALTITUDE][1].bump_up_ccw_sticky = 1;
+      } else {
+	 axis_stat[ALTITUDE][1].bump_up_ccw_sticky = 0;
       }
       if(sdssdc.status.i1.il6.alt_bump_dn) {
-	 if(!axis_stat[ALTITUDE].bump_dn_cw_sticky) {
+	 if(!axis_stat[ALTITUDE][0].bump_dn_cw_sticky) {
 	    TRACE(0, "Windscreen touched in altitude: DOWN", 0, 0);
 	 }
-	 axis_stat[ALTITUDE].bump_dn_cw_sticky = 1;
+	 axis_stat[ALTITUDE][1].bump_dn_cw_sticky = 1;
+      } else {
+	 axis_stat[ALTITUDE][1].bump_dn_cw_sticky = 0;
       }
 /*
  * axis status, and are we in closed loop?
@@ -366,7 +391,7 @@ slc500_data_collection(unsigned long freq)
       if(semTake(semMEI, 5) != ERROR) {
 	 for(i = 0; i < NAXIS; i++) {
 	    sdssdc.axis_state[i] = axis_state(2*i);
-	    axis_stat[i].out_closed_loop =
+	    axis_stat[i][1].out_closed_loop =
 	      (sdssdc.axis_state[i] <= NEW_FRAME) ? 0 : 1;
 	 }
 	 
@@ -377,9 +402,18 @@ slc500_data_collection(unsigned long freq)
  * everything that depends on data_collection.h XXX
  */
       for(i = 0; i < NAXIS; i++) {
-	 axis_stat[i].stop_ok = !axis_stat[i].stop_in;
-	 axis_stat[i].amp_ok = !axis_stat[i].amp_bad;
-	 axis_stat[i].closed_loop = !axis_stat[i].out_closed_loop;
+	 axis_stat[i][1].stop_ok = !axis_stat[i][1].stop_in;
+	 axis_stat[i][1].amp_ok = !axis_stat[i][1].amp_bad;
+	 axis_stat[i][1].closed_loop = !axis_stat[i][1].out_closed_loop;
+      }
+/*
+ * Copy the just-set values in axis_stat[][1] to the sticky values
+ * in axis_stat[][0].  We have to be a little careful with the
+ * ones in STATUS_MASK as they are _set_ if OK; we simply copy them.
+ */
+      for(i = 0; i < NAXIS; i++) {
+	 *(long *)&axis_stat[i][0] &= ~STATUS_MASK;
+	 *(long *)&axis_stat[i][0] |= *(long *)&axis_stat[i][1];
       }
 
       semGive(semMEIUPD);

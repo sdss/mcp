@@ -143,7 +143,7 @@ extern int axis_select;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 extern double sec_per_tick[NAXIS];
 extern double ticks_per_degree[NAXIS];
 extern struct FRAME_QUEUE axis_queue[NAXIS];
-extern struct AXIS_STAT axis_stat[NAXIS];
+extern struct AXIS_STAT axis_stat[NAXIS][2];
 extern double max_velocity[NAXIS];
 extern double max_acceleration[NAXIS];
 extern double max_velocity_requested[NAXIS];

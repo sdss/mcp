@@ -455,7 +455,7 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 	 TRACE(3, "Applying unlimited correction %ld to %s",
 	       correction, axis_name(axis));
       } else {
-	 if(axis_stat[axis].ms_on_correction_too_large) {
+	 if(axis_stat[axis][0].ms_on_correction_too_large) {
 	    if(fiducial[axis].max_correction > 0) {
 	       TRACE(0, "MS.ON is disabled for %s; not applying ",
 		     axis_name(axis), correction);
@@ -477,8 +477,8 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 	    if(allow_disable_ms_on) {
 	       if(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
 		  TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
-	       } else {
-		  axis_stat[axis].ms_on_correction_too_large = 1;
+	       } else {			/* set it in [0] as [1]'s not cleared*/
+		  axis_stat[axis][0].ms_on_correction_too_large = 1;
 		  semGive(semMEIUPD);
 
 		  write_fiducial_log("DISABLE_MS_CORRECTION", axis,
