@@ -9,8 +9,6 @@ SYSTRAN = ../ip/systran/
 ACROMAG = ../ip/acromag/
 AB = ../ab
 VW = $(VX_DSC_DIR)/
-#VW = /p/vx_dsc/v5_1_1f3/
-#VW = /usr/vw_52/
 VWH = $(VW)h/
 H1 = $(VWH)
 H2 = $(VWH)net/
@@ -19,17 +17,13 @@ H4 = $(VWH)68k/
 H5 = $(VWH)private/
 
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) -I$(MEIDSP) -I$(DESTDIR) \
-	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG)
-CC = cc68k
-CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW -Wall \
--DMEI_MC680X0_CPU -D__USE_GETC__
-#CFLAGS = -g -ansi -mc68020 -m68881
-#CFLAGS = -S -O -traditional -mc68020 -m68881
+	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) \
+	-I$(VX_TOOLS_DIR)/include -I$(ASTRODA_DIR)/include \
+	-I$(MURMUR_CLIENT_VX_DIR)/include
 
-CPP = cpp68k
-#CPP = gcc-cpp  
-CPPFLAGS = -P
-#CPPFLAGS = -P -Caa
+CC = cc68k
+CFLAGS = -g -ansi -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW -Wall \
+	-DMEI_MC680X0_CPU -D__USE_GETC__
 
 LINK = ld68k                       
 LFLAGS = -r
