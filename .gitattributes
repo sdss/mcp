@@ -29,6 +29,7 @@ etc/Makefile -text
 etc/mcp.login -text
 etc/trace.el -text
 fiducial-tables/alt.dat -text
+fiducial-tables/az.dat -text
 fiducial-tables/rot.dat -text
 ip/Makefile -text
 ip/acromag/.cvsignore -text
