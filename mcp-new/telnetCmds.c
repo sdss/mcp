@@ -15,6 +15,7 @@
 #include <sockLib.h>
 #include <taskLib.h>
 #include <taskVarLib.h>
+#include <telnetLib.h>
 #include "pcdsp.h"
 #include "axis.h"
 #include "cmd.h"
@@ -273,6 +274,16 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "semCmdPort=1";
 	 } else {
 	    reply = "semCmdPort=0";
+	 }
+      } else if(strncmp(cmd, "TELNET.RESTART", 11) == 0) {
+	 TRACE(5, "PID %d: command TELNET.RESTART", client_pid, 0);
+	 if(taskDelete(taskIdFigure("tTelnetd")) != OK) {
+	    TRACE(0, "Failed to kill tTelnetd task: %s (%d)",
+		  strerror(errno), errno);
+	    reply = "failed to kill tTelnetd";
+	 } else {
+	    telnetInit();		/* restart the telnet daemon */
+	    reply = "restarted the tTelnetd";
 	 }
       } else if(!locked_command(cmd)) {
 	 reply = cmd_handler(cmd);
