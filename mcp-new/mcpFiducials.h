@@ -12,7 +12,12 @@ struct FIDUCIARY {
    long mark;				/* position of axis when fiducial
 					   "index" was seen */
    int index;				/* the canonical index */
-   int known_position;			/* correct position of fiducial */
+   long known_position;			/* correct position of fiducial */
+   int ms_on;				/* has the TCC asserted MS.ON for
+					   this axis? */
+   long error;				/* positional error derived from
+					   fiducial crossings */
+   long max_correction;			/* |max. error| to correct */
 };	
 
 struct FIDUCIALS {
@@ -33,10 +38,14 @@ extern struct FIDUCIALS rot_fiducial[N_ROT_FIDUCIALS];
 
 void latchexcel(int axis);
 void set_primary_fiducials(int axis, int fididx, long pos);
+int set_fiducials(int axis);
 void set_fiducials_all(void);
+int save_fiducials(int axis);
 void save_fiducials_all(void);
 void restore_fiducials_all(void);
+char *read_fiducials(const char *file, int axis);
 void tm_print_fiducial_all(void);
+int set_max_fiducial_correction(int axis, int max_correction);
 
 char *correct_cmd(char *cmd);
 
