@@ -9,7 +9,7 @@
 **
 ** ENTRY POINT          SCOPE   DESCRIPTION
 ** ----------------------------------------------------------------------
-** int ipsdss_ini	public	initialize ip port for broadcast
+** ipsdss_ini		public	initialize ip port for broadcast
 ** ipsdss_send		public	broadcast a datagram
 **
 ** ENVIRONMENT:
@@ -83,7 +83,6 @@ static char cast_adr[12];
 **
 ** DESCRIPTION:
 **      Initializes ethernet for datagram broadcast on port 0x6804
-**
 **
 ** RETURN VALUES:
 **      int	zero or ERROR

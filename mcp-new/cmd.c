@@ -1,4 +1,32 @@
 #include "copyright.h"
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      cmd.c
+**
+** ABSTRACT:
+**	TCC Command handler both receives, distributes, and answers on
+**	behalf of the action routines.
+**	cmd_handler can be invoked from the serial driver or the shell
+**	so access is arbitrated by a semaphore
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+** cmd_ini		public	initialize semaphore
+** cmd_handler		public	command handler
+** dummy_cmd		local	provides default command noop function
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
 /************************************************************************/
 /* Project: 	SDSS - Sloan Digital Sky Survey				*/
 /* 		AXIS control						*/
@@ -40,13 +68,29 @@
 #include "inetLib.h"
 #include "in.h"
 #include "string.h"
-
 #include "frame.h"
 #include "ms.h"
 #include "idsp.h"
 #include "pcdsp.h"
 #include "axis.h"
 #include "cmd.h"
+
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
+static SEM_ID semCMD=0;
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
 
 /* below is a place for DIAGNOStic flag for turning off the feature
 #define DIAGNOS 0
@@ -56,11 +100,26 @@
 #define ONCE if (YES)
 
 /* test message buffer  */
-
 char *sdss_version = {"SDSS AXIS Version 1.0 - Charlie Briegel - 4 Jan 1996"};
-SEM_ID semCMD=0;
 int CMD_verbose=FALSE;
 
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cmd_init
+**
+** DESCRIPTION:
+**      Initializes the semaphore
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 int cmd_init()
 {
   printf ("\r\n%s\r\n",sdss_version);
@@ -69,7 +128,23 @@ int cmd_init()
 
   return 0;
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cmd_handler
+**
+** DESCRIPTION:
+**      Receives commands and emits an ASCII answer.
+**
+** RETURN VALUES:
+**      char *	answer to be sent by driver making function invocation.
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char *cmd_handler(char *cmd)
 {
   int i;
@@ -87,7 +162,7 @@ char *cmd_handler(char *cmd)
   }
 */
   for (i=0;i<strlen(cmd);i++) cmd[i]=toupper(cmd[i]);/* upper case the string */
-  get_ctrl(semCMD);
+  semTake (semCMD,WAIT_FOREVER);
   ans=NULL;					/* ans is returned from function */
   while ((cmd!=NULL)&&(*cmd!=NULL)&&(ans==NULL))
   {
@@ -107,7 +182,7 @@ char *cmd_handler(char *cmd)
         printf ("cmd_handler: CMD ERROR %s %p\r\n",cmd,cmd);
         for (i=0;i<strlen(cmd);i++) printf ("0x%02x ",cmd[i]);
       }
-      rtn_ctrl(semCMD);
+      semGive (semCMD);
       return cmd_error;				/* return some error string */
     }
     cmd += strlen(cmd_list->command);		/* reposition around command */
@@ -115,25 +190,32 @@ char *cmd_handler(char *cmd)
     if (*cmd!=NULL)
       cmd = strpbrk(cmd,"ABCDEFGHIJKLMNOPQRSTUVWXYZ+");/* reposition to next command */
   }
-  rtn_ctrl(semCMD);
+  semGive (semCMD);
   if (CMD_verbose)
     printf ("cmd_handler:       Ans>>%s \r\n",ans);
   return ans;
 }
 
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: dummy_cmd
+**
+** DESCRIPTION:
+**      Entry for routines which are either not defined or not reasonable
+**	for 2.5M.  Does nothing.
+**
+** RETURN VALUES:
+**      char *	answer to be sent by driver making function invocation.
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char *dummy_cmd(char *cmd)
 {
   printf (" TERMINATION command fired\r\n");
-  return cmd;
-}
-
-void get_ctrl (SEM_ID sem)
-{
-  semTake (sem,WAIT_FOREVER);
-  return;
-}
-void rtn_ctrl (SEM_ID sem)
-{
-  semGive (sem);
-  return;
+  return "ERR: Dummy command - no action rountine";
 }

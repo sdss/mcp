@@ -1,3 +1,26 @@
+#include "copyright.h"
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      display.c
+**
+** ABSTRACT:
+**	Menu and Inst
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
 /******************************************************************************/
 /*
 Copyright (C) Fermi National Accelerator Laboratory
@@ -10,12 +33,14 @@ display.c
 by Charlie Briegel 
 Origination 4/22/98 
 
-Routines to control the display screen
+Routines to control the display screen for Menu
 These functions can be used with a Vt220 terminal to position the cursor,
 erase the screen etc.
 ******************************************************************************/
-#define SoftwareVersion_	15
-/* INCLUDES */
+
+/*------------------------------*/
+/*	includes		*/
+/*------------------------------*/
 #include "display.h"
 #include "stdio.h"
 #include "tickLib.h"
@@ -30,6 +55,56 @@ erase the screen etc.
 #include "axis.h"
 #include "tm.h"
 #include "cw.h"
+#include "data_collection.h"
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
+#define SoftwareVersion_	15
+static int STOPed[6]={TRUE,TRUE,TRUE,TRUE,TRUE,TRUE};
+static int last_clamp;
+static int last_door1;
+static int last_door2;
+static int last_azbrake;
+static int last_altbrake;
+static int last_ffs;
+static int last_ffl;
+static int last_ffc;
+static int refreshing=FALSE;
+static char *limitstatus[]={"LU","L "," U","  "};
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
+int question_mark=0;
+int Axis=4;
+int adjpos[6]={0,0,0,0,0,0};
+int adjvel[6]={0,0,0,0,0,0};
+int adjacc[6]={70000,10000,10000,10000,10000,10000};
+int incvel[6]={1000,0,1000,0,1000,0};
+int Axis_vel[6]={0,0,0,0,0,0};
+int Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
+int Axis_vel_pos[6]={700000,0,600000,0,250000,0};
+/* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
+/* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
+float altclino_sf=.0049016925256;
+/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
+int altclino_off=8857;
+/*9048;*/         /*9500*/
+double tickperarcs[3]={AZ_TICK,ALT_TICK,ROT_TICK};
+double ilcpos[6]={90,0,120,0,0,0};
+int ilcvel[6]={200000,0,200000,0,500000,0};
+int ilcacc[6]={10000,10000,10000,10000,10000,10000};
+char MenuInput[21];
+
+/* prototypes */
 void Menu();
 static void PrintMenuBanner();
 void PrintMenuMove();
@@ -37,7 +112,30 @@ void PrintMenuPos();
 void Inst();
 static void PrintInstBanner();
 void PrintInstPos();
-/******************************************************************************/
+int check_stop_in();
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: EraseDisplayAll
+**	    EraseDisplayRest
+**	    CursPos
+**	    SaveCursPos
+**	    RestoreCursPos
+**	    GetCharNoEcho
+**	    GetString
+**
+** DESCRIPTION:
+**      Screen management routines for VT220.
+**
+** RETURN VALUES:
+**      int	zero or ERROR
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 /* Terminal Escape sequences */
 /*
 #define ESC '\x1B'
@@ -98,7 +196,6 @@ char GetCharNoEcho()
   return(ch);
 }
 /******************************************************************************/
-char MenuInput[21];
 int GetString(char *buf, int cnt)
 /* This function gets a string from the keyboard without the automatic
 	echo that the regular scanf, getchar, etc routines have in them.
@@ -145,40 +242,23 @@ int GetString(char *buf, int cnt)
   if (i==1) return (FALSE);
   return(TRUE);
 }
-/*--------------------------------------------------------------------*/
-#include "data_collection.h"
-int question_mark=0;
-int Axis=4;
-static int STOPed[6]={TRUE,TRUE,TRUE,TRUE,TRUE,TRUE};
-int adjpos[6]={0,0,0,0,0,0};
-int adjvel[6]={0,0,0,0,0,0};
-int adjacc[6]={70000,10000,10000,10000,10000,10000};
-int incvel[6]={1000,0,1000,0,1000,0};
-int Axis_vel[6]={0,0,0,0,0,0};
-int Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
-int Axis_vel_pos[6]={700000,0,600000,0,250000,0};
-/* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
-/* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
-float altclino_sf=.0049016925256;
-/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
-int altclino_off=8857;
-/*9048;*/         /*9500*/
-double tickperarcs[3]={AZ_TICK,ALT_TICK,ROT_TICK};
-static int refreshing=FALSE;
-static char *limitstatus[]={"LU","L "," U","  "};
-double ilcpos[6]={90,0,120,0,0,0};
-int ilcvel[6]={200000,0,200000,0,500000,0};
-int ilcacc[6]={10000,10000,10000,10000,10000,10000};
-int last_clamp;
-int last_door1;
-int last_door2;
-int last_azbrake;
-int last_altbrake;
-int last_ffs;
-int last_ffl;
-int last_ffc;
-int check_stop_in();
-/****************************************************************************/
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: PrintMenuBanner
+**
+** DESCRIPTION:
+**      Print Menu Banner and initialize variables
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 static void PrintMenuBanner()
 {
   CursPos(1,1);
@@ -222,6 +302,24 @@ static void PrintMenuBanner()
     taskSpawn("menuPos",99,VX_FP_TASK,8000,(FUNCPTR)PrintMenuPos,
 	0,0,0,0,0,0,0,0,0,0);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: PrintMenuMove
+**
+** DESCRIPTION:
+**      Print Menu Move display is in the lower screen and changes for
+** either the azimuth, altitude, or rotator.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void PrintMenuMove()
 {
   double arcsecond;
@@ -249,8 +347,24 @@ void PrintMenuMove()
   printf("   Velocity ");
   printf ("%10ld Cts/Sec",adjvel[Axis]);
 }
-/****************************************************************************/
-int org_pri;
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: Menu
+**
+** DESCRIPTION:
+**      This is the Menu which is used as a control and status display of
+**	the telescope.  This is considered to be an engineering tool.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void Menu()
 /* This services the display terminal.  */
 {
@@ -265,7 +379,6 @@ void Menu()
   extern void tm_set_pos(int axis, int pos);
   extern void manTrg();
   extern int cw_abort();
-  extern int amp_reset(int axis);
   extern struct FIDUCIARY fiducial[3];
   extern long fiducial_position[3];
   int cwpos;
@@ -279,10 +392,6 @@ void Menu()
 
   Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
   ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
-/*  taskPriorityGet(0,&org_pri);*/
-/*  printf("\r\ntask priority=%d is set to 4",org_pri);*/
-/*  taskPrioritySet(0,46);*/
-/*  taskDelay (30);*/
   if (semTake (semMEIUPD,60)!=ERROR)
   {
     refreshing=TRUE;
@@ -643,36 +752,46 @@ void Menu()
          case '(':
 	   CursPos(20,24);
 	   printf("SP1 Slit Door Toggled          ");
-	   if ((sdssdc.status.i1.il9.slit_door1_opn)&&
-               (!sdssdc.status.i1.il9.slit_door1_cls))		
+	   if ((sdssdc.status.o1.ol9.slit_dr1_opn_perm)&&
+	       (!sdssdc.status.o1.ol9.slit_dr1_cls_perm))
+/*	   if ((sdssdc.status.i1.il9.slit_door1_opn)&&
+               (!sdssdc.status.i1.il9.slit_door1_cls))*/
 	   {
 	     tm_sp_slit_close(SPECTOGRAPH1);
 	     break;
 	   }
-	   if ((!sdssdc.status.i1.il9.slit_door1_opn)&&
-               (sdssdc.status.i1.il9.slit_door1_cls))		
+	   if ((!sdssdc.status.o1.ol9.slit_dr1_opn_perm)&&
+	       (sdssdc.status.o1.ol9.slit_dr1_cls_perm))
+/*	   if ((!sdssdc.status.i1.il9.slit_door1_opn)&&
+               (sdssdc.status.i1.il9.slit_door1_cls))*/
 	   {
 	     tm_sp_slit_open(SPECTOGRAPH1);
 	     break;
 	   }
+	   tm_sp_slit_open(SPECTOGRAPH1);
 	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case ')':
 	   CursPos(20,24);
 	   printf("SP2 Slit Door Toggled           ");
-	   if ((sdssdc.status.i1.il9.slit_door2_opn)&&
-               (!sdssdc.status.i1.il9.slit_door2_cls))		
+	   if ((sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
+	       (!sdssdc.status.o1.ol9.slit_dr2_cls_perm))
+/*	   if ((sdssdc.status.i1.il9.slit_door2_opn)&&
+               (!sdssdc.status.i1.il9.slit_door2_cls))*/
 	   {
 	     tm_sp_slit_close(SPECTOGRAPH2);
 	     break;
 	   }
-	   if ((!sdssdc.status.i1.il9.slit_door2_opn)&&
-               (sdssdc.status.i1.il9.slit_door2_cls))		
+	   if ((!sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
+	       (sdssdc.status.o1.ol9.slit_dr2_cls_perm))
+/*	   if ((!sdssdc.status.i1.il9.slit_door2_opn)&&
+               (sdssdc.status.i1.il9.slit_door2_cls))*/
 	   {
 	     tm_sp_slit_open(SPECTOGRAPH2);
 	     break;
 	   }
+	   tm_sp_slit_open(SPECTOGRAPH2);
 	   printf("ERR: Inconsistent State  ");
 	   break;
 
@@ -788,7 +907,6 @@ void Menu()
 	   Running=FALSE;
 	   ioctl(0,FIOOPTIONS,Options); /* back to normal */
            taskDelete(taskIdFigure("menuPos"));
-/*  	   taskPrioritySet(0,org_pri);*/
 	   taskDelay (10);
 	   EraseDisplayAll();
 	   break;
@@ -1260,6 +1378,23 @@ printf("                                                                        
      taskDelay(5); /* 60/5 = 12Hz */
    }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: PrintMenuPos
+**
+** DESCRIPTION:
+**      Updates the Menu display parameters as a stand-alone task.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void PrintMenuPos()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -1272,6 +1407,7 @@ void PrintMenuPos()
   extern struct FIDUCIALS az_fiducial[];
   extern struct FIDUCIALS alt_fiducial[];
   extern struct FIDUCIALS rot_fiducial[];
+  extern char *get_date();
   int state;
   int fidsign;
   int i;
@@ -2001,6 +2137,23 @@ printf("                                                                        
      taskDelay(5); /* 60/5 = 12Hz */
    }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: PrintInstPos
+**
+** DESCRIPTION:
+**      Updates the Inst display parameters as a stand-alone task.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void PrintInstPos()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -2013,6 +2166,7 @@ void PrintInstPos()
   extern struct FIDUCIALS az_fiducial[];
   extern struct FIDUCIALS alt_fiducial[];
   extern struct FIDUCIALS rot_fiducial[];
+  extern char *get_date();
   int fidsign;
   int state;
   int i;

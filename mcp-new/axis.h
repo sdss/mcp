@@ -192,7 +192,7 @@ int coeffs_state_deg (int axis, double degs);
 int coeffs_state_cts (int axis, int cts);
 float sdss_get_time();
 float get_time();
-
+void amp_reset(int axis);
 #define __AXIS_H__             /* do only once */
 
 #endif	/* End __AXIS_H__ */

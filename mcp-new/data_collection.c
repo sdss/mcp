@@ -1,10 +1,34 @@
 #include "copyright.h"
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      data_colleciton.c
+**
+** ABSTRACT:
+**	Collects data from MEI, AB, CW, and time.  Distributes to shared
+**	memory and broadcasts at 1 Hz.
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+** ipsdss_send		public	broadcast a datagram
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
 /************************************************************************/
-/*   File:	bsym.c							*/
+/*   File:	data_collection.c							*/
 /************************************************************************/
 /*   Location:	Fermi National Accelerator Lab				*/
 /*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	Broadsym info (V1.00) : vxWorks			*/
+/*   Program:	data collection (V1.00) : vxWorks			*/
 /*   Modules:	*/
 /*++ Version:
   1.00 - initial version
@@ -47,20 +71,34 @@
 #include "abdh.h"
 #include "ipcast.h"
 
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
 #define SHARE_MEMORY	0x02800000
  
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
+
 SEM_ID semMEIDC=NULL;
 SEM_ID semMEIUPD=NULL;
 SEM_ID semSLCDC=NULL;
-int meidc_enable=FALSE;
 int rawtick=0;
 /* Enables for axis 0, 2, 4: Azimuth(0), Altitude(2), Rotator(4) */
 int MEIDC_Enable[]={TRUE,TRUE,TRUE};
 int MEIDC_Rotate=0;
-/*int MEIDC_Enable[]={FALSE,FALSE,TRUE};*/
 unsigned long DC_freq=0;
 unsigned long mei_freq=1;
-unsigned long slc_freq=1;
+unsigned long slc_freq=100;
 int BCAST_Enable=TRUE;
 long *axis0pos=NULL;		/* AZ axis */
 long *axis0cmd=NULL;
@@ -95,14 +133,18 @@ long *axis4accel=NULL;
 long *axis4tim=NULL;
 long *axis5pos=NULL;
 float sdss_time_dc;
+
 struct SDSS_FRAME sdssdc={SDSS_FRAME_VERSION,DATA_TYPE};
 struct TM_M68K *tmaxis[]={(struct TM_M68K *)&sdssdc.axis[0],
 			(struct TM_M68K *)&sdssdc.axis[1],
 			(struct TM_M68K *)&sdssdc.axis[2]};
 struct AXIS_STAT axis_stat[3]={0,0,0};
 struct AXIS_STAT persistent_axis_stat[3]={0,0,0};
+int meistatcnt=0;
+#define	DATA_STRUCT(dsp, axis, offset)	(P_DSP_DM)((dsp)->data_struct+(DS_SIZE* (axis)) + offset)
+
+/* prototypes */
 void swapwords (register short *dp, register unsigned short len);
-int mei_axis_collection(int axis, int secs);
 void mei_data_collection(unsigned long freq);
 void print_mei_dc (int cnt);
 void print_axis_dc (int axis);
@@ -111,6 +153,23 @@ void slc500_data_collection(unsigned long freq);
 void DataCollectionTrigger();
 int dc_interrupt();
 
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: swapwords
+**
+** DESCRIPTION:
+**	Swap words
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void swapwords (register short *dp, register unsigned short len)
 {
    short temp;
@@ -123,16 +182,34 @@ void swapwords (register short *dp, register unsigned short len)
       dp+=2;
    }
 }
-
-#define DS_VOLTAGE DS_D(8)
-#define	DATA_STRUCT(dsp, axis, offset)	(P_DSP_DM)((dsp)->data_struct+(DS_SIZE* (axis)) + offset)
-short axis_data[DS(8)];	
-short meitime;
-short meichan0,meichan2,meichan4,meichan6;
-double meipos4;
-int meistat=0;
-int meistatcnt=0;
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: mei_data_collection
+**
+** DESCRIPTION:
+**	Collects data from MEI controller.  The time to respond to a request
+**	depends on the sample frequency of the controller.  Slowing the 
+**	loop frequency slows the response.  The controller is also limited
+**	in the size of the data returned and barely returns enough info
+**	for the axis + some portion of the consecutive axis which is used
+**	for a redundant postition.  To increase the frequency of a single 
+**	axis one can disable the collection of the other two since the
+**	collection is round-robined.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semMEI
+**	semMEIDC
+**	semMEIUPD
+**
+**=========================================================================
+*/
 void mei_data_collection(unsigned long freq)
 {
 	extern SEM_ID semMEI;
@@ -181,10 +258,6 @@ void mei_data_collection(unsigned long freq)
 	axis4accel=&tmaxis[2]->acceleration;
 	axis4tim=&tmaxis[2]->time;
 	axis5pos=&tmaxis[2]->actual_position2;
-/*	set_analog_channel (5,0,TRUE,TRUE);
-	set_axis_analog (5,TRUE);*/
-	
-/*	init_analog (0,TRUE,TRUE);*/
 	
 	FOREVER
 	{
@@ -203,10 +276,11 @@ void mei_data_collection(unsigned long freq)
 	        (short *)tmaxis[i]);
 	      if (dsp_error) 
 	      {
-	        meistatcnt++;
 	        tmaxis[i]->status = dsp_error;
 	        tmaxis[i]->errcnt++;
 	      }
+	      else
+	        meistatcnt++;
 	      semGive(semMEI);
 	      swapwords ((short *)(&tmaxis[i]->actual_position),1);
 	      swapwords ((short *)(&tmaxis[i]->position),1);
@@ -231,13 +305,33 @@ void mei_data_collection(unsigned long freq)
 	 }
 	}
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: print_mei_dc
+**	    print_axis_dc
+**	    print_pos_dc
+**
+** DESCRIPTION:
+**	Diagnostic to print status from sdssdc structure.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**
+**=========================================================================
+*/
 void print_mei_dc (int cnt)
 {
 	long *ap, *cp, *ap2;
 	int ii;
 	int i;
 
-	logMsg("\r\n\tapos\tcpos\tapos2\ttach\traw\ttime\tvoltage\tptr\t",0,0,0,0,0,0);
+	logMsg("\r\n\tapos\tcpos\tapos2\tvoltage\tptr",0,0,0,0,0,0);
 	  
     	for(ii = 0; ii < cnt; ii++)
 	{
@@ -248,10 +342,8 @@ void print_mei_dc (int cnt)
 	    ap=(long *)&tmaxis[i]->actual_position;
 	    cp=(long *)&tmaxis[i]->position;
 	    ap2=(long *)&tmaxis[i]->actual_position2;
-	    logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t0x%x\t%fv\t",i,
-	      *ap, *cp,*ap2,meichan6,(double)(2.5*meichan6)/2048.);
-	    logMsg("\r\n\t%u\t%d\t%x\t%f\t", meitime,tmaxis[i]->voltage, 
-		(long)tmaxis[i],meipos4,0,0);
+	    logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t%ld\t%x",i,
+	      *ap, *cp,*ap2,tmaxis[i]->voltage,(long)tmaxis[i]);
 	  }
 	  logMsg ("\r\n%d raw tick, %f Secs",
 		rawtick,((double)rawtick)/sysClkRateGet(),0,0,0,0);
@@ -265,17 +357,15 @@ void print_axis_dc (int axis)
 	long *ap, *cp, *ap2;
 	int i;
 
-	logMsg("\r\n\tapos\tcpos\tapos2\ttach\traw\ttime\tvoltage\tptr\t",0,0,0,0,0,0);
 	i=axis;
+	logMsg("\r\n\tapos\tcpos\tapos2\tvoltage\tptr",0,0,0,0,0,0);
   	 if (semTake (semMEIUPD,60)!=ERROR)
   	 {
            ap=(long *)&tmaxis[i]->actual_position;
 	   cp=(long *)&tmaxis[i]->position;
 	   ap2=(long *)&tmaxis[i]->actual_position2;
-	   logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t0x%x\t%fv\t",i,
-	      *ap, *cp,*ap2,meichan6,(double)(2.5*meichan6)/2048.);
-	   logMsg("\r\n\t%u\t%d\t%x\t%f\t", meitime,tmaxis[i]->voltage, 
-		(long)tmaxis[i],meipos4,0,0);
+           logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t%ld\t%x",i,
+	      *ap, *cp,*ap2,tmaxis[i]->voltage,(long)tmaxis[i]);
 	   semGive (semMEIUPD);
 	 }
 }
@@ -295,6 +385,41 @@ void print_pos_dc (int axis)
 	  semGive (semMEIUPD);
 	 }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: slc_data_collection
+**
+** DESCRIPTION:
+**	Collect data from the SLC504 AB via DH+.  Also, collection of 
+**	counter-weight values from hardware, instrument lift hardware and
+**	ctime.  Status of the MEI controllers is produced for the TCC.  If
+**	the broadcast is enabled, the datagram is sent.  All this is 
+**	done at the base rate of the SLC data collection.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	slc_read_blok
+**	cw_data_collection
+**	il_data_collection 
+**	time
+**	ipsdss_send
+**	check_stop_in
+**	az_amp_ok
+**	alt_amp_ok
+**	rot_amp_ok
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semMEI
+**	semSLC
+**	semSLCDC
+**	axis_stat[]
+**
+**=========================================================================
+*/
 void slc500_data_collection(unsigned long freq)
 {
   extern SEM_ID semSLC;
@@ -356,10 +481,37 @@ void slc500_data_collection(unsigned long freq)
       ipsdss_send ((char *)&sdssdc,sizeof(struct SDSS_FRAME));
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: DataCollectionTrigger
+**
+** DESCRIPTION:
+**	Interrupt routine for data collection delivers binary semaphores
+**	so collection is accomplished at task context.  Also, saves
+**	sdssdc structure to shared memory for TPM.  Provides an output pulse
+**	as an interrupt to TPM.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	dc_interrupt
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	DC_freq
+**	slc_freq
+**	mei_freq
+**	rawtick
+**	semMEIDC
+**	semSLCDC
+**
+**=========================================================================
+*/
 int SM_COPY=TRUE;
 void DataCollectionTrigger()
 {
-  extern int dc_interrupt();
   DC_freq++;
   rawtick=tickGet();
   
@@ -372,9 +524,6 @@ void DataCollectionTrigger()
     *(short *)SHARE_MEMORY = FALSE;
     dc_interrupt();
   }
-
-
-/*  while (!meidc_enable);*/
 }
 /*=========================================================================
 **=========================================================================
@@ -410,6 +559,24 @@ int dc_interrupt()
   intUnlock(ikey);
   return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: restore_pos
+**
+** DESCRIPTION:
+**	Restore positions after a boot from shared memory
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**
+**=========================================================================
+*/
 void restore_pos()
 {
   struct SDSS_FRAME *save;
@@ -429,6 +596,24 @@ void restore_pos()
     }
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: print_ab_status
+**
+** DESCRIPTION:
+**	Print the sdssdc data structure.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**
+**=========================================================================
+*/
 void print_ab_status()
 {
 printf ("\r\n AB status: status=%p, status.i1.il0=%p status.i1.il4=%p\n",
