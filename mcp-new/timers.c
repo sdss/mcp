@@ -142,6 +142,12 @@ test_dt(int t2,int t1)
 static float time1, time2;
 long SDSStime = -1;
 
+void
+print_time_changes(void)
+{
+   printf("SDSS time1=%f time2=%f dt = %f\n", time1, time2, time2 - time1);
+}
+
 char *
 set_time_cmd(char *cmd)
 {
@@ -172,6 +178,9 @@ set_time_cmd(char *cmd)
       return "ERR: wrong number of args";
    }
 
+   t.tm_year -= 1900;
+   t.tm_mon -= 1;
+#if 1
    if(t3 - (int)t3 > 0.75) {
       taskDelay(20);			/* 1/3 sec */
       extrasec = 1;
@@ -179,29 +188,26 @@ set_time_cmd(char *cmd)
       extrasec = 0;
    }
    
-   t.tm_year -= 1900;
-   t.tm_mon -= 1;
    tp.tv_sec = mktime(&t) + extrasec;
    tp.tv_nsec = 0;
+#else
+   tp.tv_sec = mktime(&t);
+   tp.tv_nsec = 1e9*(t3 - (int)t3);
+#endif
    time1 = sdss_get_time();		/* before and after for diagnostic */
    SDSStime = tp.tv_sec%ONE_DAY;
-   time2 = sdss_get_time();
    clock_settime(CLOCK_REALTIME, &tp);
-   
-#if 0
-  printf("\r\nt3=%f (extrasec=%d)",t3,extrasec);
-  printf (" mon=%d day=%d, year=%d %d:%d:%d\r\n",
+   time2 = sdss_get_time();
+
+   print_time_changes();
+#if 1
+  printf("t3=%f (extrasec=%d)\n",t3,extrasec);
+  printf (" mon=%d day=%d, year=%d %d:%d:%d\n",
 	t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
-  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
+  printf (" sec=%d, nano_sec=%d\n",tp.tv_sec,tp.tv_nsec);
 #endif
   
   return "";
-}
-
-void
-print_time_changes(void)
-{
-   printf ("SDSS time1=%f time2=%f\n", time1, time2);
 }
 
 /*=========================================================================
