@@ -6,7 +6,7 @@
 
 typedef struct {
    enum {
-      alignClamp_type,			/* move alignment clamp */
+      alignClamp_type = 1,		/* move alignment clamp */
       alignClampCheck_type,		/* check if alignment clamp moved */
 
       FFS_type,				/* move Flat Field Screen */
