@@ -149,11 +149,11 @@ extern SEM_ID semSLC;
  * extern declarations for globals
  */
 extern int axis_select;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
-extern double sec_per_tick[3];
-extern double ticks_per_degree[3];
-extern struct FRAME_QUEUE axis_queue[3];
-extern struct AXIS_STAT axis_stat[3];
-extern struct AXIS_STAT persistent_axis_stat[3];
+extern double sec_per_tick[NAXIS];
+extern double ticks_per_degree[NAXIS];
+extern struct FRAME_QUEUE axis_queue[NAXIS];
+extern struct AXIS_STAT axis_stat[NAXIS];
+extern struct AXIS_STAT persistent_axis_stat[NAXIS];
 extern int axis_alive;
 
 #endif
