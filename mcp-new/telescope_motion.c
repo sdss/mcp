@@ -1006,8 +1006,8 @@ tm_amp_mgt(void)
       if(monitor_on[AZIMUTH]) {
 	 if(monitor_axis[AZIMUTH] && sdssdc.status.i9.il0.az_brake_dis_stat) {
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
-	       TRACE(0, "MGT: bad az state %d: %s",
-		     state, axis_source_str(2*AZIMUTH));
+	       TRACE(0, "MGT: bad az state %s: %s",
+		     axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH));
 	       tm_az_brake_on();
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
@@ -1024,8 +1024,8 @@ tm_amp_mgt(void)
 	 if(monitor_axis[ALTITUDE] &&
 	    sdssdc.status.i9.il0.alt_brake_dis_stat) {
 	    if((state = tm_axis_state(2*ALTITUDE)) > 2 && state != STOP_EVENT){
-	       TRACE(0, "MGT: bad alt state %d: %s", 
-		     state, axis_source_str(2*ALTITUDE));
+	       TRACE(0, "MGT: bad alt state %s: %s", 
+		     axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE));
 
 	       tm_alt_brake_on();
 	       monitor_axis[ALTITUDE] = FALSE;
@@ -1043,8 +1043,9 @@ tm_amp_mgt(void)
 	 if(monitor_axis[INSTRUMENT]) {
 	    if((state = tm_axis_state(2*INSTRUMENT)) > 2 &&
 							  state != STOP_EVENT){
-	       TRACE(0, "MGT: bad rot state %d: %s", 
-		     state, axis_source_str(2*INSTRUMENT));
+	       TRACE(0, "MGT: bad rot state %s: %s", 
+		     axis_state_str(2*INSTRUMENT),
+		     axis_source_str(2*INSTRUMENT));
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
 	    if(!rot_amp_ok()) {
@@ -1200,7 +1201,7 @@ tm_axis_state(int mei_axis)
   return value;
 }
 
-char *
+const char *
 axis_state_str(int mei_axis)
 {
    static char buff[] = "Undocumented Value 0x1234";
@@ -1222,7 +1223,7 @@ axis_state_str(int mei_axis)
     case ABORT_EVENT:
       return("ABORT_EVENT");
       break;
-    case 1:
+    case 1:				/* not documented */
       return("Running???");
       break;
     default:
