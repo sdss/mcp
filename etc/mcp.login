@@ -76,7 +76,6 @@ traceOn 1, 31,31		/* trace task switches */
 #  "192.41.211.171" == sdsshost.apo.nmsu.edu
 mur_set_proc_name "MCP"
 
-#taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "192.41.211.171"
 taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdsshost.apo.nmsu.edu"
 taskSpawn "tMurServerRetry", 100, 0, 10000, mur_server_retry, 30
 taskSpawn "tMurRouter", 70, 0, 20000, mur_route_start, 200
