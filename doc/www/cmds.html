@@ -63,7 +63,7 @@ HGCD.ON              hgcdon_cmd                 0    0      0          1
 HOLD                 hold_cmd                   0    0      1          1
 IACK                 iack_cmd                   0    0      0          1
 ID                   id_cmd                     0    0      0          1
-INIT                 init_cmd                   0    0      1          1
+INIT                 init_cmd                   0    0      0*         1
 IR                   rot_cmd                    0    0      0          0
 LOG.ALL              log_all_cmd                1    0      0          0
 LOG.BUFSIZE          log_bufsize_cmd            1    0      0          1
@@ -92,13 +92,13 @@ SET.POSITION         set_pos_cmd                1    0      1          1
 SET.TIME             set_time_cmd               0    1      1          1
 SET.VELOCITY         set_vel_cmd                1    0      1          1
 SLIT.STATUS          slitstatus_cmd             0    0      0          1
-SLITDOOR.CLEAR       slitdoor_clear_cmd         0    0      1          1
-SLITDOOR.CLOSE       slitdoor_close_cmd         0    0      1          1
-SLITDOOR.OPEN        slitdoor_open_cmd          0    0      1          1
-SLITHEADLATCH.CLOSE  slithead_latch_close_cmd   0    0      1          1
-SLITHEADLATCH.EXT    slithead_latch_open_cmd    0    0      1          1
-SLITHEADLATCH.OPEN   slithead_latch_open_cmd    0    0      1          1
-SLITHEADLATCH.RET    slithead_latch_close_cmd   0    0      1          1
+SLITDOOR.CLEAR       slitdoor_clear_cmd         0    0      0          1
+SLITDOOR.CLOSE       slitdoor_close_cmd         0    0      0          1
+SLITDOOR.OPEN        slitdoor_open_cmd          0    0      0          1
+SLITHEADLATCH.CLOSE  slithead_latch_close_cmd   0    0      0          1
+SLITHEADLATCH.EXT    slithead_latch_open_cmd    0    0      0          1
+SLITHEADLATCH.OPEN   slithead_latch_open_cmd    0    0      0          1
+SLITHEADLATCH.RET    slithead_latch_close_cmd   0    0      0          1
 SP1                  sp1_cmd                    0    0      0          0
 SP2                  sp2_cmd                    0    0      0          0
 STATS                stats_cmd                  0    0      0          1
@@ -114,4 +114,8 @@ TIME?                time_cmd                   0    0      0          1
 UMBILICAL            umbilical_cmd              1    0      0          1
 VERSION              version_cmd                0    0      0          0
 </PRE>
+N.b. INIT is special.  You are not required to have the semaphore to
+try to issue an INIT as the TCC uses an axis init to <EM>take</EM> the
+semaphore.  You are required to have the semaphore to actually initialise
+the axes.
 </HTML>
