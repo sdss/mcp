@@ -244,7 +244,7 @@ tcc_serial(int port)
 	   ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
      
      if(status == 0) {
-	answer_buffer = cmd_handler(command_buffer);
+	answer_buffer = cmd_handler(1, command_buffer);	/* allow all cmds */
 	status = sdss_transmit(stream, command_buffer, answer_buffer);
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
