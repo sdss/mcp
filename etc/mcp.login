@@ -72,7 +72,6 @@ traceOn 1, 31,31		/* trace task switches */
 #
 # Start MURMUR related items, including the server.
 #
-#  "192.41.211.171" == sdsshost.apo.nmsu.edu
 mur_set_proc_name "MCP"
 
 taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdsshost.apo.nmsu.edu"
@@ -149,22 +148,22 @@ ld < mcp-new/mcpnew.out
 #
 # Initialise message queues and semaphores
 #
-tMoveCWInit
+cmdInit
+tMoveCWInit 0xFFFF4000, 0xC0
 tLatchInit
+spectroInit
 
 #BCAST_Enable=0
 #SM_COPY=0
 rebootHookAdd (ip_shutdown)
-cmd_init()
 DID48_initialize(0xFFF58000,0xB8)
-balance_initialize(0xFFFF4000,0xC0)
 lift_initialize(0xFFFF4000)
 cmd_handler("init")
 taskSpawn "TCC",46,8,10000,tcc_serial,1
 taskSpawn "cmdPortServer",100,0,2000,cmdPortServer,31011
 taskPrioritySet (taskIdFigure("tExcTask"),1)
-iptimeSet ("sdsshost",0)
-sdss_init()
+iptimeSet("sdsshost",0)
+axisMotionInit
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
@@ -214,4 +213,4 @@ barcode_open (3)
 # Adjust tracing now that we're up
 #
 traceOff barcodcan, 16,16
-traceTtyOn 0, 5
+traceTtyOn 0, 4
