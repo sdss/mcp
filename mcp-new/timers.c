@@ -560,7 +560,7 @@ timeInit(void)
 /*
  * Define time-related commands
  */
-   define_cmd("SET.TIME",     set_time_cmd, -1, 1, 1);
+   define_cmd("SET.TIME",     set_time_cmd, -1, 0, 1);
    define_cmd("TICKLOST @ .", ticklost_cmd,  0, 0, 1);
    define_cmd("TIME?",        time_cmd,      0, 0, 1);
 }
