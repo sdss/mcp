@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
+#include <time.h>
 #include <systime.h>
 #include <socket.h>
 #include <ioLib.h>
