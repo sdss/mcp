@@ -1616,7 +1616,7 @@ ms_on_cmd(char *cmd)			/* NOTUSED */
  * set MS.OFF
  */
 char *
-ms_off_cmd(char *cmd)			/* NOTUSED */
+ms_off_cmd(char *cmd)
 {
    const int axis = ublock->axis_select;
    float delay;				/* delay until MS.OFF takes effect, s*/
@@ -1626,7 +1626,7 @@ ms_off_cmd(char *cmd)			/* NOTUSED */
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   if(sscanf(cmd, "%f", &time_off) == 0) { /* no time specified */
+   if(sscanf(cmd, "%f", &time_off) != 1) { /* no time specified */
       delay = 0;
    } else {
       delay = sdss_delta_time(time_off, sdss_get_time()); /* how long to wait*/
