@@ -1,36 +1,10 @@
 #include "copyright.h"
-/**************************************************************************
-***************************************************************************
-** FILE:
-**      cmd.c
-**
-** ABSTRACT:
+/*
 **	TCC Command handler both receives, distributes, and answers on
 **	behalf of the action routines.
 **	cmd_handler can be invoked from the serial driver or the shell
 **	so access is arbitrated by a semaphore
-**
-** ENTRY POINT          SCOPE   DESCRIPTION
-** ----------------------------------------------------------------------
-** cmd_ini		public	initialize semaphore
-** cmd_handler		public	command handler
-** dummy_cmd		local	provides default command noop function
-**
-** ENVIRONMENT:
-**      ANSI C.
-**
-** REQUIRED PRODUCTS:
-**
-** AUTHORS:
-**      Creation date:  Aug 30, 1999
-**      Charlie Briegel
-**
-***************************************************************************
-***************************************************************************/
-
-/*------------------------------*/
-/*	includes		*/
-/*------------------------------*/
+*/
 #include "vxWorks.h"
 #include "stdio.h"
 #include "intLib.h"
@@ -51,13 +25,6 @@
 #include "cmd.h"
 #include "dscTrace.h"
 
-/*========================================================================
-**========================================================================
-**
-** LOCAL MACROS, DEFINITIONS, ETC.
-**
-**========================================================================
-*/
 /*------------------------------------------------------------------------
 **
 ** LOCAL DEFINITIONS
@@ -232,7 +199,7 @@ tcc_serial(int port)
      exit (-1);
   }
   
-  TRACE(1, "OPEN port %s, stream=%p", serial_port, stream);
+  TRACE(1, "OPEN port %s", serial_port, 0);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
   for(;;) {
@@ -240,9 +207,15 @@ tcc_serial(int port)
 
      command_buffer[0] = '\0';
      status = sdss_receive(stream, port, command_buffer, 256);
-     TRACE(5,  "command from TCC: %s", command_buffer, 0);
-     TRACE(16, "        cccccccc: 0x%08x%08x",
-	   ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
+     {
+	int lvl = 5;
+	if(strstr(command_buffer, "STATUS") != NULL) {
+	   lvl += 2;
+	}
+ 	TRACE(lvl, "command from TCC: %s", command_buffer, 0);
+	TRACE(16, "        cccccccc: 0x%08x%08x",
+	      ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
+     }
      
      if(status == 0) {
 	strcpy(command_buffer_in, command_buffer);
