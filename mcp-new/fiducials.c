@@ -779,11 +779,6 @@ tLatch(const char *name)
 	 fiducial[axis].ms_on = 0;
 	 
 	 semGive(semLatch);
-
-#if 0
-	 fprintf(stderr,"RHL: %s MS.OFF NOW\n", axis_name(axis));
-#endif
-	 TRACE(3, "%s MS.OFF NOW\n", axis_name(axis), 0);
 	 
 	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0, 0);
 	 continue;
@@ -1537,7 +1532,6 @@ set_ms_on(int axis)			/* the axis in question */
 #if 0
    fprintf(stderr,"RHL: %s MS.ON\n", axis_name(axis));
 #endif
-   TRACE(3, "%s MS.ON\n", axis_name(axis), 0);
    
    ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
@@ -1574,7 +1568,7 @@ set_ms_off(int axis,			/* the desired axis */
 #if 0
    fprintf(stderr,"RHL: %s MS.OFF %f\n", axis_name(axis), delay);
 #endif
-   TRACE(3, "%s MS.OFF %f\n", axis_name(axis), delay);
+   TRACE(3, "%s MS.OFF scheduled: %d\n", axis_name(axis), (int)(delay + 0.5));
       
    if(delay == 0) {			/* no time specified */
       TRACE(5, "Sending message to msgLatched: type %d", msg.type, 0);
