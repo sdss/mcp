@@ -274,6 +274,7 @@ mei_data_collection(unsigned long freq)
 void
 slc500_data_collection(unsigned long freq)
 {
+   int i;
    char status[168*2 + 1];
    char status_b10[12 + 1];
    int stat;
@@ -298,7 +299,6 @@ slc500_data_collection(unsigned long freq)
 	 
 	 stat |= slc_read_blok(1,10,BIT_FILE, 0, (uint *)status_b10,
 			       sizeof(struct B10)/2);
-	 
 	 semGive (semSLC);
 	 
 	 assert(status[sizeof(status) - 1] == '\a');
@@ -318,48 +318,48 @@ slc500_data_collection(unsigned long freq)
       cw_data_collection();
       il_data_collection(); 
    
-      if(check_stop_in()) {
-	 axis_stat[0].stop_ok=0;
-      } else {
-	 axis_stat[0].stop_ok=1;
-      }
-      axis_stat[2].stop_ok = axis_stat[1].stop_ok = axis_stat[0].stop_ok;
+      axis_stat[0].stop_ok =
+	axis_stat[1].stop_ok = axis_stat[2].stop_ok = (check_stop_in() ? 1 : 0);
       
-      if(az_amp_ok()) {
-	 axis_stat[0].amp_ok=1;
-      } else {
-	 axis_stat[0].amp_ok=0;
-      }
-      
-      if(alt_amp_ok()) {
-	 axis_stat[1].amp_ok=1;
-      } else {
-	 axis_stat[1].amp_ok=0;
-      }
-      
-      if(rot_amp_ok()) {
-	 axis_stat[2].amp_ok=1;
-      } else {
-	 axis_stat[2].amp_ok=0;
-      }
-      
-      if(semTake(semMEI,5) != ERROR) {
-	 if((sdssdc.axis_state[0]=axis_state(0))<=2) {
-	    axis_stat[0].closed_loop=1;
-	 } else {
-	    axis_stat[0].closed_loop=0;
+      axis_stat[0].amp_ok = az_amp_ok()  ? 1 : 0;
+      axis_stat[1].amp_ok = alt_amp_ok() ? 1 : 0;
+      axis_stat[2].amp_ok = rot_amp_ok() ? 1 : 0;
+/*
+ * Set sticky versions of bump switches; these stay on until explicitly
+ * cleared with clear_sticky_bumps() (called by e.g. init_cmd())
+ */
+      if(sdssdc.status.i1.il0.az_bump_ccw) {
+	 if(!axis_stat[AZIMUTH].bump_up_ccw_sticky) {
+	    TRACE(0, "Windscreen touched in azimuth: CCW", 0, 0);
 	 }
-	 
-	 if((sdssdc.axis_state[1]=axis_state(2))<=2) {
-	    axis_stat[1].closed_loop=1;
-	 } else {
-	    axis_stat[1].closed_loop=0;
+	 axis_stat[AZIMUTH].bump_up_ccw_sticky = 1;
+      }
+      if(sdssdc.status.i1.il0.az_bump_cw)  {
+	 if(!axis_stat[AZIMUTH].bump_dn_cw_sticky) {
+	    TRACE(0, "Windscreen touched in azimuth: CW", 0, 0);
 	 }
-	 
-	 if ((sdssdc.axis_state[2]=axis_state(4))<=2) {
-	    axis_stat[2].closed_loop=1;
-	 } else {
-	    axis_stat[2].closed_loop=0;
+	 axis_stat[AZIMUTH].bump_dn_cw_sticky = 1;
+      }
+      if(sdssdc.status.i1.il6.alt_bump_up) {
+	 if(!axis_stat[ALTITUDE].bump_up_ccw_sticky) {
+	    TRACE(0, "Windscreen touched in altitude: UP", 0, 0);
+	 }
+	 axis_stat[ALTITUDE].bump_up_ccw_sticky = 1;
+      }
+      if(sdssdc.status.i1.il6.alt_bump_dn) {
+	 if(!axis_stat[ALTITUDE].bump_dn_cw_sticky) {
+	    TRACE(0, "Windscreen touched in altitude: DOWN", 0, 0);
+	 }
+	 axis_stat[ALTITUDE].bump_dn_cw_sticky = 1;
+      }
+/*
+ * axis status, and are we in closed loop?
+ */
+      if(semTake(semMEI, 5) != ERROR) {
+	 for(i = 0; i < NAXIS; i++) {
+	    sdssdc.axis_state[i] = axis_state(2*i);
+	    axis_stat[i].closed_loop =
+				    (sdssdc.axis_state[i] <= NEW_FRAME) ? 1 : 0;
 	 }
 
 	 semGive(semMEI);
