@@ -6,6 +6,8 @@ void tm_move_pos (int axis, int vel, int accel, int pos);
 void tm_print_coeffs(int axis);
 void tm_set_coeffs(int axis, int index, int val);
 void tm_clear_pos (int axis);
+void tm_get_pos (int axis,double *position);
+void tm_get_vel (int axis,double *velocity);
 void tm_set_sample_rate (unsigned short rate);
 void tm_set_pos (int axis, int pos);
 void tm_set_analog_encoder(int axis, int channel);

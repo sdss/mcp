@@ -18,6 +18,7 @@
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"
+#include "sysLib.h"
 #include "intLib.h"
 #include "iv.h"
 #include "memLib.h"
@@ -380,7 +381,6 @@ int     serverJFile(char *name, char *text)
   FILE *fp;
   int i,ii;
   long *rd;
-  unsigned long *urd;
   unsigned char *ucrd;
   char *crd;
   unsigned short *usrd;
@@ -471,7 +471,6 @@ int serverSDDSFile(char *name, char *text)
   FILE *fp;
   int i,ii;
   long *rd;
-  unsigned long *urd;
   unsigned char *ucrd;
   char *crd;
   unsigned short *usrd;
@@ -565,7 +564,6 @@ int serverMATLABFile(char *name, char *text)
   FILE *fp;
   int i,ii;
   long *rd;
-  unsigned long *urd;
   unsigned char *ucrd;
   char *crd;
   unsigned short *usrd;
@@ -781,7 +779,7 @@ int stsTrg()
 }
 void pollTrg()
 {
-  char        *get_data();
+  extern char *get_date();
 
   while (!stsTrg()) taskDelay (60);
   serverSDDSFile("sdds.dat",(char *)get_date());

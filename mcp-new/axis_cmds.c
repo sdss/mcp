@@ -22,6 +22,7 @@
 #include "vxWorks.h"                            
 #include "semLib.h"
 #include "sigLib.h"
+#include "stdio.h"
 #include "tickLib.h"
 #include "inetLib.h"
 #include "taskLib.h"
@@ -242,7 +243,6 @@ char *drift_cmd(char *cmd)
   long ap,vel;
   double position,velocity;
   double arcdeg, veldeg;
-  static struct tm *t;
 /*  extern struct TM_M68K *tmaxis[];*/
 
 /*  printf (" DRIFT command fired\r\n");*/
@@ -290,10 +290,10 @@ char *id_cmd(char *cmd)
 
 char *init_cmd(char *cmd)
 {
-  int e ;
-  char buffer[MAX_ERROR_LEN] ;
+/*  int e;*/
+/*  char buffer[MAX_ERROR_LEN];*/
   int state;
-  extern struct SDSS_FRAME sdssdc;
+/*  extern struct SDSS_FRAME sdssdc;*/
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
   state=tm_axis_state(axis_select<<1);
@@ -868,7 +868,7 @@ void tm_TCC(int axis)
 {
   int cnt, lcnt;
   struct FRAME *frame;
-  int i;
+/*  int i;*/
   int frame_cnt, frame_idx;
 /*  extern struct TM_M68K *tmaxis[];*/
   double position;
@@ -1198,7 +1198,7 @@ char *set_time_cmd(char *cmd)
   return 0;
 }
 
-print_time_changes()
+void print_time_changes()
 {
   int i;
 
@@ -1232,7 +1232,7 @@ char *status_cmd(char *cmd)
     semGive (semMEI);
     return status_ans;
   }
-  return 0;
+  return "ERR: semMEI";
 }
 
 /* returns:    "%date %time
@@ -2095,7 +2095,6 @@ Written for Version 2.4E
 
 int sdss_home(int axis)
 {
-	int error_code;
 	double distance;
 
 /* initialize if not done */
@@ -2182,7 +2181,6 @@ int sdss_error(int error_code)
 #ifdef CLOCK_INT
 float sdss_get_time()
 {
-  	  struct timespec tp;
   	  unsigned long micro_sec;
 
           micro_sec = timer_read (1);
@@ -2190,7 +2188,6 @@ float sdss_get_time()
 }
 float get_time()
 {
-  	  struct timespec tp;
   	  unsigned long micro_sec;
 
           micro_sec = timer_read (1);

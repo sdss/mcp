@@ -79,6 +79,11 @@ ADC128F1
 #include "vxWorks.h"                            
 #include "semLib.h"
 #include "sigLib.h"
+#include "taskLib.h"
+#include "sysLib.h"
+#include "stdio.h"
+#include "logLib.h"
+#include "logLib.h"
 #include "tickLib.h"
 #include "inetLib.h"
 #include "in.h"
@@ -198,14 +203,14 @@ unsigned char cwLimit;
 char *balance_weight(int inst);
 char *balance_cmd(char *cmd);
 int balance_init();
-int balance (int cw, int inst);
-int cw_pos(int cw, float *pos);
-int cw_position(int cw, double pos);
+void balance (int cw, int inst);
+void cw_pos(int cw, float *pos);
+void cw_position(int cw, double pos);
 void cw_calc (struct CW_LOOP *cw);
 void cw_DIO316_interrupt(int type);
 void cw_DIO316_shutdown(int type);
-int read_ADC (int chan, int cnt);
-int read_all_ADC (int cnt);
+void read_ADC (int chan, int cnt);
+void read_all_ADC (int cnt);
 int cw_brake_on();
 int cw_brake_off();
 int cw_power_on();
@@ -213,8 +218,8 @@ int cw_power_off();
 int cw_select(int cw);
 int cw_status();
 int cw_abort ();
-int cw_motor_raw (int cw, int vel);
-int cw_motor (int cw, double vel_rpm);
+void cw_motor_raw (int cw, int vel);
+void cw_motor (int cw, double vel_rpm);
 void cw_list (int inst);
 void cw_read_position (int cnt);
 void cw_set_position (int inst, double p1, double p2, double p3, double p4);
@@ -351,10 +356,13 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   free (ip);
   return 0;
 }
-int balance (int cw, int inst)
+void balance (int cw, int inst)
 {
   int i;
-  short vel,pos,delta,direction,dpos;
+  short vel,pos,delta,direction;
+#ifdef FAKE_IT
+  short dpos;
+#endif
   short last_direction;
   int totcnt, cnt, last_error;
 
@@ -479,7 +487,7 @@ int balance (int cw, int inst)
   if (CW_verbose) printf ("\r\n STOP: ");
   printf ("\r\n .................time=%d secs\r\n",totcnt/cw_inst[inst].updates_per_sec);
 }
-int cw_pos(int cw, float *pos)
+void cw_pos(int cw, float *pos)
 {
   int fd;
 
@@ -491,7 +499,7 @@ int cw_pos(int cw, float *pos)
   balance (cw, INST_DEFAULT);
   close (fd);
 }
-int cw_position(int cw, double pos)
+void cw_position(int cw, double pos)
 {
   cw_set_position (INST_DEFAULT, pos, pos, pos, pos);
   balance (cw, INST_DEFAULT);
@@ -620,7 +628,7 @@ void cw_DIO316_shutdown(int type)
     }
     taskDelay(30);
 }
-int read_ADC (int chan, int cnt)
+void read_ADC (int chan, int cnt)
 {
   int i;
   short adc;
@@ -634,7 +642,7 @@ int read_ADC (int chan, int cnt)
       printf ("\r\nADC %d: %x %f volts",chan,adc,adc/2048.);
   }
 }
-int read_all_ADC (int cnt)
+void read_all_ADC (int cnt)
 {
   int i,ii;
   short adc;
@@ -660,41 +668,51 @@ int cw_brake_on()
 	unsigned char val;
 
 	short vel;
+	if (cw_DAC128V==-1) return ERROR;
         DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
 	if (vel>=0)
 	  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
 	else
 	  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+STOP_LIM);
+	return 0;
 }
 int cw_brake_off()
 {
+	return 0;
 }
 int cw_power_on()
 {
 	unsigned char val;
 
+	if (cw_DIO316==-1) return ERROR;
 	DIO316_Read_Port (cw_DIO316,CW_POWER,&val);
 	DIO316_Write_Port (cw_DIO316,CW_POWER,val|CW_POWER_ON);
         taskDelay (60);
+	return 0;
 }
 int cw_power_off()
 {
 	unsigned char val;
 
+	if (cw_DIO316==-1) return ERROR;
 	DIO316_Read_Port (cw_DIO316,CW_POWER,&val);
 	DIO316_Write_Port (cw_DIO316,CW_POWER,val&CW_POWER_OFF);
+	return 0;
 }
 int cw_select(int cw)
 {
 	unsigned char val;
 
+	if (cw_DIO316==-1) return ERROR;
 	DIO316_Read_Port (cw_DIO316,CW_SELECT,&val);
 	DIO316_Write_Port (cw_DIO316,CW_SELECT,(val&(~CW_SELECT))|cw);
+	return 0;
 }
 int cw_rdselect()
 {
 	unsigned char val;
 
+	if (cw_DIO316==-1) return ERROR;
 	DIO316_Read_Port (cw_DIO316,CW_SELECT,&val);
 	return (val&CW_SELECT);
 }
@@ -703,6 +721,7 @@ int cw_status()
 	unsigned char val;
 	int i;
 
+	if (cw_DIO316==-1) return ERROR;
 	DIO316_Read_Port (cw_DIO316,CW_LCLRMT,&val);
 	if ((val&CW_LOCAL)==CW_LOCAL) printf ("\r\nLOCAL:  ");
 	else printf ("\r\nREMOTE:  ");
@@ -722,14 +741,16 @@ int cw_status()
 	  printf ("\r\n  CW%d:  Upper Limit %d Lower Limit %d",
 			i,(val>>(i*2))&0x1,(val>>((i*2)+1))&0x1);
 	cw_read_position (1);
+	return 0;
 }
 int cw_abort ()
 {
-    cw_brake_on();
-    cw_power_off();
+    if (cw_brake_on()==0) 
+      if (cw_power_off()==0) return 0;
+    return ERROR;
 }
 #define MOTOR_RAMP	40
-int cw_motor_raw (int cw, int vel)
+void cw_motor_raw (int cw, int vel)
 {
   int i;
 
@@ -748,7 +769,7 @@ int cw_motor_raw (int cw, int vel)
   while (!kbd_input());
   cw_abort();
 }
-int cw_motor (int cw, double vel_rpm)
+void cw_motor (int cw, double vel_rpm)
 {
   int vel;
 

@@ -19,13 +19,14 @@
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"
+#include "stdio.h"
 #include "intLib.h"
 #include "iv.h"
 #include "memLib.h"
 #include "semLib.h"
 #include "sigLib.h"
 #include "etherLib.h"
-/*#include "ifLib.h"*/
+#include "ifLib.h"
 #include "socket.h"
 
 struct ifnet *pIf=NULL;
@@ -61,13 +62,7 @@ struct SDSS_FRAME tdt={DATA_TYPE,VERSION};
 
 void bcast1Hz()
 {
-  struct EtherInit *etherinit;
-
-  int status;
-  int e_clock_size;
-  int e_clock_hdr;
-  STATUS e_status;
-  BOOL ether_rcv_UCD();
+/*  BOOL ether_rcv_UCD();*/
 
   semcast_1Hz = semCCreate (SEM_Q_FIFO,0);
 
@@ -88,10 +83,7 @@ void bcast1Hz()
 int promisc_rcv=0;
 BOOL ether_rcv_UCD(struct ifnet *pIf, char *buffer, char length)
 {
-  extern unsigned short int Srcnod;
-  extern unsigned long int ucd_int15hzcnt;
   int i;
-  int byt;
 
   promisc_rcv++;
   if ((buffer[0]=(char)0xFF)&&
@@ -125,7 +117,7 @@ int ipsdss_ini ()
     if (cast_s < 0)
     {
       printf ("socket error (errno = %#x)\r\n", errnoGet ());
-      return;
+      return ERROR;
     }
 
     bzero (&cast_sockaddr, sizeof (cast_sockaddr));
@@ -139,8 +131,9 @@ int ipsdss_ini ()
                 (caddr_t)&optval, sizeof(optval))<0)
     {
       printf("setsockopt error (errno =  %#x)\r\n", errnoGet ());
-      return;
+      return ERROR;
     }
+    return 0;
 }
 int ipsdss_send (char *sdss_msg, int sdss_size)
 {
@@ -152,4 +145,5 @@ int ipsdss_send (char *sdss_msg, int sdss_size)
     printf("sendto error (errno =  %#x)\r\n", errnoGet ());
     printf ("\r\n%p, %d",sdss_msg,msglen);  
 */
+    return 0;	
 }

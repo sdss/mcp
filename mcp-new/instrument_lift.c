@@ -97,10 +97,14 @@ ADC128F1
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"                            
+#include "stdio.h"
+#include "sysLib.h"
+#include "taskLib.h"
 #include "semLib.h"
 #include "sigLib.h"
 #include "sysSymTbl.h"
 #include "tickLib.h"
+#include "logLib.h"
 #include "inetLib.h"
 #include "in.h"
 #include "tyLib.h"
@@ -367,7 +371,7 @@ int liftUp (int inst);
 int liftDn (int inst);
 int lift_fsm (int inst, int motion,int new_state);
 void il_trace (int inst, int cnt);
-int il_position(double pos);
+void il_position(double pos);
 void il_calc (struct IL_LOOP *il);
 int il_enable_motion();
 int il_disable_motion();
@@ -380,8 +384,8 @@ int il_setup_wd ();
 void wd_isr(struct conf_blk *cblk);
 int il_pump_on();
 int il_pump_off();
-int il_status();
-int il_abort ();
+void il_status();
+void il_abort ();
 int il_motion_up (char vel);
 int il_motion_raw_up (char vel);
 int il_motion_dn (char vel);
@@ -408,6 +412,7 @@ void il_set_upstrain (short inst, short base_strain,
 void il_set_dnstrain (short inst, short base_strain, 
 	short start_strain, short slew_strain, 
 	short stop_strain, short final_strain);
+void il_umbilical_move_pos(int pos);
 void IL_help();
 void IL_Verbose();
 void IL_Quiet();
@@ -435,9 +440,8 @@ int il_ADC128F1=-1;
 int il_DAC128V=-1;
 int lift_initialize(unsigned char *addr)
 {
-  int i,ii;                          
+  int i;
   short val;
-  STATUS stat;                               
   struct IPACK *ip;
   extern int cw_DIO316;
   extern int cw_ADC128F1;
@@ -555,23 +559,22 @@ int lift_initialize(unsigned char *addr)
 }
 int fiberGet ()
 {
-   printf ("\r\nFIBER GET:");
-  fiber_fsm(cw_get_inst("FIBER"),IL_GET);
+  printf ("\r\nFIBER GET:");
+  return (fiber_fsm(cw_get_inst("FIBER"),IL_GET));
 }
 int fiberPut ()
 {
-   printf ("\r\nFIBER PUT:");
-  fiber_fsm(cw_get_inst("FIBER"),IL_PUT);
+  printf ("\r\nFIBER PUT:");
+  return (fiber_fsm(cw_get_inst("FIBER"),IL_PUT));
 }
 int fiber_fsm (int inst, int action)
 {
-  int i;
   short pos;
   int lift_state,motion;
   
   new_fiber_state=FIBER_INIT;
   if ((il_inst[inst][IL_UP].updates_per_sec!=0)||
-  	(il_inst[inst][IL_DN].updates_per_sec!=0)) return;
+  	(il_inst[inst][IL_DN].updates_per_sec!=0)) return ERROR;
   while (new_fiber_state!=FIBER_EXIT)
   {
     ADC128F1_Read_Reg(il_ADC128F1,IL_POSITION,&pos);
@@ -777,15 +780,17 @@ int fiberini(struct IL_STATES *sm)
 
         il_state=INIT;
         il_action=IL_UP;
-
+	return 0;
 }
 int il_move (struct IL_STATES *sm)
 {
         il_state=lift_fsm(il_instrument,il_action,il_state); 
+	return 0;
 }
 int il_stop (struct IL_STATES *sm)
 {
         il_state=lift_fsm(il_instrument,il_action,EXIT); 
+	return 0;
 }
 int is_true (short *v1,short *v2)
 {
@@ -888,7 +893,6 @@ struct IL_INST instfsm[]={
 int fsm (int inst,int action)
 {
   int i;
-  int lift_state,motion;
   struct IL_STATES *sm;
   unsigned char new_state,last_state,state;
   
@@ -1007,10 +1011,7 @@ void il_trace (int inst, int cnt)
 }
 int is_at_zenith()
 {
-	unsigned char val;
-
   return TRUE;
-	
 }
 int is_cart_get_position()
 {
@@ -1041,8 +1042,6 @@ int is_plate_engage()
 int is_plate_full()
 {
   extern struct SDSS_FRAME sdssdc;
-	unsigned char val;
-
   return TRUE;
 	
   return (sdssdc.status.i1.il0.inst_lift_sw3||sdssdc.status.i1.il0.inst_lift_sw4);
@@ -1078,23 +1077,24 @@ int liftUp (int inst)
    printf ("\r\nLIFT IL: for instrument %d in %s position",
   		inst,motion_type[IL_UP]);
   new_state=state=INIT;
-  lift_fsm(inst,IL_UP,INIT);
+  return (lift_fsm(inst,IL_UP,INIT));
 }
 int liftDn (int inst)
 {
    printf ("\r\nLIFT IL: for instrument %d in %s position",
   		inst,motion_type[IL_DN]);
   new_state=state=INIT;
-  lift_fsm(inst,IL_DN,INIT);
+  return(lift_fsm(inst,IL_DN,INIT));
 }
 int lift_fsm (int inst, int motion, int new_state)
 {
-  int i;
-  short force,pos,delta,accel,direction,dpos,dstrain,dvel,abort_pos,abort_force;
+  short force,pos,delta,direction,abort_pos,abort_force;
   unsigned char vel,idxvel;
   extern SEM_ID semSLC;
+#ifdef FAKE_IT
+  short dstrain,dvel,semSLC,dpos;
   struct B10 il_ctrl;   
-
+#endif
   if (il_inst[inst][motion].updates_per_sec!=0) new_state=state=INIT;
   last_tick=tickGet();
   last_error=0;
@@ -1364,8 +1364,8 @@ int lift_fsm (int inst, int motion, int new_state)
     printf ("\r\n");
 #endif
     if (IL_verbose) 
-	printf ("pos=%2x,delta=%x,direction=%d,force=%d,dpos=%d,",
-		pos,delta,direction,force,dpos);
+	printf ("pos=%2x,delta=%x,direction=%d,force=%d,",
+		pos,delta,direction,force);
     printf ("pos=%6.4f\", %4.2fvolts %4d strain=%6.4f lb, %4.2 fvolts %4d ",
 		(24*pos)/(2048*0.7802),(10*pos)/2048.,pos,
 		force/.3,(10*force)/2048.,force);
@@ -1381,7 +1381,7 @@ int lift_fsm (int inst, int motion, int new_state)
 		cnt/il_inst[inst][motion].updates_per_sec,cnt);
   return SUCCESS;
 }
-int il_position(double pos)
+void il_position(double pos)
 {
   il_set_upposition (DEFAULT, pos);
   il_set_dnposition (DEFAULT, pos);
@@ -1434,14 +1434,15 @@ int il_umbilical_move(int val)
        return err;
      }
    }
+   return 0;
 }
 int il_umbilical_move_dn() 
 {
-    il_umbilical_move(1);
+   return (il_umbilical_move(1));
 }
 int il_umbilical_move_up() 
 {
-    il_umbilical_move(0);
+   return (il_umbilical_move(0));
 }
 int il_umbilical(int val) 
 {
@@ -1476,14 +1477,15 @@ int il_umbilical(int val)
        return err;
      }
    }
+   return 0;
 }
 int il_umbilical_on() 
 {
-    il_umbilical(1);
+    return (il_umbilical(1));
 }
 int il_umbilical_off() 
 {
-    il_umbilical(0);
+    return (il_umbilical(0));
 }
 short il_umbilical_position()
 {
@@ -1494,7 +1496,7 @@ short il_umbilical_position()
 	(30.*sdssdc.status.i4.umbilical_dist)/4096.);
   return sdssdc.status.i4.umbilical_dist;
 }
-int il_umbilical_move_pos(int pos)
+void il_umbilical_move_pos(int pos)
 {
   extern struct SDSS_FRAME sdssdc;
 
@@ -1607,6 +1609,7 @@ int il_zenith_clamp(int val)
        return err;
      }
    }
+   return 0;
 }
 int il_zenith_clamp_engage() 
 {
@@ -1832,7 +1835,7 @@ UWORD i_stat_overall;
            cblk->event_status |= (BYTE)(i_stat >> 8 );   /* update event */
 
         /* service the hardware */
-    logMsg ("\r\nIP480 ABORT fired %d, istat=%d",wdog++,i_stat);
+    logMsg ("\r\nIP480 ABORT fired %d, istat=%d",wdog++,i_stat,0,0,0,0);
         /* check each bit for an interrupt pending state */
     for( i = 0; i < j; i++ )   /* check each c */
     {
@@ -1845,7 +1848,7 @@ UWORD i_stat_overall;
   }
 }
 
-int il_status()
+void il_status()
 {
 	extern struct SDSS_FRAME sdssdc;
 	unsigned char val;
@@ -1882,7 +1885,7 @@ int il_status()
 
 	il_read_position (1);
 }
-int il_abort ()
+void il_abort ()
 {
     il_disable_motion();
     il_force_off();
@@ -1892,7 +1895,6 @@ int il_abort ()
 static short bit_reversal[]={0,8,4,0xC, 2,0xA,6,0xE, 1,9,5,0xD, 3,0xB,7,0xF}; 
 int il_motion_up(char vel)
 {
-	char old_vel;
    int err;
    unsigned short ctrl;
    struct B10 il_ctrl;   
@@ -1931,12 +1933,11 @@ int il_motion_up(char vel)
    }
    il_enable_motion();
    SetCounterConstant (&sbrd,IL_WD,60000);		/* 60 ms */
-   return;
+   return 0;
  }
 int stop_motion;
 int il_motion_dn(char vel)
 {
-   char old_vel;
    int err;
    unsigned short ctrl;
    struct B10 il_ctrl;   
@@ -1975,7 +1976,7 @@ int il_motion_dn(char vel)
    }
    il_enable_motion();
    SetCounterConstant (&sbrd,IL_WD,60000);		/* 60 ms */
-   return;
+   return 0;
 }
 #define MOTOR_RAMP	40
 int il_motion_raw_up (char vel)
@@ -2019,6 +2020,7 @@ int il_motion_raw_up (char vel)
   while (!stop_motion) 
    SetCounterConstant (&sbrd,IL_WD,60000);		/* 60 ms */
   il_abort();
+  return 0;
 }
 int il_motion_raw_dn (char vel)
 {
@@ -2061,6 +2063,7 @@ int il_motion_raw_dn (char vel)
 /*  while (!kbd_input())*/
    SetCounterConstant (&sbrd,IL_WD,60000);		/* 60 ms */
   il_abort();
+  return 0;
 }
 int il_stop_motion()
 {

@@ -21,9 +21,11 @@
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"                            
+#include "stdio.h"
 #include "semLib.h"
 #include "sigLib.h"
 #include "tickLib.h"
+#include "taskLib.h"
 #include "inetLib.h"
 #include "in.h"
 #include "timers.h"
@@ -115,8 +117,6 @@ void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
   int i;
   int status;
   extern SEM_ID semMEI;
-  int mvel;
-  extern struct TM_M68K *tmaxis[];
 
   for (i=0;i<times;i++)
   {
@@ -378,7 +378,7 @@ void tm_set_boot_filter (int axis)
 }
 void tmDisplay (int delay)
 {
-	taskSpawn("tmDisp",90,0,1000,tm_display,delay,0,0,0,0,0,0,0,0,0);
+	taskSpawn("tmDisp",90,0,1000,(FUNCPTR)tm_display,delay,0,0,0,0,0,0,0,0,0);
 }
 char *help_TM[]={
         "TM_help;  axis 0,1=ALT, axis 2,3=AL, axis 4,5=ROT",
@@ -419,7 +419,6 @@ void TM_Quiet()
 }
 int ADC128F1_initialize(unsigned char *addr, int occur)
 {
-  STATUS stat;
   int i;
   struct IPACK ip;
 
@@ -445,7 +444,6 @@ int ADC128F1_initialize(unsigned char *addr, int occur)
 }
 void tm_data_collection()
 {
-  extern struct SDSS_FRAME sdssdc;
   short adc;
   extern int cw_ADC128F1;
 
@@ -608,6 +606,16 @@ void tm_az_brake_off()
 {
     tm_az_brake (0);
 }
+void tm_sp_az_brake_on()
+{
+  if (taskIdFigure("tmAzBrk")!=NULL)
+    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake_off,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_az_brake_off()
+{
+  if (taskIdFigure("tmAzBrk")!=NULL)
+    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake_off,0,0,0,0,0,0,0,0,0,0);
+}
 int alt_cnt;
 int tm_alt_brake(short val) 
 {
@@ -697,6 +705,16 @@ void tm_alt_brake_on()
 void tm_alt_brake_off()
 {
     tm_alt_brake (0);
+}
+void tm_sp_alt_brake_on()
+{
+  if (taskIdFigure("tmAltBrk")!=NULL)
+    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake_off,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_alt_brake_off()
+{
+  if (taskIdFigure("tmAltBrk")!=NULL)
+    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake_off,0,0,0,0,0,0,0,0,0,0);
 }
 int tm_brake_status()
 {
@@ -887,8 +905,6 @@ int rot_amp_ok()
 #define TM_WD		4		/* WD channel    15 */
 void tm_amp_mgt()
 {
-  int i;
-
   FOREVER
   {
     taskDelay (60);
@@ -916,7 +932,6 @@ void tm_amp_mgt()
 void tm_print_amp_status()
 {
   extern struct SDSS_FRAME sdssdc;
-  int i;
 
     if (!az_amp_ok())
       printf ("\r\nAz Amp Disengaged: az_mtr_ccw=%d,az_mtr_cw=%d",
@@ -942,18 +957,18 @@ void tm_amp_disengage()
 {
   extern struct conf_blk sbrd;
 
-    StopCounter (&sbrd,TM_WD);
+  StopCounter (&sbrd,TM_WD);
 }
 void tm_amp_engage()
 {
-extern struct conf_blk sbrd;
+  extern struct conf_blk sbrd;
 
-    WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
-    StartCounter (&sbrd,TM_WD);
+  WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
+  StartCounter (&sbrd,TM_WD);
 }
 void tm_setup_wd ()
 {
-extern struct conf_blk sbrd;
+  extern struct conf_blk sbrd;
 
   SetCounterSize (&sbrd,TM_WD,CtrSize32);
   SetCounterConstant (&sbrd,TM_WD,2000000);		/* 2 Sec */
@@ -971,7 +986,7 @@ void tm_set_fiducial(int axis)
   extern long fiducial_position[3];
   int negative;
   long pos, deg, min, arcsec, marcsec;
-   char buf[16];
+  char buf[16];
    
   axis=axis>>1;
   printf("Set Fiducial Position    xxx:xx:xx:xxx  ");
@@ -979,9 +994,9 @@ void tm_set_fiducial(int axis)
 				/*sscanf (buf,"%d",&pos);*/
   if (buf[0]=='-') 
   {
-	sscanf (&buf[1],"%ld:%ld:%ld:%ld",
-		&deg,&min,&arcsec,&marcsec);
-	negative=TRUE;
+    sscanf (&buf[1],"%ld:%ld:%ld:%ld",
+	&deg,&min,&arcsec,&marcsec);
+    negative=TRUE;
   }
   else
   {
@@ -1012,10 +1027,9 @@ void tm_get_fiducial_all()
 }
 void tm_get_fiducial(int axis)
 {
-	extern struct FIDUCIARY fiducial[3];
-	extern long fiducial_position[3];
-  int negative;
-	long marcs,arcs,arcm,arcd;
+  extern struct FIDUCIARY fiducial[3];
+  extern long fiducial_position[3];
+  long marcs,arcs,arcm,arcd;
   double arcsec, farcsec;
   int i;
 
@@ -1185,7 +1199,7 @@ char *msg_axis_source[]=
 	 "ID_AXIS_COMMAND"};
 void tm_print_axis_source(int axis)
 {
-  int i,value;
+  int value;
   extern SEM_ID semMEI;
 
   semTake(semMEI,WAIT_FOREVER);

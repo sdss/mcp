@@ -1,4 +1,4 @@
-/*
+/************************************************************************/
 /*%+copyright
 *  Copyright (c) 1992 	Universities Research Association, Inc. 
 *  			All Rights Reserved
@@ -39,8 +39,8 @@
 -%*/
 /************************************************************************/
 /* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		Magnet Sensor control						*/
-/*   File:	copyright.h							*/
+/* 									*/
+/*   File:	copyright.h						*/
 /************************************************************************/
 /*   Location:	Fermi National Accelerator Lab				*/
 /*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/

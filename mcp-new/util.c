@@ -1,5 +1,8 @@
 #include "vxWorks.h"
 #include "stdlib.h"
+#include "stdio.h"
+#include "sysLib.h"
+#include "logLib.h"
 #include "iv.h"
 #include "intLib.h"
 #include "mv162.h"
@@ -75,7 +78,7 @@ void test_routine()
 {
   logMsg ("Test Interrupt Routine fired, status=%lx level=%lx\r\n",
 	(long)*VMECHIP2_LBISR,
-	(long)*VMECHIP2_ILR3);
+	(long)*VMECHIP2_ILR3,0,0,0,0);
 }
 
 unsigned long MCC_timer_read(int timer)

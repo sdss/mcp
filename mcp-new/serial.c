@@ -9,6 +9,7 @@
 #include "wdLib.h"
 #include "tyLib.h"
 #include "ioLib.h"
+#include "sysLib.h"
 #include "taskLib.h"
 #include "mv162IndPackInit.h"
 #include "ipOctalSerial.h"
@@ -44,7 +45,12 @@ struct SERIAL_CAN cancel[NPORT]= {
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0}
 };
+void tcc_serial(int port);
+FILE *barcode_open(int port);
 void barcode_shutdown(int type);
+void barcode_init(unsigned char *ip_base, unsigned short model, 
+		unsigned int vec, short ch);
+void print_barcode();
 
 /* Static variables */
 
@@ -68,10 +74,9 @@ int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
 
 int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
 {
-   int i;
    int c;
    int status;
-          unsigned char *ptr;
+   unsigned char *ptr;
 
 
    /* Initialize if necessary */
@@ -119,10 +124,9 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
       return -1;*/
 
    return status;        
-
 }
 
-tcc_serial(int port)
+void tcc_serial(int port)
 {
   char *serial_port={"/tyCo/x"};
   FILE *stream;  
@@ -169,7 +173,8 @@ struct BARCODE {
 struct BARCODE barcode[256];
 short barcodeidx=0;
 int BARCODE_verbose=FALSE;
-barcode_init(unsigned char *ip_base, unsigned short model, short vec, short ch)
+void barcode_init(unsigned char *ip_base, unsigned short model, 
+		unsigned int vec, short ch)
 {
   struct IPACK ip;
   char devName[32];
@@ -187,7 +192,7 @@ barcode_init(unsigned char *ip_base, unsigned short model, short vec, short ch)
 		(char *)((long)base<<16));
       pOctSerDv=octSerModuleInit((char *)(((long)(base)<<16)+1),
 		ip.adr[i],vec);
-      printf ("\r\n pOctSerDv=%p, ip.adr[i]=%x",pOctSerDv,ip.adr[i]);
+      printf ("\r\n pOctSerDv=%p, ip.adr[i]=%p",pOctSerDv,ip.adr[i]);
       if (octSerDrv() == ERROR)
         printf ("\r\n Driver installation failed");
       else
@@ -210,24 +215,17 @@ barcode_init(unsigned char *ip_base, unsigned short model, short vec, short ch)
     }
   }
 }
-barcode_open(int port)
+FILE *barcode_open(int port)
 {
   char *serial_port={"/tyCo/x"};
   FILE *stream;
-  int status;
-  char command_buffer[120];
-  char *answer_buffer;
-  int c;
-  unsigned char *ptr;
-  char *az_bf;
-  int az_fiducial;
 
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
   if (stream==NULL)
   {
     printf ("barcode_serial: Could **NOT** open port\r\n");
-    return -1;
+    return NULL;
   }
   else
     printf ("barcode_serial:  OPEN port %s, stream=%p\r\n",serial_port,stream);
@@ -235,6 +233,7 @@ barcode_open(int port)
   cancel[port].fd=fileno(stream);
   cancel[port].stream=stream;
   rebootHookAdd(barcode_shutdown);
+  return stream;
 }
 void barcode_shutdown(int type)
 {
@@ -252,37 +251,19 @@ void barcode_shutdown(int type)
 }
 int barcode_serial(int port)
 {
-  char *serial_port={"/tyCo/x"};
   FILE *stream;  
   int status;
   char command_buffer[120];
-  char *answer_buffer;
   int c;
   unsigned char *ptr;
   char *bf;
   int fiducial;
  
   if (cancel[port].fd==NULL)
-  {
-    barcode_open(port);
-/*
-    sprintf(serial_port,"/tyCo/%d",port);
-    stream = fopen (serial_port,"r+");
-    if (stream==NULL)
-    {
-      printf ("barcode_serial: Could **NOT** open port\r\n");
-      return -1;
-    }
-    else
-      printf ("barcode_serial:  OPEN port %s, stream=%p\r\n",serial_port,stream);
-    ioctl (fileno(stream),FIOBAUDRATE,2400);
-    cancel[port].fd=fileno(stream);
-    cancel[port].stream=stream;
-*/
-  }
+    stream=barcode_open(port);
   else
     stream=cancel[port].stream;
-
+  if (stream!=NULL) return ERROR;
    taskLock();
    cancel[port].cancel=FALSE;
    cancel[port].active=TRUE;
@@ -352,7 +333,7 @@ int barcode_serial(int port)
    barcodeidx = (barcodeidx+1)%256;
    return -1;
 }                                             
-print_barcode()
+void print_barcode()
 {
   int i;
 
@@ -367,7 +348,7 @@ print_barcode()
 
 int test_serial ( int port )
 {
-
+}
 #endif          /* End __TEST__ */
 #ifdef __USE_GETC__
 void cancel_read ()
@@ -431,4 +412,3 @@ void print_cancel_tmo ()
 	cancel[i].init_tmo,cancel[i].min_tmo,cancel[i].fd);
 }
 #endif          /* End __USE_GETC__ */
-

@@ -24,6 +24,8 @@
 #include "semLib.h"
 #include "sigLib.h"
 #include "etherLib.h"
+#include "taskLib.h"
+#include "logLib.h"
 #include "inetLib.h"
 #include "sockLib.h"
 #include "symLib.h"
@@ -113,7 +115,7 @@ void swapwords (register short *dp, register unsigned short len)
 int mei_axis_collection(int axis, int secs)
 {
 	extern SEM_ID semMEI;
-	short i, error_code;
+	short i;
 	size_t buffer_length;
 
 	long
@@ -182,9 +184,8 @@ int meistatcnt=0;
 void mei_data_collection(unsigned long freq)
 {
 	extern SEM_ID semMEI;
-	short i,ii;
+	int i;
 	int rotate;
-	int stat;
 	extern void tm_data_collection();
         void restore_pos();
 	
@@ -303,8 +304,6 @@ void mei_data_collection(unsigned long freq)
 void mei_tach_data_collection(unsigned long freq)
 {
 	extern SEM_ID semMEI;
-	short i,ii;
-	int stat;
 	extern void tm_data_collection();
 	
 	/*  ****************************************************  **
@@ -369,7 +368,6 @@ void print_mei_dc (int cnt)
 	long *ap, *cp, *ap2;
 	int ii;
 	int i;
-	int tick;
 
 	logMsg("\r\n\tapos\tcpos\tapos2\ttach\traw\ttime\tvoltage\tptr\t",0,0,0,0,0,0);
 	  
@@ -400,30 +398,28 @@ void print_axis_dc (int axis)
 {
 	extern SEM_ID semMEI;
 	long *ap, *cp, *ap2;
-	int ii;
 	int i;
 
 	logMsg("\r\n\tapos\tcpos\tapos2\ttach\traw\ttime\tvoltage\tptr\t",0,0,0,0,0,0);
 	i=axis;
   	 if (semTake (semMEI,60)!=ERROR)
   	 {
-	    ap=(long *)&tmaxis[i]->actual_position;
-	    cp=(long *)&tmaxis[i]->position;
-	    ap2=(long *)&tmaxis[i]->actual_position2;
-	    logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t0x%x\t%fv\t",i,
+           ap=(long *)&tmaxis[i]->actual_position;
+	   cp=(long *)&tmaxis[i]->position;
+	   ap2=(long *)&tmaxis[i]->actual_position2;
+	   logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t0x%x\t%fv\t",i,
 	      *ap, *cp,*ap2,meichan6,(double)(2.5*meichan6)/2048.);
-	    logMsg("\r\n\t%u\t%d\t%p\t%f\t", meitime,tmaxis[i]->voltage, tmaxis[i],
+	   logMsg("\r\n\t%u\t%d\t%p\t%f\t", meitime,tmaxis[i]->voltage, tmaxis[i],
 		meipos4,0,0);
-	  logMsg ("\r\n    time=%d usecs",runtime,
+	   logMsg ("\r\n    time=%d usecs",runtime,
 		0,0,0,0,0);
-	  semGive (semMEI);
+	   semGive (semMEI);
 	 }
 }
 void print_pos_dc (int axis)
 {
 	extern SEM_ID semMEI;
 	long *ap, *cp, *ap2;
-	int ii;
 	int i;
 
 	i=axis;
