@@ -142,9 +142,10 @@ vmeinst (0x1000, 0x0e0000, 0x00, "ab/sddhp.bin")
 #230Kb
 dhpd (10,0xe000,"chasb")
 #
-# Load slalib for the sake of the MJD
+# Load slalib for the sake of the MJD.  We now use our copy as this
+# version doesn't appear to be reentrant
 #
-ld < /p/tpmbase/bin/mv162/slaLib
+# ld < /p/tpmbase/bin/mv162/slaLib
 #
 # Load NTP code
 #
