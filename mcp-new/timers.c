@@ -473,7 +473,7 @@ DID48_interrupt(int type)
       }
       
       NIST_sec = timer_read(1);
-      if(NIST_sec > 1000100) {
+      if(NIST_sec > 1000200) {
 	 if(SDSStime >= 0) {		/* we've set our time */
 	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
 	 }
