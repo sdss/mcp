@@ -161,24 +161,8 @@ ADC128F1
 #include "data_collection.h"
 #include "instruments.h"
 #include "io.h"
-
-/*========================================================================
-**========================================================================
-**
-** LOCAL MACROS, DEFINITIONS, ETC.
-**
-**========================================================================
-*/
-/*------------------------------------------------------------------------
-**
-** LOCAL DEFINITIONS
-*/
-/* below is a place for DIAGNOStic flag for turning off the feature
-#define DIAGNOS 0
-*/
-#define NULLFP (void(*)()) 0
-#define NULLPTR ((void *) 0)
-#define ONCE if (YES)
+#include "mcpUtils.h"
+#include "dscTrace.h"
 
 /*-------------------------------------------------------------------------
 **
@@ -218,15 +202,10 @@ Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 	I=Imager camera
 */
 char *inst_name[]={"CAMERA","FIBER","EMPTY","SCF",
-			"S","SC","SE","SEC",
-			"SI","INST9","INST10","INST11",
-			"INST12","INST13","INST14","INST15",
-			"INSTDEF"};
-#define CW_0		0
-#define CW_1		1
-#define CW_2		2
-#define CW_3		3
-#define CW_MAX		4
+		     "S","SC","SE","SEC",
+		     "SI","INST9","INST10","INST11",
+		     "INST12","INST13","INST14","INST15",
+		     "INSTDEF"};
 
 #define POS_DIRECTION TRUE
 #define NEG_DIRECTION FALSE
@@ -239,9 +218,9 @@ char *inst_name[]={"CAMERA","FIBER","EMPTY","SCF",
 #define POS_PER_INCH  	66.5770 /* position in adc units per inch */
 
 struct CW_LOOP {
-	short pos_setting[CW_MAX];	/* position for a given instrucment */
-	short pos_current[CW_MAX];	/* current position */
-	short pos_error[CW_MAX];	/* error for the given instrument */
+	short pos_setting[NUMBER_CW];	/* position for a given instrucment */
+	short pos_current[NUMBER_CW];	/* current position */
+	short pos_error[NUMBER_CW];	/* error for the given instrument */
 	short updates_per_sec;		/* update rate of the loop */
 	float accel_rpm;		/* user specified acceleration */
 	float vel_rpm;			/* user specified velocity */
@@ -255,25 +234,28 @@ struct CW_LOOP {
 	short stop_pos_error;		/* stop position error allowed */
 	short stop_count;		/* stop polarity swing counts allowed */
 };
-/*                                  1      2     3     4                */
-struct CW_LOOP	cw_inst[] = {	{   50,    50,   50,   50},	/*CAMERA*/
-				{  600,   600,  600,  600},	/*FIBER	*/
-				{ 1432,  1470, 1470, 1470},	/*EMPTY	*/
-				{  594,   594,  594,  594},	/*SCF	*/
-				{  307,   307,  307,  307},	/*S     */
-				{  450,   450,  450,  450},	/*SC    */
-				{  235,   235,  235,  235},	/*SE    */
-				{  870,   870,  870,  870},	/*SEC   */
-				{ 1413,  1413, 1413, 1413},	/*SI    */
-				{0x200, 0x200,0x200,0x200},	/*INST9 */
-				{0x200, 0x200,0x200,0x200},	/*INST10*/
-				{0x200, 0x200,0x200,0x200},	/*INST11*/
-				{0x200, 0x200,0x200,0x200},	/*INST12*/
-				{0x200, 0x200,0x200,0x200},	/*INST13*/
-				{0x200, 0x200,0x200,0x200},	/*INST14*/
-				{0x200, 0x200,0x200,0x200},	/*INST15*/
-				{0x200, 0x200,0x200,0x200}	/*DEFAULT*/
+
+/*     1      2     3     4                */
+struct CW_LOOP	cw_inst[NUMBER_INST] = {
+   {   50,    50,   50,   50},		/*CAMERA*/
+   {  600,   600,  600,  600},		/*FIBER	*/
+   { 1432,  1470, 1470, 1470},		/*EMPTY	*/
+   {  594,   594,  594,  594},		/*SCF	*/
+   {  307,   307,  307,  307},		/*S     */
+   {  450,   450,  450,  450},		/*SC    */
+   {  235,   235,  235,  235},		/*SE    */
+   {  870,   870,  870,  870},		/*SEC   */
+   { 1413,  1413, 1413, 1413},		/*SI    */
+   {0x200, 0x200,0x200,0x200},		/*INST9 */
+   {0x200, 0x200,0x200,0x200},		/*INST10*/
+   {0x200, 0x200,0x200,0x200},		/*INST11*/
+   {0x200, 0x200,0x200,0x200},		/*INST12*/
+   {0x200, 0x200,0x200,0x200},		/*INST13*/
+   {0x200, 0x200,0x200,0x200},		/*INST14*/
+   {0x200, 0x200,0x200,0x200},		/*INST15*/
+   {0x200, 0x200,0x200,0x200}		/*DEFAULT*/
 };
+
 int CW_verbose=FALSE;
 int CW_limit_abort=FALSE;
 unsigned char cwLimit;
@@ -337,12 +319,13 @@ void cw_data_collection();
 **
 **=========================================================================
 */
-char *balance_weight(int inst)
+char *
+balance_weight(int inst)
 {
   int cw;
 
   if (CW_verbose) printf ("\r\nBALANCE WEIGHT\r\n");
-  for (cw=CW_0;cw<CW_MAX;cw++)
+  for (cw=0;cw<NUMBER_CW;cw++)
     balance (cw,inst);
   return "";
 }
@@ -353,7 +336,7 @@ char *balance_cmd(char *cmd)
   if (CW_verbose) printf ("\r\nBALANCE command fired\r\n");
   if ((inst=cw_get_inst(cmd))!=-1)
   {
-    for (cw=CW_0;cw<CW_MAX;cw++)
+    for (cw=0;cw<NUMBER_CW;cw++)
       balance (cw,inst);
     return "";
   }
@@ -477,10 +460,11 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
 
 /* Initialize the data structures for nominal operation */
-  for (i=0;i<sizeof(cw_inst)/sizeof(struct CW_LOOP);i++)
-  {
-    for (ii=0;ii<CW_MAX;ii++)
-      cw_inst[i].pos_current[ii]=cw_inst[i].pos_error[ii]=0;
+  for(i = 0; i < NUMBER_INST; i++) {
+    for(ii = 0; ii < NUMBER_CW; ii++) {
+       cw_inst[i].pos_current[ii] = cw_inst[i].pos_error[ii] = 0;
+    }
+    
     cw_inst[i].updates_per_sec=10;
     cw_inst[i].accel_rpm=12000.;	/* user specified acceleration */
     cw_inst[i].vel_rpm=500.;		/* user specified velocity */
@@ -520,7 +504,9 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
 **
 **=========================================================================
 */
-void balance (int cw, int inst)
+void
+balance(int cw,				/* counter weight to move */
+	int inst)			/* to position for this instrument */
 {
   int fd;
   int i;
@@ -539,6 +525,8 @@ void balance (int cw, int inst)
 /* set mux for specified counter-weight */
   cw_select (cw);
 
+  TRACE(4, "balance cw = %d inst = %d", cw, inst);
+
 /* iterate until good or exceed stop count */
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
   cw_power_on();
@@ -552,14 +540,19 @@ void balance (int cw, int inst)
     if ((pos&0x800)==0x800) pos |= 0xF000;
     else pos &= 0xFFF;
     delta = abs(pos-cw_inst[inst].pos_setting[cw]);
+
+    TRACE(5, "balance i = %d delta = %d", i, delta);
+
     last_error=delta;
     cw_inst[inst].pos_current[cw]=pos;
     cw_inst[inst].pos_error[cw]=delta;
     direction = pos<cw_inst[inst].pos_setting[cw]?POS_DIRECTION:NEG_DIRECTION;
     last_direction = direction;
 /* iterate until position is adequate */
-    while (delta>cw_inst[inst].stop_pos_error)
-    {
+    while (delta>cw_inst[inst].stop_pos_error) {
+       TRACE(6, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
+	     delta, cw_inst[inst].stop_pos_error);
+    
       taskDelay(60/cw_inst[inst].updates_per_sec);
       if (CW_limit_abort)
       {
@@ -573,7 +566,7 @@ void balance (int cw, int inst)
         if (delta>(last_error-4))
         {
 	  cw_abort();
-	  printf ("\r\nNot Closing in on position, cw_abort the balance");
+	  TRACE(2, "Not Closing in on position for %d; aborting", cw, 0);
 	  cw_status();
 	  return;
         }
@@ -651,52 +644,38 @@ void balance (int cw, int inst)
     cw_brake_off();
     if (CW_verbose) printf ("\r\n SWITCH: ");
   }
+  TRACE(4, "CW %d done", cw, 0);
   cw_brake_on();
   cw_power_off();
   if (CW_verbose) printf ("\r\n STOP: ");
   printf ("\r\n .................time=%d secs\r\n",totcnt/cw_inst[inst].updates_per_sec);
   close (fd);
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cw_posv	- differs in argument passing
-**	    cw_positionv
-**
-** DESCRIPTION:
-**      Set the DEFAULT instrument to a position specified in volts
-**	Deprecated functions implemented inches across the table (0-24).
-**
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**	cw_set_positionv
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void cw_pos(int cw, float *pos)
+
+/*
+ * Set a counterweight to a position specified in volts
+ */
+void
+set_counterweight(int inst,		/* instrument to set for */
+		  int cw,		/* counterweight to move, or ALL_CW */
+		  short pos)		/* positions to go to */
 {
-  cw_set_position (INST_DEFAULT, (double)*pos, (double)*pos, (double)*pos, (double)*pos);
-  balance (cw, INST_DEFAULT);
-}
-void cw_position(int cw, double pos)
-{
-  cw_set_position (INST_DEFAULT, pos, pos, pos, pos);
-  balance (cw, INST_DEFAULT);
-}
-void cw_posv(int cw, short *pos)
-{
-  cw_set_positionv (INST_DEFAULT, *pos, *pos, *pos, *pos);
-  balance (cw, INST_DEFAULT);
-}
-void cw_positionv(int cw, short pos)
-{
-  cw_set_positionv (INST_DEFAULT, pos, pos, pos, pos);
-  balance (cw, INST_DEFAULT);
+   int i;
+   short parray[4];			/* positions for all counterweights */
+   
+   for(i = 0; i < NUMBER_CW; i++) {
+      parray[i] = (cw == ALL_CW || i == cw) ? pos : 0;
+   }
+
+   cw_set_positionv(inst, parray);
+   
+   if(cw == ALL_CW) {
+      for(i = 0; i < NUMBER_CW; i++) {
+	 balance(i, inst);
+      }
+   } else {
+      balance(cw, inst);
+   }
 }
 
 /*=========================================================================
@@ -823,6 +802,8 @@ void cw_DIO316_interrupt(int type)
   short vel;
   int cw;
 
+  TRACE0(16, "cw_DIO316_interrupt", 0, 0);
+  
   DIO316ReadISR (cw_DIO316,&int_bit[0]);
   DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
   vel-=0x800;
@@ -1253,12 +1234,12 @@ void cw_read_position (int cnt)
 
   if (cnt==0) cnt=1;
   printf ("\r\n");
-  for (ii=0;ii<CW_MAX;ii++)
+  for (ii=0;ii<NUMBER_CW;ii++)
     printf ("       CW %d       ",ii);
   for (i=0;i<cnt;i++)
   {
     printf ("\r\n");
-    for (ii=0;ii<CW_MAX;ii++)
+    for (ii=0;ii<NUMBER_CW;ii++)
     {
       ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
       if ((adc&0x800)==0x800) adc |= 0xF000;
@@ -1310,28 +1291,31 @@ void cw_set_position (int inst, double p1, double p2, double p3, double p4)
      cw_inst[inst].pos_error[3]=0;
   }
 }
-void cw_set_positionv (int inst, short p1, short p2, short p3, short p4)
+
+void
+cw_set_positionv(int inst,		/* instrument to set pos for */
+		 const short p[4])	/* positions of counterweights */
 {
-  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
-  {
-     if ((p1<0)||(p1>1000)) return;
-     if ((p2<0)||(p2>1000)) return;
-     if ((p3<0)||(p3>1000)) return;
-     if ((p4<0)||(p4>1000)) return;
-/*     printf ("\r\nINST %d: p1=%d, p2=%d, p3=%d, p4=%d",inst,p1,p2,p3,p4);*/
-     cw_inst[inst].pos_setting[0]=(short)(p1*2.048);
-     cw_inst[inst].pos_current[0]=0;
-     cw_inst[inst].pos_error[0]=0;
-     cw_inst[inst].pos_setting[1]=(short)(p2*2.048);
-     cw_inst[inst].pos_current[1]=0;
-     cw_inst[inst].pos_error[1]=0;
-     cw_inst[inst].pos_setting[2]=(short)(p3*2.048);
-     cw_inst[inst].pos_current[2]=0;
-     cw_inst[inst].pos_error[2]=0;
-     cw_inst[inst].pos_setting[3]=(short)(p4*2.048);
-     cw_inst[inst].pos_current[3]=0;
-     cw_inst[inst].pos_error[3]=0;
-  }
+   int i;
+
+   if(inst < 0 || inst >= sizeof(cw_inst)/sizeof(struct CW_LOOP)) {
+      TRACE(0, "cw_set_positionv: invalid instrument %d", inst, 0);
+      return;
+   }
+
+   for(i = 0; i < 4; i++) {
+      if(p[i] != 0) {
+	 if(p[i] < 0 || p[i] > 1000) {
+	    TRACE(0, "cw_set_positionv: invalid position %d for cw %d",
+		  p[i], i + 1);
+	    return;
+	 }
+	 
+	 cw_inst[inst].pos_setting[i] = (short)(p[i]*2.048);
+	 cw_inst[inst].pos_current[i] = 0;
+	 cw_inst[inst].pos_error[i] = 0;
+      }
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -1595,7 +1579,7 @@ void cw_data_collection()
 
   if (cw_ADC128F1!=-1)
   {
-    for (ii=0;ii<CW_MAX;ii++)
+    for (ii=0;ii<NUMBER_CW;ii++)
     {
       ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
       if ((adc&0x800)==0x800) sdssdc.weight[ii].pos=adc|0xF000;
