@@ -45,35 +45,39 @@ tBars(void)
 
       switch (msg.type) {
        case TbarsLatch_type:
-	 latch_tbars = 1;
-	 break;
        case TbarsUnlatch_type:
-	 latch_tbars = 0;
+	 (void)timerSend(TbarsLatchCheck_type, tmr_e_abort_ns,
+			 0, 0, 0);	/* abort any pending confimations */
+	 (void)timerSend(TbarsUnlatchCheck_type, tmr_e_abort_ns,
+			 0, 0, 0);	/* abort any pending confimations */
+	 
+	 latch_tbars = (msg.type == TbarsLatch_type) ? 1 : 0;
 	 break;
        case TbarsLatchCheck_type:
        case TbarsUnlatchCheck_type:
 	 unlatch_status = sdssdc.status.i9.il0.t_bar_unlatch_stat;
 	 latch_status = sdssdc.status.i8.il0.t_bar_latch_stat;
 
-	 if(latch_status && unlatch_status) {
-	    TRACE(0, "Imager T-bars are both latched and unlatched", 0, 0);
-	    continue;			/* XXX */
-	 } else if(!latch_status && !unlatch_status) {
-	    TRACE(0, "Imager T-bars are neither latched nor unlatched", 0, 0);
-	    continue;			/* XXX */
-	 }
-
 	 if(msg.type == TbarsLatchCheck_type) {
 	    latch_tbars = 1;
 	 } else {
 	    latch_tbars = 0;
 	 }
-
-	 if(latch_tbars == latch_status) {
-	    continue;			/* nothing more to do */
+	 
+	 if(latch_status && unlatch_status) {
+	    TRACE(0, "Imager T-bars are both latched and unlatched", 0, 0);
+	 } else if(!latch_status && !unlatch_status) {
+	    TRACE(0, "Imager T-bars are neither latched nor unlatched", 0, 0);
+	 } else {
+	    if(latch_tbars == latch_status) {
+	       TRACE(1, "tbar latches moved", 0, 0);
+	    } else {
+	       TRACE(0, "Imager T-bars failed to go to %s state",
+		     (latch_tbars ? "latched" : "unlatched"), 0);
+	    }
 	 }
 	 
-	 latch_tbars = !latch_tbars;	/* reset to initial state */
+	 latch_tbars = -1;		/* set both to 0 */
 	 break;
        default:
 	 TRACE(0, "Impossible message type on msgTbars: %d", msg.type, 0);
@@ -83,7 +87,7 @@ tBars(void)
       if(semTake(semSLC,60) == ERROR) {
 	 TRACE(0, "mcp_set_tbars: failed to get semSLC: %s (%d)",
 	       strerror(errno), errno);
-	 return(-1);
+	 continue;
       }
       
       err = slc_read_blok(1,10,BIT_FILE,2,&ctrl[0],1);
@@ -94,8 +98,12 @@ tBars(void)
       }
       swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
       
-      tm_ctrl1.mcp_t_bar_latch = latch_tbars;
-      tm_ctrl1.mcp_t_bar_unlatch = !latch_tbars;
+      if(latch_tbars < 0) {
+	 tm_ctrl1.mcp_t_bar_latch = tm_ctrl1.mcp_t_bar_unlatch = 0;
+      } else {
+	 tm_ctrl1.mcp_t_bar_latch = latch_tbars;
+	 tm_ctrl1.mcp_t_bar_unlatch = !latch_tbars;
+      }
       
       swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
       err = slc_write_blok(1,10,BIT_FILE,2,&ctrl[0],1);
@@ -106,8 +114,12 @@ tBars(void)
 	 continue;
       }
 /*
- * Prepare to check that the tbars actually (un)latched
+ * Prepare to confirm that the tbars actually (un)latched
  */
+      if(latch_tbars < 0) {		/* this _is_ the check */
+	 continue;
+      }
+      
       TRACE(1, "Waiting %ds for tbar latches to move", wait, 0);
 
       msg.type = latch_tbars ? TbarsLatchCheck_type : TbarsUnlatchCheck_type;
