@@ -479,9 +479,14 @@ init_cmd(char *cmd)
       axis_stat[axis][0].amp_bad = amp_ok ? 0 : 1;
    }
 
-   if(axis_stat[axis][0].out_closed_loop) {
-      axis_stat[axis][0].out_closed_loop =
-				(sdssdc.axis_state[axis] <= NEW_FRAME) ? 0 : 1;
+   if(semTake(semMEI, 5) != ERROR) {
+      for(i = 0; i < NAXIS; i++) {
+	 sdssdc.axis_state[i] = axis_state(2*i);
+	 axis_stat[i][0].out_closed_loop = 
+	   (sdssdc.axis_state[i] <= NEW_FRAME) ? 0 : 1;
+      }
+      
+      semGive(semMEI);
    }
 
    if(axis_stat[axis][0].stop_in) {
