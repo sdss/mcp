@@ -14,7 +14,7 @@ Routines to control the display screen
 These functions can be used with a Vt220 terminal to position the cursor,
 erase the screen etc.
 ******************************************************************************/
-#define SoftwareVersion_	9<
+#define SoftwareVersion_	9
 /* INCLUDES */
 #include "display.h"
 #include "stdio.h"
