@@ -324,7 +324,7 @@ init_cmd(char *cmd)
    if(taskIdSelf() == taskNameToId("TCC")) {
       char name[100];			/* name of initer */
 
-      TRACE(2, "AXIS INIT: taking semCmdPort", 0, 0);
+      TRACE(3, "AXIS INIT: taking semCmdPort", 0, 0);
 
       sprintf(name, "%s:%d", ublock->uname, ublock->pid);
 
@@ -332,6 +332,14 @@ init_cmd(char *cmd)
 	 TRACE(0, "init_cmd: failed to take semCmdPort semaphore", 0, 0);
 	 return("ERR: failed to take semCmdPort semaphore");
       }
+   }
+/*
+ * Do we have the semCmdPort semaphore?  We couldn't make cmd_handler()
+ * check for us, as the TCC is allowed to try to take the semaphore
+ * when it issues an INIT
+ */
+   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+      return("ERR: I don't have the semCmdPort semaphore");
    }
 /*
  * send MS.OFF to stop updating of axis position from fiducials
@@ -360,7 +368,8 @@ init_cmd(char *cmd)
  * set of bad bits.
  */
    while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
+      TRACE(0, "init_cmd: failed to get semMEIUPD: %d %s",
+	    errno, strerror(errno));
       taskSuspend(NULL);
    }
  
