@@ -316,6 +316,7 @@ char *correct_cmd(char *cmd)
       }
       if (fidfp!=NULL)
       {
+	time (&fidtim);
         fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%d\t%d",
 	          axis_select,fiducial[axis_select].index,
 	          ctime(&fidtim),sdss_get_time(),
@@ -924,11 +925,11 @@ char *plus_move_cmd(char *cmd)
 	offset[axis_select][i][0].end_time=0;
 /* short offsets are give some extra time for smooth ramp.  long offsets
 are spread over a time period averaging .4 degs per second */
-        if (position<.2)
-	  offset[axis_select][i][1].end_time=(double).6;
+        if (position<.15)
+	  offset[axis_select][i][1].end_time=(double).75;
 	else
 	  offset[axis_select][i][1].end_time=
-		(double)((int)((position/.33)*20))/20.;
+		(double)((int)((position/.2)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
 /*	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
@@ -3672,6 +3673,7 @@ void tm_latch(char *name)
     printf ("\r\nOpen file %s; %p",name,fidfp);
 /*    setvbuf (fidfp,NULL,_IOLBF,0);*/
 /*    rebootHookAdd((FUNCPTR)fiducial_shutdown);*/
+    time (&fidtim);
     fprintf (fidfp,"\nRESTART......... %s %.24s",
 	bldFileName(name),ctime(&fidtim));
 /* should use fflush, but doesn't work */
@@ -3723,6 +3725,7 @@ void tm_latch(char *name)
 	    fidtim=time(&fidtim);
             if (fidfp!=NULL)
 	    {
+   	      time (&fidtim);
 	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
 	      latchpos[latchidx].axis,fididx,
 	      ctime(&fidtim),sdss_get_time(),
@@ -3785,6 +3788,7 @@ void tm_latch(char *name)
 	    fidtim=time(&fidtim);
             if (fidfp!=NULL)
 	    {
+	      time (&fidtim);
 	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
 	      latchpos[latchidx].axis,fididx,
 	      ctime(&fidtim),sdss_get_time(),
@@ -3865,6 +3869,7 @@ void tm_latch(char *name)
 	      fidtim=time(&fidtim);
               if (fidfp!=NULL)
 	      {
+	        time (&fidtim);
 	        fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
 	        latchpos[latchidx].axis,fididx,
 	        ctime(&fidtim),sdss_get_time(),
@@ -3909,6 +3914,7 @@ void tm_latch(char *name)
 	        fidtim=time(&fidtim);
                 if (fidfp!=NULL)
 	        {
+	          time (&fidtim);
 	          fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
 	          latchpos[latchidx].axis,fididx,
 	          ctime(&fidtim),sdss_get_time(),
@@ -4450,7 +4456,7 @@ void DID48_interrupt(int type)
   if (did48int_bit&NIST_INT)
   {
     SDSS_cnt++;
-    if (SDSStime>0)
+    if (SDSStime>=0)
       SDSStime=(SDSStime+1)%DAYINSECS;
     NIST_sec=timer_read(1);
     if (NIST_sec>1000100) 
