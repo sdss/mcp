@@ -14,6 +14,11 @@
 #define SDSS_E_STOP_RATE	-24000
 
 /*
+ * This one is repeated in data_collection.c --- they MUST agree
+ */
+#define SHARE_MEMORY	0x02800000
+
+/*
  * Charlie says:
  *   multiply AZ times 2000 for FNAL test setup
  * Does this refer to old ticksize of (.0035053554041*4)? RHL.
