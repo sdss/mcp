@@ -33,3 +33,12 @@ Fri May 11 17:34:39 MDT 2001
 
 	cvs rtag v5_0_0 mcp
 	cvs rtag -r v5_0_0 -b v5_0 mcp
+
+N.b. No need to merge from this branch as v5_0_1 was tagged on main
+line in error
+
+Tue May 29 15:18:00 MDT 2001
+	Created v5_1 branch
+
+	cvs rtag v5_1_0 mcp
+	cvs rtag -r v5_1_0 -b v5_1 mcp
