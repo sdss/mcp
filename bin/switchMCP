@@ -48,7 +48,7 @@ done
 # Check the IP addresses in the mcp.login script
 #
 code=0
-for host in sdsshost tcc25m utc-time; do
+for host in sdsshost tai-time utc-time; do
     ip=`awk "/hostAdd .$host\.apo\.nmsu\.edu/ { print \\$3 }" etc/mcp.login`
     ns_ip=\"`nslookup $host.apo.nmsu.edu | awk 'NR==5 { print $2}'`\"
     if [ $ip != $ns_ip ]; then
