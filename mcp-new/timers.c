@@ -7,6 +7,7 @@
 #include <sysLib.h>
 #include <timers.h>
 #include <time.h>
+#include <errno.h>
 #include "iv.h"
 #include "gendefs.h"
 #include "mcpTimers.h"
@@ -414,7 +415,9 @@ DIO316_interrupt(int type)
 
 	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);
-	 assert(stat == OK);
+	 if(stat != OK) {
+	    TRACE0(0, "Failed to send msg to msgLatched: %d", errno, 0);
+	 }
       }
       TRACE0(8, "Sent message to msgLatched at %d", time, 0);
    }
