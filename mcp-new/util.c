@@ -266,6 +266,7 @@ fopen_logfile(const char *file,		/* desired file */
    FILE *fil;				/* the returned FILE */
    char filename[100];
    int mode;				/* mode for open() */
+   int trace_open_lvl = 5;		/* level for TRACE on successful open*/
    struct stat status;			/* information about the directory */
 /*
  * Create directory if it doesn't exist
@@ -278,6 +279,7 @@ fopen_logfile(const char *file,		/* desired file */
 
       if(stat(filename, &status) == ERROR) { /* still doesn't exist */
 	 TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
+	 trace_open_lvl = 1;		/* we want to see the open succeed */
       }
 /*
  * OK, try a different directory. This may be needed until the permissions
@@ -307,7 +309,7 @@ fopen_logfile(const char *file,		/* desired file */
  */
    strncat(filename, "/", sizeof(filename));
    strncat(filename, file, sizeof(filename));
-   TRACE(1, "Opening %s", filename, 0);
+   TRACE(trace_open_lvl, "Opening %s", filename, 0);
 /*
  * Translate an fopen() mode into an open() mode; ignore any '+' modifiers
  */
@@ -377,19 +379,24 @@ mjd(void)
 /*
  * return the MCP version
  */
-void
-mcpVersion(void)
+char *
+mcpVersion(char *version,		/* string to fill out, or NULL */
+	   int len)			/* dimen of string */
 {
+   static char buff[100 + 1];		/* buffer if version == NULL */
    int i;
    const char *ptr;			/* scratch pointer */
    const char *tag = version_cmd("");	/* CVS tagname + compilation time */
-   char version[100 + 1];		/* version string to return */
 
-   version[100] = '\a';			/* check for string overrun */
+   if(version == NULL) {
+      version = buff; len = 101;
+   }
+
+   version[len - 1] = '\a';		/* check for string overrun */
 
    ptr = strchr(tag, ':');
    if(ptr == NULL) {
-      strncpy(version, tag, 100);
+      strncpy(version, tag, len - 1);
    } else {
       ptr++;
       while(isspace(*ptr)) ptr++;
@@ -408,6 +415,10 @@ mcpVersion(void)
       }
    }
 
-   assert(version[100] == '\a');	/* no overrun */
-   printf("mcpVersion: %s\n", version);
+   assert(version[len - 1] == '\a');	/* no overrun */
+   if(version != buff) {
+      printf("mcpVersion: %s\n", version);
+   }
+
+   return(version);
 }
