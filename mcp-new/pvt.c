@@ -972,7 +972,7 @@ tm_TCC(int axis)
 #else  /* re-written for clarity */
 	 while(frame->nxt != NULL ||
 	       (axis_queue[axis].active != NULL &&
-					       !frame_break && !drift_break)) {
+				    !frame_break[axis] && !drift_break[axis])) {
 
 #endif
 	    frame_cnt = get_frame_cnt(axis,frame);
@@ -1380,10 +1380,17 @@ mcp_move(int axis,			/* the axis to move */
       return(-1);
    }
    
-#if 0					/* XXX */
-   TRACE(3, "MOVE %s", cmd, 0);
-   TRACE(3, "     Axis = %s cnt = %d", axis_name(axis), cnt);
-   printf("%s MOVE %s %d\n", axis_name(axis), cmd, cnt);
+#if 1					/* XXX */
+   TRACE(7, "%s, nparam = %d", axis_name(axis), nparam);
+   if(nparam > 0) {
+      TRACE(7, "MOVE p0 %f", params[0], 0);
+      if(nparam > 1) {
+	 TRACE(7, "MOVE p1 %f", params[1], 0);
+	 if(nparam > 2) {
+	    TRACE(7, "MOVE p2 %f", params[2], 0);
+	 }
+      }
+   }
 #endif
 
    switch (nparam) {
@@ -1479,6 +1486,11 @@ mcp_move(int axis,			/* the axis to move */
    sdssdc.tccmove[axis].velocity=
      (long)(frame->velocity*ticks_per_degree[axis]);
    sdssdc.tccmove[axis].time=(long)(frame->end_time*1000);
+
+#if 1					/* XXX */
+   printf("%s MOVE %f %f %f\n", axis_name(axis),
+	  frame->position, frame->velocity, frame->end_time);
+#endif
 /*
  * queues are initialized with one dummy entry by axisMotionInit
  */
@@ -1496,8 +1508,8 @@ mcp_move(int axis,			/* the axis to move */
 	 frame->position -= offset[axis][i][1].position;
 	 frame->velocity -= offset[axis][i][1].velocity;
 
-	 TRACE(3, "Offsetting %s", axis_name(axis), 0);
-	 TRACE(3, "     pos = %d, vel = %d",
+	 TRACE(5, "Offsetting %s", axis_name(axis), 0);
+	 TRACE(5, "     pos = %d, vel = %d",
 	       sdssdc.tccmove[axis].position,
 	       sdssdc.tccmove[axis].velocity);
 	 

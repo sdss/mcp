@@ -1773,7 +1773,11 @@ axisMotionInit(void)
       
       get_error_limit(mei_axis, &limit, &action);
       TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
+#if 0
       set_error_limit(mei_axis, 24000, NO_EVENT);
+#else 
+      set_error_limit(mei_axis, 24000, ABORT_EVENT);
+#endif
       get_error_limit(mei_axis, &limit, &action);
       TRACE(3, "set error limit=%ld, action=%d", (long)limit, action);
 
