@@ -15,6 +15,7 @@
 #include "data_collection.h"
 #include "axis.h"
 #include "mcpMsgQ.h"
+#include "cmd.h"
 
 int tm_DID48;
 int DID48_Init = FALSE;
@@ -548,4 +549,16 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    DID48_Interrupt_Enable_Control(tm_DID48,5,DID48_INT_ENA);
 
    return 0;
+}
+
+/*****************************************************************************/
+/*
+ * A hook to add time commands
+ */
+void
+timeInit(void)
+{
+   define_cmd("SET.TIME",     set_time_cmd, -1, 1, 1);
+   define_cmd("TICKLOST @ .", ticklost_cmd,  0, 0, 1);
+   define_cmd("TIME?",        time_cmd,      0, 0, 1);
 }
