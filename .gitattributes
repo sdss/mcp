@@ -1,4 +1,8 @@
 * text=auto !eol
+ab/sddhp.bin -text svneol=unset#unset
+ab/sdhdhp.bin -text svneol=unset#unset
+ab/sdssabb3.dat -text
+ab/sdudhp.bin -text
 ip/Makefile -text
 ip/acromag/carrier.c -text
 ip/acromag/cnfg480.c -text
