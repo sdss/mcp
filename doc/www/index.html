@@ -3,10 +3,69 @@
 <H1>MCP Documentation</H1>
 
 <DL>
+<DT> <A HREF="#mcp_switch">Switching MCP Versions</A>
+<DD>How to switch MCP versions.
+
 <DT> <A HREF="ms.html">MCP Fiducials Commands</A>
 <DD> The commands to set and manipulate the fiducials;
 also described the mcpFiducials.-mjd.dat logfile.
 
 </DL>
+
+
+<H2><A NAME="mcp_switch">Switching MCP Versions</A></H2>
+
+To switch the MCP to run version <CODE>vx_x_x</CODE>, at the unix
+prompt on sdsshost say:
+<PRE>
+   setup mcp vx_x_x
+   switchMCP
+</PRE>
+then reboot the crate; one convenient way to do this is to start iop
+and say
+<PRE>
+   mcpCrateReset;
+</PRE>
+another is to use <CODE>^X</CODE> (<CODE>control-X</CODE>) from the mcpMenu.
+
+From within iop, the command <CODE>mcpVersion</CODE> will tell you
+the name of the version currently running, the command <CODE>showMCP</CODE>
+(from iop or the unix prompt) shows which version will run upon reboot.
+
+<H3>How does this work?</H3>
+
+The vxWorks VME crate doesn't know much about sdsshost; all it knows
+is that if you tell it to reboot, it'll read the file
+<CODE>/p/mcpbase/etc/mcp.login</CODE> and follow instructions. The
+<CODE>switchMCP</CODE> command doesn't attempt to change this behaviour,
+rather it changes the files in the <CODE>/p/mcpbase</CODE> directory.
+<P>
+
+More specifically, when you say <CODE>switchMCP</CODE>:
+<UL>
+<LI> All the files under <CODE>/p/mcpbase</CODE> are deleted
+
+<LI> New symbolic links are made from files and directories in
+the directory specified by the environment variable <CODE>MCP_DIR</CODE>
+to <CODE>/p/mcpbase</CODE> (<CODE>MCP_DIR</CODE> was set when you said
+<CODE>setup mcp vx_x_x</CODE>).
+
+These links specify:
+<UL>
+<LI> mcp.login  The startup script mentioned above
+
+<LI> the object files that make up the MCP
+
+<LI> tables that give the correct values for all the fiducials
+
+<LI> this documentation
+</UL>
+
+<LI> <CODE>switchMCP</CODE> also reads the newly installed
+<CODE>mcp.login</CODE>
+and checks that the correct IP numbers are used for computers such as
+<CODE>sdsshost.apo.nmsu.edu</CODE> <CODE>tcc25m.apo.nmsu.edu</CODE>; our
+release of vxWorks doesn't know how to use DNS to find these for itself.
+</UL>
 
 </HTML>
