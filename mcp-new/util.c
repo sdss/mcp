@@ -1,10 +1,11 @@
 #include "vxWorks.h"
-#include "stdlib.h"
-#include "stdio.h"
+#include <stdlib.h>
+#include <stdio.h>
 #include <time.h>
 #include <assert.h>
-#include "sysLib.h"
-#include "logLib.h"
+#include <sysLib.h>
+#include <stat.h>
+#include <ctype.h>
 #include "iv.h"
 #include "intLib.h"
 #include "mv162.h"
@@ -248,29 +249,102 @@ unsigned long timer_stop(int timer)
 
 /*****************************************************************************/
 /*
- * Open a logfile in /mcptpm/<mjd>
+ * Return the name of a logfile in /mcptpm/<mjd>, making sure that
+ * the directory exists.
+ *
+ * While the TPM and MCP cannot agree on file permissions, create it
+ * in /mcptpm/mcp/<mjd> if creation in /mcptpm/<mjd> fails
  */
-int
-open_log(const char *file)
+#define FILESIZE 100			/* size of filename buffer */
+
+FILE *
+fopen_logfile(const char *file,		/* desired file */
+	      const char *fmode)	/* mode as for fopen */
 {
-   int fd;
+   int s_errno;				/* saved errno */
+   int fd;				/* file's file descriptor */
+   FILE *fil;				/* the returned FILE */
    char filename[100];
+   int mode;				/* mode for open() */
+   struct stat status;			/* information about the directory */
+/*
+ * Create directory if it doesn't exist
+ */
+   sprintf(filename, "/mcptpm/%d", mjd()); /* directory */
+   assert(strlen(filename) < FILESIZE);
 
-   sprintf(filename, "/mcptpm/%d/%s", mjd(), file);
-   assert(strlen(filename) < sizeof(filename));
+   if(stat(filename, &status) == ERROR) { /* doesn't exist */
+      (void)mkdir(filename); s_errno = errno;
 
-   printf("Opening %s\n", filename);
+      if(stat(filename, &status) == ERROR) { /* still doesn't exist */
+	 TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
+      }
+/*
+ * OK, try a different directory. This may be needed until the permissions
+ * are sorted out between the TPM and the MCP
+ */
+      sprintf(filename, "/mcptpm/mcp/%d", mjd()); /* directory */
+      assert(strlen(filename) < FILESIZE);
+      
+      if(stat(filename, &status) == ERROR) { /* this one doesn't exist either*/
+	 (void)mkdir(filename); s_errno = errno;
 
-   fd = open(filename, O_RDWR|O_CREAT, 0666);
+	 if(stat(filename, &status) == ERROR) { /* still doesn't exist */
+	    TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
+	    return(NULL);
+	 }
+      }
+   }
 
-   return(fd);
+   if(!S_ISDIR(status.st_mode)) {
+      TRACE(0, "%s isn't a directory", filename, 0);
+      return(NULL);
+   }
+/*
+ * We have the desired directory; on to the file itself. We open it
+ * using open rather than fopen so as to be able to specify the
+ * desired mode bits (as vxWorks doesn't support umask)
+ */
+   strncat(filename, "/", sizeof(filename));
+   strncat(filename, file, sizeof(filename));
+   TRACE(1, "Opening %s", filename, 0);
+/*
+ * Translate an fopen() mode into an open() mode; ignore any '+' modifiers
+ */
+   if(*fmode == 'a') {
+      mode = O_WRONLY;
+      if(stat(filename, &status) == ERROR) { /* no such file */
+	 mode |= O_CREAT;
+      }
+   } else if(*fmode == 'r') {
+      mode = O_RDONLY;
+   } else if(*fmode == 'w') {
+      mode = O_WRONLY | O_CREAT;
+      if(stat(filename, &status) != ERROR) { /* file already exists*/
+	 (void)unlink(filename);	/* the open() call doesn't truncate */
+      }
+   } else {
+      TRACE(0, "Unknown mode for fopen_logfile: %s", fmode, 0);
+   }
+
+   fd = open(filename, mode, 0664);
+   if(fd < 0) {
+      TRACE(0, "Open failed: %d %d", errno, strerror(errno));
+      return(NULL);
+   }
+
+   fil = fdopen(fd, fmode);
+   if(fil == NULL) {
+      TRACE(0, "Fdopen failed: %d %s", errno, strerror(errno));
+   }
+
+   return(fil);
 }
 
 /*****************************************************************************/
 /*
- * Return the MJD, as modified by the SDSS to roll over at 10am
+ * Return the MJD, as modified by the SDSS to roll over at 9:48am
  */
-#if 1
 extern void slaCldj(int, int, int, double*, int*);
 
 int
@@ -293,10 +367,47 @@ mjd(void)
    
       return(-1);
    } else {
-      fprintf(stderr,"slaCldj returns %d (Y m d == %d %d %d)\n",
-	      stat, Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
-   
+      ldj += (Time->tm_hour + (Time->tm_min + Time->tm_sec/60.0)/60.0)/24.0;
+	      
       return((int)(ldj + 0.3));
    }
 }
-#endif
+
+/*****************************************************************************/
+/*
+ * return the MCP version
+ */
+void
+mcpVersion(void)
+{
+   int i;
+   const char *ptr;			/* scratch pointer */
+   const char *tag = version_cmd("");	/* CVS tagname + compilation time */
+   char version[100 + 1];		/* version string to return */
+
+   version[100] = '\a';			/* check for string overrun */
+
+   ptr = strchr(tag, ':');
+   if(ptr == NULL) {
+      strncpy(version, tag, 100);
+   } else {
+      ptr++;
+      while(isspace(*ptr)) ptr++;
+      
+      if(*ptr != '$') {			/* a CVS tag */
+	 for(i = 0; ptr[i] != '\0' && !isspace(ptr[i]) && i < 100; i++) {
+	    version[i] = ptr[i];
+	 }
+	 version[i] = '\0';
+      } else {
+	 if(*ptr == '$') ptr++;
+	 if(*ptr == '|') ptr++;
+	 
+	 sprintf(version, "NOCVS:%s", ptr);
+	 version[strlen(version) - 2] = '\0'; /* trim "double quote\n" */
+      }
+   }
+
+   assert(version[100] == '\a');	/* no overrun */
+   printf("mcpVersion: %s\n", version);
+}
