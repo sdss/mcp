@@ -5,6 +5,7 @@ void tm_start_move (int axis, int vel, int accel, int pos);
 void tm_move_pos (int axis, int vel, int accel, int pos);
 void tm_print_coeffs(int axis);
 void tm_set_coeffs(int axis, int index, int val);
+void tm_reset_integrator (int axis);
 void tm_clear_pos (int axis);
 void tm_get_pos (int axis,double *position);
 void tm_get_vel (int axis,double *velocity);

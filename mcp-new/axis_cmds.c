@@ -167,6 +167,7 @@ char *drift_cmd(char *cmd)
   }
   while (tm_frames_to_execute(axis_select)>1)
     taskDelay(3);
+  taskDelay(3);
   if (semTake (semMEI,60)!=ERROR)
   {
     get_position(axis_select<<1,&position);
@@ -220,6 +221,7 @@ char *init_cmd(char *cmd)
     tm_controller_idle (axis_select<<1);
     tm_controller_idle (axis_select<<1);
     tm_controller_idle (axis_select<<1);
+    tm_reset_integrator(axis_select<<1);
     taskDelay(1);
   }
   drift_break[axis_select]=FALSE;
@@ -386,10 +388,11 @@ char *move_cmd(char *cmd)
 		position,velocity,frame->end_time);
           tm_get_pos(axis_select<<1,&pos);
 	  dt=frame->end_time-sdss_get_time();
-	  pos=(pos+(drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
+	  pos=(pos+
+	    (drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
 	  if (DRIFT_verbose)
-            printf("\r\nDRIFT modified pvt %lf %lf %lf, difference=%lf",
-		position,velocity,frame->end_time,position-pos);
+            printf("\r\nDRIFT modified pvt %lf %lf %lf, difference=%lf, dt=%lf",
+		position,velocity,frame->end_time,position-pos,dt);
 	  if (drift_modify_enable)
 	    position=pos;
 	  drift_break[axis_select]=FALSE;
@@ -520,9 +523,11 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
 }
 void start_frame(int axis,double time)
 {
+/*
   int e;
-  int lcnt;
   FRAME frame;
+*/
+  int lcnt;
   
   time_off[axis]=0.0;
   while ((lcnt=tm_frames_to_execute(axis))>1)
@@ -1515,7 +1520,9 @@ void tm_latch()
   extern int barcode_serial();
   int fididx;
   int status;
-  static char flag=TRUE;
+  extern struct SDSS_FRAME sdssdc;
+  extern int altclino_off;
+  extern float altclino_sf;
 /*  unsigned char int_bit;
 */
   init_fiducial();
@@ -1530,7 +1537,7 @@ void tm_latch()
       {
         if (semTake (semMEI,60)!=ERROR)
         {
-          status=latch_status;
+          status=(int)latch_status;
           semGive (semMEI);
         }
         taskDelay(1);
@@ -1587,11 +1594,14 @@ void tm_latch()
 /*          printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",latchpos[latchidx].axis,
 	    (float)latchpos[latchidx].pos1,
 	    (float)latchpos[latchidx].pos2);*/
-	  /*
-           *fididx = barcode_serial(2);
-	   *fididx = barcode_serial(2);
-	   */
-	    fididx=2;
+/*
+          fididx = barcode_serial(2);
+	  fididx = barcode_serial(2);
+*/
+          fididx=((int)(abs(sdssdc.status.i4.alt_position-altclino_off)*
+            altclino_sf)+7.5)/15;
+	  fididx++;
+/*	    fididx=2;*/
 
 
 	  if (fididx!=-1)
