@@ -38,8 +38,8 @@ struct LATCH_POS {
 					   are seen */
 
 void DIO316ClearISR_delay(void);
-static void restore_fiducials(int axis);
-static void tm_print_fiducial(int axis);
+static void maybe_reset_axis_pos(int axis, int pos_is_valid,
+				 int poserr, int all_correct);
 
 SEM_ID semLatch = NULL;			/* semaphore for updating fiducials */
 MSG_Q_ID msgLatchReenable = NULL;	/* reset the DIO316 interrupt */
@@ -55,26 +55,41 @@ struct LATCH_POS latchpos[MAX_LATCHED];
  */
 struct FIDUCIARY fiducial[NAXIS] = {
    {					/* Azimuth */
-      FALSE, FALSE,			/* seen_fiducial, seen_index */
+      FALSE,				/* seen_fiducial */
+#if USE_INDEX_FIDUCIAL
+      FALSE,				/* seen_index */
       0,				/* mark */
       33,				/* index */
       31016188,				/* known_position */
+#else
+      FALSE, 0,				/* seen_index, mark */
+#endif
       0, 0, 0,				/* ms_on, error, max_corr */
       0					/* last_latch */
    },
    {					/* Altitude */
-      FALSE, FALSE,			/* seen_fiducial, seen_index */
+      FALSE,				/* seen_fiducial */
+#if USE_INDEX_FIDUCIAL
+      FALSE,				/* seen_index */
       0,				/* mark */
       1,				/* index */
       3825222,				/* known position */
+#else
+      FALSE, 0,				/* seen_index, mark */
+#endif
       0, 0, 0,				/* ms_on, error, max_corr */
       0					/* last_latch */
    },
    {					/* Rotator */
-      FALSE, FALSE,			/* seen_fiducial, seen_index */
+      FALSE,				/* seen_fiducial */
+#if USE_INDEX_FIDUCIAL
+      FALSE,				/* seen_index */
       0,				/* mark */
       83,				/* index */
       ROT_FID_BIAS + 168185,		/* known position */
+#else
+      FALSE, 0,				/* seen_index, mark */
+#endif
       0, 0, 0,				/* ms_on, error, max_corr */
       0					/* last_latch */
    }
@@ -323,7 +338,9 @@ write_fiducial_log(const char *type,	/* type of entry */
 int
 mcp_set_fiducial(int axis)
 {
+#if USE_INDEX_FIDUCIAL
    int correction;			/* how much to correct position */
+#endif
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       fprintf(stderr,"mcp_set_fiducial: illegal axis %d\n", axis);
@@ -334,7 +351,8 @@ mcp_set_fiducial(int axis)
 #ifdef ROT_ROTARY_ENCODER
 #  error I do not know how to read rotary encode fiducial
 #endif
-   
+
+#if USE_INDEX_FIDUCIAL
    if(!fiducial[axis].seen_index) {
       TRACE(0, "fiducial for axis %s not crossed", axis_name(axis), 0);
       fprintf(stderr,"fiducial for axis %s not crossed\n", axis_name(axis));
@@ -358,7 +376,22 @@ mcp_set_fiducial(int axis)
 		      tmaxis[axis]->actual_position, 0, correction, 0);
   
    fiducial[axis].mark = fiducial[axis].known_position;
+#else
+      if(semTake(semLatch, 60) == ERROR) {
+      return(-1);
+   }
 
+   if(!fiducial[axis].seen_fiducial) {
+      semGive(semLatch);
+
+      return(-1);
+   }
+
+   maybe_reset_axis_pos(axis, 0, 0, 1);
+
+   semGive(semLatch);
+#endif
+   
    return(0);
 }
 
@@ -442,11 +475,11 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 	    }
 	    
 	    if(allow_disable_ms_on) {
-	       if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
-		  TRACE(0, "couldn't take semSLCDC semaphore.", 0, 0);
+	       if(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
+		  TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
 	       } else {
 		  axis_stat[axis].ms_on_correction_too_large = 1;
-		  semGive(semSLCDC);
+		  semGive(semMEIUPD);
 
 		  write_fiducial_log("DISABLE_MS_CORRECTION", axis,
 				     0, 0, 0, 0, correction, 0);
@@ -546,6 +579,43 @@ get_rot_fididx(const struct LATCH_POS *latchpos, /* the most recent pos. */
    if(fididx <= 0 || fididx >= N_ROT_FIDUCIALS) {
       fprintf(stderr,"Illegal fididx = %d\n", fididx);
       return(-1);
+   }
+
+   return(fididx);
+}
+
+/*****************************************************************************/
+/*
+ * Remap the fiducial indices to values deemed easier for humans to comprehend;
+ * PR 1525
+ */
+static int
+remap_fiducials(int axis,		/* the axis in question */
+		int rawidx)		/* raw fiducial index */
+{
+   int fididx;				/* remapped index */
+   
+   switch (axis) {
+    case ALTITUDE:
+      fididx = rawidx;
+      break;
+    case AZIMUTH:
+      if(rawidx >= 39) {
+	 fididx = rawidx - 38;
+      } else if(rawidx >= 25) {
+	 fididx = rawidx - 24;
+	 fididx += 10;
+      } else if(rawidx >= 10) {
+	 fididx = rawidx - 9;
+	 fididx += 19;
+      } else {
+	 fididx = rawidx;
+	 fididx += 34;
+      }
+      break;
+    case INSTRUMENT:
+      fididx = rawidx;
+      break;
    }
 
    return(fididx);
@@ -788,6 +858,7 @@ tLatch(const char *name)
 	    if(sdssdc.status.i7.il0.az_dir_cw) {
 	       fididx += 24;
 	    }
+	    fididx = remap_fiducials(AZIMUTH, fididx);
 	    
 	    write_fiducial_log("AZ_FIDUCIAL", AZIMUTH, fididx,
 			       az_fiducial_position[fididx],
@@ -819,10 +890,12 @@ tLatch(const char *name)
 			az_fiducial[fididx].err, az_fiducial[fididx].poserr);
 	       }
 	       
+#if USE_INDEX_FIDUCIAL
 	       if(fididx == fiducial[AZIMUTH].index) {
 		  fiducial[AZIMUTH].mark = az_fiducial[fididx].mark;
 		  fiducial[AZIMUTH].seen_index = TRUE;
 	       }
+#endif
 	       fiducialidx[AZIMUTH] = fididx;
 	       if(az_fiducial[fididx].markvalid) {
 		  maybe_reset_axis_pos(AZIMUTH, 1,
@@ -894,10 +967,12 @@ tLatch(const char *name)
 		     alt_fiducial[fididx].err, alt_fiducial[fididx].poserr);
 	    }
 	    
+#if USE_INDEX_FIDUCIAL
 	    if(fididx==fiducial[ALTITUDE].index) {
 	       fiducial[ALTITUDE].mark = alt_fiducial[fididx].mark;
 	       fiducial[ALTITUDE].seen_index = TRUE;
 	    }
+#endif
 	    fiducialidx[ALTITUDE] = fididx;
 
 	    if(alt_fiducial[fididx].markvalid) {
@@ -1027,10 +1102,12 @@ tLatch(const char *name)
 	       }
 	    }
 	    
+#if USE_INDEX_FIDUCIAL
 	    if(fididx == fiducial[INSTRUMENT].index) {
 	       fiducial[INSTRUMENT].mark = rot_fiducial[fididx].mark;
 	       fiducial[INSTRUMENT].seen_index = TRUE;
 	    }
+#endif
 
 	    if(pos_is_mark && rot_fiducial[fididx].markvalid) {
 	       maybe_reset_axis_pos(INSTRUMENT, 1,
@@ -1114,6 +1191,7 @@ DIO316ClearISR_delay(void)
 ** the MS.ON and CORRECT commands to accomplish setting the encoders from
 ** _any_ fiducial. RHL
 */
+#if USE_INDEX_FIDUCIAL
 void
 set_primary_fiducials(int axis,
 		      int fididx,
@@ -1150,6 +1228,7 @@ set_primary_fiducials(int axis,
       
    fiducial_position[fiducial[axis].index] = fiducial[axis].known_position;
 }
+#endif
 
 /*=========================================================================
 **=========================================================================
@@ -1456,57 +1535,26 @@ set_ms_off(int axis,			/* the desired axis */
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* a return code */
-/*
- * abort any pending MS.OFFs 
- */
-   TRACE(6, "Aborting old MS.OFFs", 0, 0);
 
-   switch (axis_select) {
-    case AZIMUTH:
-      (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
-      break;
-    case ALTITUDE:
-      (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, 0, 0);
-      break;
-    case INSTRUMENT:
-      (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, 0, 0);
-      break;
-   }
-   taskDelay(1);			/* give the timerTask a chance */
-/*
- * and send one that's active _now_, if MS.ON is currently true
- */
-#if 0
-   if(semTake(semLatch, 60) != ERROR) {
-      int ms_is_on = fiducial[axis].ms_on;
-      semGive(semLatch);
-      
-      if(!ms_is_on) {			/* nothing to do */
-	 TRACE(6, "Not sending MS.OFF to %s as it's already off",
-	       axis_name(axis), 0);
-	 return(0);
-      }
-   }
-#else
-   if(!fiducial[axis].ms_on) {			/* nothing to do */
-      TRACE(6, "Not sending MS.OFF to %s as it's already off",
-	    axis_name(axis), 0);
-      return(0);
-   }
-#endif
-/*
- * Time to actually set MS.OFF
- */
-#if 0
-   fprintf(stderr,"RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
-   TRACE(6, "RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
-#endif
-   
    switch (axis_select) {
     case AZIMUTH:    msg.type = ms_off_az_type; break;
     case ALTITUDE:   msg.type = ms_off_alt_type; break;
     case INSTRUMENT: msg.type = ms_off_inst_type; break;
    }
+/*
+ * abort any pending MS.OFFs 
+ */
+   TRACE(6, "Aborting old MS.OFFs", 0, 0);
+
+   (void)timerSend(msg.type, tmr_e_abort_ns, 0, 0, 0);
+   taskDelay(1);			/* give the timerTask a chance */
+/*
+ * actually set (or schedule) MS.OFF
+ */
+#if 1
+   fprintf(stderr,"RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
+   TRACE(3, "RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
+#endif
       
    if(delay == 0) {			/* no time specified */
       TRACE(5, "Sending message to msgLatched: type %d", msg.type, 0);
@@ -1624,15 +1672,7 @@ correct_cmd(char *cmd)			/* NOTUSED */
       return("ERR: no fiducials have been crossed");
    }
 
-   if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "couldn't take semSLCDC semaphore; failed to CORRECT axis %s",
-	    axis_name(axis_select), 0);
-   } else {
-      axis_stat[axis_select].ms_on_correction_too_large = 0;
-      semGive(semSLCDC);
-   
-      maybe_reset_axis_pos(axis_select, 0, 0, 1);
-   }
+   maybe_reset_axis_pos(axis_select, 0, 0, 1);
 
    semGive(semLatch);
 
@@ -1698,6 +1738,7 @@ save_fiducials_all(void)
   }
 }
 
+#if 0
 /*****************************************************************************/
 /*
  * Restore the fiducials from shared memory. See also read_fiducials
@@ -1739,6 +1780,7 @@ restore_fiducials_all ()
       restore_fiducials(i);
    }
 }
+#endif
 
 /*****************************************************************************/
 /*
@@ -1935,10 +1977,12 @@ print_fiducials(int axis,		/* which axis */
   switch (axis) {
    case AZIMUTH:
      for(i = 0;i < N_AZ_FIDUCIALS; i++) {
+#if USE_INDEX_FIDUCIAL
 	if(fiducial[axis].index == i) {
 	   printf("*");
 	   if(fiducial[axis].seen_index) printf ("!");
 	}
+#endif
 	if(az_fiducial[i].markvalid) {
 	   printf("AZ %d %d degs:  enabled %c pos= %ld mark= %ld last= %ld "
 		  " err= %ld, poserr= %ld\n",
@@ -1957,10 +2001,12 @@ print_fiducials(int axis,		/* which axis */
      break;
    case ALTITUDE:
      for(i = 0;i < N_ALT_FIDUCIALS; i++) {
+#if USE_INDEX_FIDUCIAL
 	if(fiducial[axis].index == i) {
 	   printf("*");
 	   if(fiducial[axis].seen_index) printf ("!");
 	}
+#endif
 	if(alt_fiducial[i].markvalid) {
 	   printf("ALT %d %d degs:  enabled %c pos= %ld, mark= %ld, last= %ld "
 		  " err= %ld, poserr= %ld\n",
@@ -1979,10 +2025,12 @@ print_fiducials(int axis,		/* which axis */
      break;
    case INSTRUMENT:
      for(i = 0;i < N_ROT_FIDUCIALS; i++) {
+#if USE_INDEX_FIDUCIAL
 	if(fiducial[axis].index==i) {
 	   printf("*");
 	   if(fiducial[axis].seen_index) printf ("!");
 	}
+#endif
 
 	if(rot_fiducial[i].markvalid) {	   
 	   printf("ROT %d %d degs: enabled %c pos= %ld, mark= %ld, last= %ld "
@@ -2025,6 +2073,7 @@ latchexcel(int axis)
 **      Print the fiducials
 **
 */
+#if USE_INDEX_FIDUCIAL
 static void
 tm_print_fiducial(int axis)
 {
@@ -2088,6 +2137,7 @@ tm_print_fiducial_all(void)
       tm_print_fiducial(2*i);
    }
 }
+#endif
 
 /*=========================================================================
  *
@@ -2161,6 +2211,7 @@ tLatchInit(void)
       rot_fiducial[i].mark=0;
       rot_fiducial_position[i]=0;
    }
+#if 0					/* we'll MS.READ the correct values */
 /*
  * Restore the fiducial positions from shared memory
  */
@@ -2172,16 +2223,11 @@ tLatchInit(void)
  */
    az_fiducial_position[fiducial[AZIMUTH].index] =
 					      fiducial[AZIMUTH].known_position;
-   
    alt_fiducial_position[fiducial[ALTITUDE].index] =
 					     fiducial[ALTITUDE].known_position;
-#if 0
-   alt_fiducial_position[0]=0x0;	/* 00:00:00:00 */
-   alt_fiducial_position[6]=0x0160E6C6;	/* 090:00:00:00 */
-#endif
-			
    rot_fiducial_position[fiducial[INSTRUMENT].index] =
 					   fiducial[INSTRUMENT].known_position;
+#endif
 /*
  * Set the maximum correction to an axis position that MS.ON can set 
  */
