@@ -215,6 +215,7 @@ tcc_serial(int port)
  	TRACE(lvl, "command from TCC: %s", command_buffer, 0);
 	TRACE(16, "        cccccccc: 0x%08x%08x",
 	      ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
+	TRACE(16, "        time = %f", sdss_get_time(), 0);
      }
      
      if(status == 0) {
