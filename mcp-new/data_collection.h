@@ -422,8 +422,8 @@ struct I5 {
 	short i_5_analog_7_spare;
 };
 typedef struct {
-	short spare_s2_c7;
-	short spare_s2_c6;
+	unsigned spare_s2_c7 : 1;
+	unsigned spare_s2_c6 : 1;
 	unsigned s_wind_stop : 1;
 	unsigned w_lower_stop : 1;
 	unsigned e_lower_stop : 1;

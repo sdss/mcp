@@ -200,6 +200,7 @@ int sdss_init();
 float sdss_get_time();
 float get_time();
 void stop_frame(int axis,double pos,double sf);
+void stp_frame(int axis,double pos,double sf);
 void end_frame(int axis,int index,double sf);
 void start_tm_TCC();
 void start_tm_TCC_test();
@@ -946,11 +947,11 @@ are spread over a time period averaging .4 degs per second */
 	offset[axis_select][i][0].velocity=0;
 	offset[axis_select][i][1].velocity=velocity;
 	offset[axis_select][i][0].end_time=0;
-        if (position<.2)
-	  offset[axis_select][i][1].end_time=(double).5;
+        if (position<.15)
+	  offset[axis_select][i][1].end_time=(double).75;
 	else	/* average .4 degree per second */
 	  offset[axis_select][i][1].end_time=
-		(double)((int)((position/.40)*20))/20.;
+		(double)((int)((position/.20)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
         break;
@@ -2858,6 +2859,63 @@ void stop_frame(int axis,double pos,double sf)
 /*=========================================================================
 **=========================================================================
 **
+** ROUTINE: stp_frame
+**
+** DESCRIPTION:
+**	Stop motion alternative similar to end_frame
+**
+** RETURN VALUES:
+**	void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+void stp_frame(int axis,double pos,double sf)
+{
+  int stopped;
+  int state;
+  int e;
+  FRAME frame;
+  
+
+  printf ("\r\nSTOP axis=%d: p=%12.8lf",
+	axis<<1,(double)pos);
+  stopped=FALSE;	/* ...gets rid of warning */
+
+  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+  {
+      e=frame_m(&frame,"0l vaj u d",axis<<1,
+	(double)0.0,(double)0.05*sf,
+	(double)0.0,
+	FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY,0);
+      semGive (semMEI);
+  }
+
+  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+  {
+    stopped=motion_done(axis<<1);
+    state=axis_state(axis<<1);
+    semGive (semMEI);
+  }
+  while (!stopped)
+  {  
+    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+    {
+      stopped=motion_done(axis<<1);
+/*      state=axis_state(axis<<1);*/
+      semGive (semMEI);
+    }
+/*    printf("\r\nStopping");*/
+    taskDelay(3);
+  }
+  printf("\r\nStopped axis=%d, motion_done=%d, axis_state=%d",axis,stopped,state);
+}
+/*=========================================================================
+**=========================================================================
+**
 ** ROUTINE: drift_frame
 **
 ** DESCRIPTION:
@@ -2884,7 +2942,7 @@ void drift_frame(int axis,double vel,double sf)
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
       e=frame_m(&frame,"0l vaj un d",axis<<1,
-	(double)vel,(double).8*sf,
+	(double)vel,(double).2*sf,
 	(double)0.0,
 	FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY,NEW_FRAME);
       e=frame_m(&frame,"0l va u d",axis<<1,
@@ -3673,8 +3731,9 @@ void tm_latch(char *name)
 /*    setvbuf (fidfp,NULL,_IOLBF,0);*/
 /*    rebootHookAdd((FUNCPTR)fiducial_shutdown);*/
     time (&fidtim);
-    fprintf (fidfp,"\nRESTART......... %s %.24s",
+    fprintf (fidfp,"\n#RESTART......... %s %.24s",
 	bldFileName(name),ctime(&fidtim));
+    fprintf (fidfp,"\n#Axis\tIndex\tDate & Time:SDSStime\tPosition1\tPosition2");
 /* should use fflush, but doesn't work */
     fclose(fidfp);
     fidfp=fopen (bldFileName(name),"a");  /*  */
@@ -3730,7 +3789,7 @@ void tm_latch(char *name)
 	      ctime(&fidtim),sdss_get_time(),
 	      (long)latchpos[latchidx].pos1,
               (long)latchpos[latchidx].pos2);
-	      fprintf (fidfp,"\tfirst barcode reading=%d",fididx1);
+	      fprintf (fidfp,"\n#first barcode reading=%d",fididx1);
               fclose(fidfp);
               fidfp=fopen (bldFileName(name),"a");  /*  */
 /*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
@@ -3793,7 +3852,7 @@ void tm_latch(char *name)
 	      ctime(&fidtim),sdss_get_time(),
 	      (long)latchpos[latchidx].pos1,
               (long)latchpos[latchidx].pos2);
-	      fprintf (fidfp,"\talt_position=%d",
+	      fprintf (fidfp,"\n#alt_position=%d",
 	      sdssdc.status.i4.alt_position);
               fclose(fidfp);
               fidfp=fopen (bldFileName(name),"a");  /*  */

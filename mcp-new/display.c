@@ -521,7 +521,7 @@ void Menu()
            if (fidfp!=NULL)
 	   {
 	     time (&fidtim);
-             fprintf (fidfp,"\nMenu %d\t%d\t%.25s:%f\t%d\t%d",
+             fprintf (fidfp,"\n#Menu %d\t%d\t%.25s:%f\t%d\t%d",
 	          Axis,fiducial[Axis/2].index,
 	          ctime(&fidtim),sdss_get_time(),
 	          (long)fiducial_position[Axis/2]-fiducial[Axis/2].mark,
