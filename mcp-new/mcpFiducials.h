@@ -3,9 +3,9 @@
 
 #define ROT_FID_BIAS 40000000		/* "bias" added to rotator fiducial
 					   values to make them positive */
-#define N_ALT_FIDUCIALS 7		/* number of altitude fiducials */
-#define N_AZ_FIDUCIALS 48		/* number of azimuth fiducials */
-#define N_ROT_FIDUCIALS 156		/* number of rotator fiducials */
+#define N_ALT_FIDUCIALS 7		/* number of altitude fiducials + 1 */
+#define N_AZ_FIDUCIALS 49		/* number of azimuth fiducials + 1 */
+#define N_ROT_FIDUCIALS 156		/* number of rotator fiducials + 1 */
 
 struct FIDUCIARY {
    int seen_fiducial;			/* have we seen any fiducials? */
