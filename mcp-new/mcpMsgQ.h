@@ -6,6 +6,7 @@
 
 typedef struct {
    enum {
+      alignClamp_type,			/* move alignment clamp */
       lamps_type,			/* turn lamps on/off */
       latchCrossed_type,		/* we crossed a fiducial */
       latchReenable_type,		/* reenable fiducial latches */
@@ -15,6 +16,10 @@ typedef struct {
    } type;
    
    union {
+      struct {
+	 enum {ENGAGE, DISENGAGE} op;
+      } alignClamp;
+
       struct {
 	 enum { FF_LAMP, HGCD_LAMP, NE_LAMP } type; /* type off lamp */
 	 enum { ON = 1, OFF = 0 } on_off; /* should I turn it on or off? */
@@ -48,6 +53,10 @@ typedef struct {
    } u;
 } MCP_MSG;
 
+/*
+ * tAlgnClmp task
+ */
+extern MSG_Q_ID msgAlignClamp;
 /*
  * moveCW task
  */

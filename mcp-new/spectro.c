@@ -21,6 +21,7 @@
 #include "dscTrace.h"
 #include "mcpMsgQ.h"
 
+MSG_Q_ID msgAlignClamp = NULL;		/* control alignment clamp */
 MSG_Q_ID msgLamps = NULL;		/* control lamps */
 MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
 
@@ -36,138 +37,127 @@ MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
 */
 int clamp_cnt;
 
-int
-tm_clamp(short val) 
+void
+tAlgnClmp(void)
 {
+   int engage;				/* are we trying to engage the clamp?*/
    int err;
    unsigned short ctrl[2];
+   MCP_MSG msg;				/* message to pass around */
+   int ret;				/* return code */   
    struct B10_0 tm_ctrl;   
    struct B10_1 tm_ctrl1;   
    int cnt;
+
+   for(;;) {
+      ret = msgQReceive(msgAlignClamp, (char *)&msg, sizeof(msg),
+			WAIT_FOREVER);
+      assert(ret != ERROR);
+
+      TRACE(8, "read msg on msgAlignClamp", 0, 0);
+      assert(msg.type == alignClamp_type);
+
+      engage = (msg.u.alignClamp.op == ENGAGE) ? 1 : 0;
              
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
+      if(semTake(semSLC,60) == ERROR) {
+	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+	 continue;
+      }
+      
+      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+      if(err) {
+	 semGive(semSLC);
+	 TRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0);
+	 continue;
+      }
+      
+      swab((char *)&ctrl[0], (char *)&tm_ctrl, 2);
+      swab((char *)&ctrl[1], (char *)&tm_ctrl1, 2);
 
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
-   swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
-
-   if(val == 1) {
-      tm_ctrl.mcp_clamp_engage_cmd = 1;
-      tm_ctrl1.mcp_clamp_disen_cmd = 0;
-   } else {
-      tm_ctrl.mcp_clamp_engage_cmd = 0;
-      tm_ctrl1.mcp_clamp_disen_cmd = 1;
-   }
+      if(engage) {
+	 tm_ctrl.mcp_clamp_engage_cmd = 1;
+	 tm_ctrl1.mcp_clamp_disen_cmd = 0;
+      } else {
+	 tm_ctrl.mcp_clamp_engage_cmd = 0;
+	 tm_ctrl1.mcp_clamp_disen_cmd = 1;
+      }
+      
+      swab((char *)&tm_ctrl, (char *)&ctrl[0], 2);
+      swab((char *)&tm_ctrl1, (char *)&ctrl[1], 2);
+      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+      semGive(semSLC);
    
-   swab((char *)&tm_ctrl, (char *)&ctrl[0],2);
-   swab((char *)&tm_ctrl1,(char *)&ctrl[1],2);
-   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   semGive (semSLC);
-   
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-   
-   if(val == 0) {
-      return 0;
-   }
+      if(err) {
+	 TRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0);
+	 continue;
+      }
+      
+      if(!engage) {
+	 continue;
+      }
 
-   cnt=60*15;				/* wait 15s */
-   while(sdssdc.status.i9.il0.clamp_en_stat == 0 && cnt > 0) {
-      taskDelay(1);
-      cnt--;
-   }
-   clamp_cnt = cnt;
+      cnt = 15;				/* wait 15s */
+      TRACE(1, "Waiting %ds for alignment clamp to engage", cnt, 0);
 
-   if (sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
-      return -1;
-   }
+      cnt *= 60;			/* ticks */
+      while(sdssdc.status.i9.il0.clamp_en_stat == 0 && cnt > 0) {
+	 taskDelay(1);
+	 cnt--;
+      }
+      clamp_cnt = cnt;
+      
+      if(sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
+	 continue;
+      }
 /*
  * Failure; turn off clamp and disengage
  */
-   printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
+      TRACE(0, "Alignment clamp did NOT engage...turning off and disengaging",
+	    0, 0);
+      
+      if(semTake(semSLC,60) == ERROR) {
+	 TRACE(0, "Unable to retake semaphore: %s (%d)",
+	       strerror(errno), errno);
+	 continue;
+      }
+      
+      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+      if(err) {
+	 semGive (semSLC);
+	 TRACE(0, "tAlgnClmp: error rereading slc: 0x%04x", err, 0);
+	 continue;
+      }
+      
+      swab((char *)&ctrl[0], (char *)&tm_ctrl, 2);
+      swab((char *)&ctrl[1], (char *)&tm_ctrl1, 2);
+      
+      tm_ctrl.mcp_clamp_engage_cmd = 0;
+      tm_ctrl1.mcp_clamp_disen_cmd = 1;
+      
+      swab((char *)&tm_ctrl, (char *)&ctrl[0], 2);
+      swab((char *)&tm_ctrl1, (char *)&ctrl[1], 2);
+      
+      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+      semGive(semSLC);
+      if(err) {
+	 TRACE(0, "tAlgnClmp: error rewriting slc: 0x%04x", err, 0);
+	 continue;
+      }
    }
+}
 
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   if(err) {
-      semGive (semSLC);
-      printf ("R2 Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
-   swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
+static void
+alignment_clamp_set(int engage)
+{
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+   
+   msg.type = alignClamp_type;
+   msg.u.alignClamp.op = engage ? ENGAGE : DISENGAGE;
 
-   tm_ctrl.mcp_clamp_engage_cmd = 0;
-   tm_ctrl1.mcp_clamp_disen_cmd = 1;
-   
-   swab((char *)&tm_ctrl,(char *)&ctrl[0],2);
-   swab((char *)&tm_ctrl1,(char *)&ctrl[1],2);
-   
-   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   semGive(semSLC);
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_clamp_on()
-{
-    tm_clamp (1);
-}
-void tm_clamp_off()
-{
-    tm_clamp (0);
-}
-void tm_sp_clamp_on()
-{
-  if (taskIdFigure("tmClamp")==ERROR)
-    taskSpawn("tmClamp",90,0,2000,(FUNCPTR)tm_clamp,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_clamp_off()
-{
-  if (taskIdFigure("tmClamp")==ERROR)
-    taskSpawn("tmClamp",90,0,2000,(FUNCPTR)tm_clamp,0,0,0,0,0,0,0,0,0,0);
-}
-int tm_clamp_status()
-{
-   int err;
-   unsigned short ctrl[2],sctrl[2];
-   
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   semGive (semSLC);
-   if(err) {
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   
-   swab ((char *)&ctrl[0],(char *)&sctrl[0],2);
-   swab ((char *)&ctrl[1],(char *)&sctrl[1],2);
-   
-   printf (" read ctrl = 0x%4x 0x%4x\r\n",sctrl[0],sctrl[1]);
-   
-   return 0;
+   ret = msgQSend(msgAlignClamp, (char *)&msg, sizeof(msg),
+		  NO_WAIT, MSG_PRI_NORMAL);
+   assert(ret == OK);
 }
 
 /*****************************************************************************/
@@ -508,15 +498,14 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    int err;
              
    if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
+      TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       return(-1);
    }
 
    err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
    if(err) {
       semGive (semSLC);
-      printf("R Err=%04x\r\n",err);
+      TRACE(0, "set_mcp_ffs_bits: error reading slc: 0x%04x", err, 0);
       return err;
    }
    swab((char *)&ctrl[0], (char *)&tm_ctrl1, 2);
@@ -531,7 +520,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    semGive (semSLC);
 
    if(err) {
-      printf ("W Err=%04x\r\n",err);
+      TRACE(0, "set_mcp_ffs_bits: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -782,14 +771,16 @@ get_ffstatus(char *ffstatus_ans,
 char *
 clampon_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_sp_clamp_on();
+   alignment_clamp_set(1);
+
    return "";
 }
 
 char *
 clampoff_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_sp_clamp_off();
+   alignment_clamp_set(0);
+
    return "";
 }
 
@@ -1042,16 +1033,21 @@ spectroInit(void)
  * Create the message queue to control the lamps, and spawn the task
  * that actually turns lamps on/off
  */
-   if(msgLamps == NULL) {
+   if(msgAlignClamp == NULL) {
+      msgAlignClamp = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+      assert(msgAlignClamp != NULL);
+      ret = taskSpawn("tAlgnClmp",90,0,2000,(FUNCPTR)tAlgnClmp,
+		      0,0,0,0,0,0,0,0,0,0);
+      assert(ret != ERROR);
+
       msgLamps = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgLamps != NULL);
-
-      ret = taskSpawn("tLamps",90,0,2000,(FUNCPTR)tLamps,0,0,0,0,0,0,0,0,0,0);
+      ret = taskSpawn("tLamps",90,0,2000,(FUNCPTR)tLamps,
+		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
 
       msgSpecDoor = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgSpecDoor != NULL);
-
       ret = taskSpawn("tSpecDoor",90,0,2000,
 		      (FUNCPTR)tSpecDoor,
 		      0,0,0,0,0,0,0,0,0,0);
