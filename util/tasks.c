@@ -54,6 +54,8 @@ idle(void)
 /*
  * Print a task name given a number of byte values from a trace output,
  * e.g. printf("0x%08x", *(int *)name);
+ *
+ * See also trace.el in ../etc
  */
 void
 cccc2name(const char *str)
