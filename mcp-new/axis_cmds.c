@@ -582,6 +582,8 @@ status_cmd(char *cmd)
       TRACE(0, "status_cmd: failed to get semMEIUPD: %d %s",
 	    errno, strerror(errno));
       sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
+
+      return(ublock->buff);
    }
 
    sprintf(ublock->buff, "%f %f %f %ld %f",
