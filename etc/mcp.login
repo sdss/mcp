@@ -191,11 +191,15 @@ taskPrioritySet (taskIdFigure("tExcTask"),1)
 # Get the current time from the NTP server
 #
 setTimeFromNTP "utc-time.apo.nmsu.edu", 0, 1, 0
-
+#
+# N.b. The `frequencies' supplied to the *_data_collection routines
+# are interpreted relative to the rate that TimerStart calls serverDCStart,
+# so if they equal the data_collection will take place at 1Hz
+#
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
-taskSpawn "SLC_DC",70,8,10000,slc500_data_collection,100
+taskSpawn "SLC_DC",70,8,10000,slc500_data_collection,20
 TimerStart 20, 5, serverDCStart
 ipsdss_ini
 
