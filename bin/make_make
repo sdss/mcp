@@ -1,0 +1,111 @@
+#!/bin/csh -f
+#
+# Make the dependencies for Makefiles
+# make_make [-u] [-f filename] files
+# -u : create unix Makefile (default)
+# -f : filename is $filename (default: Makefile)
+#
+# Take the arguments, replace their suffices .o by .c,
+# and look for (local) include files. These are
+# then converted into dependency lines, and put at the BOTTOM of the
+# makefile, following a line consisting of "#START_DEPEND" - note that
+# all lines following this in the old Makefile are deleted.
+#
+# An argument following a -D specifies the directory where an include file
+# is to be found, e.g. -D ../inc.h
+#
+# An argument following a -O specifies an include file to omit from the
+# Makefile
+#
+set descrip=descrip.mms
+set makefile=Makefile
+#
+while ("$1" =~ -*)
+	if ("$1" == "-f") then
+		if ("$2" == "") then
+			echo You need a filename with the $1 flag
+			exit 1
+		endif
+		set makefile=$2
+		shift
+	else if (X$1 == X-u) then
+		set unix
+	else
+		echo Unknown flag $1
+	endif
+	shift
+end
+if($?unix == 0) then
+	set unix
+endif
+#
+set dirs=()
+set files=()
+set omitted=()
+unset dir
+unset omit
+cp /dev/null make_deps_
+#
+foreach fil ( $* )
+	if($fil == -D) then		# next file is dir/include.h
+		set dir
+		continue
+	endif
+	if($fil == -O) then		# next file is inc.h to be omitted
+		set omit
+		continue
+	endif
+	if($?dir) then			# this file is dir/include.h
+		unset dir
+		set dirs = ($dirs $fil:h)
+		set files = ($files $fil:t)
+		continue
+	endif
+	if($?omit) then			# this file is to be omitted
+		unset omit
+		set omitted = ($omitted -e /$fil/d)
+		echo "Omitting $fil from Makefile[s]"
+		continue
+	endif
+#
+# Regular file to have its include files found
+#
+	grep '^#[ 	]*include[ 	]*"' $fil:r.c  /dev/null |	\
+	sort |								\
+	sed	-e '1,$s/\.c/._OBJ_/'					\
+		-e '1,$s/://'						\
+		-e '1,$s/#[ 	]*include[ 	]*[^"]/ :	/'	\
+		-e '1,$s/"//'						\
+		-e '1,$s/".*//'						\
+		>> make_deps_
+end
+#
+# Delete all mention of -O files
+#
+if($#omitted > 0) then
+	sed $omitted make_deps_ > make_deps2_
+	rm make_deps_
+else
+	mv make_deps_ make_deps2_
+endif
+#
+# Now for each -D file, change the dependency to the correct directory
+#
+set i=$#files
+while($i)
+	sed -e "s#$files[$i]#$dirs[$i]/$files[$i]#g" make_deps2_ > \
+								make_deps_
+	mv make_deps_ make_deps2_
+	@ i--
+end
+#
+# Convert dependencies to proper form, and append to makefiles
+#
+sed -e '/^#START_DEPEND/,$d' $makefile > make_temp_
+echo "#START_DEPEND" >> make_temp_
+mv make_temp_ $makefile
+sed -e "s/_OBJ_/o/" make_deps2_ >> $makefile
+
+foreach f ( make_deps_ make_deps2_ )
+	if(-e $f) rm $f
+end
