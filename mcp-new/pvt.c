@@ -189,7 +189,7 @@ int
 calc_frames(int axis, struct FRAME *iframe, int start)
 {
    int bad_pvt = 0;			/* was a bad PVT detected? */
-   double dx,dv,dt,vdot;
+   double dx,dv,dt,xdot;
    double ai,j,t,lai,lj,lt,ldt;
    struct FRAME *fframe;
    struct FRAME *lframe;
@@ -205,9 +205,9 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    dx = fframe->position - iframe->position;
    dv = fframe->velocity - iframe->velocity;
    dt = sdss_delta_time(fframe->end_time, iframe->end_time);
-   vdot = dx/dt;
-   ai = (2/dt)*(3*vdot - 2*iframe->velocity - fframe->velocity);
-   j = (6/(dt*dt))*(iframe->velocity + fframe->velocity - 2*vdot);
+   xdot = dx/dt;
+   ai = (2/dt)*(3*xdot - 2*iframe->velocity - fframe->velocity);
+   j = (6/(dt*dt))*(iframe->velocity + fframe->velocity - 2*xdot);
 /*
  * necessary if for loop not executed; calc of t
  */
@@ -217,7 +217,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       printf("\r\n iframe=%p, fframe=%p",iframe,fframe);
       printf("\r\n iframe->end_time=%f, fframe->end_time=%f",
 	      iframe->end_time,fframe->end_time);
-      printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f",dx,dv,dt,vdot);
+      printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, xdot=%f",dx,dv,dt,xdot);
       printf("\r\n ai=%12.8f, j=%12.8f, t=%f, start=%d, time_off=%f",
 	     ai,j,t,start,time_off[axis]);
   }
@@ -333,15 +333,15 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    dx = fframe->position - lframe->position;
    dv = fframe->velocity - lframe->velocity;
    dt = fframe->end_time - lframe->end_time;
-   vdot = dx/dt;
+   xdot = dx/dt;
 
    if(CALCFINAL_verbose) {
       printf("time_off=%f, ldt=%f, lt=%f, t=%f\n",time_off[axis],ldt,lt,t);
-      printf("dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%12.8f\n",dx,dv,dt,vdot);
+      printf("dx=%12.8f, dv=%12.8f, dt=%12.8f, xdot=%12.8f\n",dx,dv,dt,xdot);
    }
    
-   ai = (2/dt)*(3*vdot - 2*lframe->velocity - fframe->velocity);
-   j = (6/(dt*dt))*(lframe->velocity + fframe->velocity - 2*vdot);
+   ai = (2/dt)*(3*xdot - 2*lframe->velocity - fframe->velocity);
+   j = (6/(dt*dt))*(lframe->velocity + fframe->velocity - 2*xdot);
    
    p[axis][i] = lframe->position + lframe->velocity*t + (1/2.)*ai*(t*t) +
 							      (1/6.)*j*(t*t*t);
@@ -439,7 +439,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 int
 calc_offset(int axis, struct FRAME *iframe, int start, int cnt)
 {
-   double dx,dv,dt,vdot;
+   double dx,dv,dt,xdot;
    double ai,j,t;
    struct FRAME *fframe;
    int i,ii;
@@ -448,15 +448,15 @@ calc_offset(int axis, struct FRAME *iframe, int start, int cnt)
    dx = fframe->position - iframe->position;
    dv = fframe->velocity - iframe->velocity;
    dt = sdss_delta_time(fframe->end_time, iframe->end_time);
-   vdot = dx/dt;
-   ai = (2/dt)*(3*vdot - 2*iframe->velocity - fframe->velocity);
-   j = (6/(dt*dt))*(iframe->velocity + fframe->velocity - 2*vdot);
+   xdot = dx/dt;
+   ai = (2/dt)*(3*xdot - 2*iframe->velocity - fframe->velocity);
+   j = (6/(dt*dt))*(iframe->velocity + fframe->velocity - 2*xdot);
 /*
  * neccessary if for loop not executed; calc of t
  */
    t = (start + 1)/FLTFRMHZ;		/* for end condition */
    if(CALCOFF_verbose) {
-      printf("dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f\n",dx,dv,dt,vdot);
+      printf("dx=%12.8f, dv=%12.8f, dt=%12.8f, xdot=%f\n",dx,dv,dt,xdot);
       printf("ai=%12.8f, j=%12.8f, t=%f, start=%d,\n",ai,j,t,start);
    }
    
@@ -1112,7 +1112,7 @@ tm_TCC(int axis)
 	 tm_start_move(2*axis, frame->position*ticks_per_degree[axis],
 		       1*ticks_per_degree[axis], 0.05*ticks_per_degree[axis]);
 
-	 TRACE(3, "Repositioning %s by TCC vmd", aname, 0);
+	 TRACE(3, "Repositioning %s by TCC cmd", aname, 0);
 	 TRACE(3, "    from pos=%ld to pos=%ld",
 	       (long)position, (long)(frame->position*ticks_per_degree[axis]))
 	 
