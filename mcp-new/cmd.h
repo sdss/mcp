@@ -5,7 +5,7 @@
  * A type for holding information about a user who's connected to the MCP
  */
 #define UNAME_SIZE 40			/* size for USER_BLOCK.uname */
-#define UBLOCK_SIZE 200			/* size for USER_BLOCK.buff */
+#define UBLOCK_SIZE 400			/* size for USER_BLOCK.buff */
 
 typedef struct {
    int pid;				/* User's PID on host machine */
