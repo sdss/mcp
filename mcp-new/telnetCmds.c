@@ -40,7 +40,13 @@ int
 take_semCmdPort(int timeout,		/* timeout, in ticks */
 		char *id)		/* name of new owner of semaphore */
 {
-   const int ret = semTake(semCmdPort, timeout);
+   int ret;
+
+   if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+      return(OK);			/* we've already got it */
+   }
+   
+   ret = semTake(semCmdPort, timeout);
    
    if(ret != ERROR) {
       strncpy(semCmdPortOwner, id, sizeof(semCmdPortOwner) - 1);
@@ -65,6 +71,76 @@ give_semCmdPort(int force)		/* force the giving? */
    }
    
    return(ret);
+}
+
+/*****************************************************************************/
+/*
+ * Commands to handle the semaphore
+ */
+char *
+sem_take_cmd(char *str)			/* NOTUSED */
+{
+   TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
+   
+   sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
+   (void)take_semCmdPort(60, ublock->buff);
+   
+   if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+      return("took semaphore");
+   }
+      
+   sprintf(ublock->buff, "Unable to take semaphore owner %s: %s",
+	   semCmdPortOwner, strerror(errno));
+   return(ublock->buff);
+}
+
+char *
+sem_steal_cmd(char *str)		/* NOTUSED */
+{
+   TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0);
+   
+   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+      (void)give_semCmdPort(1);
+      
+      sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
+      (void)take_semCmdPort(60, ublock->buff);
+   }
+   
+   if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+      return("took semaphore");
+   }
+
+   sprintf(ublock->buff, "Unable to take semCmdPort semaphore: %s",
+	   strerror(errno));
+   return(ublock->buff);
+}
+
+
+char *
+sem_give_cmd(char *str)
+{
+   int force = 0;
+   
+   TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0);
+   
+   (void)sscanf(str, "%d", &force);
+   
+   (void)give_semCmdPort(0);
+   
+   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+      return("gave semaphore");
+   }
+
+   if(force) {
+      (void)give_semCmdPort(1);
+   }
+   
+   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+      return("gave semaphore");
+   }
+
+   sprintf(ublock->buff, "Unable to give semaphore: %s", strerror(errno));
+   return(ublock->buff);
 }
 
 /*****************************************************************************/
@@ -141,6 +217,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "Garbled USER.ID command";
 	    break;
 	 }
+#if 0
       } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
 	 TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
 
@@ -197,6 +274,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    }
 	    reply = buff;
 	 }
+#endif
       } else if(strncmp(cmd, "SEM.SHOW", 8) == 0) {
 	 int full;
 	 if(sscanf(cmd, "SEM.SHOW %d", &full) == 1 && full) {
@@ -326,6 +404,12 @@ cmdPortServer(int port)			/* port to bind to */
       }
       *semCmdPortOwner = '\0';
    }
+/*
+ * Define semaphore commands
+ */
+   define_cmd("SEM.TAKE",  sem_take_cmd,   0, 0, 0, 0, "");
+   define_cmd("SEM.GIVE",  sem_give_cmd,  -1, 0, 0, 0, "");
+   define_cmd("SEM.STEAL", sem_steal_cmd,  0, 0, 0, 1, "");
 /*
  * Loop, waiting for connection requests
  */
