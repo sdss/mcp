@@ -28,6 +28,7 @@
 #include "taskLib.h"
 #include "string.h"
 #include "inetLib.h"
+#include "rebootLib.h"
 #include "in.h"
 #include "timers.h"
 #include "time.h"
@@ -44,13 +45,25 @@
 #include "data_collection.h"
 #include "tm.h"
 
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
 #define ONCE if (YES)
 
-/* Global Data */
-int display_enable[6]={FALSE,FALSE,FALSE,FALSE,TRUE,TRUE};
-int continuous_enable=FALSE;
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
 int TM_verbose=FALSE;
 
 short az1vlt,az1cur,az2vlt,az2cur;
@@ -67,135 +80,106 @@ short rot1vlt,rot1cur;
 #define TM_ALT2VLT	6
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
-int monitor_axis[3];
+/* tm_mgt variables to enable safe operation if telescope is not in control */
+int monitor_axis[3];	
+/* keep watch dog alive based on all axis software active */
 int axis_alive=0;
 
-void tm_move_time (int axis, int vel, int accel, int time)
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_start_move
+**
+** DESCRIPTION:
+**      Telescope motion to a specified position.  The routine returns to 
+**	the caller immediately while the motion is being fulfilled.
+**	Encaspulates the MEI function and converts args from ints to doubles.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+void tm_start_move (int axis, int vel, int accel, int pos)
 {
 	extern SEM_ID semMEI;
-	extern void manTrg();
 
-	manTrg();
-	tm_print_coeffs(axis);
 	semTake(semMEI,WAIT_FOREVER);
-	v_move(axis,(double)vel,(double)accel);
-	semGive (semMEI);
-	taskDelay (time);
-	semTake(semMEI,WAIT_FOREVER);
-	v_move(axis,(double)0,(double)accel);
+	start_move(axis,(double)pos,(double)vel,(double)accel);
 	semGive (semMEI);
 }
-void tm_move_offset (int axis, int off)
-{
-	short coeff[COEFFICIENTS];
-	extern init_coeffs(int axis);
-	extern SEM_ID semMEI;
-	extern void manTrg();
-
-	manTrg();
-	tm_print_coeffs(axis);
-	semTake(semMEI,WAIT_FOREVER);
-	get_filter (axis,(P_INT)coeff);
-	if (off==0)
-	{
-	  get_boot_filter (axis,(P_INT)coeff);
-	  init_coeffs (axis);
-	}
-	else
-	{
-	  coeff[DF_P]=0;
-	  coeff[DF_I]=0;
-	  coeff[DF_D]=0;
-	}
-	coeff[DF_OFFSET]=off;
-	set_filter (axis,(P_INT)coeff);
-
-	semGive (semMEI);
-	tm_print_coeffs(axis);
-}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_bf
+**
+** DESCRIPTION:
+**      Telescope motion to go over a fiducial point back-and-forth a
+**	specified number of times.
+**	Boroski spec.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
 {
   int i;
   int status;
   extern SEM_ID semMEI;
 
+  printf ("\r\nPass ");
   for (i=0;i<times;i++)
   {
-    printf ("\r\nPass %d",i);
-      tm_controller_run (axis);
-      tm_start_move (axis,vel,accel,pos1);
-      status=FALSE;
-      while (!status)
-      {
-	taskDelay(60);
-	semTake(semMEI,WAIT_FOREVER);
-	status=motion_done(axis);
-	semGive (semMEI);
-      }
-      tm_start_move (axis,vel,accel,pos2);
-      status=FALSE;
-      while (!status)
-      {
-	taskDelay(60);
-	semTake(semMEI,WAIT_FOREVER);
-	status=motion_done(axis);
-	semGive (semMEI);
-      }
-      tm_controller_idle(axis);    
-    printf(" Done");
+    printf ("\r\n%d ",i);
+    tm_controller_run (axis);
+    tm_start_move (axis,vel,accel,pos1);
+    status=FALSE;
+    while (!status)
+    {
+      taskDelay(60);
+      semTake(semMEI,WAIT_FOREVER);
+      status=motion_done(axis);
+      semGive (semMEI);
+    }
+    tm_start_move (axis,vel,accel,pos2);
+    status=FALSE;
+    while (!status)
+    {
+      taskDelay(60);
+      semTake(semMEI,WAIT_FOREVER);
+      status=motion_done(axis);
+      semGive (semMEI);
+    }
   }
+  printf(" Done");
 }
-void tm_start_move (int axis, int vel, int accel, int pos)
-{
-	extern SEM_ID semMEI;
-	extern void manTrg();
-
-/*	manTrg();*/
-	semTake(semMEI,WAIT_FOREVER);
-/*	print_coeffs(axis);*/
-	start_move(axis,(double)pos,(double)vel,(double)accel);
-	semGive (semMEI);
-}
-void tm_move_pos (int axis, int vel, int accel, int pos)
-{
-	double position,last_pos,final_pos;
-	extern SEM_ID semMEI;
-	extern void manTrg();
-
-	manTrg();
-	tm_print_coeffs(axis);
-	semTake(semMEI,WAIT_FOREVER);
-	get_position(axis,&position);
-	last_pos=position;
-	final_pos=position+(double)pos;
-	start_move(axis,final_pos,(double)vel,(double)accel);
-	semGive (semMEI);
-	taskDelay(60);
-	semTake(semMEI,WAIT_FOREVER);
-	get_position(axis,&position);
-	semGive (semMEI);
-	while (last_pos!=position) 
-	{
-	  last_pos=position;
-	  taskDelay(60);
-	  semTake(semMEI,WAIT_FOREVER);
-	  get_position(axis,&position);
-	  semGive (semMEI);
-	  printf("\r\npos=%f",(float)position);
-	}
-	printf("\r\n  Stop pos=%f",(float)position);
-/*
-	semTake(semMEI,WAIT_FOREVER);
-	set_stop (axis);
-	while (!motion_done(axis));
-	clear_status(axis);
-        get_position(axis,&position);
-	semGive (semMEI);
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_print_coeffs
+**
+** DESCRIPTION:
+**      Print the specified axis PID coefficients and sample rate.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
 */
-        printf("\r\n  Final pos=%f",(float)position);
-	if ((final_pos>position+10)||(final_pos<position-10))
-	  printf ("\r\n ERROR: did not close in on position");
-}
 void tm_print_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -217,6 +201,26 @@ void tm_print_coeffs(int axis)
 	printf ("\r\n integration mode is %d",mode);
 	printf ("\r\n and sample is %d Hz",rate);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_set_coeffs 
+**
+** DESCRIPTION:
+**      Set the specified axis coefficient where index is used to specify
+**	one of 10 possible coefficients.
+**		index=0(P),1(I),2(D),3(AFF),4(VFF),5(ILIM),6(OFF),7(DLIM)
+**		8(SHIFT)(-5 is 1/32),9(FFF)
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_set_coeffs(int axis, int index, int val)
 {
 	short coeff[COEFFICIENTS];
@@ -228,50 +232,30 @@ void tm_set_coeffs(int axis, int index, int val)
 	set_filter (axis,(P_INT)coeff);
 	semGive (semMEI);
 }
-void tm_display_axis(int axis)
-{
-  display_enable[axis]=TRUE;
-}
-void tm_nodisplay_axis(int axis)
-{
-  display_enable[axis]=FALSE;
-}
-void tm_display_continuous()
-{
-  continuous_enable=TRUE;
-}
-void tm_display_once()
-{
-  continuous_enable=FALSE;
-}
-void tm_display (int delay)
-{
-	int i;
-	short out;
-	double pos;
-	extern SEM_ID semMEI;
-	int first=TRUE;
-
-      while ((continuous_enable)||(first))
-      {
-	first=FALSE;
-	taskDelay(delay);
-	for (i=0;i<6;i++)
-	{
-	  if (display_enable[i])
-	  {
-	    if (semTake(semMEI,WAIT_FOREVER)!=ERROR)
-	    {
-	      get_dac_output(i,&out);
-	      get_position(i,&pos);
-	      semGive (semMEI);
-	      printf ("\r\nAxis %d: out=%7.4f volts, pos=%10.0f ",
-		i,(float)out/3276.8,(float)pos);
-	    }
-	  }
-	}
-      }
-}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_clear_pos
+**	    tm_get_pos
+**	    tm_get_vel
+**	    tm_set_sample_rate
+**	    tm_reset_integrator
+**	    tm_set_pos
+**	    tm_set_encoder
+**	    tm_dual_loop
+**
+** DESCRIPTION:
+**      Telescope motion encapsulates with a semaphore the MEI function.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_clear_pos (int axis)
 {
 	extern SEM_ID semMEI;
@@ -321,6 +305,40 @@ void tm_set_pos (int axis,int pos)
 	set_position (axis,(double)pos);
 	semGive(semMEI);
 }
+void tm_set_encoder(int axis)
+{
+	extern SEM_ID semMEI;
+
+	semTake(semMEI,WAIT_FOREVER);
+	set_feedback(axis,FB_ENCODER);
+	semGive(semMEI);
+}
+void tm_dual_loop (int axis, int dual)
+{
+	extern SEM_ID semMEI;
+
+	semTake(semMEI,WAIT_FOREVER);
+	set_dual_loop (axis,axis+1,dual);
+	semGive(semMEI);
+}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_set_analog_encoder
+**
+** DESCRIPTION:
+**      Telescope motion sets up the tachometer as the encoder.  No longer
+**	used at this time.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_set_analog_encoder(int axis, int channel)
 {
 	extern SEM_ID semMEI;
@@ -331,14 +349,23 @@ void tm_set_analog_encoder(int axis, int channel)
 	set_feedback(axis,FB_ANALOG);
 	semGive(semMEI);
 }
-void tm_set_encoder(int axis)
-{
-	extern SEM_ID semMEI;
-
-	semTake(semMEI,WAIT_FOREVER);
-	set_feedback(axis,FB_ENCODER);
-	semGive(semMEI);
-}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_set_analog_channel
+**
+** DESCRIPTION:
+**      Telescope motion sets analog channel as feedback to PID.  Not used.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_set_analog_channel(int axis, int channel)
 {
 	extern SEM_ID semMEI;
@@ -348,6 +375,28 @@ void tm_set_analog_channel(int axis, int channel)
 	set_axis_analog (axis,TRUE);
 	semGive(semMEI);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_controller_run
+**	    sem_controller_run (assumes the semaphore is already owned)
+**
+** DESCRIPTION:
+**      Telescope motion encapsulates and ensures the MEI is in closed
+**	loop before returning.  A nominal retry count is utilized to 
+**	prevent a loop.  MEI required at one time numerous function calls
+**	for this to take effect.  Subsequent software was suppose to fix
+**	this, but I am not convinced.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_controller_run (int axis)
 {
 	extern SEM_ID semMEI;
@@ -377,6 +426,28 @@ void sem_controller_run (int axis)
 	if (retry!=0)
 	  monitor_axis[axis/2]=TRUE;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_controller_idle
+**	    sem_controller_idle (assumes the semaphore is already owned)
+**
+** DESCRIPTION:
+**      Telescope motion encapsulates and ensures the MEI is out of closed
+**	loop before returning.  A nominal retry count is utilized to 
+**	prevent a loop.  MEI required at one time numerous function calls
+**	for this to take effect.  Subsequent software was suppose to fix
+**	this, but I am not convinced.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_controller_idle (int axis)
 {
 	extern SEM_ID semMEI;
@@ -396,15 +467,23 @@ void sem_controller_idle (int axis)
   	while ((axis_state(axis)<=2)&&(--retry>0)) 
 	  controller_idle (axis);
 }
-void tm_dual_loop (int axis, int dual)
-{
-	extern SEM_ID semMEI;
-
-	semTake(semMEI,WAIT_FOREVER);
-	set_dual_loop (axis,axis+1,dual);
-	semGive(semMEI);
-}
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_set_boot_filter
+**
+** DESCRIPTION:
+**      Telescope motion makes the current coeffs active for next boot.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_set_boot_filter (int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -415,30 +494,38 @@ void tm_set_boot_filter (int axis)
 	set_boot_filter(axis,(P_INT)coeff);
 	semGive(semMEI);
 }
-void tmDisplay (int delay)
-{
-	taskSpawn("tmDisp",90,0,1000,(FUNCPTR)tm_display,delay,0,0,0,0,0,0,0,0,0);
-}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: TM_help
+**
+** DESCRIPTION:
+**      Telescope motion help.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char *help_TM[]={
         "TM_help;  axis 0,1=ALT, axis 2,3=AL, axis 4,5=ROT",
 	"TM_Verbose, TM_Quiet",
 	"tmDisplay(int delay)",
-	"tm_move_time(int axis, int vel, int accel, int time)",
 	"tm_start_move(int axis, int vel, int accel, int absolutepos)",
-	"tm_move_pos(int axis, int vel, int accel, int relativepos)",
 	"tm_set_coeffs(int axis, int index, int val)",
 	" index=0(P),1(I),2(D),3(AFF),4(VFF),5(ILIM),6(OFF),7(DLIM)",
 	" 8(SHIFT)(-5 is 1/32),9(FFF)",
 	"tm_print_coeffs(int axis)",
-	"tm_display_axis(int axis)",
-	"tm_nodisplay_axis(int axis)",
-	"tm_display(int delay)",
 	"tm_clear_pos(int axis)",
 	"tm_set_analog_encoder(int axis, int channel)",
 	"tm_set_encoder(int axis)",
 	"tm_controller_idle(int axis)",
 	"tm_dual_loop(int axis, int dual)",
-	"tm_set_fiducial(int axis); tm_get_fiducial_all()",
+	"tm_set_fiducial(int axis); tm_print_fiducial_all()",
 ""
 };                                                         
 void TM_help()
@@ -448,6 +535,24 @@ void TM_help()
   for (i=0;i<sizeof(help_TM)/sizeof(char *);i++)
     printf ("%s\r\n",help_TM[i]);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: TM_Verbose
+**	    TM_Quiet
+**
+** DESCRIPTION:
+**      Turns off/on verbosity for diagnostics.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void TM_Verbose()
 {
 	TM_verbose=TRUE;
@@ -456,6 +561,25 @@ void TM_Quiet()
 {
 	TM_verbose=FALSE;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: ADC128F1_initialize
+**
+** DESCRIPTION:
+**      Initialize the ADC for monitoring the current and voltages.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	Industry_Pack
+**
+** GLOBALS REFERENCED:
+**	tm_ADC128F1
+**
+**=========================================================================
+*/
 int ADC128F1_initialize(unsigned char *addr, int occur)
 {
   int i;
@@ -482,6 +606,25 @@ int ADC128F1_initialize(unsigned char *addr, int occur)
   }
   return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_data_collection
+**
+** DESCRIPTION:
+**      Collect the adc voltages and currents for the amplifiers.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**	tm_ADC128F1
+**
+**=========================================================================
+*/
 void tm_data_collection()
 {
   short adc;
@@ -525,6 +668,26 @@ void tm_data_collection()
     else alt2cur = adc&0xFFF;
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_read_all_adc
+**
+** DESCRIPTION:
+**      Diagnostic which reads the two ADC's and 
+**	print results a specified number of times.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**	tm_ADC128F1
+**
+**=========================================================================
+*/
 void tm_read_all_adc(int cnt)
 {
   int i,ii;
@@ -550,12 +713,31 @@ void tm_read_all_adc(int cnt)
     printf ("\r\n");
   }
 }
-void tm_jog_axis()
-{
-  char ch;
-
-  while (ch=getchar()) printf("\r\n%x",ch);
-}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_az_brake
+**	    tm_az_brake_on
+**	    tm_az_brake_off
+**	    tm_sp_az_brake_on
+**	    tm_sp_az_brake_off
+**
+** DESCRIPTION:
+**      Turn azimuth brakes off/on.  Function available to spawn the task
+**	since return can take some time...useful for TCC which times out
+**	reply.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int az_cnt;
 int tm_az_brake(short val) 
 {
@@ -657,6 +839,31 @@ void tm_sp_az_brake_off()
   if (taskIdFigure("tmAzBrk")!=NULL)
     taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_alt_brake
+**	    tm_alt_brake_on
+**	    tm_alt_brake_off
+**	    tm_sp_alt_brake_on
+**	    tm_sp_alt_brake_off
+**
+** DESCRIPTION:
+**      Turn altitude brakes off/on.  Function available to spawn the task
+**	since return can take some time...useful for TCC which times out
+**	reply.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int alt_cnt;
 int tm_alt_brake(short val) 
 {
@@ -757,6 +964,25 @@ void tm_sp_alt_brake_off()
   if (taskIdFigure("tmAltBrk")!=NULL)
     taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_brake_status
+**
+** DESCRIPTION:
+**      Diagnostic for brake status.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_brake_status()
 {
   int err;
@@ -785,7 +1011,29 @@ int tm_brake_status()
   printf (" read ctrl = 0x%04x\r\n",ctrl);
   return 0;
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_clamp
+**	    tm_clamp_on
+**	    tm_clamp_off
+**	    tm_sp_clamp_on
+**	    tm_sp_clamp_off
+**
+** DESCRIPTION:
+**      Turn on/off the instrument change clamp.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int clamp_cnt;
 int tm_clamp(short val) 
 {
@@ -916,7 +1164,32 @@ int tm_clamp_status()
   printf (" read ctrl = 0x%04x 0x%4x\r\n",ctrl[0],ctrl[1]);
   return 0;
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_slit
+**	    tm_slit_clear
+**	    tm_slit_open
+**	    tm_slit_close
+**	    tm_sp_slit_open
+**	    tm_sp_slit_close
+**
+** DESCRIPTION:
+**      Open/close/clear the slit door.  Clear neither closes nor opens the
+**	door, the actuator is inactive.  There are two spectographs so the
+**	door must be specified.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int slit_cnt;
 int tm_slit(short val) 
 {
@@ -1005,6 +1278,30 @@ void tm_sp_slit_close(int door)
   if (taskIdFigure("tmSlit")!=NULL)
     taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_close,door,0,0,0,0,0,0,0,0,0);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_cart
+**	    tm_cart_latch
+**	    tm_cart_unlatch
+**	    tm_sp_cart_latch
+**	    tm_sp_cart_unlatch
+*
+** DESCRIPTION:
+**      Latch/unlatch the fiber cartridge latch for the selected spectograph
+**	specified by the door.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_cart(short val) 
 {
    int err;
@@ -1080,7 +1377,29 @@ int tm_slit_status()
 	sdssdc.status.i1.il9.cart_latch2_opn);
   return 0;
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_ffs
+**	    tm_ffs_open
+**	    tm_ffs_close
+**	    tm_sp_ffs_open
+**	    tm_sp_ffs_close
+**
+** DESCRIPTION:
+**      Open/close the flat field screen
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_ffs(short val) 
 {
    int err;
@@ -1133,7 +1452,29 @@ void tm_sp_ffs_close()
   if (taskIdFigure("tmFFS")!=NULL)
     taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_ffl
+**	    tm_ffl_on
+**	    tm_ffl_off
+**	    tm_sp_ffl_on
+**	    tm_sp_ffl_off
+**
+** DESCRIPTION:
+**      Turn on/off the incandescent lamps for the flat field.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_ffl(short val) 
 {
    int err;
@@ -1186,7 +1527,29 @@ void tm_sp_ffl_off()
   if (taskIdFigure("tmFFL")!=NULL)
     taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,0,0,0,0,0,0,0,0,0,0);
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_neon
+**	    tm_neon_on
+**	    tm_neon_off
+**	    tm_sp_neon_on
+**	    tm_sp_neon_off
+**
+** DESCRIPTION:
+**      Turn on/off the Neon lamps for the flat field.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_neon(short val) 
 {
    int err;
@@ -1239,6 +1602,29 @@ void tm_sp_neon_off()
   if (taskIdFigure("tmNeon")!=NULL)
     taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,0,0,0,0,0,0,0,0,0,0);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_hgcd
+**	    tm_hgcd_on
+**	    tm_hgcd_off
+**	    tm_sp_hgcd_on
+**	    tm_sp_hgcd_off
+**
+** DESCRIPTION:
+**      Turn on/off the Mercury Cadmium lamps for the flat field.
+**
+** RETURN VALUES:
+**      status
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_hgcd(short val) 
 {
    int err;
@@ -1291,6 +1677,25 @@ void tm_sp_hgcd_off()
   if (taskIdFigure("tmHgCd")!=NULL)
     taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,0,0,0,0,0,0,0,0,0,0);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_ff_status
+**
+** DESCRIPTION:
+**      Prints the flat field status for a diagnostic
+**
+** RETURN VALUES:
+**      always zero
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**	semSLC
+**
+**=========================================================================
+*/
 int tm_ff_status()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -1343,8 +1748,26 @@ int tm_ff_status()
   printf ("\r\n");
   return 0;
 }
-
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: az_amp_ok
+**	    alt_amp_ok
+**	    rot_amp_ok
+**
+** DESCRIPTION:
+**      Check if amp is ok.
+**
+** RETURN VALUES:
+**      T/F
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	sdssdc
+**
+**=========================================================================
+*/
 int az_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -1376,6 +1799,31 @@ int rot_amp_ok()
   else
 	return FALSE;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: mgt_shutdown
+**	    tm_amp_mgt	task 
+**
+** DESCRIPTION:
+**      Shutdown the telescope by turning on the brakes due to a software reboot.
+**	Check the amplifiers to see if fault and need to turn brakes on.
+**	Must allow for restart...reason for monitor boolean only turned on
+**	by tm_controller_run.
+**	Keep the watchdog timer on which enables the amplifiers.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	tm_amp_engage
+**
+** GLOBALS REFERENCED:
+**	sddsdc
+**	monitor_axis
+**
+**=========================================================================
+*/
 #define TM_WD		4		/* WD channel    15 */
 void mgt_shutdown(int type)
 {
@@ -1431,6 +1879,23 @@ void tm_amp_mgt()
     }
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_print_amp_status
+**
+** DESCRIPTION:
+**      Print the amp status.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_print_amp_status()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -1455,6 +1920,26 @@ void tm_print_amp_status()
     else
       printf ("\r\nROT Amp OK");
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_amp_disengage
+**	    tm_amp_engage
+**	    tm_setup_wd
+**
+** DESCRIPTION:
+**      Enable/disable the amp utilizing the watchdog which is setup with
+**	the initialization routine.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_amp_disengage()
 {
   extern struct conf_blk sbrd;
@@ -1469,6 +1954,7 @@ void tm_amp_engage()
   {
     WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
     StartCounter (&sbrd,TM_WD);
+/*  axis_alive=0; */	/* requires each task to actively set the bits */
   }
 }
 void tm_setup_wd ()
@@ -1486,6 +1972,26 @@ void tm_setup_wd ()
   SetOutputPolarity (&sbrd,TM_WD,OutPolLow);
   ConfigureCounterTimer(&sbrd,TM_WD);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_set_fiducial
+**
+** DESCRIPTION:
+**      Sets the queried setting for position as the fixed fiducial
+**	for the specified axis.  There is only one fixed fiudicial per
+**	axis which gets set.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	tm_print_fiducial
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_set_fiducial(int axis)
 {
   extern long fiducial_position[3];
@@ -1496,7 +2002,6 @@ void tm_set_fiducial(int axis)
   axis=axis>>1;
   printf("Set Fiducial Position    xxx:xx:xx:xxx  ");
   gets(buf);
-				/*sscanf (buf,"%d",&pos);*/
   if (buf[0]=='-') 
   {
     sscanf (&buf[1],"%ld:%ld:%ld:%ld",
@@ -1509,28 +2014,58 @@ void tm_set_fiducial(int axis)
     	&deg,&min,&arcsec,&marcsec);
     negative=FALSE;
   }
-  if (axis==0)
-    pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+  switch (axis)
+  {
+    case AZIMUTH:
+      pos=(long)((abs(deg)*3600000.)+(min*60000.)+
 	 (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-  if (axis==1)
-    pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+      break;
+
+    case ALTITUDE:
+      pos=(long)((abs(deg)*3600000.)+(min*60000.)+
 	 (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-  if (axis==2)
-    pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+      break;
+
+    case INSTRUMENT:
+      pos=(long)((abs(deg)*3600000.)+(min*60000.)+
          (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
+      break;
+
+    default:
+      printf ("\r\nIllegal axis=%d",axis);
+      return;
+  }
   if (negative) pos=-pos;
   fiducial_position[axis]=pos;
-  tm_get_fiducial(axis<<1);
+  tm_print_fiducial(axis<<1);
 }
-void tm_get_fiducial_all()
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_print_fiducial_all
+**	    tm_print_fiducial
+**
+** DESCRIPTION:
+**      Print the fiducials
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+void tm_print_fiducial_all()
 {
   int i;
 
   for(i = 0; i < 3; i++)
-    tm_get_fiducial(i<<1);
+    tm_print_fiducial(i<<1);
   printf ("\r\n");
 }
-void tm_get_fiducial(int axis)
+void tm_print_fiducial(int axis)
 {
   extern struct FIDUCIARY fiducial[3];
   extern long fiducial_position[3];
@@ -1539,48 +2074,73 @@ void tm_get_fiducial(int axis)
   int i;
 
   i=axis>>1;
-       	    if (i==0)
-	    {
-	      printf ("\r\nAxis AZ(0):");
-	      arcsec=(AZ_TICK*abs(fiducial_position[i]));
-	      farcsec=(AZ_TICK*abs(fiducial[i].mark));
-	    }
-       	    if (i==1)
-	    {
-	      printf ("\r\nAxis ALT(2):");
-	      arcsec=(ALT_TICK*abs(fiducial_position[i]));
-	      farcsec=(ALT_TICK*abs(fiducial[i].mark));
-	    }
-       	    if (i==2)
-	    {
-	      printf ("\r\nAxis ROT(4):");
-	      arcsec=(ROT_TICK*abs(fiducial_position[i]));
-	      farcsec=(ROT_TICK*abs(fiducial[i].mark));
-	    }
-	    arcd=(long)(arcsec)/3600;	     
-	    arcm=((long)(arcsec)-(arcd*3600))/60;	     
-	    arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
-	    marcs = (arcsec-(long)arcsec)*1000;
-	    printf ("\r\n Fiducial Position = ");
-	    if (fiducial_position[i]<0)
-	      printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-	    else
-	      printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-	    arcd=(long)(farcsec)/3600;	     
-	    arcm=((long)(farcsec)-(arcd*3600))/60;	     
-	    arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
-	    marcs = (farcsec-(long)farcsec)*1000;
-	    printf (" Fiducial Position Mark = ");
-	    if (fiducial[i].markvalid)
-	    {
-	      if (fiducial[i].mark<0)
-	        printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-	      else
-	        printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-	    }
-	    else
-	      printf("     NOT Valid");
+  switch (i)
+  {
+    case AZIMUTH:
+      printf ("\r\nAxis AZ(0):");
+      arcsec=(AZ_TICK*abs(fiducial_position[i]));
+      farcsec=(AZ_TICK*abs(fiducial[i].mark));
+      break;
+
+    case ALTITUDE:
+      printf ("\r\nAxis ALT(2):");
+      arcsec=(ALT_TICK*abs(fiducial_position[i]));
+      farcsec=(ALT_TICK*abs(fiducial[i].mark));
+      break;
+
+    case INSTRUMENT:
+      printf ("\r\nAxis ROT(4):");
+      arcsec=(ROT_TICK*abs(fiducial_position[i]));
+      farcsec=(ROT_TICK*abs(fiducial[i].mark));
+      break;
+
+    default:
+      printf ("\r\nIllegal axis=%d",axis);
+      return;
+  }
+  arcd=(long)(arcsec)/3600;	     
+  arcm=((long)(arcsec)-(arcd*3600))/60;	     
+  arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
+  marcs = (arcsec-(long)arcsec)*1000;
+  printf ("\r\n Fiducial Position = ");
+  if (fiducial_position[i]<0)
+    printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
+  else
+    printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
+  arcd=(long)(farcsec)/3600;	     
+  arcm=((long)(farcsec)-(arcd*3600))/60;	     
+  arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
+  marcs = (farcsec-(long)farcsec)*1000;
+  printf (" Fiducial Position Mark = ");
+  if (fiducial[i].markvalid)
+  {
+    if (fiducial[i].mark<0)
+      printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
+    else
+      printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
+  }
+  else
+    printf("     NOT Valid");
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_set_fiducials
+**
+** DESCRIPTION:
+**      Sets the most recent readings for position as the fixed fiducial
+**	for the specified axis.  There is only one fixed fiudicial per
+**	axis which gets set.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tm_set_fiducials(int axis)
 {
   extern long fiducial_position[3];
@@ -1606,6 +2166,25 @@ void tm_set_fiducials(int axis)
                         else
                           printf("ERR: fiducial for axis not crossed      ");
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_axis_status
+**	    tm_print_axis_status
+**
+** DESCRIPTION:
+**      Telescope motion prints status of axis_status funciton.
+**
+** RETURN VALUES:
+**	int	axis status
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char const* const msg_axis_status[]=
 	{"IN_SEQUENCE",
 	 "IN_POSITION",
@@ -1625,16 +2204,31 @@ int  tm_axis_status(int axis)
 void tm_print_axis_status(int axis)
 {
   int i,value;
-  extern SEM_ID semMEI;
 
-  semTake(semMEI,WAIT_FOREVER);
-  value=axis_status(axis);
-
-  semGive(semMEI);
+  value=tm_axis_status(axis);
   printf ("AXIS STATUS: %x",value);
   for (i=0;i<sizeof(msg_axis_status)/sizeof(char *);i++)
     if ((value>>(i+4))&1) printf ("     %s\r\n",msg_axis_status[i]);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_axis_state
+**	    tm_print_axis_state
+**
+** DESCRIPTION:
+**      Telescope motion prints status of axis_state funciton.
+**
+** RETURN VALUES:
+**      int	state value
+**	void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char const* const msg_axis_state[]=
 	{"NO_EVENT",
 	 "NEW_FRAME",
@@ -1656,11 +2250,8 @@ int tm_axis_state(int axis)
 void tm_print_axis_state(int axis)
 {
   int i,value;
-  extern SEM_ID semMEI;
 
-  semTake(semMEI,WAIT_FOREVER);
-  value=axis_state(axis);
-  semGive(semMEI);
+  value=tm_axis_state(axis);
   printf ("AXIS STATE: %x",value);
   switch (value)
   {
@@ -1687,6 +2278,23 @@ void tm_print_axis_state(int axis)
   }
   printf ("     %s\r\n",msg_axis_state[i]);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tm_print_axis_source
+**
+** DESCRIPTION:
+**      Telescope motion prints status of axis_source funciton.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char const* const msg_axis_source[]=
 	{"ID_NONE",
 	 "ID_HOME_SWITCH",

@@ -1,3 +1,36 @@
+#include "copyright.h"
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      cmd.c
+**
+** ABSTRACT:
+**	TCC Command handler both receives, distributes, and answers on
+**	behalf of the action routines.
+**	cmd_handler can be invoked from the serial driver or the shell
+**	so access is arbitrated by a semaphore
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+** cmd_ini		public	initialize semaphore
+** cmd_handler		public	command handler
+** dummy_cmd		local	provides default command noop function
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
+
+/*------------------------------*/
+/*	includes		*/
+/*------------------------------*/
 #include "vxWorks.h"
 #include "stdio.h"
 #include "intLib.h"
@@ -15,10 +48,19 @@
 #include "ipOctalSerial.h"
 
 
-char *cmd_handler(char *cmd);
 
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
 /* Define non-printing (control) characters */
-
 #ifndef __ASCII_MACROS__
 #define SOH '\001'
 #define STX '\002'
@@ -39,12 +81,29 @@ struct SERIAL_CAN {
 };
 #define SERIAL_DELAY	50
 #define NPORT	4
+struct BARCODE {
+	short axis;
+	short fiducial;
+};
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
 struct SERIAL_CAN cancel[NPORT]= {
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0}
 };
+struct BARCODE barcode[256];
+short barcodeidx=0;
+int BARCODE_verbose=FALSE;
+/*
+	prototypes
+*/
+int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
+		unsigned char * const buffer );
+int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer);
 void tcc_serial(int port);
 FILE *barcode_open(int port);
 void barcode_shutdown(int type);
@@ -52,8 +111,23 @@ void barcode_init(unsigned char *ip_base, unsigned short model,
 		unsigned int vec, short ch);
 void print_barcode();
 
-/* Static variables */
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: sdss_transmit
+**
+** DESCRIPTION:
+**      Responds with original query plus any answer and terminated with OK.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
 		unsigned char * const buffer )
 {
@@ -71,7 +145,23 @@ int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
    return 0;
                           
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: sdss_receive
+**
+** DESCRIPTION:
+**      Receives string from TCC with appropriate termination.
+**
+** RETURN VALUES:
+**      int 	status always zero
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
 {
    int c;
@@ -85,7 +175,6 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
    /* Receive data from the TCC */
 /*#define __USE_GETC__	1*/
 #ifndef __USE_GETC__
-/*   fscanf ( input_stream, "%s", buffer );*/
    fgets (buffer,40,input_stream);
 #else
 /*
@@ -125,9 +214,30 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
 
    return status;        
 }
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: tcc_serial
+**
+** DESCRIPTION:
+**      Distributes string received over second serial port to command handler
+**	and responds with answer.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	cmd_handler
+**	sdss_receive
+**	sdss_transmit
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void tcc_serial(int port)
 {
+  extern char *cmd_handler(char *cmd);
   char *serial_port={"/tyCo/x"};
   FILE *stream;  
   int status;
@@ -159,19 +269,33 @@ void tcc_serial(int port)
    else
    {
      printf (" TCC **BAD** command %s (status=%d)\r\n",&command_buffer[0],status);
-/*     status = sdss_transmit (stream,&command_buffer[0],NULL);
+     status = sdss_transmit (stream,&command_buffer[0],"ERR: Bad Command");
      if ( status != 0 )
-       printf (" TCC **NOT** accepting response (status=%d)\r\n",status);*/
+       printf (" TCC **NOT** accepting response (status=%d)\r\n",status);
    }
   }                                             
 }                                             
-struct BARCODE {
-	short axis;
-	short fiducial;
-};
-struct BARCODE barcode[256];
-short barcodeidx=0;
-int BARCODE_verbose=FALSE;
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: barcode_init
+**
+** DESCRIPTION:
+**      Initializes barcode serial port driver using 8-port serial IP.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	Industry_Pack
+**	octSerModuleInit
+**	octSerDevCreate
+**	VME_IP_Interrupt_Enable
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void barcode_init(unsigned char *ip_base, unsigned short model, 
 		unsigned int vec, short ch)
 {
@@ -214,6 +338,24 @@ void barcode_init(unsigned char *ip_base, unsigned short model,
     }
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: barcode_open
+**
+** DESCRIPTION:
+**      Open the serial port for the associated barcode.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	barcode_shutdown
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 FILE *barcode_open(int port)
 {
   char *serial_port={"/tyCo/x"};
@@ -234,6 +376,23 @@ FILE *barcode_open(int port)
   rebootHookAdd(barcode_shutdown);
   return stream;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: barcode_shutdown
+**
+** DESCRIPTION:
+**      Shutdown routine for software reboot to close barcode serial ports.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void barcode_shutdown(int type)
 {
   int i;
@@ -248,6 +407,24 @@ void barcode_shutdown(int type)
       }
     taskDelay (30);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: barcode_serial
+**
+** DESCRIPTION:
+**      Starts the query to read the barcode.  This is initiated when the 
+**	reader is aligned with the tape and the UPC.
+**
+** RETURN VALUES:
+**      int
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 int barcode_serial(int port)
 {
   FILE *stream;  
@@ -263,75 +440,87 @@ int barcode_serial(int port)
   else
     stream=cancel[port].stream;
   if (stream==NULL) return ERROR;
-   taskLock();
-   cancel[port].cancel=FALSE;
-   cancel[port].active=TRUE;
-   cancel[port].tmo=cancel[port].init_tmo;
-   taskUnlock();
 
-/*     status = sdss_transmit (stream,"\00221\003",NULL);*/
-   status=fprintf ( stream, "\00221\003");
-/*   fputc ('\002',stream);
-   fputc ('2',stream);
-   fputc ('1',stream);
-   fputc ('\003',stream);*/
-/*   fflush (stream);*/
-   if ( status != 4 )
-     printf (" BARCODE **NOT** accepting response (status=%d)\r\n",status);
-   else
-   {
-     barcode_buffer[0]=NULL;
-     ptr    = &barcode_buffer[0];
-     while ( ( c = getc ( stream ) ) != EOF )  
-     {
-       *ptr=c;
-       if (cancel[port].cancel) return -1;
+  taskLock();
+  cancel[port].cancel=FALSE;
+  cancel[port].active=TRUE;
+  cancel[port].tmo=cancel[port].init_tmo;
+  taskUnlock();
+
+  status=fprintf ( stream, "\00221\003");  /* query string */
+  if ( status != 4 )	/* four characters sent */
+    printf (" BARCODE **NOT** accepting response (status=%d)\r\n",status);
+  else
+  {		/* receive answer */
+    barcode_buffer[0]=NULL;
+    ptr    = &barcode_buffer[0];
+    while ( ( c = getc ( stream ) ) != EOF )  
+    {
+      *ptr=c;
+      if (cancel[port].cancel) return -1;
 /*        printf ( "\n\tIn receive() -  character is %c\t%02x %02x",
 		 *ptr, *ptr, c);*/
-       if ( *ptr == '\003' )                 /* All done */
-         break;
-       ++ptr;
-     }
-     while ( ( c = getc ( stream ) ) != EOF )  
-     {
-       *ptr=c;
-       if (cancel[port].cancel) return -1;
+      if ( *ptr == '\003' )                 /* All done */
+        break;
+      ++ptr;
+    }
+    while ( ( c = getc ( stream ) ) != EOF )  
+    {
+      *ptr=c;
+      if (cancel[port].cancel) return -1;
 /*        printf ( "\n\tIn receive() -  character is %c\t%02x %02x",
 		 *ptr, *ptr, c);*/
-       if ( *ptr == '\003' )                 /* All done */
-         break;
-       ++ptr;
-     }
-     *ptr=NULL;
-     if (cancel[port].tmo<cancel[port].min_tmo)
-       cancel[port].min_tmo=cancel[port].tmo;
-     cancel[port].active=FALSE;
-     cancel[port].tmo=0;
-     if (cancel[port].cancel) printf ("\r\n receive got canceled");
+      if ( *ptr == '\003' )                 /* All done */
+        break;
+      ++ptr;
+    }
+    *ptr=NULL;
+    if (cancel[port].tmo<cancel[port].min_tmo)
+      cancel[port].min_tmo=cancel[port].tmo;
+    cancel[port].active=FALSE;
+    cancel[port].tmo=0;
+    if (cancel[port].cancel) printf ("\r\n receive got canceled");
    
-     if (BARCODE_verbose)
-       printf ("\r\n%s",&barcode_buffer[0]);
-     bf=strstr (&barcode_buffer[0],"ALT");
-     if (bf!=NULL) 
-     {
-       sscanf (bf+3,"%3d",&fiducial);
-       barcode[barcodeidx].axis=1;
-     }
-     bf=strstr (&barcode_buffer[0],"AZ");
-     if (bf!=NULL)
-     {
-       sscanf (bf+2,"%3d",&fiducial);
-       barcode[barcodeidx].axis=0;
-     }
-     barcode[barcodeidx].fiducial=fiducial;
-     barcodeidx = (barcodeidx+1)%256;
-     return fiducial;
-   }
-   barcode[barcodeidx].fiducial=0;
-   barcode[barcodeidx].axis=-1;
-   barcodeidx = (barcodeidx+1)%256;
-   return -1;
+    if (BARCODE_verbose)
+      printf ("\r\n%s",&barcode_buffer[0]);
+    bf=strstr (&barcode_buffer[0],"ALT");
+    if (bf!=NULL) 
+    {
+      sscanf (bf+3,"%3d",&fiducial);
+      barcode[barcodeidx].axis=1;
+    }
+    bf=strstr (&barcode_buffer[0],"AZ");
+    if (bf!=NULL)
+    {
+      sscanf (bf+2,"%3d",&fiducial);
+      barcode[barcodeidx].axis=0;
+    }
+    barcode[barcodeidx].fiducial=fiducial;
+    barcodeidx = (barcodeidx+1)%256;
+    return fiducial;
+  }
+  barcode[barcodeidx].fiducial=0;
+  barcode[barcodeidx].axis=-1;
+  barcodeidx = (barcodeidx+1)%256;
+  return -1;
 }                                             
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: print_barcode
+**
+** DESCRIPTION:
+**      Diagnostic of barcode fiducials passed.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void print_barcode()
 {
   int i;
@@ -341,14 +530,28 @@ void print_barcode()
     printf ("\r\n  %d: axis=%d, fiducial=%d",i,barcode[i].axis,
 		barcode[i].fiducial);
 }
-/* Test program */
-
-#if defined (__TEST__)
-
-int test_serial ( int port )
-{
-}
-#endif          /* End __TEST__ */
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cancel_read
+**	    set_cancel_tmo
+**	    set_all_cancel_tmo
+**	    print_cancel_tmo
+**	
+**
+** DESCRIPTION:
+**      If getc is used for serial communicaitons, then use a global timeout
+**	for all 8 ports.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 #ifdef __USE_GETC__
 void cancel_read ()
 {

@@ -109,6 +109,7 @@ void Menu();
 static void PrintMenuBanner();
 void PrintMenuMove();
 void PrintMenuPos();
+
 void Inst();
 static void PrintInstBanner();
 void PrintInstPos();
@@ -309,7 +310,8 @@ static void PrintMenuBanner()
 **
 ** DESCRIPTION:
 **      Print Menu Move display is in the lower screen and changes for
-** either the azimuth, altitude, or rotator.
+** either the azimuth, altitude, or rotator.  This screen is associated
+** with motion to a specified position and velocity.
 **
 ** RETURN VALUES:
 **      void
@@ -325,12 +327,23 @@ void PrintMenuMove()
   double arcsecond;
   long marcs,arcs,arcm,arcd;
 
-  if (Axis==0)
-    arcsecond=(AZ_TICK*abs(adjpos[Axis]));
-  if (Axis==2)
-    arcsecond=(ALT_TICK*abs(adjpos[Axis]));
-  if (Axis/2==2)
-    arcsecond=(ROT_TICK*abs(adjpos[Axis]));
+  switch (Axis>>1)
+  {
+    case AZIMUTH:
+      arcsecond=(AZ_TICK*abs(adjpos[Axis]));
+      break;
+
+    case ALTITUDE:
+      arcsecond=(ALT_TICK*abs(adjpos[Axis]));
+      break;
+
+    case INSTRUMENT:
+      arcsecond=(ROT_TICK*abs(adjpos[Axis]));
+      break;
+
+    default:
+      return;
+  }
   arcd=(long)(arcsecond)/3600;	     
   arcm=((long)(arcsecond)-(arcd*3600))/60;
   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
@@ -355,6 +368,7 @@ void PrintMenuMove()
 ** DESCRIPTION:
 **      This is the Menu which is used as a control and status display of
 **	the telescope.  This is considered to be an engineering tool.
+**	Refer to the help '?' for list of items to choose from.
 **
 ** RETURN VALUES:
 **      void
@@ -455,19 +469,38 @@ void Menu()
 			&deg,&min,&arcsec,&marcsec);
              negative=FALSE;
            }
-           if (Axis==0)
-             pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-				    (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-           if (Axis==2)
-             pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-				    (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-           if (Axis/2==2)
-             pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-                                    (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
-           if (negative) pos = -pos;
-           tm_set_pos(Axis,pos);
-	   tm_set_pos(Axis+1,pos);
-           fiducial[Axis/2].markvalid=FALSE;
+           switch (Axis>>1)
+           {
+             case AZIMUTH:
+               pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+		    (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
+               if (negative) pos = -pos;
+               tm_set_pos(Axis,pos);
+	       tm_set_pos(Axis+1,pos);
+               fiducial[Axis/2].markvalid=FALSE;
+               break;
+
+             case ALTITUDE:
+               pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+		    (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
+               if (negative) pos = -pos;
+               tm_set_pos(Axis,pos);
+	       tm_set_pos(Axis+1,pos);
+               fiducial[Axis/2].markvalid=FALSE;
+               break;
+
+             case INSTRUMENT:
+               pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+                    (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
+               if (negative) pos = -pos;
+               tm_set_pos(Axis,pos);
+	       tm_set_pos(Axis+1,pos);
+               fiducial[Axis/2].markvalid=FALSE;
+               break;
+
+             default:
+               break;
+	   }
          }
          CursPos(20,24);
          printf("                                        ");
@@ -479,32 +512,29 @@ void Menu()
 	 {
 	   pos=fiducial_position[Axis/2];
 /* use optical encoder for axis 4 */
-	   if (Axis/2==2) 
-	   { 
-#ifdef ROT_ROTARY_ENCODER
-             pos += ((*tmaxis[Axis/2]).actual_position2-fiducial[Axis/2].mark);
-#else
-             pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
-#endif
-	     tm_set_pos(Axis+1,pos);
-/*	     tm_set_pos(Axis-1,pos);*/
-#ifdef ROT_ROTARY_ENCODER
-             pos = (pos*OPT_TICK)/ROT_TICK;
-#endif
-             tm_set_pos(Axis,pos);
+           switch (Axis>>1)
+           {
+             case INSTRUMENT:
+               pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
+	       tm_set_pos(Axis+1,pos);
+               tm_set_pos(Axis,pos);
+	       break;
+
+             case ALTITUDE:
+               pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
+	       tm_set_pos(Axis&0x6,pos);
+	       tm_set_pos(Axis+1,pos);
+	       break;
+
+             case AZIMUTH:
+               pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
+	       tm_set_pos(Axis&0x6,pos);
+	       tm_set_pos(Axis+1,pos);
+	       break;
+
+             default:
+               break;
            }
-	   if (Axis/2==1)
-	   { 
-             pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
-	     tm_set_pos(Axis&0x6,pos);
-	     tm_set_pos(Axis+1,pos);
-	   }
-	   if (Axis/2==0)
-	   { 
-             pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
-	     tm_set_pos(Axis&0x6,pos);
-	     tm_set_pos(Axis+1,pos);
-	   }
 	   fiducial[Axis/2].mark=fiducial_position[Axis/2];
 	 }
 	 else
@@ -674,13 +704,6 @@ void Menu()
 	   break;
 
          case 'B': case 'b': CursPos(20,24);
-/*
-	   if (STOPed[Axis]==FALSE) 
-	   {
-	     printf("ERR: Axis is Not Stopped                ");
-	     break;
-	   }
-*/
 	   if (Axis==0)
 	   {
 	     printf("Azimuth Brake Turned On                 ");
@@ -750,16 +773,12 @@ void Menu()
 	   printf("SP1 Slit Door Toggled          ");
 	   if ((sdssdc.status.o1.ol9.slit_dr1_opn_perm)&&
 	       (!sdssdc.status.o1.ol9.slit_dr1_cls_perm))
-/*	   if ((sdssdc.status.i1.il9.slit_door1_opn)&&
-               (!sdssdc.status.i1.il9.slit_door1_cls))*/
 	   {
 	     tm_sp_slit_close(SPECTOGRAPH1);
 	     break;
 	   }
 	   if ((!sdssdc.status.o1.ol9.slit_dr1_opn_perm)&&
 	       (sdssdc.status.o1.ol9.slit_dr1_cls_perm))
-/*	   if ((!sdssdc.status.i1.il9.slit_door1_opn)&&
-               (sdssdc.status.i1.il9.slit_door1_cls))*/
 	   {
 	     tm_sp_slit_open(SPECTOGRAPH1);
 	     break;
@@ -773,16 +792,12 @@ void Menu()
 	   printf("SP2 Slit Door Toggled           ");
 	   if ((sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
 	       (!sdssdc.status.o1.ol9.slit_dr2_cls_perm))
-/*	   if ((sdssdc.status.i1.il9.slit_door2_opn)&&
-               (!sdssdc.status.i1.il9.slit_door2_cls))*/
 	   {
 	     tm_sp_slit_close(SPECTOGRAPH2);
 	     break;
 	   }
 	   if ((!sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
 	       (sdssdc.status.o1.ol9.slit_dr2_cls_perm))
-/*	   if ((!sdssdc.status.i1.il9.slit_door2_opn)&&
-               (sdssdc.status.i1.il9.slit_door2_cls))*/
 	   {
 	     tm_sp_slit_open(SPECTOGRAPH2);
 	     break;
@@ -795,36 +810,18 @@ void Menu()
 	   CursPos(20,24);
 	   printf("SP1 Latch Toggled               ");
 	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
-/*	   if (sdssdc.status.i1.il9.cart_latch1_opn)*/
-	   {
 	     tm_cart_unlatch(SPECTOGRAPH1);
-	     break;
-	   }
-	   if (!sdssdc.status.o1.ol9.slit_latch1_opn_perm)
-/*	   if (!sdssdc.status.i1.il9.cart_latch1_opn)*/
-	   {
+	   else
 	     tm_cart_latch(SPECTOGRAPH1);
-	     break;
-	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case '}':
 	   CursPos(20,24);
 	   printf("SP2 Latch Toggled               ");
 	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
-/*	   if (sdssdc.status.i1.il9.cart_latch2_opn)*/
-	   {
 	     tm_cart_unlatch(SPECTOGRAPH2);
-	     break;
-	   }
-	   if (!sdssdc.status.o1.ol9.slit_latch2_opn_perm)
-/*	   if (!sdssdc.status.i1.il9.cart_latch2_opn)*/
-	   {
+	   else
 	     tm_cart_latch(SPECTOGRAPH2);
-	     break;
-	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case '~':
@@ -834,15 +831,12 @@ void Menu()
 	   {
 	     printf("Close ");
 	     tm_ffs_close();
-	     break;
 	   }
-	   if (!sdssdc.status.o1.ol14.ff_screen_open_pmt)
+	   else
 	   {
 	     printf("Open  ");
 	     tm_ffs_open();
-	     break;
 	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case '|':
@@ -852,15 +846,12 @@ void Menu()
 	   {
 	     printf("Off   ");
 	     tm_ffl_off();
-	     break;
 	   }
-	   if (!sdssdc.status.o1.ol14.ff_lamps_on_pmt)
+	   else
 	   {
 	     printf("On    ");
 	     tm_ffl_on();
-	     break;
 	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case '"':
@@ -870,15 +861,12 @@ void Menu()
 	   {
 	     printf("Off     ");
 	     tm_neon_off();
-	     break;
 	   }
-	   if (!sdssdc.status.o1.ol14.ne_lamps_on_pmt)
+	   else
 	   {
 	     printf("On     ");
 	     tm_neon_on();
-	     break;
 	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case ':':
@@ -888,15 +876,12 @@ void Menu()
 	   {
 	     printf("Off    ");
 	     tm_hgcd_off();
-	     break;
 	   }
-	   if (!sdssdc.status.o1.ol14.hgcd_lamps_on_pmt)
+	   else
 	   {
 	     printf("On     ");
 	     tm_hgcd_on();
-	     break;
 	   }
-	   printf("ERR: Inconsistent State  ");
 	   break;
 
          case 'X': case 'x':
@@ -1242,7 +1227,6 @@ printf("                                                                        
 		(Axis_vel[Axis]!=0))
              {
                CursPos(20,24);
-/*	       printf("1234567890123456789012345678901234567890");*/
 	       printf("ERR: AZ Brake is Engaged                ");
 	       break;
              }
@@ -1352,11 +1336,10 @@ printf("                                                                        
 */
 	   break;
       }
-/*        CursPos(74,23);*/
       semGive (semMEIUPD);
      }
      else
-      printf ("\r\nIgnored input...Can't take semMEIUPD...DataCollection task probably at fault");
+       printf ("\r\nIgnored input...Can't take semMEIUPD...DataCollection task probably at fault");
      taskDelay(5); /* 60/5 = 12Hz */
    }
 }
@@ -1393,7 +1376,7 @@ void PrintMenuPos()
   int state;
   int fidsign;
   int i;
-  long ap,cp,ap1,ap2;
+  long ap,cp,ap1,ap2,vlt;
   double arcsec, farcsec;
   int lasttick;
   long marcs,arcs,arcm,arcd;
@@ -1401,6 +1384,7 @@ void PrintMenuPos()
   int limidx;
   extern unsigned char cwLimit;
 	
+  lasttick=0;
   FOREVER
   {  
     if (refreshing) 
@@ -1423,8 +1407,7 @@ void PrintMenuPos()
         CursPos(5,9+i);
         ap=(*tmaxis[i]).actual_position;
         cp=(*tmaxis[i]).position,
-/*	ap2=(*tmaxis[i]).actual_position2;*/
-        ap2=(*tmaxis[i]).voltage;
+        vlt=(*tmaxis[i]).voltage;
         if (semTake (semMEI,NO_WAIT)!=ERROR)
         {
 	  state=axis_state(i<<1);
@@ -1442,83 +1425,90 @@ void PrintMenuPos()
 	    default: printf ("?");
 	  }
 	}
-        if (i==0)
-        {
-	  if (az_amp_ok()) printf ("*");
-	  else
-	  {
-	    if (check_stop_in()) printf ("S");
-            else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
-	      else printf ("?");
-	  }
-          arcsec=(AZ_TICK*abs(ap));
-          farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
-          if (az_fiducial[fiducialidx[i]].mark<0)
-            fidsign=-1;
-          else
-            fidsign=1;
+	switch (i)
+	{
+          case AZIMUTH:
+	    if (az_amp_ok()) printf ("*");
+	    else
+	    {
+	      if (check_stop_in()) printf ("S");
+              else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
+	        else printf ("?");
+	    }
+            arcsec=(AZ_TICK*abs(ap));
+            farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
+            if (az_fiducial[fiducialidx[i]].mark<0)
+              fidsign=-1;
+            else
+              fidsign=1;
+            break;
+
+          case ALTITUDE:
+	    if (alt_amp_ok()) printf ("*");
+	    else
+	    {
+	      if (check_stop_in()) printf ("S");
+              else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
+	        else printf ("?");
+	    }
+            arcsec=(ALT_TICK*abs(ap));
+            farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
+            if (alt_fiducial[fiducialidx[i]].mark<0)
+              fidsign=-1;
+            else
+              fidsign=1;
+            break;
+
+          case INSTRUMENT:
+	    if (rot_amp_ok()) printf ("*");
+	    else
+	    {
+	      if (check_stop_in()) printf ("S");
+	        else printf ("?");
+	    }
+            arcsec=(ROT_TICK*abs(ap));
+            farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
+            if (rot_fiducial[fiducialidx[i]].mark<0)
+              fidsign=-1;
+            else
+              fidsign=1;
+	    break;
+
+	  default:
+	    arcsec=farcsec=0.;
+            fidsign=0;
+	    break;
         }
-        if (i==1)
+	if (fidsign!=0)
         {
-	  if (alt_amp_ok()) printf ("*");
-	  else
-	  {
-	    if (check_stop_in()) printf ("S");
-            else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
-	      else printf ("?");
-	  }
-          arcsec=(ALT_TICK*abs(ap));
-          farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
-          if (alt_fiducial[fiducialidx[i]].mark<0)
-            fidsign=-1;
+          CursPos(7,9+i);
+          arcd=(long)(arcsec)/3600;	     
+          arcm=((long)(arcsec)-(arcd*3600))/60;	     
+          arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
+          marcs = (arcsec-(long)arcsec)*1000;
+          if (ap<0)
+            printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
           else
-            fidsign=1;
-        }
-        if (i==2)
-        {
-	  if (rot_amp_ok()) printf ("*");
-	  else
-	  {
-	    if (check_stop_in()) printf ("S");
-	      else printf ("?");
-	  }
-          arcsec=(ROT_TICK*abs(ap));
-          farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
-          if (rot_fiducial[fiducialidx[i]].mark<0)
-            fidsign=-1;
+            printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
+          printf(" %10ld  %10ld  %10ld",ap,cp,vlt);
+          arcd=(long)(farcsec)/3600;	     
+          arcm=((long)(farcsec)-(arcd*3600))/60;	     
+          arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
+          marcs = (farcsec-(long)farcsec)*1000;
+          if (fiducialidx[i]!=-1)
+          {
+            if (fiducial[i].markvalid) printf("  V");
+            else printf("   ");
+            if (fidsign<0)
+              printf("%3d;-%03ld:%02ld:%02ld:%03ld\n",
+	        fiducialidx[i],arcd,arcm,arcs,marcs);
+            else
+              printf("%3d; %03ld:%02ld:%02ld:%03ld\n",
+	        fiducialidx[i],arcd,arcm,arcs,marcs);
+          }
           else
-            fidsign=1;
+            printf("  No Crossing\n");
         }
-        CursPos(7,9+i);
-        arcd=(long)(arcsec)/3600;	     
-        arcm=((long)(arcsec)-(arcd*3600))/60;	     
-        arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
-        marcs = (arcsec-(long)arcsec)*1000;
-        if (ap<0)
-          printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-        else
-          printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-        printf(" %10ld  %10ld  %10ld",
-          ap,
-          cp,
-          ap2);
-        arcd=(long)(farcsec)/3600;	     
-        arcm=((long)(farcsec)-(arcd*3600))/60;	     
-        arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
-        marcs = (farcsec-(long)farcsec)*1000;
-        if (fiducialidx[i]!=-1)
-        {
-          if (fiducial[i].markvalid) printf("  V");
-          else printf("   ");
-          if (fidsign<0)
-            printf("%3d;-%03ld:%02ld:%02ld:%03ld\n",
-	      fiducialidx[i],arcd,arcm,arcs,marcs);
-          else
-            printf("%3d; %03ld:%02ld:%02ld:%03ld\n",
-	      fiducialidx[i],arcd,arcm,arcs,marcs);
-        }
-        else
-          printf("  No Crossing\n");
       }
       printf("\t\t%4.2f",
         abs(sdssdc.status.i4.alt_position-altclino_off)*altclino_sf);
@@ -2146,7 +2136,7 @@ void PrintInstPos()
   int fidsign;
   int state;
   int i;
-  long ap,cp,ap2;
+  long ap,cp,ap2,vlt;
   double arcsec, farcsec;
   int lasttick;
   long marcs,arcs,arcm,arcd;
@@ -2162,6 +2152,7 @@ void PrintInstPos()
   char four[]={' ','4'};
   char *oo[]={"Off"," On"};
 	
+  lasttick=0;
   FOREVER
   {  
     if (refreshing) 
@@ -2184,8 +2175,7 @@ void PrintInstPos()
         CursPos(7,9+i);
         ap=(*tmaxis[i]).actual_position;
         cp=(*tmaxis[i]).position,
-/*	ap2=(*tmaxis[i]).actual_position2;*/
-        ap2=(*tmaxis[i]).voltage;
+        vlt=(*tmaxis[i]).voltage;
         if (semTake (semMEI,NO_WAIT)!=ERROR)
         {
 	  state=axis_state(i<<1);
@@ -2203,82 +2193,90 @@ void PrintInstPos()
 	    default: printf ("?");
 	  }
 	}
-        if (i==0)
-        {
-	  if (az_amp_ok()) printf ("*");
-	  else
-	  {
-	    if (check_stop_in()) printf ("S");
-            else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
-	      else printf ("?");
-	  }
-          arcsec=(AZ_TICK*abs(ap));
-          farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
-          if (az_fiducial[fiducialidx[i]].mark<0)
-            fidsign=-1;
-          else
-            fidsign=1;
+	switch (i)
+	{
+          case AZIMUTH:
+	    if (az_amp_ok()) printf ("*");
+	    else
+	    {
+	      if (check_stop_in()) printf ("S");
+              else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
+	        else printf ("?");
+	    }
+            arcsec=(AZ_TICK*abs(ap));
+            farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
+            if (az_fiducial[fiducialidx[i]].mark<0)
+              fidsign=-1;
+            else
+              fidsign=1;
+            break;
+
+          case ALTITUDE:
+	    if (alt_amp_ok()) printf ("*");
+	    else
+	    {
+	      if (check_stop_in()) printf ("S");
+              else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
+	        else printf ("?");
+	    }
+            arcsec=(ALT_TICK*abs(ap));
+            farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
+            if (alt_fiducial[fiducialidx[i]].mark<0)
+              fidsign=-1;
+            else
+              fidsign=1;
+            break;
+
+          case INSTRUMENT:
+	    if (rot_amp_ok()) printf ("*");
+	    else
+	    {
+	      if (check_stop_in()) printf ("S");
+	        else printf ("?");
+	    }
+            arcsec=(ROT_TICK*abs(ap));
+            farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
+            if (rot_fiducial[fiducialidx[i]].mark<0)
+              fidsign=-1;
+            else
+              fidsign=1;
+	    break;
+
+	  default:
+	    arcsec=farcsec=0.;
+            fidsign=0;
+	    break;
         }
-        if (i==1)
+	if (fidsign!=0)
         {
-	  if (alt_amp_ok()) printf ("*");
-	  else
-	  {
-	    if (check_stop_in()) printf ("S");
-            else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
-	      else printf ("?");
-	  }
-          arcsec=(ALT_TICK*abs(ap));
-          farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
-          if (alt_fiducial[fiducialidx[i]].mark<0)
-            fidsign=-1;
+          CursPos(7,9+i);
+          arcd=(long)(arcsec)/3600;	     
+          arcm=((long)(arcsec)-(arcd*3600))/60;	     
+          arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
+          marcs = (arcsec-(long)arcsec)*1000;
+          if (ap<0)
+            printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
           else
-            fidsign=1;
-        }
-        if (i==2)
-        {
-	  if (rot_amp_ok()) printf ("*");
-	  else
-	  {
-	    if (check_stop_in()) printf ("S");
-	      else printf ("?");
-	  }
-          arcsec=(ROT_TICK*abs(ap));
-          farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
-          if (rot_fiducial[fiducialidx[i]].mark<0)
-            fidsign=-1;
+            printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
+          printf(" %10ld  %10ld  %10ld",ap,cp,vlt);
+          arcd=(long)(farcsec)/3600;	     
+          arcm=((long)(farcsec)-(arcd*3600))/60;	     
+          arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
+          marcs = (farcsec-(long)farcsec)*1000;
+          if (fiducialidx[i]!=-1)
+          {
+            if (fiducial[i].markvalid) printf("  V");
+            else printf("   ");
+            if (fidsign<0)
+              printf("%3d;-%03ld:%02ld:%02ld:%03ld\n",
+	        fiducialidx[i],arcd,arcm,arcs,marcs);
+            else
+              printf("%3d; %03ld:%02ld:%02ld:%03ld\n",
+	        fiducialidx[i],arcd,arcm,arcs,marcs);
+          }
           else
-            fidsign=1;
+            printf("  No Crossing\n");
         }
-        arcd=(long)(arcsec)/3600;	     
-        arcm=((long)(arcsec)-(arcd*3600))/60;	     
-        arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
-        marcs = (arcsec-(long)arcsec)*1000;
-        if (ap<0)
-          printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-        else
-          printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-        printf(" %10ld  %10ld  %10ld",
-          ap,
-          cp,
-          ap2);
-        arcd=(long)(farcsec)/3600;	     
-        arcm=((long)(farcsec)-(arcd*3600))/60;	     
-        arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
-        marcs = (farcsec-(long)farcsec)*1000;
-        if (fiducialidx[i]!=-1)
-        {
-          if (fiducial[i].markvalid) printf("V");
-          else printf(" ");
-          if (fidsign<0)
-            printf("  %3d;-%03ld:%02ld:%02ld:%03ld\n",
-	      fiducialidx[i],arcd,arcm,arcs,marcs);
-          else
-            printf("  %3d; %03ld:%02ld:%02ld:%03ld\n",
-	      fiducialidx[i],arcd,arcm,arcs,marcs);
-        }
-        else
-          printf("  No Crossing\n");
       }
       printf("\t\t%4.2f",
         abs(sdssdc.status.i4.alt_position-altclino_off)*altclino_sf);

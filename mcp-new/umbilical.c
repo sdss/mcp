@@ -1,3 +1,31 @@
+#include "copyright.h"
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      umbilical.c
+**
+** ABSTRACT:
+**	Keep the umbilical cord to the mosaic camera off the floor as 
+**	determined by alt/az position.
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+** getumbiltab		public	initialize the table from a file
+** print_umbiltab()	public	diagnostic to print table
+** umbil/umbilGet	public	get the umbilical position given az/alt position
+** test_umbil		public	test
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
 /*
 Here are the umbilicus elevator tables (1) in inches of elevation above
 the lower limit, and (2) string-pot encoder counts, assuming that fully
@@ -105,9 +133,24 @@ ro\el  0   5  10  15  20  25  30  35  40  45  50  55  60  65  70  75  80  85  90
 **********  INTERPOLATION AND DATA READING CODE ******************************
 ******************************************************************************
 */
+
+/*------------------------------*/
+/*	includes		*/
+/*------------------------------*/
 #include <stdio.h>
 
-
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
+/*#define DEBUG*/
 #define NROT 37
 #define NEL  19
 /* number of rot, elev entries in table */
@@ -117,26 +160,51 @@ ro\el  0   5  10  15  20  25  30  35  40  45  50  55  60  65  70  75  80  85  90
 #define DROTINV 0.1
 /* intervals in degrees in table and inverses */
 
+static char* datafile = "umbil.tab";
+
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
 int *umbiltab[NEL];
 int umbildat[NEL*NROT];
 /* if you need to save space, these can be shorts; you will need to
  * modify the format in sscanf() in getumbiltab() to ("%d %hd %hd .... ) if
  * you do this
  */
-
-void print_umbiltab();
-
-/********************** GETUMBILTAB() **************************************/
 int gotdata=0;
-static char* datafile = "umbil.tab";
 
-/*#define DEBUG*/
-
-/* 
- * This function reads the table file. The first line is the list of
- * elevation values; it is ignored, but must be there.
- */
- 
+/*
+	prototypes
+*/
+int getumbiltab();
+void print_umbiltab();
+int umbil(double el, double rot);
+int umbilGet(int el, int rot);
+int test_umbilical();
+/********************** GETUMBILTAB() **************************************/
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: getumbiltab
+**
+** DESCRIPTION:
+**	This function reads the table file. The first line is the list of
+**	elevation values; it is ignored, but must be there.
+**      
+**
+** RETURN VALUES:
+**      int 	ERROR or zero
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	umbiltab
+**	umbildat
+**	gotdata
+**
+**=========================================================================
+*/
 int getumbiltab()
 {
     FILE *fp;
@@ -196,6 +264,24 @@ int getumbiltab()
     gotdata = 1;
     return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: print_umbiltab
+**
+** DESCRIPTION:
+**	Diagnostic to print the umbilical table.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	umbiltab
+**
+**=========================================================================
+*/
 void print_umbiltab()            
 {
     int i,j;
@@ -208,6 +294,25 @@ void print_umbiltab()
     }
 }
 /********************** UMBIL() ****************************************/
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: umbil
+**	    umbilGet  specifies positions as longs
+**
+** DESCRIPTION:
+**	Given the azimuth and altitude positions, returns the umbilical value.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	umbiltab
+**
+**=========================================================================
+*/
 /* 
  * this function returns the interpolated value of the target umbilicus 
  * elevator string pot setting for a proferred pair of elevation and 
@@ -217,8 +322,7 @@ void print_umbiltab()
  * data matrix not set up; ie getumbiltab() has not been run correctly)
  */
  
-int 
-umbil(double el, double rot)
+int umbil(double el, double rot)
 {
     float alpha;
     float beta;
@@ -271,11 +375,26 @@ int umbilGet(int el, int rot)
 {
   return (umbil((double)el, (double)rot));
 }
-
 #if 1
-
 /*************************** MAIN() ****************************************/
-
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: test_umbil
+**
+** DESCRIPTION:
+**	Test umbilical positions for a queried set of az/alt positions.
+**
+** RETURN VALUES:
+**      int	ERROR or zero
+**
+** CALLS TO:
+**	umbil
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 /* test function */
 
 int test_umbilical()
@@ -302,5 +421,4 @@ int test_umbilical()
     }while(1);
     return 0;
 }    
-   
 #endif

@@ -61,11 +61,11 @@ LIBRARIES = $(MEIDSP)/medvxw40.a
 	$(ASM) $(AFLAGS) -o $*.o $*.s
 
 dg: $(ASRCS) $(OBJS) $(LIBRARIES)
-	$(LINK) $(LFLAGS) -o mcp.out cmd.o axis_cmds.o serial.o \
+	$(LINK) $(LFLAGS) -o mcpnew.out cmd.o axis_cmds.o serial.o \
 	counter_weight.o util.o  $(MEIDSP)llfirm.o \
 	instrument_lift.o telescope_motion.o ipcast.o ipsym.o \
 	data_collection.o display.o umbilical.o \
-	$(LIBRARIES) >$(DESTDIR)mcp.map
+	$(LIBRARIES) >$(DESTDIR)mcpnew.map
 
 clean:
 	rm -rf *.o

@@ -32,7 +32,6 @@ struct COMMANDS axis_cmds[] = {
 	{"\033",reboot_cmd},
 	{"CORRECT",correct_cmd},
 	{"DRIFT",drift_cmd},
-	{"ENCL",encl_cmd},
 	{"ID",id_cmd},
 	{"INIT",init_cmd},
 	{"MAXACC",maxacc_cmd},

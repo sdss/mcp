@@ -22,8 +22,6 @@
 #define ALTITUDE		1
 #define	INSTRUMENT		2
 
-#define	ENCLOSURE		3
-
 #define	SPECTOGRAPH1		0
 #define	SPECTOGRAPH2		1
 
@@ -51,7 +49,6 @@
 char *reboot_cmd(char *cmd);
 char *correct_cmd(char *cmd);
 char *drift_cmd(char *cmd);
-char *encl_cmd(char *cmd);
 char *id_cmd(char *cmd);
 char *init_cmd(char *cmd);
 char *maxacc_cmd(char *cmd);
