@@ -1483,7 +1483,7 @@ tm_ffs(short val)
         cnt--;
      }
      if(!tm_ffs_open_status()) {	/* did not work */
-	printf("\r\n FFS did NOT all open...disabling ");
+	printf("\r\n FFS did NOT all open ");
      }
    } else {
       while ((!tm_ffs_close_status())&&(cnt>0)) {
@@ -1491,32 +1491,8 @@ tm_ffs(short val)
 	 cnt--;
       }
       if(!tm_ffs_close_status()) {	/* did not work */
-	 printf ("\r\n FFS did NOT all close...disabling ");
+	 printf ("\r\n FFS did NOT all close ");
       }
-   }
-
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore to disable screen: %s",
-	     strerror(errno));
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf("R2 Err=%04x\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_ff_screen_enable = 0;
-
-   swab((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
    }
 
    return 0;
