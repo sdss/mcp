@@ -158,6 +158,8 @@ int coeffs_state_cts (int axis, int cts);
 double sdss_get_time(void);
 double get_time(void);
 void amp_reset(int axis);
+const char *getCvsTagname(void);
+
 #define __AXIS_H__             /* do only once */
 
 #endif	/* End __AXIS_H__ */
