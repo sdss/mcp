@@ -158,8 +158,8 @@ int adjvel[6]={0,0,0,0,0,0};
 int adjacc[6]={10000,10000,10000,10000,10000,10000};
 int incvel[6]={1000,0,1000,0,1000,0};
 int Axis_vel[6]={0,0,0,0,0,0};
-int Axis_vel_neg[6]={-200000,0,-200000,0,-250000,0};
-int Axis_vel_pos[6]={200000,0,200000,0,250000,0};
+int Axis_vel_neg[6]={-300000,0,-600000,0,-250000,0};
+int Axis_vel_pos[6]={300000,0,600000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
 float altclino_sf=.0049016925256;
@@ -362,12 +362,7 @@ void Menu()
                                     (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
            if (negative) pos = -pos;
            tm_set_pos(Axis,pos);
-           if (Axis==0) tm_set_pos(Axis+1,pos);
-           if (Axis==4) 
-           {
-             tm_set_pos(Axis+1,pos);
-             tm_set_pos(Axis-1,pos);
-           }
+	   tm_set_pos(Axis+1,pos);
            fiducial[Axis/2].markvalid=FALSE;
          }
          CursPos(20,24);
@@ -388,14 +383,23 @@ void Menu()
              pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
 #endif
 	     tm_set_pos(Axis+1,pos);
-	     tm_set_pos(Axis-1,pos);
+/*	     tm_set_pos(Axis-1,pos);*/
+#ifdef ROT_ROTARY_ENCODER
              pos = (pos*OPT_TICK)/ROT_TICK;
+#endif
              tm_set_pos(Axis,pos);
            }
-	   else
-	   {
+	   if (Axis/2==1)
+	   { 
              pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
 	     tm_set_pos(Axis&0x6,pos);
+	     tm_set_pos(Axis+1,pos);
+	   }
+	   if (Axis/2==0)
+	   { 
+             pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
+	     tm_set_pos(Axis&0x6,pos);
+	     tm_set_pos(Axis+1,pos);
 	   }
 	   fiducial[Axis/2].mark=fiducial_position[Axis/2];
 	 }
