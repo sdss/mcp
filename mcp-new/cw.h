@@ -28,6 +28,10 @@
 #define ALL_CW -999			/* move all counter weights */
 #define NUMBER_CW 4			/* number of counter weights */
 
+void tMoveCWInit(unsigned char *addr, unsigned short vecnum);
+
+int get_cwstatus(char *cwstatus_ans, int size);
+
 int cw_abort(void);
 void cw_data_collection(void);
 int cw_get_inst(char *cmd);
