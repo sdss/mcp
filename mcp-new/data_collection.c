@@ -84,7 +84,7 @@ short *axis4accelf=NULL;
 long *axis4accel=NULL;
 long *axis4tim=NULL;
 long *axis5pos=NULL;
-
+float sdss_time_dc;
 struct SDSS_FRAME sdssdc={DATA_TYPE,SDSS_FRAME_VERSION};
 struct TM_M68K *tmaxis[]={(struct TM_M68K *)&sdssdc.axis[0],
 			(struct TM_M68K *)&sdssdc.axis[1],
@@ -187,6 +187,7 @@ void mei_data_collection(unsigned long freq)
 	int i;
 	int rotate;
 	extern void tm_data_collection();
+	extern float sdss_get_time();
         void restore_pos();
 	
 	/*  ****************************************************  **
@@ -239,6 +240,7 @@ void mei_data_collection(unsigned long freq)
   	  if (semTake (semMEI,NO_WAIT)!=ERROR)
           {
 	    timer_start (2);
+	    sdss_time_dc=sdss_get_time();
 /*          meitime = dsp_read_dm(0x11E);*/
 /*          meichan0 = get_analog (0,&meichan0);*/
 /*          meichan2 =get_analog (2,&meichan2);*/
@@ -305,6 +307,7 @@ void mei_tach_data_collection(unsigned long freq)
 {
 	extern SEM_ID semMEI;
 	extern void tm_data_collection();
+	extern float sdss_get_time();
 	
 	/*  ****************************************************  **
 		put whatever type of motion you want to sample here.
@@ -351,6 +354,7 @@ void mei_tach_data_collection(unsigned long freq)
   	  if (semTake (semMEI,NO_WAIT)!=ERROR)
           {
 	    timer_start (2);
+	    sdss_time_dc=sdss_get_time();
 /*            meitime = dsp_read_dm(0x11E);
             meichan0 = get_analog (0,&meichan0);
             meichan2 =get_analog (2,&meichan2);

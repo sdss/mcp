@@ -124,106 +124,6 @@ struct FRAME_QUEUE axis_queue[]={
 double max_velocity[]={1.0,1.0,1.5,0,0,0};
 double max_acceleration[]={.4,.4,.8,0,0,0};
 float time1[3],time2[3];
-int ms_azimuth_region=0;
-int ms_altitude_region=0;
-int ms_instrument_region=0;
-int max_ms_azimuth;
-int max_ms_altitude;
-int max_ms_instrument;
-struct MAG_SENSOR ms_azimuth[]={
-	{0,0.0,0.0},
-	{1,15.0,15.0},
-	{2,30.0,30.0},
-	{3,45.0,45.0},
-	{4,60.0,60.0},
-	{5,75.0,75.0},
-	{6,90.0,90.0},
-	{7,105.0,105.0},
-	{8,120.0,120.0},
-	{9,135.0,135.0},
-	{10,150.0,150.0},
-	{11,165.0,165.0},
-	{12,180.0,180.0},
-	{13,195.0,195.0},
-	{14,210.0,210.0},
-	{15,225.0,225.0},
-	{16,240.0,240.0},
-	{17,255.0,255.0},
-	{18,270.0,270.0},
-	{19,285.0,285.0},
-	{20,300.0,300.0},
-	{21,315.0,315.0},
-	{22,330.0,330.0},
-	{23,345.0,345.0},
-	{24,360.0,0.0},
-
-	{1+24,15.0,15.0},
-	{2+24,30.0,30.0},
-	{3+24,45.0,45.0},
-	{4+24,60.0,60.0},
-	{5+24,75.0,75.0},
-	{6+24,90.0,90.0},
-	{7+24,105.0,105.0},
-	{8+24,120.0,120.0},
-	{9+24,135.0,135.0},
-	{10+24,150.0,150.0},
-	{11+24,165.0,165.0},
-	{12+24,180.0,180.0},
-	{13+24,195.0,195.0},
-	{14+24,210.0,210.0},
-	{15+24,225.0,225.0},
-	{16+24,240.0,240.0},
-	{17+24,255.0,255.0},
-	{18+24,270.0,270.0},
-	{19+24,285.0,285.0},
-	{20+24,300.0,300.0},
-	{21+24,315.0,315.0},
-	{22+24,330.0,330.0},
-	{23+24,345.0,345.0},
-	{24+24,360.0,0.0}
-};
-struct MAG_SENSOR ms_altitude[]={
-	{0,0.0,0.0},
-	{1,15.0,15.0},
-	{2,30.0,30.0},
-	{3,45.0,45.0},
-	{4,60.0,60.0},
-	{5,75.0,75.0},
-	{6,90.0,90.0},
-	{7,105.0,105.0},
-	{8,120.0,120.0},
-	{9,135.0,135.0},
-	{10,150.0,150.0},
-	{11,165.0,165.0},
-	{12,180.0,180.0}
-};
-struct MAG_SENSOR ms_instrument[]={
-	{0,0.0,0.0},
-	{1,15.0,15.0},
-	{2,30.0,30.0},
-	{3,45.0,45.0},
-	{4,60.0,60.0},
-	{5,75.0,75.0},
-	{6,90.0,90.0},
-	{7,105.0,105.0},
-	{8,120.0,120.0},
-	{9,135.0,135.0},
-	{10,150.0,150.0},
-	{11,165.0,165.0},
-	{12,180.0,180.0},
-	{13,195.0,195.0},
-	{14,210.0,210.0},
-	{15,225.0,225.0},
-	{16,240.0,240.0},
-	{17,255.0,255.0},
-	{18,270.0,270.0},
-	{19,285.0,285.0},
-	{20,300.0,300.0},
-	{21,315.0,315.0},
-	{22,330.0,330.0},
-	{23,345.0,345.0},
-	{24,360.0,0.0}
-};
 int CALC_verbose=FALSE;
 int CALCFINAL_verbose=FALSE;
 int FRAME_verbose=FALSE;
@@ -236,6 +136,8 @@ double stop_position[3]={0.0,0.0,0.0};
 double drift_velocity[3]={0.0,0.0,0.0};
 int frame_break[3]={FALSE,FALSE,FALSE};
 int drift_break[3]={FALSE,FALSE,FALSE};
+int DRIFT_verbose=FALSE;
+int drift_modify_enable=TRUE;
 
 char *correct_cmd(char *cmd)
 {
@@ -475,13 +377,17 @@ char *move_cmd(char *cmd)
 	}
   	if (drift_break[axis_select])
 	{
-          printf("\r\nDRIFT pvt %lf %lf %lf",
+	  if (DRIFT_verbose)
+            printf("\r\nDRIFT pvt %lf %lf %lf",
 		position,velocity,frame->end_time);
           tm_get_pos(axis_select<<1,&pos);
 	  dt=frame->end_time-sdss_get_time();
-	  position=(pos+(drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
-          printf("\r\nDRIFT modified pvt %lf %lf %lf",
-		position,velocity,frame->end_time);
+	  pos=(pos+(drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
+	  if (DRIFT_verbose)
+            printf("\r\nDRIFT modified pvt %lf %lf %lf, difference=%lf",
+		position,velocity,frame->end_time,position-pos);
+	  if (drift_modify_enable)
+	    position=pos;
 	  drift_break[axis_select]=FALSE;
 	}
 	break;
@@ -616,7 +522,7 @@ void start_frame(int axis,double time)
   time_off[axis]=0.0;
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
-     time-=(sdss_get_time()-.0065);
+     time-=sdss_get_time();
      dsp_dwell (axis<<1,time);
 /*
      set_gate(axis<<1);
@@ -976,6 +882,7 @@ void tm_TCC(int axis)
   {
     while (axis_queue[axis].active==NULL)
     {
+/* in case drifting, no new pvt, and need to stop */
       if (frame_break[axis])
       {
         stop_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
@@ -2347,6 +2254,7 @@ float sdss_get_time()
   	  unsigned long micro_sec;
 
           micro_sec = (unsigned long)(1.0312733648*timer_read (1));
+	  if (micro_sec>1000000) micro_sec=999999;
 /*          micro_sec = timer_read (1);*/
           return (float)(SDSStime+((micro_sec%1000000)/1000000.));
 }
@@ -2355,6 +2263,7 @@ float get_time()
   	  unsigned long micro_sec;
 
           micro_sec = (unsigned long)(1.0312733648*timer_read (1));
+	  if (micro_sec>1000000) micro_sec=999999;
 /*          micro_sec = timer_read (1);*/
 	  printf ("\r\nSDSS time=%f",
 		(float)(SDSStime+((micro_sec%1000000)/1000000.)));
