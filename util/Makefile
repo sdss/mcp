@@ -19,7 +19,7 @@ VWSYSINCLUDES	= $(CONFIG)mv162.h $(VWINC)drv/multi/mcchip.h
 INCLUDES	= $(PROGINCLUDES) $(VWINCLUDES) $(VWSYSINCLUDES)
 
 OBJECTS		= iptime.o usrtime.o rtc.o microtime.o
-EXTRA_OBJS      = dscTrace.o timer.o tasks.o
+EXTRA_OBJS      = dscTrace.o timer.o tasks.o ntp.o
 
 ## tools
 CC		= cc68k
@@ -34,9 +34,10 @@ LINK = ld68k
 INCLUDEFLAGS	= -I. -I$(VWINC) -I$(CONFIG) -I$(VWSYSINC) \
 			-I$(VX_TOOLS_DIR)/include \
 			-I$(ASTRODA_DIR)/include \
-                        -I$(MURMUR_CLIENT_VX_DIR)/include
+                        -I$(MURMUR_CLIENT_VX_DIR)/include \
+			-I$(NTPVX_DIR)/ntp
 DEBUGFLAG	=
-CFLAGS		= -O -ansi -pipe -Wall $(DEBUGFLAG) $(INCLUDEFLAGS) \
+CFLAGS		= -g -ansi -pipe -Wall $(DEBUGFLAG) $(INCLUDEFLAGS) \
 		  -DCPU=MC68040 -m68040 $(FEATURES)
 LFLAGS = -r
 
