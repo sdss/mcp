@@ -142,15 +142,135 @@ const char *
 axis_name(int axis)
 {
    switch (axis) {
-    case AZIMUTH:
-      return("azimuth");
-    case ALTITUDE:
-      return("altitude");
-    case INSTRUMENT:
-      return("rotator");
+    case AZIMUTH:    return("azimuth");
+    case ALTITUDE:   return("altitude");
+    case INSTRUMENT: return("rotator");
     default:
       return("(unknown axis)");
    }
+}
+
+float
+axis_ticks_deg(int axis)
+{
+   switch (axis) {
+    case AZIMUTH:    return(AZ_TICKS_DEG);
+    case ALTITUDE:   return(ALT_TICKS_DEG);
+    case INSTRUMENT: return(ROT_TICKS_DEG);
+    default:
+      fprintf(stderr,"axis_ticks_deg: unknown axis %d\n", axis);
+      return(1);
+   }
+}
+
+/*****************************************************************************/
+/*
+ * The encoders are assumed to be wrong by axis_encoder_error[] which
+ * is indexed by 2*axis
+ *
+ * Two routines to get/set this error:
+ */
+/* static */ int axis_encoder_error[2*NAXIS] = { 0, 0, 0, 0, 0, 0 };
+
+int 
+get_axis_encoder_error(int axis)	/* the axis in question */
+{
+   assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
+
+   return(axis_encoder_error[2*axis]);
+}
+
+void
+set_axis_encoder_error(int axis,	/* the axis in question */
+		       int error)	/* value of error */
+{
+   assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
+
+   write_fiducial_log("SET_FIDUCIAL_ERROR", axis, 0, 0, 0, 0, error);
+
+   axis_encoder_error[2*axis] += error;
+   axis_encoder_error[2*axis + 1] = axis_encoder_error[2*axis];
+}
+
+/*
+ * Seven routines to intermediate between the MCP and the MEIs.  These
+ * routines are responsible for correcting the measured encoder readings
+ * by the known errors in those readings, as determined by crossing the
+ * fiducials
+ *
+ * ALL COMMUNICATION OF POSITIONS TO/FROM THE MEIs MUST USE THESE ROUTINES!
+ */
+double
+convert_mei_to_mcp(int axis,
+		   double pos)
+{
+   return(pos + axis_encoder_error[2*axis]);
+}
+
+int
+get_position_corr(int mei_axis,		/* 2*(desired axis) */
+		  double *position)	/* position to get */
+{
+   int ret = get_position(mei_axis, position); /* read encoder */
+   *position += axis_encoder_error[mei_axis]; /* undo correction */
+
+   return(ret);
+}
+
+int
+get_latched_position_corr(int mei_axis,	/* 2*(desired axis) */
+			  double *position) /* position of latch */
+{
+   int ret = get_latched_position(mei_axis, position);
+   *position += axis_encoder_error[mei_axis];
+   
+   return(ret);
+}
+
+int
+set_position_corr(int mei_axis,		/* 2*(desired axis) */
+		  double position)	/* position to set */
+{
+   position -= axis_encoder_error[mei_axis]; /* apply correction */
+   return(set_position(mei_axis, position)); /* set position */
+}
+
+int
+start_move_corr(int mei_axis,
+		double pos,
+		double vel,
+		double acc)
+{
+   pos -= axis_encoder_error[mei_axis]; /* apply correction */
+   return(start_move(mei_axis, pos, vel, acc)); /* do move */
+}
+
+
+static int
+frame_m_xvajt_corr(PFRAME frame,	/* frame for MEI */
+		   char *cmd_str,	/* what we want the DSP to do */
+		   int mei_axis,	/* 2*axis */
+		   double x,		/* desired position */
+		   double v,		/* desired velocity */
+		   double a,		/* desired acceleration */
+		   double j,		/* desired jerk */
+		   double t,		/* at time t */
+		   long flags,		/* describe what we have */
+		   int new_frame)	/* new frame? */
+{
+   x -= axis_encoder_error[mei_axis];	/* apply correction */
+   
+   return(frame_m(frame, cmd_str, mei_axis, x, v, a, j, t, flags, new_frame));
+}
+
+static int
+dsp_set_last_command_corr(PDSP pdsp,
+			  int16 mei_axis, /* 2*axis */
+			  double final)
+{
+   final -= axis_encoder_error[mei_axis]; /* apply correction */
+   
+   return(dsp_set_last_command(pdsp, mei_axis, final));
 }
 
 /*=========================================================================
@@ -181,7 +301,6 @@ char *
 drift_cmd(char *cmd)
 {
    double position;
-   char *reply;				/* reply to MS.OFF command */
    double arcdeg, veldeg;
    float time;
    
@@ -189,12 +308,12 @@ drift_cmd(char *cmd)
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
+
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   reply = ms_off_cmd(NULL);
-   if(*reply != '\0') {
-      TRACE(0, "drift_cmd: failed to set MS.OFF: %s", reply, 0);
+   if(set_ms_off(axis_select, 0) < 0) {
+      TRACE(0, "drift_cmd: failed to set MS.OFF", 0, 0);
       return("ERR: failed to set MS.OFF");
    }
 /*
@@ -218,7 +337,7 @@ drift_cmd(char *cmd)
    }
 
    taskLock();				/* enforce coincidental data */
-   get_position(2*axis_select, &position);
+   get_position_corr(2*axis_select, &position);
    time = sdss_get_time();
    taskUnlock();
    semGive(semMEI);
@@ -232,46 +351,10 @@ drift_cmd(char *cmd)
    arcdeg = sec_per_tick[axis_select]*position/3600.;
    sprintf(drift_ans, "%f %f %f", arcdeg, veldeg, time);
 
-   return drift_ans;
-}
+   TRACE(3, "DRIFT %s: %s", axis_name(axis_select), drift_ans);
+   printf("at end DRIFT %s: %s\n", axis_name(axis_select), drift_ans);
 
-/*****************************************************************************/
-/*
- * return the MCP version
- */
-void
-mcpVersion(void)
-{
-   int i;
-   const char *ptr;			/* scratch pointer */
-   const char *tag = version_cmd("");	/* CVS tagname + compilation time */
-   char version[100 + 1];		/* version string to return */
-
-   version[100] = '\a';			/* check for string overrun */
-
-   ptr = strchr(tag, ':');
-   if(ptr == NULL) {
-      strncpy(version, tag, 100);
-   } else {
-      ptr++;
-      while(isspace(*ptr)) ptr++;
-      
-      if(*ptr != '$') {			/* a CVS tag */
-	 for(i = 0; ptr[i] != '\0' && !isspace(ptr[i]) && i < 100; i++) {
-	    version[i] = ptr[i];
-	 }
-	 version[i] = '\0';
-      } else {
-	 if(*ptr == '$') ptr++;
-	 if(*ptr == '|') ptr++;
-	 
-	 sprintf(version, "NOCVS:%s", ptr);
-	 version[strlen(version) - 2] = '\0'; /* trim "double quote\n" */
-      }
-   }
-
-   assert(version[100] == '\a');	/* no overrun */
-   printf("mcpVersion: %s\n", version);
+   return(drift_ans);
 }
 
 /*=========================================================================
@@ -311,12 +394,12 @@ id_cmd(char *cmd)
 **
 ** CALLS TO:
 **	tm_axis_state
-**	tm_controller_idle
+**	tm_sem_controller_idle
 **	tm_reset_integrator
 **	amp_reset
 **      tm_sp_az_brake_off
 **      tm_sp_alt_brake_off
-**	tm_controller_run
+**	tm_sem_controller_run
 **
 ** GLOBALS REFERENCED:
 **	axis_select
@@ -331,9 +414,8 @@ id_cmd(char *cmd)
 char *
 init_cmd(char *cmd)
 {
+   int i;
    int state;
-   char *reply;				/* reply to MS.OFF command */
-   int retry;
    
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
@@ -342,9 +424,8 @@ init_cmd(char *cmd)
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   reply = ms_off_cmd(NULL);
-   if(*reply != '\0') {
-      TRACE(0, "init_cmd: failed to set MS.OFF: %s", reply, 0);
+   if(set_ms_off(axis_select, 0) < 0) {
+      TRACE(0, "init_cmd: failed to set MS.OFF", 0, 0);
       return("ERR: failed to set MS.OFF");
    }
 /*
@@ -356,7 +437,7 @@ init_cmd(char *cmd)
    if(state > 2) {			/* normal...NOEVENT,running, or
 					   NEW_FRAME */
       printf("INIT axis %d: not running, state=0x%x\n", 2*axis_select, state);
-      tm_controller_idle(2*axis_select);
+      tm_sem_controller_idle(2*axis_select);
    }
    
    tm_reset_integrator(2*axis_select);
@@ -364,18 +445,17 @@ init_cmd(char *cmd)
    frame_break[axis_select] = FALSE;
    
    if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "couldn't take semSLCDC semahore.", 0, 0);
+      TRACE(0, "couldn't take semSLCDC semaphore.", 0, 0);
    } else {
       memset(&axis_stat[axis_select], '\0', sizeof(struct AXIS_STAT *));
       semGive(semSLCDC);
    }
 
-  switch(axis_select) {
-   case AZIMUTH:
+   switch(axis_select) {
+    case AZIMUTH:
       amp_reset(2*axis_select);		/* two amplifiers, */
       amp_reset(2*axis_select + 1);	/* param is index to bit field */
       if(sdssdc.status.i9.il0.az_brake_en_stat) {
-	 printf("Azimuth Brake Turned Off\n");
 	 tm_sp_az_brake_off();
       }
       break;
@@ -383,24 +463,18 @@ init_cmd(char *cmd)
       amp_reset(2*axis_select);		/* two amplifiers */
       amp_reset(2*axis_select + 1);	/* param is index to bit field */
       if(sdssdc.status.i9.il0.alt_brake_en_stat) {
-	 printf("Altitude Brake Turned Off\n");
 	 tm_sp_alt_brake_off();           
       }
       break;
     case INSTRUMENT:
       amp_reset(2*axis_select);		/* one amplifier */
       break;				/* param is index to bit field */
-  }
+   }
 /*
- * tm_axis_state retries as well...so this is really redundant, but then the
- * brakes don't come off really quickly so this will assure closed loop for
- * at least sometime before continuing
+ * reinitialize the queue of pvts to none
  */
-  retry = 4;
-  while(tm_axis_state(2*axis_select) > 2 && retry-- > 0) {
-     tm_controller_run(2*axis_select);
-     taskDelay(20);
-  }
+   axis_queue[axis_select].active = axis_queue[axis_select].end;
+   axis_queue[axis_select].active = NULL;
 /*
  * zero the velocity
  */
@@ -408,14 +482,65 @@ init_cmd(char *cmd)
       TRACE(0, "Failed to take semMEI to zero velocity for axis %s",
 	    axis_name(axis_select), 0);
    } else {
-      v_move(2*axis_select,(double)0,(double)5000);
-      semGive (semMEI);
+      taskLock();
+      set_stop(2*axis_select);
+      while(!motion_done(2*axis_select)) ;
+      clear_status(2*axis_select);
+      taskUnlock();
+
+      if(dsp_error != DSP_OK) {
+	 TRACE(0, "failed to stop %s : %d", axis_name(axis_select), dsp_error);
+      }
+
+      semGive(semMEI);
    }
 /*
- * reinitialize the queue of pvts to none
+ * tm_axis_state retries as well...so this is really redundant, but then the
+ * brakes don't come off really quickly so this will assure closed loop for
+ * at least sometime before continuing
  */
-   axis_queue[axis_select].active = axis_queue[axis_select].end;
-   axis_queue[axis_select].active = NULL;
+   for(i = 0; i < 4; i++) {
+      tm_sem_controller_run(2*axis_select);
+
+      if(tm_axis_state(2*axis_select) <= NEW_FRAME) { /* axis is OK */
+	 break;
+      }
+
+      taskDelay(20);
+   }
+/*
+ * If there's a known positional error on an axis take this opportunity to
+ * zero it by setting the encoder's position
+ */
+   if(semTake(semLatch, 60) == ERROR) {
+      TRACE(0, "ERR: init cannot take semLatch", 0, 0);
+   } else {
+      int correction;			/* how much to correct encoder pos */
+      
+      for(i = 0; i < NAXIS; i++) {
+	 if(fiducial[i].max_correction == 0) {
+	    continue;
+	 }
+
+	 correction = get_axis_encoder_error(i);
+	 if(correction > 0) {
+	    TRACE(3 ,"Adjusting position of %s by %d", axis_name(i), correction);
+	    
+	    if(abs(correction) >= fiducial[i].max_correction) {
+	       TRACE(0, "    correction %ld is too large (max %ld)",
+		     correction, fiducial[i].max_correction);
+	       continue;
+	    }
+	    
+	    if(tm_adjust_position(i, correction) < 0) {
+	       TRACE(0 ,"Failed to adjust position for axis %s",
+		     axis_name(i), 0);
+	    }
+	 }
+      }
+
+      semGive(semLatch);
+   }
    
    return "";
 }
@@ -672,7 +797,7 @@ mc_minpos_cmd(char *cmd)		/* NOTUSED */
 ** CALLS TO:
 **	sdss_delta_time
 **	sdss_get_time
-**      tm_get_pos
+**      tm_get_position
 **	malloc
 **	free
 **
@@ -694,7 +819,6 @@ move_cmd(char *cmd)
    int i;
    int cnt;
    double dt;
-   char *reply;				/* reply to MS.OFF command */
    
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
@@ -703,9 +827,8 @@ move_cmd(char *cmd)
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   reply = ms_off_cmd(NULL);
-   if(*reply != '\0') {
-      TRACE(0, "move_cmd: failed to set MS.OFF: %s", reply, 0);
+   if(set_ms_off(axis_select, 0) < 0) {
+      TRACE(0, "move_cmd: failed to set MS.OFF", 0, 0);
       return("ERR: failed to set MS.OFF");
    }
 /*
@@ -718,18 +841,25 @@ move_cmd(char *cmd)
    
    queue = &axis_queue[axis_select];
    
-   frame = (struct FRAME *)malloc (sizeof(struct FRAME));
+   frame = (struct FRAME *)malloc(sizeof(struct FRAME));
    if(frame == NULL) {
       TRACE(0, "Cannot allocate frame (%d)", errno, 0);
       return "ERR: OUT OF MEMORY";
    }
    
-   cnt = sscanf(cmd,"%12lf %12lf %12lf",
+   cnt = sscanf(cmd, "%12lf %12lf %12lf",
 		&position, &velocity, &frame->end_time);
+
+#if 0					/* XXX */
+   TRACE(3, "MOVE %s", cmd, 0);
+   TRACE(3, "     Axis = %s cnt = %d", axis_name(axis_select), cnt);
+   printf("%s MOVE %s %d\n", axis_name(axis_select), cmd, cnt);
+#endif
+
    switch (cnt) {
     case -1:
     case 0:
-      tm_get_pos(2*axis_select, &stop_position[axis_select]);
+      tm_get_position(2*axis_select, &stop_position[axis_select]);
       frame_break[axis_select] = TRUE;
 
       sdssdc.tccmove[axis_select].position = 0;
@@ -740,7 +870,7 @@ move_cmd(char *cmd)
       
       return "";
     case 1:
-      tm_get_pos(2*axis_select,&pos);
+      tm_get_position(2*axis_select,&pos);
       velocity = (double)0.10;
       frame->end_time =
 	fmod((double)(sdss_get_time() +
@@ -749,7 +879,7 @@ move_cmd(char *cmd)
       velocity=0.0;
       break;
     case 2:
-      tm_get_pos(2*axis_select,&pos);
+      tm_get_position(2*axis_select,&pos);
       frame->end_time =
 	fmod((double)(sdss_get_time() +
 		      abs((pos/ticks_per_degree[axis_select] -
@@ -766,12 +896,12 @@ move_cmd(char *cmd)
       }
       
       if(drift_break[axis_select]) {
-	 if (DRIFT_verbose) {
+	 if(DRIFT_verbose) {
             printf("DRIFT pvt %f %f %f\n", position,velocity,frame->end_time);
 	 }
 	 
 	 taskLock();
-	 tm_get_pos(2*axis_select, &pos);
+	 tm_get_position(2*axis_select, &pos);
 	 dt = sdss_delta_time(frame->end_time, sdss_get_time());
 	 taskUnlock();
 /*
@@ -781,18 +911,18 @@ move_cmd(char *cmd)
 	 dt -=.043;	/* modify time to reduce error during transition */
 	 pos = (pos + drift_velocity[axis_select]*dt)/
 						 ticks_per_degree[axis_select];
-	  if(DRIFT_verbose) {
-	     printf("DRIFT modified pvt %f %f %f, difference=%f, dt=%f\n",
-		    pos, velocity, frame->end_time, position - pos, dt);
-	  }
-
-	  if(drift_modify_enable) {
-	     position = pos;
-	  }
+	 if(DRIFT_verbose) {
+	    printf("DRIFT modified pvt %f %f %f, difference=%f, dt=%f\n",
+		   pos, velocity, frame->end_time, position - pos, dt);
+	 }
 	 
-	  drift_break[axis_select] = FALSE;
-	}
-	break;
+	 if(drift_modify_enable) {
+	    position = pos;
+	 }
+	 
+	 drift_break[axis_select] = FALSE;
+      }
+      break;
    }
    
    frame->position = position;
@@ -819,7 +949,7 @@ move_cmd(char *cmd)
    nxtque = queue->end;
    nxtque->nxt = frame;
    if(queue->active == NULL) {/* end of queue, and becomes active frame */
-      queue->active=frame;
+      queue->active = frame;
    }
    
    for(i = 0; i < OFF_MAX; i++) {
@@ -828,6 +958,12 @@ move_cmd(char *cmd)
 	 offset_queue_end[axis_select][i] = frame;
 	 frame->position -= offset[axis_select][i][1].position;
 	 frame->velocity -= offset[axis_select][i][1].velocity;
+
+	 TRACE(3, "Offsetting %s", axis_name(axis_select), 0);
+	 TRACE(3, "     pos = %d, vel = %d",
+	       sdssdc.tccmove[axis_select].position,
+	       sdssdc.tccmove[axis_select].velocity);
+	 
 #if 0
 	 printf("reduce offset end=%p, pos=%f,idx=%d\n",frame,
 		 frame->position,offset_idx[axis_select][i]);
@@ -1300,7 +1436,7 @@ axis_status_cmd(char *cmd)
 	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
 	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
 		   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
-	   fiducialidx[axis], fiducial[axis].markvalid, fid_mark,
+	   fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
 	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis],
 	   read_clinometer());
 
@@ -1311,63 +1447,6 @@ axis_status_cmd(char *cmd)
    assert(reply_str[200] == '\a');	/* check for overflow */
 
    return(reply_str);
-}
-
-/*****************************************************************************/
-/*
- * Set the imager T-bars
- */
-static int
-mcp_set_tbars(int val)
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_2 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      TRACE(0, "mcp_set_tbars: failed to get semSLC: %s (%d)",
-	    strerror(errno), errno);
-      printf("Unable to take semaphore: %s", strerror(errno));
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,2,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=0x%x\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_t_bar_latch = val;
-   tm_ctrl1.mcp_t_bar_unlatch = !val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,2,&ctrl[0],1);
-   semGive (semSLC);
-   
-   if(err) {
-      printf ("W Err=0x%x\n",err);
-      return err;
-   }
-/*
- * XXX check that the (un)latch command worked, and revert if it failed
- */
-   return(0);
-}
-
-char *
-tbar_latch_cmd(char *cmd)
-{
-   int on_off;
-
-   if(sscanf(cmd, "%d", &on_off) != 1) {
-      return("ERR: malformed command argument");
-   }
-
-   mcp_set_tbars(on_off);
-   
-   return("");
 }
 
 /*=========================================================================
@@ -1396,8 +1475,6 @@ tbar_latch_cmd(char *cmd)
 */
 char *brakeon_cmd(char *cmd)
 {
-  printf("BRAKE.ON command fired\r\n");
-
   mcp_set_brake(axis_select);
   
   return "";
@@ -1405,8 +1482,6 @@ char *brakeon_cmd(char *cmd)
 
 char *brakeoff_cmd(char *cmd)
 {
-   printf (" BRAKE.OFF command fired\r\n");
-   
    mcp_unset_brake(axis_select);
    
    return "";
@@ -1621,7 +1696,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    
    lframe = fframe;
    if(lframe->nxt == NULL) {
-      TRACE(1, "CALC FRAME: next frame required to finish", 0, 0);
+      TRACE(3, "CALC FRAME: next frame required to finish", 0, 0);
       return ERROR;
    }
     
@@ -1988,19 +2063,19 @@ set_rot_state(int state)
 }
 
 int
-coeffs_state_cts(int axis,
+coeffs_state_cts(int mei_axis,
 		 int cts)
 {
    int state;
    struct SW_COEFFS *coeff;
    
-   state = axis_coeffs_state[axis];
+   state = axis_coeffs_state[mei_axis];
    if(state == -1) return FALSE;
 
    taskDelay(1);
    coeff = &rot_coeffs[state];
 #if 0
-   printf ("\r\nAXIS %d: state=%d coeff=%p",axis,state,coeff);
+   printf ("\r\nAXIS %d: state=%d coeff=%p",mei_axis,state,coeff);
 #endif
    
    if(coeff->uplimit_cts > 0 && abs(cts) > coeff->uplimit_cts) {
@@ -2018,8 +2093,8 @@ coeffs_state_cts(int axis,
       return FALSE;
    }
 
-   dsp_set_filter(axis, (P_INT)&coeff->coeffs[0]);
-   axis_coeffs_state[axis] = state;
+   dsp_set_filter(mei_axis, (P_INT)&coeff->coeffs[0]);
+   axis_coeffs_state[mei_axis] = state;
    return TRUE;
 }
 #endif
@@ -2058,7 +2133,7 @@ load_frames(int axis, int cnt, int idx, double sf)
    FRAME frame;
    
    if(FRAME_verbose) {
-      printf("\r\n Load %d Frames, sf=%f",cnt,sf);
+      printf("\nLoad %d Frames, sf=%f\n",cnt,sf);
    }
    
    for(i = idx; i < cnt + idx; i++) {
@@ -2067,7 +2142,7 @@ load_frames(int axis, int cnt, int idx, double sf)
       }
       
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
-	 printf("\r\nAXIS %d: MAX ACC %f exceeded by %f",
+	 printf("AXIS %d: MAX ACC %f exceeded by %f\n",
 		axis,a[axis][i],max_acceleration[axis]);
       }
       
@@ -2076,7 +2151,7 @@ load_frames(int axis, int cnt, int idx, double sf)
       }
       
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 printf ("\r\nAXIS %d: MAX VEL %f exceeded by %f",
+	 printf ("AXIS %d: MAX VEL %f exceeded by %f\n",
 		 axis,v[axis][i],max_velocity[axis]);
       }
       
@@ -2085,11 +2160,13 @@ load_frames(int axis, int cnt, int idx, double sf)
 	       strerror(errno), errno);
       } else {
 	 taskLock();
-	 e=frame_m(&frame,"0l xvajt un d",axis<<1,
-		   (double)p[axis][i]*sf,(double)v[axis][i]*sf,
-		   (double)a[axis][i]*sf,(double)ji[axis][i]*sf,
-		   tim[axis][i],
-		   FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,NEW_FRAME);
+	 e=frame_m_xvajt_corr(&frame,"0l xvajt un d", axis<<1,
+			      p[axis][i]*sf,
+			      v[axis][i]*sf,
+			      a[axis][i]*sf,
+			      ji[axis][i]*sf,
+			      tim[axis][i],
+			      FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,NEW_FRAME);
 	 taskUnlock();
 	 semGive (semMEI);
       }
@@ -2110,7 +2187,7 @@ load_frames(int axis, int cnt, int idx, double sf)
       }
       
       if(FRAME_verbose) {
-	 printf("axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f\n"
+	 printf("axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f "
 		"j=%12.8f,t=%12.8f\n",
 		axis<<1, i,
 		(double)p[axis][i]*sf, (double)v[axis][i]*sf,
@@ -2215,11 +2292,10 @@ void stp_frame(int axis,double pos,double sf)
 /*  printf ("\r\nSTP axis=%d: p=%12.8f,sf=%f",
 	axis<<1,(double)pos,sf);*/
 
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-    get_position(axis<<1,&position);
+  if (semTake (semMEI,WAIT_FOREVER)!=ERROR) {
+     get_position_corr(2*axis, &position);
     get_velocity(axis<<1,&velocity);
-    printf ("\r\npos=%f, vel=%f",position,velocity);
+    printf ("pos=%f, vel=%f\n", position, velocity);
     if (velocity>0.0)
       e=frame_m(&frame,"0l avj un d",axis<<1,
 	(double)(-.5*sf),(double)0.0,(double)0.0,
@@ -2314,12 +2390,14 @@ end_frame(int axis, int index, double sf)
       return;
    } 
 
-   e = frame_m(&frame, "0l xvajt un d", 2*axis,
-	       (double)p[axis][index]*sf,(double)0.0,(double)0.0,
-	       (double)0.0,
-	       (double)(1./FLTFRMHZ),
-	       FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
-   dsp_set_last_command(dspPtr, 2*axis, (double)p[axis][index]*sf);
+   e = frame_m_xvajt_corr(&frame, "0l xvajt un d", 2*axis,
+			  p[axis][index]*sf,
+			  0.0,
+			  0.0,
+			  0.0,
+			  (1./FLTFRMHZ),
+			  FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
+   dsp_set_last_command_corr(dspPtr, 2*axis, (double)p[axis][index]*sf);
    semGive(semMEI);
    
    printf("END axis=%d (%d): "
@@ -2383,6 +2461,7 @@ tm_frames_to_execute(int axis)
 void
 tm_TCC(int axis)
 {
+   const char *const aname = axis_name(axis); /* name of our axis */
    int cnt, lcnt, cntoff;
    struct FRAME *frame;
    struct FRAME *frmoff;
@@ -2394,9 +2473,9 @@ tm_TCC(int axis)
    int idx;
    int status;
    
-   tm_controller_run(2*axis);
+   tm_sem_controller_run(2*axis);
    idx=0;
-   printf("Axis=%d;  Ticks per degree=%f\n",axis, ticks_per_degree[axis]);
+   printf("Axis=%s;  Ticks per degree=%f\n", aname, ticks_per_degree[axis]);
    
    for(;;) {
 /*
@@ -2412,7 +2491,7 @@ tm_TCC(int axis)
 		      (double)ticks_per_degree[axis]);
 	    frame_break[axis] = FALSE;
 	 }
-	 taskDelay (3);
+	 taskDelay(3);
       }
 
       frame=axis_queue[axis].active;
@@ -2425,31 +2504,28 @@ tm_TCC(int axis)
 	       strerror(errno), errno);
       }
 
-      get_position(2*axis, &position);
+      get_position_corr(2*axis, &position);
       get_velocity(2*axis,&velocity);
       semGive(semMEI);
       
       pos = (long)position;
-#if 0
-      printf("Check Params for repositioning\n");
-#endif
+      TRACE(8, "Check Params for repositioning %s", aname, 0);
+
       if(abs((long)((frame->position*ticks_per_degree[axis]) - position)) >
 					 (long)(0.01*ticks_per_degree[axis]) &&
 							 fabs(velocity) == 0) {
 	 while((lcnt = tm_frames_to_execute(axis)) > 1) {
-	    printf ("frames left=%d\n",lcnt);
+	    TRACE(8, "Frames left for %s: %d", aname, lcnt);
 	    taskDelay(1);
 	 }
 	 tm_start_move(2*axis,
 		       1*(double)ticks_per_degree[axis],
 		       0.05*(double)ticks_per_degree[axis],
 		       frame->position*(double)ticks_per_degree[axis]);
-	 
-	 printf("Axis %d Repositioning TCC cmd to pos=%f from pos=%f\n"
-		"diff=%ld>%ld\n",
-		axis,frame->position*ticks_per_degree[axis],position,
-		abs((frame->position*ticks_per_degree[axis])-position),
-		(long)(0.01*ticks_per_degree[axis]));
+
+	 TRACE(3, "Repositioning %s by TCC vmd", aname, 0);
+	 TRACE(3, "    from pos=%lf to pos=%ld",
+	       (long)position, (long)(frame->position*ticks_per_degree[axis]))
 	 
 	 status=TRUE;
 	 while((abs((frame->position*ticks_per_degree[axis]) - position) >
@@ -2460,16 +2536,14 @@ tm_TCC(int axis)
 	       TRACE(0, "tm_TCC: failed to retake semMEI: %s (%d)",
 		     strerror(errno), errno);
 	    } else {
-	       status=in_motion(axis<<1);
-	       get_position(axis<<1,&position);
-	       semGive (semMEI);
-	       pos=(long)position;
+	       status = in_motion(2*axis);
+	       get_position_corr(2*axis, &position);
+	       semGive(semMEI);
+	       pos = (long)position;
 	    }
-#if 0
-	    printf("repositioning to %f, status=%d\n", position, status);
-#endif
+	    TRACE(8, "repositioning to %ld, status=%d", (long)pos, status);
 	 }
-	 printf("Done repositioning to %f\n",position);
+	 TRACE(3, "Done repositioning %s to %ld", aname, (long)position);
       } else {
 #if 0
 	 printf("nonzero vel=%f\n", velocity);
@@ -2481,17 +2555,15 @@ tm_TCC(int axis)
       while(frame != NULL &&
 	    sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
 	 frame = frame->nxt;
-	 axis_queue[axis].active=frame;
-	 printf ("\r\n Frame deleted due to time");
+	 axis_queue[axis].active = frame;
+	 TRACE(0, "%s frame deleted due to expiration time", aname, 0);
       }
       
       if(frame != NULL) {
-	 start_frame (axis,frame->end_time);
+	 start_frame(axis, frame->end_time);
 	 while(frame->nxt == NULL &&
 	       sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
-#if 0
-	    printf ("\r\n waiting for second frame");
-#endif
+	    TRACE(8, "%s waiting for second frame", aname, 0);
 	    taskDelay (3);
 	 }
 #if 0					/* Charlie's version */
@@ -2504,9 +2576,8 @@ tm_TCC(int axis)
 
 #endif
 	    frame_cnt = get_frame_cnt(axis,frame);
-#if 0
-	    printf ("frames_cnt=%d\n", frame_cnt);
-#endif
+
+	    TRACE(8, "%s frames_cnt=%d", aname, frame_cnt);
 	    frame_idx = 0;
 	    while(frame_cnt > 0) {
 	       while((cnt = calc_frames(axis,frame,frame_idx)) == ERROR &&
@@ -2528,9 +2599,7 @@ tm_TCC(int axis)
 			
 			if(offset_idx[axis][i]/20.0 >
 			   offset[axis][i][1].end_time) {
-#if 0
-			   printf ("\r\nShutdown offset");
-#endif
+			   TRACE(8, "%s shutdown offset", aname, 0);
 			   frmoff=frame;
 			   taskLock();
 			   while(frmoff != offset_queue_end[axis][i]) {
@@ -2562,18 +2631,14 @@ tm_TCC(int axis)
 	       }
 	       
 	       if(frame_break[axis]) {
-#if 0
-		  printf("FRAME_BREAK\n");
-#endif
+		  TRACE(8, "%s frame_break", aname, 0);
 		  axis_queue[axis].active=NULL;
 		  frame_cnt=0;
 		  break;
 	       }
 	       
 	       if(drift_break[axis]) {
-#if 0
-		  printf("DRIFT_BREAK\n");
-#endif
+		  TRACE(8, "%s drift_break", aname, 0);
 		  axis_queue[axis].active=NULL;
 		  frame_cnt=0;
 		  break;
@@ -2582,9 +2647,7 @@ tm_TCC(int axis)
 	       idx = 0;
 	       while(cnt > 0) {
 		  if(frame_break[axis]) {
-#if 0
-		     printf("FRAME_BREAK\n");
-#endif
+		  TRACE(8, "%s frame_break 2", aname, 0);
 		     axis_queue[axis].active=NULL;
 		     frame_cnt=0;
 		     cnt=0;
@@ -2592,9 +2655,7 @@ tm_TCC(int axis)
 		  }
 		  
 		  if(drift_break[axis]) {
-#if 0
-		     printf("DRIFT_BREAK\n");
-#endif
+		     TRACE(8, "%s drift_break 2", aname, 0);
 		     axis_queue[axis].active=NULL;
 		     frame_cnt=0;
 		     cnt=0;
@@ -2606,7 +2667,7 @@ tm_TCC(int axis)
 				 (double)ticks_per_degree[axis]);
 		     
 		     if(idx == 15 && cnt == 5) {
-			printf("p=%f\n",p[axis][19]);
+			TRACE(1, "Mystery message: p=%f", p[axis][19], 0);
 		     }
 		     
 		     while((lcnt = tm_frames_to_execute(axis)) > 10) {
@@ -2627,7 +2688,7 @@ tm_TCC(int axis)
 	    frame = frame->nxt;
 	    axis_queue[axis].active = frame;
 	    while(frame->nxt == NULL &&
-		  sdss_delta_time(frame->end_time,sdss_get_time()) > 0.02) {
+		  sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
 	       taskDelay (1);
 	    }
 	    
@@ -2638,7 +2699,7 @@ tm_TCC(int axis)
 	 }
 	 
 	 lcnt = tm_frames_to_execute(axis);
-	 printf("Ran out: frames left=%d\n", lcnt);
+	 TRACE(3, "%s ran out: frames left=%d\n", aname, lcnt);
 	 
 	 taskLock();
 	 axis_queue[axis].active = NULL;
@@ -2666,20 +2727,9 @@ tm_TCC(int axis)
 	    }
 	 }
       } else {
-	 printf ("Restart no frames to process\n");
+	 TRACE(3, "%s restart no frames to process", aname, 0);
       }
    }
-}
-
-void
-start_tm_TCC()
-{
-  taskSpawn("tmAz",47,VX_FP_TASK,20000,(FUNCPTR)tm_TCC,
-		0,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmAlt",47,VX_FP_TASK,20000,(FUNCPTR)tm_TCC,
-		1,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmRot",47,VX_FP_TASK,20000,(FUNCPTR)tm_TCC,
-		2,0,0,0,0,0,0,0,0,0);
 }
 
 #if 0
@@ -2737,7 +2787,9 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 
   CALC_verbose=FALSE;
 }
-void start_tm_TCC_test()
+
+void
+start_tm_TCC_test(void)
 {
   taskSpawn("tmAztest",62,VX_FP_TASK,20000,(FUNCPTR)tm_TCC_test,
 		0,0,0,0,0,0,0,0,0,0);
@@ -2840,11 +2892,11 @@ ip_shutdown(int type)
 **=========================================================================
 */
 void
-amp_reset(int axis)
+amp_reset(int mei_axis)
 {
-   TRACE(1, "Resetting amp for axis %s: %d", axis_name(axis/2), axis);
+   TRACE(3, "Resetting amp for axis %s: %d", axis_name(mei_axis/2), mei_axis);
    
-   DIO316_Write_Port(cw_DIO316, AMP_RESET, 1<<axis);
+   DIO316_Write_Port(cw_DIO316, AMP_RESET, 1<<mei_axis);
    taskDelay (2);
    DIO316_Write_Port(cw_DIO316, AMP_RESET, 0);
 }
@@ -2968,7 +3020,7 @@ mcp_set_monitor(int axis,		/* which axis? */
 		int on_off)		/* set monitor on/off/toggle */
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_set_monitor: illegal axis %d\n", axis);
+      TRACE(0, "mcp_set_monitor: illegal axis %d", axis, 0);
 
       return(-1);
    }
@@ -2990,14 +3042,14 @@ mcp_set_pos(int axis,			/* the axis to set */
 	    double pos)			/* the position to go to */
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_set_pos: illegal axis %d\n", axis);
+      TRACE(0, "mcp_set_pos: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   tm_set_pos(2*axis, pos);
-   tm_set_pos(2*axis + 1, pos);
-   fiducial[axis].markvalid = FALSE;
+   tm_set_position(2*axis, pos);
+   tm_set_position(2*axis + 1, pos);
+   fiducial[axis].seen_index = FALSE;
    
    return 0;
 }
@@ -3011,8 +3063,10 @@ mcp_move_va(int axis,			/* the axis to move */
 	    long vel,			/* desired velocity */
 	    long acc)			/* desired acceleration */
 {
+   int ret;				/* return code from MEI */
+   
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_move_va: illegal axis %d\n", axis);
+      TRACE(0, "mcp_move_va: illegal axis %d", axis, 0);
 
       return(-1);
    }
@@ -3034,7 +3088,14 @@ mcp_move_va(int axis,			/* the axis to move */
    }
 #endif
    
-   start_move(2*axis, pos, vel, acc);
+   if((ret = start_move_corr(2*axis, pos, vel, acc)) != DSP_OK) {
+      TRACE(0, "start_move failed for %s : %d", axis_name(axis), ret);
+      if(ret == DSP_NO_DISTANCE) {
+	 double mei_pos;
+	 get_position_corr(2*axis, &mei_pos);
+	 TRACE(3, "positions: MCP: %ld MEI: %ld", (long)pos, (long)mei_pos);
+      }
+   }
    semGive(semMEI);
    
    return(0);
@@ -3048,23 +3109,22 @@ mcp_set_vel(int axis,			/* the axis to set */
 	    double vel)			/* the position to go to */
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_set_vel: illegal axis %d\n", axis);
+      TRACE(0, "mcp_set_vel: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
    if(axis == AZIMUTH && sdssdc.status.i9.il0.az_brake_en_stat) {
-      fprintf(stderr,"mcp_set_vel: AZ Brake is Engaged\n");
+      TRACE(0, "mcp_set_vel: AZ Brake is Engaged", 0, 0);
       return(-1);
    } else if(axis == ALTITUDE && sdssdc.status.i9.il0.alt_brake_en_stat) {
-      fprintf(stderr, "mcp_set_vel: ALT Brake is Engaged");
+      TRACE(0, "mcp_set_vel: ALT Brake is Engaged", 0, 0);
       return(-1);
    }
 
    if(semTake(semMEI, 60) == ERROR) {
       TRACE(0, "mcp_set_val: failed to take semMEI: %s (%d)",
 	    strerror(errno), errno);
-      fprintf(stderr, "mcp_set_vel: could not take semMEI semphore\n");
       return(-1);
    }
 	 
@@ -3089,12 +3149,12 @@ int
 mcp_set_brake(int axis)
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_set_brake: illegal axis %d\n", axis);
+      TRACE(0, "mcp_set_brake: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   TRACE(1, "Setting brake for axis %s", axis_name(axis), 0);
+   TRACE(3, "Setting brake for axis %s", axis_name(axis), 0);
 
    if(axis == AZIMUTH) {
       tm_sp_az_brake_on();
@@ -3102,7 +3162,7 @@ mcp_set_brake(int axis)
       tm_sp_alt_brake_on();
    }
    
-   tm_controller_idle(2*axis);
+   tm_sem_controller_idle(2*axis);
    tm_reset_integrator(2*axis);
 
    return(0);
@@ -3115,12 +3175,12 @@ int
 mcp_unset_brake(int axis)		/* axis to set */
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_unset_brake: illegal axis %d\n", axis);
+      TRACE(0, "mcp_unset_brake: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   TRACE(1, "Clearing brake for axis %s", axis_name(axis), 0);
+   TRACE(3, "Clearing brake for axis %s", axis_name(axis), 0);
 
    if(axis == AZIMUTH) {
       tm_sp_az_brake_off();
@@ -3131,8 +3191,6 @@ mcp_unset_brake(int axis)		/* axis to set */
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "mcp_unset_brake: failed to take semMEI: %s (%d)",
 	    strerror(errno), errno);
-      fprintf(stderr,"mcp_unset_brake: could not take semMEI semphore: %s",
-	      strerror(errno));
       return(-1);
    }
 
@@ -3165,32 +3223,55 @@ mcp_hold(int axis)			/* desired axis */
    double vel;				/* velocity of axis */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_halt: illegal axis %d\n", axis);
+      TRACE(0, "mcp_halt: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   TRACE(1, "Holding axis %s", axis_name(axis), 0);
+   TRACE(3, "Holding axis %s", axis_name(axis), 0);
 
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "mcp_hold: %s: couldn't take semMEI: %d",
 	    axis_name(axis), errno);
-      fprintf(stderr,"mcp_hold: could not take semMEI semphore: %s",
-	      strerror(errno));
       return(-1);
    }
    
    if(get_velocity(2*axis, &vel) != DSP_OK) {
       TRACE(0, "Holding axis %s: failed to read velocity",
 	    axis_name(axis), errno);
-      fprintf(stderr,"mcp_halt: Failed to read velocity for %s\n",
-	      axis_name(axis));
       vel = 0;
+   }
+   
+#if 1
+   set_stop(2*axis);
+   {
+      int i, ntry = 120*60;		/* two minutes */
+
+      for(i = 0; i < ntry; i++) {
+	 if(motion_done(2*axis)) {
+	    break;
+	 }
+	 taskDelay(1);
+      }
+      if(i == ntry) {
+	 TRACE(0, "TELL RHL. Failed to get motion_done() for %s: in_seq = %d",
+	       axis_name(axis), in_sequence(2*axis));
+	 TRACE(0, "           in_mot = %d, frames = %d",
+	       in_motion(2*axis), frames_left(2*axis));
+      }
+   }
+   clear_status(2*axis);
+   
+   if(dsp_error != DSP_OK) {
+      TRACE(0, "failed to stop %s : %d", axis_name(axis_select), dsp_error);
    }
 
    TRACE(5, "Holding axis %s: back into closed loop", axis_name(axis), 0);
    sem_controller_run(2*axis);		/* back into closed loop */
-   
+#else
+   TRACE(5, "Holding axis %s: back into closed loop", axis_name(axis), 0);
+   sem_controller_run(2*axis);		/* back into closed loop */
+
    while(fabs(vel) > 5000) {
       vel -= (vel > 0) ? 5000 : -5000;
       TRACE(5, "Velocity = %g", vel, 0);
@@ -3209,12 +3290,19 @@ mcp_hold(int axis)			/* desired axis */
    
    vel = 0;
    set_velocity(2*axis, vel);
+
+   {
+      double pos;
+      get_position_corr(2*axis, &pos);
+      set_position_corr(2*axis, pos);
+   }
 #if SWITCH_PID_COEFFS
    while(coeffs_state_cts(2*axis, vel) == TRUE) {
       ;
    }
 #endif
    TRACE(5, "Velocity = %g", vel, 0);
+#endif
    
    semGive (semMEI);
 
@@ -3229,7 +3317,7 @@ int
 mcp_amp_reset(int axis)
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_amp_reset: illegal axis %d\n", axis);
+      TRACE(0, "mcp_amp_reset: illegal axis %d", axis, 0);
 
       return(-1);
    }
@@ -3252,19 +3340,16 @@ int
 mcp_stop_axis(int axis)
 {
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      fprintf(stderr,"mcp_stop_axis: illegal axis %d\n", axis);
+      TRACE(0, "mcp_stop_axis: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   TRACE(1, "Stopping axis %s", axis_name(axis), 0);
+   TRACE(3, "Stopping axis %s", axis_name(axis), 0);
 
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "Stopping axis %s: couldn't take semMEI: %d",
 	    axis_name(axis), errno);
-      fprintf(stderr,"mcp_stop_axis: could not take semMEI semphore: %s\n",
-	      strerror(errno));
-
       return(-1);
    }
 
@@ -3290,7 +3375,7 @@ amp_reset_cmd(char *cmd)		/* NOTUSED */
    return("");
 }
 
-static char *
+char *
 hold_cmd(char *cmd)			/* NOTUSED */
 
 {
@@ -3299,7 +3384,7 @@ hold_cmd(char *cmd)			/* NOTUSED */
    return("");
 }
 
-static char *
+char *
 stop_cmd(char *cmd)			/* NOTUSED */
 {
    mcp_stop_axis(axis_select);
@@ -3307,7 +3392,7 @@ stop_cmd(char *cmd)			/* NOTUSED */
    return("");
 }
 
-static char *
+char *
 set_monitor_cmd(char *cmd)			/* NOTUSED */
 {
    int on_off;
@@ -3321,7 +3406,7 @@ set_monitor_cmd(char *cmd)			/* NOTUSED */
    return("");
 }
 
-static char *
+char *
 set_pos_cmd(char *cmd)
 {
    double pos;
@@ -3335,8 +3420,8 @@ set_pos_cmd(char *cmd)
    return("");
 }
 
-static char *
-set_pos_va_cmd(char *cmd)
+char *
+goto_pos_va_cmd(char *cmd)
 {
    double pos, vel, acc;
 
@@ -3349,7 +3434,7 @@ set_pos_va_cmd(char *cmd)
    return("");
 }
 
-static char *
+char *
 set_vel_cmd(char *cmd)
 {
    double pos;
@@ -3361,6 +3446,31 @@ set_vel_cmd(char *cmd)
    mcp_set_vel(axis_select, pos);
 
    return("");
+}
+
+/*****************************************************************************/
+/*
+ * Restore positions from shared memory after a boot
+ */
+void
+restore_pos(void)
+{
+   struct SDSS_FRAME *save;
+   struct TM_M68K *restore;
+   int i;
+   
+   save = (struct SDSS_FRAME *)(SHARE_MEMORY + 2);
+   for(i = 0; i < NAXIS; i++) {
+      restore = (struct TM_M68K *)&save->axis[i];
+      
+      fprintf(stderr, "Restoring encode position for %s: %d\n",
+	      axis_name(i), restore->actual_position);
+      TRACE(3, "Restoring encode position for %s: %d",
+	    axis_name(i), restore->actual_position);
+      
+      tm_set_position(2*i, restore->actual_position);
+      tm_set_position(2*i + 1,restore->actual_position2);
+   }
 }
 
 /*****************************************************************************/
@@ -3384,7 +3494,24 @@ axisMotionInit(void)
    char buffer[MAX_ERROR_LEN] ;
    double limit;
    short action;
-   
+/*
+ * Create semaphores
+ */
+   if(semMEI == NULL) {
+      semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+      assert(semMEI != 0);
+   }
+   if(semSLC == NULL) {
+      semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+      assert(semSLC != NULL);
+   }
+/*
+ * We don't really need to take semMEI here as we're the only process
+ * running, but it's clearer if we do
+ */
+   err = semTake(semMEI, WAIT_FOREVER);
+   assert(err != ERROR);
+
    for(i = 0; i < 3; i++) {
       axis_queue[i].top = (struct FRAME *)malloc(sizeof(struct FRAME));
       if(axis_queue[i].top == NULL) {
@@ -3425,10 +3552,10 @@ axisMotionInit(void)
    }
    
    set_sample_rate(160);
-   TRACE(1, "Sample Rate=%d", dsp_sample_rate(), 0);
+   TRACE(3, "Sample Rate=%d", dsp_sample_rate(), 0);
    
    for(axis = 0; axis < dsp_axes(); axis++) {
-      TRACE(1, "Initialising AXIS %d", axis, 0);
+      TRACE(3, "Initialising AXIS %d", axis, 0);
 
       get_stop_rate(axis,&rate);
       TRACE(3, "old stop rate = %f", rate, 0);
@@ -3450,12 +3577,25 @@ axisMotionInit(void)
 
       set_integration(axis, IM_ALWAYS);
    }
-   
+
+   restore_pos();			/* restore axis positions */
+
+   semGive(semMEI);
+
    VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
    init_io(2,IO_INPUT);
-
-   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+/*
+ * Spawn the tasks that run the axes
+ */
+   taskSpawn("tmAz",47,VX_FP_TASK,20000,
+	     (FUNCPTR)tm_TCC, AZIMUTH,
+	     0,0,0,0,0,0,0,0,0);
+   taskSpawn("tmAlt",47,VX_FP_TASK,20000,
+	     (FUNCPTR)tm_TCC, ALTITUDE,
+	     0,0,0,0,0,0,0,0,0);
+   taskSpawn("tmRot",47,VX_FP_TASK,20000,
+	     (FUNCPTR)tm_TCC, INSTRUMENT,
+	     0,0,0,0,0,0,0,0,0);
 /*
  * Declare commands
  */
@@ -3465,13 +3605,13 @@ axisMotionInit(void)
    define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0);
    define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 1);
    define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 1);
-   define_cmd("CLAMP.OFF",     clampoff_cmd, 	  0, 1, 1);
-   define_cmd("CLAMP.ON",      clampon_cmd, 	  0, 1, 1);
    define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1);
+   define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 1);
    define_cmd("HALT",          hold_cmd, 	  0, 1, 1);
    define_cmd("HOLD",          hold_cmd, 	  0, 1, 1);
    define_cmd("ID",            id_cmd, 		  0, 0, 1);
    define_cmd("INIT",          init_cmd, 	  0, 1, 1);
+   define_cmd("ROT",           rot_cmd, 	  0, 0, 0);
    define_cmd("IR",            rot_cmd, 	  0, 0, 0);
    define_cmd("MAXACC",        maxacc_cmd, 	  1, 1, 1);
    define_cmd("MAXVEL",        maxvel_cmd, 	  1, 1, 1);
@@ -3483,7 +3623,7 @@ axisMotionInit(void)
    define_cmd("MOVE",          move_cmd, 	 -1, 1, 1);
    define_cmd("SET.LIMITS",    set_limits_cmd,    2, 1, 1);
    define_cmd("SET.MONITOR",   set_monitor_cmd,   1, 1, 1);
-   define_cmd("SET.POS.VA",    set_pos_va_cmd, 	  3, 1, 1);
+   define_cmd("SET.POS.VA",    goto_pos_va_cmd,   3, 1, 1);
    define_cmd("SET.POSITION",  set_pos_cmd, 	  1, 1, 1);
    define_cmd("SET.VELOCITY",  set_vel_cmd, 	  1, 1, 1);
    define_cmd("STATS",         stats_cmd, 	  0, 0, 1);
@@ -3491,8 +3631,9 @@ axisMotionInit(void)
    define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 1);
    define_cmd("STOP",          stop_cmd, 	  0, 1, 1);
    define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0);
-   define_cmd("TBAR.LATCH",    tbar_latch_cmd,    1, 1, 1);
+   define_cmd("AZ",            tel1_cmd,          0, 0, 0);
    define_cmd("TEL1",          tel1_cmd,          0, 0, 0);
+   define_cmd("ALT",           tel2_cmd,          0, 0, 0);
    define_cmd("TEL2",          tel2_cmd,          0, 0, 0);
    
    return 0;
