@@ -5,7 +5,6 @@
   This module contains routines that provide a high resolution
   timer.
 
-  $Id$
 ============================================================================*/
 #include <vxWorks.h>
 #include <iv.h>

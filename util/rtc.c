@@ -1,32 +1,14 @@
 /************************************************************************/
 /* Copyright 1990 - 1993 MBARI						*/
 /************************************************************************/
-/* $Header$			*/
 /* Summary  : Functions to read time from MK48T08 chip on MVME-162 CPU	*/
 /*		under vxWorks						*/
 /* Filename : rtc.c							*/
 /* Author   : Bob Herlien (rah)						*/
 /* Project  : Tiburon ROV						*/
-/* $Revision$							*/
 /* Created  : 02/28/91							*/
 /************************************************************************/
 /* Modification History:						
- * $Log$
- * Revision 1.3  2000/01/29 10:25:02  briegel
- * modified makefile, installed 162 kernel h fileis and deleted unused c files
- *
- * Revision 1.2  2000/01/26 08:31:07  ekinney
- * Charlie's edits 25 Jan 2000
- *
- * Revision 1.1.1.1  1999/04/14 14:59:56  yanny
- * inital rev
- *
- * Revision 1.1.1.1  1999/04/14 05:33:46  spock
- * First entry of the MCP into CVS by matt newcomb
- * I made an attempt to cleanup the origional mcp directory.  It was hard
- * to tell what code was actually being used, so I could have made a mistake.
- * Please check to make sure everything is there, and if there is something that
- * you don't need, please remove it.
  *
  * Revision 1.2  91/09/23  09:38:59  09:38:59  hebo (Bob Herlien 408-647-3748)
  * Minor bug fixes, added -DMICROTIME
@@ -53,7 +35,7 @@
 #include <timers.h>			/* time structure definitions	    */
 #include <taskLib.h>			/* VxWorks task definitions	    */
 #include <sysLib.h>			/* VxWorks driver definitions	    */
-#include <usrTime.h>			/* time structure definitions	    */
+#include <usrtime.h>			/* time structure definitions	    */
 
 #include "mv162.h"			/* Hardware defns for MVME-162	    */
 

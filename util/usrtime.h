@@ -1,39 +1,17 @@
 /************************************************************************/
-/* $Header$		*/
 /* Summary  : Unix-compatible Time Definitions and Declarations		*/
 /* Filename : usrTime.h							*/
 /* Author   : Bob Herlien (rah)						*/
 /* Project  : ROV 1.5							*/
-/* $Revision$							*/
 /* Created  : 02/28/91							*/
 /************************************************************************/
-/* Modification History:						
- * $Log$
- * Revision 1.4  2000/02/01 15:42:33  briegel
- *  define to VX_DSC_DIR for pathe in make
- *
- * Revision 1.3  2000/01/29 10:27:28  briegel
- * get rid of imbedded
- *
- * Revision 1.2  2000/01/26 08:31:07  ekinney
- * Charlie's edits 25 Jan 2000
- *
- * Revision 1.1.1.1  1999/04/14 14:59:57  yanny
- * inital rev
- *
- * Revision 1.1.1.1  1999/04/14 05:33:46  spock
- * First entry of the MCP into CVS by matt newcomb
- * I made an attempt to cleanup the origional mcp directory.  It was hard
- * to tell what code was actually being used, so I could have made a mistake.
- * Please check to make sure everything is there, and if there is something that
- * you don't need, please remove it.
- *
+/*
  * Revision 1.1  91/09/06  16:05:01  16:05:01  hebo (Bob Herlien 408-647-3748)
  * Various minor fixes, found while porting ntp
  * 
  * Revision 1.0  91/08/09  11:10:57  11:10:57  hebo (Bob Herlien 408-647-3748)
  * Initial revision
- * 	*/
+ */
 /* 28feb91 rah, Ported from HP-UX <sys/time.h> and vxWorks <systime.h>	*/
 /************************************************************************/
 /* Note that, with all the conditionals below, we're trying not to	*/

@@ -1,12 +1,10 @@
 /************************************************************************/
 /* Copyright 1990 MBARI							*/
 /************************************************************************/
-/* $Header$		*/
 /* Summary  : Unix-compatible Time Routines for SBE VPU-30 under vxWorks*/
 /* Filename : usrTime.c							*/
 /* Author   : Bob Herlien (rah)						*/
 /* Project  : New ROV							*/
-/* $Revision$							*/
 /* Created  : 02/28/91							*/
 /************************************************************************/
 /* Modification History:						*/
