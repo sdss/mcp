@@ -119,6 +119,7 @@ mei-new/ccoord.c -text
 mei-new/cntdown.c -text
 mei-new/coil.c -text
 mei-new/disded.c -text
+mei-new/doc/frame_m.txt -text
 mei-new/envutil.c -text
 mei-new/eventint.c -text
 mei-new/eventio.c -text
