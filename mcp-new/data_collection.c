@@ -318,10 +318,16 @@ slc500_data_collection(unsigned long freq)
 	axis_stat[ALTITUDE].stop_in =
 	  axis_stat[INSTRUMENT].stop_in = (check_stop_in() ? 1 : 0);
 
-      axis_stat[AZIMUTH].semCmdPort_taken =
-	axis_stat[ALTITUDE].semCmdPort_taken =
-	  axis_stat[INSTRUMENT].semCmdPort_taken =
-	    (getSemTaskId(semCmdPort) != 0) ? 1 : 0;
+      {
+	 const int cmdPortTask = getSemTaskId(semCmdPort);
+
+	 axis_stat[AZIMUTH].semCmdPort_taken =
+	   axis_stat[ALTITUDE].semCmdPort_taken =
+	     axis_stat[INSTRUMENT].semCmdPort_taken =
+	       (cmdPortTask == ERROR ||
+		cmdPortTask == 0 ||
+		cmdPortTask == taskNameToId("TCC")) ? 0 : 1;
+      }
       
       axis_stat[AZIMUTH].amp_bad = az_amp_ok()  ? 0 : 1;
       axis_stat[ALTITUDE].amp_bad = alt_amp_ok() ? 0 : 1;
