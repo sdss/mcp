@@ -67,7 +67,6 @@ SEM_ID semSLCDC=NULL;
 int rawtick=0;
 /* Enables for axis 0, 2, 4: Azimuth(0), Altitude(2), Rotator(4) */
 int MEIDC_Enable[]={TRUE,TRUE,TRUE};
-int MEIDC_Rotate=0;
 unsigned long DC_freq=0;
 unsigned long mei_freq=1;
 unsigned long slc_freq=100;
@@ -157,7 +156,8 @@ void
 mei_data_collection(unsigned long freq)
 {
    int i;
-   int rotate;
+   int MEIDC_Rotate = 0;		/* which axis to collect next */
+   int rotate;				/* used to choose next MEIDC_Rotate */
    
    /*  ****************************************************  **
        put whatever type of motion you want to sample here.
@@ -195,9 +195,11 @@ mei_data_collection(unsigned long freq)
 	 semGive(semMEI);
       } else {
 	 pcdsp_transfer_block(dspPtr,TRUE,FALSE,
-			      DATA_STRUCT(dspPtr, i*2,DS_PREV_ENCODER),
+			      DATA_STRUCT(dspPtr, i*2, DS_PREV_ENCODER),
 			      DS_SIZE+4, (short *)tmaxis[i]);
-	 if(dsp_error) {
+	 if(dsp_error != DSP_OK) {
+	    TRACE(0, "Failed to read MEI data for %s: %d",
+		  axis_name(i), dsp_error);
 	    tmaxis[i]->status = dsp_error;
 	    tmaxis[i]->errcnt++;
 	 } else {
