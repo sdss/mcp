@@ -184,6 +184,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
       
    fprintf(fd, "typedef struct {\n");
    fprintf(fd, "   int time;\n");
+   fprintf(fd, "   char mcpVersion[100];\n");
    fprintf(fd, "} START_FIDUCIAL;\n");
    fprintf(fd, "\n");
 
@@ -266,7 +267,7 @@ write_fiducial_log(const char *type,	/* type of entry */
  */
    if(strcmp(type, "ALT_FIDUCIAL") == 0) {
       float vel = arg0;
-      int alt_pos = arg1;
+      int alt_pos = arg1 + (arg1 > 0 ? 0.5 : -0.5);
 
       fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d %9.0f\n", type,time(NULL),
 	      fididx, true, pos1, pos2, deg, alt_pos, vel);
@@ -276,30 +277,31 @@ write_fiducial_log(const char *type,	/* type of entry */
 	      fididx, true, pos1, pos2, deg, vel);
    } else if(strcmp(type, "ROT_FIDUCIAL") == 0) {
       float vel = arg0;
-      int rot_latch = arg1;
+      int rot_latch = arg1 + (arg1 > 0 ? 0.5 : -0.5);
       
       fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d %9.0f\n", type,time(NULL),
 	      fididx, true, pos1, pos2, deg, rot_latch, vel);
    } else if(strcmp(type, "DEFINE_FIDUCIALS") == 0) {
       fprintf(fd, "%s %d %s\n", type, time(NULL), axis_name(axis));
    } else if(strcmp(type, "START_FIDUCIAL") == 0) {
-      fprintf(fd, "%s %d\n", type, time(NULL));
+      char buff[100];
+      fprintf(fd, "%s %d \"%s\"\n", type, time(NULL), mcpVersion(buff, 100));
    } else if(strcmp(type, "SET_FIDUCIAL") == 0) {
-      int correction = arg0;
+      int correction = arg0 + (arg0 > 0 ? 0.5 : -0.5);
 
       fprintf(fd, "%s %d %s  %3d %9d  %9d %9.3f  %d\n", type, time(NULL),
 	      axis_name(axis), fididx, true, pos1, deg, correction);
    } else if(strcmp(type, "SET_FIDUCIAL_ERROR") == 0) {
-      int error = arg0;
+      int error = arg0 + (arg0 > 0 ? 0.5 : -0.5);
 
       fprintf(fd, "%s %d %s  %d\n", type, time(NULL), axis_name(axis), error);
    } else if(strcmp(type, "UPDATE_ENCODER") == 0) {
-      int offset = arg0;
+      int offset = arg0 + (arg0 > 0 ? 0.5 : -0.5);
       
       fprintf(fd, "%s %d %s  %d  %d\n", type, time(NULL),
 	      axis_name(axis), pos1, offset);
    } else if(strcmp(type, "DISABLE_MS_CORRECTION") == 0) {
-      int correction = arg0;
+      int correction = arg0 + (arg0 > 0 ? 0.5 : -0.5);
       
       fprintf(fd, "%s %d %s  %d\n", type, time(NULL),
 	      axis_name(axis), correction);
@@ -616,7 +618,7 @@ tLatch(const char *name)
    int pos_is_mark;			/* is this a "real" mark on
 					   the rotator, not one of the dithered
 					   ones? */
-   int relatch = 0;			/* re-enable latches? */
+   int relatch = 1;			/* re-enable latches? */
    int ret;				/* a return code */
    long rot_latch = 0;			/* position of last rotary latch seen*/
    int status;
@@ -625,12 +627,8 @@ tLatch(const char *name)
 #endif
    double vel;				/* an axis' velocity */
    
-   for(latchidx = -1;; latchidx = (latchidx + 1)%MAX_LATCHED) {
-      if(latchidx < 0) {
-	 latchidx = 0;
-	 dio316int_bit = 0;
-	 relatch = 0;
-      } else if(relatch) {
+   for(latchidx = 0;; latchidx = (latchidx + 1)%MAX_LATCHED) {
+      if(relatch) {
 /*
  * send message requesting the latches to rearm, reenabling interrupts
  */
@@ -642,8 +640,6 @@ tLatch(const char *name)
 			NO_WAIT, MSG_PRI_NORMAL);
 	 assert(ret == OK);
 	 TRACE(2, "RHL Sending latch reenable: 0x%x", dio316int_bit, 0);
-
-	 dio316int_bit = 0;
       }
 /*
  * The interrupt routine DIO316_interrupt sends a message to msgLatched
@@ -654,8 +650,9 @@ tLatch(const char *name)
       assert(ret != ERROR);
 /*
  * What sort of message?
- *   alignClamp_type        A request from the outside world to move clamp
- *   alignClampCheck_type   A request from us to check that the clamp moved
+ *   latchCrossed_type:          We crossed a fiducial
+ *   ms_on_{az,alt,inst}_type:   We received ms.on for the specified axis
+ *   ms_off_{az,alt,inst}_type:  We received ms.off for the specified axis
  */
       relatch = 0;			/* re-enable latches? */
       switch (msg.type) {
@@ -723,7 +720,11 @@ tLatch(const char *name)
       }
 /*
  * Time to read the latches and do the work
+ *
+ * Start by checking that the MEIs are latched
  */
+      assert(relatch == 1);		/* == we saw a latchCrossed_type msg */
+
       for(i = 15, status = FALSE; status == FALSE && i > 0; i--) {
 	 ret = semTake(semMEI, WAIT_FOREVER);
 	 assert(ret != ERROR);
@@ -736,7 +737,7 @@ tLatch(const char *name)
       
       TRACE(2, "RHL read latch status: 0x%x", dio316int_bit, 0);
       
-      if(status == FALSE) {		/* we didn't see anything */
+      if(status == FALSE) {		/* The MEIs didn't latch */
 	 latchpos[latchidx].axis = -(dio316int_bit & 0xe);
 	 if(latchpos[latchidx].axis == 0) {
 	    TRACE(0, "Impossible condition: latch interrupt but no bits set",
@@ -750,7 +751,8 @@ tLatch(const char *name)
 	 continue;
       }
 /*
- * OK, we read a latch position so do something with it
+ * OK, we latched on (at least one) fiducial, so read the positions of
+ * the appropriate axis (axes) and take proper actions
  */
       ret = semTake(semLatch, WAIT_FOREVER);
       assert(ret != ERROR);
@@ -1052,17 +1054,8 @@ tLatch(const char *name)
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: DIO316ClearISR_delay
-**
-** DESCRIPTION:
 **	Task is spawned to delay enabling interrupt and arming latch
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
 **
 ** GLOBALS REFERENCED:
 **	tm_DIO316
@@ -1093,8 +1086,9 @@ DIO316ClearISR_delay(void)
 /*
  * OK, we have our orders
  */
-      DIO316ClearISR(tm_DIO316);
       taskDelay(msg.u.latchReenable.timeout);
+
+      DIO316ClearISR(tm_DIO316);
       
       status = semTake(semMEI,WAIT_FOREVER);
       assert(status == OK);
@@ -1107,15 +1101,12 @@ DIO316ClearISR_delay(void)
       }
       semGive (semMEI);
 
-      if(dio316int_bit & AZIMUTH_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
-      }
-      if(dio316int_bit & ALTITUDE_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
-      }
-      if(dio316int_bit & INSTRUMENT_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
-      }
+/*
+ * Reenable interrupts on all axes
+ */
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
    }
 }	 
 
@@ -2137,10 +2128,6 @@ tLatchInit(void)
 		(FUNCPTR)DIO316ClearISR_delay,
 		0,0,0,0,0,0,0,0,0,0);
    }
-/*
- * Prepare to read fiducials
- */
-   arm_latch(TRUE);
 /*
  * Initialise arrays
  */
