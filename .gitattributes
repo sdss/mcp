@@ -286,6 +286,7 @@ util/Makefile -text
 util/dscTrace.c -text
 util/iptime.c -text
 util/microtime.c -text
+util/ntp.c -text
 util/rtc.c -text
 util/tasks.c -text
 util/timer.c -text
