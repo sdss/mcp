@@ -43,6 +43,7 @@
 
 /* function prototypes */
 char *reboot_cmd(char *cmd);
+char *axis_status_cmd(char *cmd);
 char *correct_cmd(char *cmd);
 char *drift_cmd(char *cmd);
 char *id_cmd(char *cmd);
@@ -82,7 +83,6 @@ char *brakeoff_cmd(char *cmd);
 char *clampon_cmd(char *cmd);
 char *clampoff_cmd(char *cmd);
 char *cwmov_cmd(char *cmd);
-char *cwpos_cmd(char *cmd);
 char *cwinst_cmd(char *cmd);
 char *cwabort_cmd(char *cmd);
 char *cwstatus_cmd(char *cmd);
@@ -144,6 +144,7 @@ struct FIDUCIALS {
       long dnlimit_cts;
    };
 #endif
+
 void set_rot_coeffs (int state, int index, short val);
 void print_rot_coeffs (void);
 void set_rot_uplimit (int state, int val);
@@ -158,6 +159,18 @@ const char *getCvsTagname(void);
 void restore_pos(void);
 extern double sdss_get_time(void);
 
+int mcp_set_pos(int axis, double pos);
+int mcp_set_vel(int axis, double vel);
+int mcp_set_fiducial(int axis);
+int mcp_set_brake(int axis);
+int mcp_unset_brake(int axis);
+int mcp_halt(int axis);
+int mcp_amp_reset(int axis);
+int mcp_cw_abort(void);
+int mcp_set_cw(int cw, int cwpos, const char **ans);
+int mcp_stop_axis(int axis);
+int mcp_move_va(int axis, long pos, long vel, long acc);
+
 /*
  * Semaphores
  */
@@ -168,6 +181,7 @@ extern SEM_ID semSLC;
 /*
  * extern declarations for globals
  */
+extern int axis_select;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 extern double sec_per_tick[3];
 extern double ticks_per_degree[3];
 extern long fiducial_position[3];
