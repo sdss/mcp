@@ -28,6 +28,7 @@
 #include "inetLib.h"
 #include "taskLib.h"
 #include "rebootLib.h"
+#include "sysLib.h"
 #include "in.h"
 #include "timers.h"
 #include "time.h"
@@ -46,6 +47,7 @@
 #include "math.h"
 #include "tm.h"
 #include "axis.h"
+#include "cw.h"
 
 #define	DSP_IO_BASE		(0x300)			/* in A16/D16 space. */
 /* below is a place for DIAGNOStic flag for turning off the feature
@@ -112,7 +114,7 @@ SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
 SEM_ID semLOADFRAME=NULL;
 int tm_DIO316,tm_DID48;
-int axis_select=0;		/* 0=AZ,1=ALT,2=ROT */
+int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT,3=ENCL, -1=ERROR  */
 int MEI_interrupt=FALSE;
 int DIO316_Init=FALSE;
 int DID48_Init=FALSE;
@@ -122,7 +124,7 @@ struct FRAME_QUEUE axis_queue[]={
 		{0,NULLPTR,NULLPTR},
 		{0,NULLPTR,NULLPTR}
 };
-double max_velocity[]={1.0,1.0,1.5,0,0,0};
+double max_velocity[]={2.25,1.75,2.25,0,0,0};
 double max_acceleration[]={4.,4.,6.0,0,0,0};
 float time1[3],time2[3];
 int CALC_verbose=FALSE;
@@ -147,6 +149,12 @@ struct FRAME offset[3][2];
 struct FRAME *offset_queue_end[3]={NULL,NULL,NULL};
 int offset_idx[3]={0,0,0};
 
+char *reboot_cmd(char *cmd)
+{
+  printf (" <break> command fired\r\n");
+  reboot(BOOT_NORMAL);
+  return 0;
+}
 char *correct_cmd(char *cmd)
 {
   printf (" CORRECT command fired\r\n");
@@ -166,6 +174,7 @@ char *drift_cmd(char *cmd)
 /*  extern struct TM_M68K *tmaxis[];*/
 
 /*  printf (" DRIFT command fired\r\n");*/
+  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
   if (semTake (semMEI,60)!=ERROR)
   {
     drift_break[axis_select]=TRUE;
@@ -185,6 +194,7 @@ char *drift_cmd(char *cmd)
     time=sdss_get_time();
     taskUnlock();
     semGive (semMEI);
+    if (time<0) return "ERR: BAD TIME";
   }
   else
     return "ERR: semMEIUPD";
@@ -194,26 +204,22 @@ char *drift_cmd(char *cmd)
   return drift_ans;
 }
 
-char *gp1_cmd(char *cmd)
+char *encl_cmd(char *cmd)
 {
-  printf ("NOT IMPLEMENTED:  GP1 command fired\r\n");
-  return 0;
-}
-
-char *gp2_cmd(char *cmd)
-{
-  printf ("NOT IMPLEMENTED:  GP2 command fired\r\n");
+  printf ("ENCL command fired\r\n");
+  axis_select=ENCLOSURE;
   return 0;
 }
 
 char *id_ans={"0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x"};
 char *id_cmd(char *cmd)
 {
-  static char *axis_name[]={"None Specified","Azimuth","Altitude","Rotator"};
+  static char *axis_name[]={"None Specified","Azimuth","Altitude","Rotator",
+		"Enclosure"};
 
 /*  printf (" ID command fired\r\n");*/
   sprintf (id_ans,"%d %s %s\r\nDSP Firmware=V%f R%d S%d, Option=%d, Axes=%d",
-		axis_select,axis_name[axis_select],__DATE__,
+		axis_select,axis_name[axis_select+1],__DATE__,
 		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
 		dsp_option()&0xFFF,dsp_axes());
   return id_ans;
@@ -227,6 +233,8 @@ char *init_cmd(char *cmd)
 /*  extern struct SDSS_FRAME sdssdc;*/
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
+  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
   state=tm_axis_state(axis_select<<1);
 /*  if (state>2)*/		/* normal...NOEVENT,running, or NEW_FRAME */
 /*  {*/
@@ -342,25 +350,18 @@ char *move_cmd(char *cmd)
   double dt;
 
 /*  printf (" MOVE command fired\r\n");*/
+  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
   queue = &axis_queue[axis_select];
   frame = (struct FRAME *)malloc (sizeof(struct FRAME));
   if (frame==NULL) return 0;
+  if (sdss_get_time<0) return "ERR: BAD TIME";
   cnt=sscanf (cmd,"%12lf %12lf %12lf",&position,&velocity,&frame->end_time);
   switch (cnt)
   {
     case -1:
     case 0:
         tm_get_pos(axis_select<<1,&stop_position[axis_select]);
-/*
-        tm_get_vel(axis_select<<1,&velocity);
-        position = position/ticks_per_degree[axis_select];
-	velocity /= ticks_per_degree[axis_select];
-	frame->end_time = fmod((double)(sdss_get_time()+(max_acceleration[axis_select]*
-	fabs(velocity))+1.0),(double)86400.);
-*/
-/*	frame->end_time = sdss_get_time()+2.5;*/
-/*	frame->end_time = ((queue->active)->nxt)->end_time+4.;*/
-/*	printf("\r\n %lf %lf %lf",position,velocity,frame->end_time);*/
         frame_break[axis_select]=TRUE;
 /*
 	while (tm_frames_to_execute(axis_select)>1)taskDelay (1);
@@ -586,9 +587,9 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
     jioff[axis][ii]=0;
     if (CALCOFF_verbose)
       printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
-        i,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],aoff[axis][ii]);
+        ii,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],aoff[axis][ii]);
   }
-  return cnt;
+  return i;
 }
 int addoffset(int axis,int cnt)
 {
@@ -1094,12 +1095,14 @@ void tm_TCC(int axis)
 	{
 	  if ((offset_idx[axis]/20.)>offset[axis][1].end_time)
 	  {
-	    frame->position+=offset[axis][1].position;
+            frame->position+=offset[axis][1].position+
+               (offset[axis][1].velocity*offset[axis][1].end_time);
 	    frame->velocity+=offset[axis][1].velocity;
 	  }
 	  else
 	  {
-	    frame->position+=poff[axis][cntoff-1];
+	    frame->position+=poff[axis][cntoff-1]+
+               (voff[axis][cntoff-1]*offset[axis][1].end_time);
 	    frame->velocity+=voff[axis][cntoff-1];
 	  }
 	  offset_idx[axis]=0;
@@ -1235,8 +1238,11 @@ char *plus_move_cmd(char *cmd)
   int cnt;
 
 /*  printf (" +MOVE command fired\r\n");*/
+  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
   queue = &axis_queue[axis_select];
   cnt=sscanf (cmd,"%lf %lf %lf",&position,&velocity,&frame_time);
+  if (offset_queue_end[axis_select]!=NULL) return "ERR: bump active";
   switch (cnt)
   {
     case -1:
@@ -1401,7 +1407,7 @@ char *set_position_cmd(char *cmd)
 }
 
 struct tm t;
-unsigned long SDSStime=0;
+long SDSStime=-1;
 char *set_time_cmd(char *cmd)
 {
   float t1,t2,t3;
@@ -1410,6 +1416,8 @@ char *set_time_cmd(char *cmd)
   int extrasec;
 
 /*  printf (" SET.TIME command fired\r\n");*/
+  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
   cnt=sscanf (cmd,"%d %d %d %f %f %f",&t.tm_mon,&t.tm_mday,&t.tm_year,&t1,&t2,&t3);
 /*  printf ("\r\ncnt=%d",cnt);*/
   if (cnt>4)
@@ -1479,6 +1487,8 @@ char *status_cmd(char *cmd)
   extern SEM_ID semMEIUPD;
 
 /*  printf (" STATUS command fired\r\n"); */
+  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
   if (semTake (semMEIUPD,60)!=ERROR)
   {
     sprintf (status_ans,"%lf %lf %f %ld %lf",
@@ -1555,6 +1565,137 @@ char *time_cmd(char *cmd)
 */
 );
   return time_ans;
+}
+char *cw_cmd(char *cmd)
+{
+  int cw, cwpos;
+  extern struct SDSS_FRAME sdssdc;
+
+  printf (" CW command fired\r\n");
+  sscanf (cmd,"%d %d",&cw,&cwpos);
+  if ((cwpos<10)||(cwpos>800))
+    return "ERR: Position out of Range (10-800)";
+  if (taskIdFigure("cw")!=ERROR)
+    return "ERR: CW task still active";
+  if (taskIdFigure("cwp")!=ERROR)
+    return "ERR: CWP task still active";
+  if (sdssdc.status.i78.il0.alt_brake_engaged)
+    taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_posv,
+			  (int)cw,(int)&cwpos,0,0,0,0,0,0,0,0);
+  else
+    return "ERR: Altitude Brake NOT Engaged";
+  return 0;
+}
+char *cwinst_cmd(char *cmd)
+{
+  extern struct SDSS_FRAME sdssdc;
+  int inst;
+
+  printf (" CWINST command fired\r\n");
+  if ((inst=cw_get_inst(cmd))==-1)
+    return "ERR: Invalid Instrument";
+  if ((inst<0)||(inst>16)) 
+    return "ERR: Inst Out of Range (0-16)";
+  if (taskIdFigure("cw")!=ERROR)
+    return "ERR: CW task still active";
+  if (taskIdFigure("cwp")!=ERROR)
+    return "ERR: CWP task still active";
+  if (sdssdc.status.i78.il0.alt_brake_engaged)
+    taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+			  (int)inst,0,0,0,0,0,0,0,0,0);
+  else
+    return "ERR: Altitude Brake NOT Engaged";
+  return 0;
+}
+char *cwpos_cmd(char *cmd)
+{
+  extern struct SDSS_FRAME sdssdc;
+  int cwpos;
+
+  printf (" CWPOS command fired\r\n");
+  sscanf (cmd,"%d",&cwpos);
+  if ((cwpos<10)||(cwpos>800))
+    return "ERR: Position out of Range (10-800)";
+  if (taskIdFigure("cw")!=ERROR)
+    return "ERR: CW task still active";
+  if (taskIdFigure("cwp")!=ERROR)
+    return "ERR: CWP task still active";
+  cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
+  if (sdssdc.status.i78.il0.alt_brake_engaged)
+    taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+		  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
+  else
+    return "ERR: Altitude Brake NOT Engaged";
+  return 0;
+}
+char *cwabort_cmd(char *cmd)
+{
+  printf (" CWABORT command fired\r\n");
+  taskDelete(taskIdFigure("cw"));
+  taskDelete(taskIdFigure("cw"));
+  return 0;
+}
+static char *limitstatus[]={"LU","L "," U","  "};
+static char *cwstatus_ans[]={"CW# 800 UL  CW# 800 UL  CW# 800 UL  CW# 800 UL"};
+char *cwstatus_cmd(char *cmd)
+{
+  extern struct SDSS_FRAME sdssdc;
+  int i;
+  int adc;
+  int limidx;
+  extern unsigned char cwLimit;
+  extern SEM_ID semMEIUPD;
+
+  printf (" CWSTATUS command fired\r\n");
+  if (semTake (semMEIUPD,60)!=ERROR)
+  {
+    for (i=0;i<4;i++)
+    {
+/*      printf("%d\t",sdssdc.weight[i].pos);*/
+	adc=sdssdc.weight[i].pos;
+        if ((adc&0x800)==0x800) adc |= 0xF000;
+        else adc &= 0xFFF;
+	limidx = (cwLimit>>(i*2))&0x3;
+        sprintf (&cwstatus_ans[i*12],"CW%d %d %s\n",
+	  i,(10*adc)/2048,limitstatus[limidx]);
+    }
+    semGive (semMEIUPD);
+  }
+  return cwstatus_ans;
+}
+char *brakeon_cmd(char *cmd)
+{
+  printf (" BRAKEON command fired\r\n");
+  if (axis_select==AZIMUTH)
+    tm_sp_az_brake_on();
+  else if (axis_select==ALTITUDE)
+         tm_sp_alt_brake_on();
+       else
+         return "ERR: ILLEGAL DEVICE SELECTION";
+  return 0;
+}
+char *brakeoff_cmd(char *cmd)
+{
+  printf (" BRAKEOFF command fired\r\n");
+  if (axis_select==AZIMUTH)
+    tm_sp_az_brake_off();
+  else if (axis_select==ALTITUDE)
+         tm_sp_alt_brake_off();
+       else
+         return "ERR: ILLEGAL DEVICE SELECTION";
+  return 0;
+}
+char *clampon_cmd(char *cmd)
+{
+  printf (" CLAMPON command fired\r\n");
+  tm_sp_clamp_on();
+  return 0;
+}
+char *clampoff_cmd(char *cmd)
+{
+  printf (" CLAMPOFF command fired\r\n");
+  tm_sp_clamp_off();
+  return 0;
 }
 int print_axis_queue(int axis)
 {
@@ -2049,21 +2190,30 @@ void set_fiducials (int axis)
         for (i=0;i<48;i++)
         {
           if (az_fiducial[i].markvalid)
+	  {
             az_fiducial_position[i]=az_fiducial[i].mark;
+	    az_fiducial[i].poserr=0;
+	  }
         }
         break;
     case 1:
         for (i=0;i<7;i++)
         {
           if (alt_fiducial[i].markvalid)
+	  {
             alt_fiducial_position[i]=alt_fiducial[i].mark;
+	    alt_fiducial[i].poserr=0;
+          }
         }
         break;
     case 2:
         for (i=0;i<156;i++)
         {
           if (rot_fiducial[i].markvalid)
-                rot_fiducial_position[i]=rot_fiducial[i].mark;
+	  {
+            rot_fiducial_position[i]=rot_fiducial[i].mark;
+            rot_fiducial[i].poserr=0;
+          }
         }
         break;
     }
@@ -2220,11 +2370,14 @@ void DID48_interrupt(int type)
 	  NIST_cnt++;
           if (did48int_bit&NIST_INT)
           {
-	    SDSS_cnt++;
-            SDSStime=(SDSStime+1)%DAYINSECS;
+	    if (SDSStime>0)
+	    {
+	      SDSS_cnt++;
+              SDSStime=(SDSStime+1)%DAYINSECS;
 
-            NIST_sec=timer_read (1);
-            timer_start (1);
+              NIST_sec=timer_read (1);
+              timer_start (1);
+	    }
 /*            logMsg ("NIST_INTERRUPT,%d %d, did48int_bit=%x, cnt=%d\r\n",
 		type,NIST_sec,(short)did48int_bit,NIST_cnt,0,0);*/
           }

@@ -17,14 +17,16 @@
 #ifndef __AXIS_H__
 
 #define NAXIS			3
+#define NOT_SPECIFIED		-1
 #define AZIMUTH			0
 #define ALTITUDE		1
 #define	INSTRUMENT		2
+#define	ENCLOSURE		3
 
 #define SDSS_STOP_RATE		200000.0
 #define SDSS_E_STOP_RATE	200000.0
 #define AZ_TICK		(.0140167104063)   /* (.0035053554041*4)*/
-#define ALT_TICK 	(.0035022862146*4)
+#define ALT_TICK 	(.0140091448584)   /* (.0035022862146*4)*/
 #ifdef ROT_ROTARY_ENCODER
 #define ROT_ROTARY_ENCODER	1
 #define ROT_TICK	(.0127597662202) /* rotary encoder */
@@ -42,19 +44,19 @@
 #define ROT_TICKS_DEG	(3600/ROT_TICK)
 
 /* function prototypes */
+char *reboot_cmd(char *cmd);
 char *correct_cmd(char *cmd);
 char *drift_cmd(char *cmd);
-char *gp1_cmd(char *cmd);
-char *gp2_cmd(char *cmd);
+char *encl_cmd(char *cmd);
 char *id_cmd(char *cmd);
 char *init_cmd(char *cmd);
 char *maxacc_cmd(char *cmd);
 char *maxvel_cmd(char *cmd);
 char *mc_dump_cmd(char *cmd);
-char *mc_max_acc_cmd(char *cmd);
-char *mc_max_pos_cmd(char *cmd);
-char *mc_max_vel_cmd(char *cmd);
-char *mc_min_pos_cmd(char *cmd);
+char *mc_maxacc_cmd(char *cmd);
+char *mc_maxpos_cmd(char *cmd);
+char *mc_maxvel_cmd(char *cmd);
+char *mc_minpos_cmd(char *cmd);
 char *move_cmd(char *cmd);
 char *plus_move_cmd(char *cmd);
 char *mr_dump_cmd(char *cmd);
@@ -77,6 +79,15 @@ char *tel2_cmd(char *cmd);
 char *ticklost_cmd(char *cmd);
 char *time_cmd(char *cmd);
 char *dummy_cmd(char *cmd);
+char *brakeon_cmd(char *cmd);
+char *brakeoff_cmd(char *cmd);
+char *clampon_cmd(char *cmd);
+char *clampoff_cmd(char *cmd);
+char *cw_cmd(char *cmd);
+char *cwpos_cmd(char *cmd);
+char *cwinst_cmd(char *cmd);
+char *cwabort_cmd(char *cmd);
+char *cwstatus_cmd(char *cmd);
 
 #define CONTROL_BUFFER_EMPTY	00000001L
 #define MOVE_TMO		00000002L

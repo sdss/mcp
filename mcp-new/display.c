@@ -155,11 +155,11 @@ int Axis=4;
 static int STOPed[6]={TRUE,TRUE,TRUE,TRUE,TRUE,TRUE};
 int adjpos[6]={0,0,0,0,0,0};
 int adjvel[6]={0,0,0,0,0,0};
-int adjacc[6]={10000,10000,10000,10000,10000,10000};
+int adjacc[6]={70000,10000,10000,10000,10000,10000};
 int incvel[6]={1000,0,1000,0,1000,0};
 int Axis_vel[6]={0,0,0,0,0,0};
-int Axis_vel_neg[6]={-300000,0,-600000,0,-250000,0};
-int Axis_vel_pos[6]={300000,0,600000,0,250000,0};
+int Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
+int Axis_vel_pos[6]={700000,0,600000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
 float altclino_sf=.0049016925256;

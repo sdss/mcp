@@ -718,12 +718,12 @@ void tm_alt_brake_off()
 void tm_sp_alt_brake_on()
 {
   if (taskIdFigure("tmAltBrk")!=NULL)
-    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake_off,1,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_alt_brake_off()
 {
   if (taskIdFigure("tmAltBrk")!=NULL)
-    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake_off,0,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
 }
 int tm_brake_status()
 {
@@ -852,6 +852,16 @@ void tm_clamp_on()
 void tm_clamp_off()
 {
     tm_clamp (0);
+}
+void tm_sp_clamp_on()
+{
+  if (taskIdFigure("tmClamp")!=NULL)
+    taskSpawn("tmClamp",90,0,1000,(FUNCPTR)tm_clamp,1,0,0,0,0,0,0,0,0,0);
+}
+void tm_sp_clamp_off()
+{
+  if (taskIdFigure("tmClamp")!=NULL)
+    taskSpawn("tmClamp",90,0,1000,(FUNCPTR)tm_clamp,0,0,0,0,0,0,0,0,0,0);
 }
 int tm_clamp_status()
 {

@@ -24,52 +24,15 @@ int cmd_init();
 char *cmd_handler(char *cmd);
 void get_ctrl(SEM_ID sem), rtn_ctrl(SEM_ID sem);
 
-extern char *correct_cmd(char *cmd);
-extern char *drift_cmd(char *cmd);
-extern char *gp1_cmd(char *cmd);
-extern char *gp2_cmd(char *cmd);
-extern char *id_cmd(char *cmd);
-extern char *init_cmd(char *cmd);
-extern char *maxacc_cmd(char *cmd);
-extern char *maxvel_cmd(char *cmd);
-extern char *mc_dump_cmd(char *cmd);
-extern char *mc_maxacc_cmd(char *cmd);
-extern char *mc_maxpos_cmd(char *cmd);
-extern char *mc_maxvel_cmd(char *cmd);
-extern char *mc_minpos_cmd(char *cmd);
-extern char *move_cmd(char *cmd);
-extern char *plus_move_cmd(char *cmd);
-extern char *mr_dump_cmd(char *cmd);
-extern char *ms_dump_cmd(char *cmd);
-extern char *ms_map_dump_cmd(char *cmd);
-extern char *ms_map_load_cmd(char *cmd);
-extern char *ms_off_cmd(char *cmd);
-extern char *ms_on_cmd(char *cmd);
-extern char *ms_pos_dump_cmd(char *cmd);
-extern char *remap_cmd(char *cmd);
-extern char *rot_cmd(char *cmd);
-extern char *set_limits_cmd(char *cmd);
-extern char *set_position_cmd(char *cmd);
-extern char *set_time_cmd(char *cmd);
-extern char *stats_cmd(char *cmd);
-extern char *status_cmd(char *cmd);
-extern char *status_long_cmd(char *cmd);
-extern char *tel1_cmd(char *cmd);
-extern char *tel2_cmd(char *cmd);
-extern char *ticklost_cmd(char *cmd);
-extern char *time_cmd(char *cmd);
-extern char *dummy_cmd(char *cmd);
-
 struct COMMANDS {
 	char *command;
 	char *(*function)();
 };
 struct COMMANDS axis_cmds[] = {
-	{"\033",init_cmd},
+	{"\033",reboot_cmd},
 	{"CORRECT",correct_cmd},
 	{"DRIFT",drift_cmd},
-	{"GP1",gp1_cmd},
-	{"GP2",gp2_cmd},
+	{"ENCL",encl_cmd},
 	{"ID",id_cmd},
 	{"INIT",init_cmd},
 	{"MAXACC",maxacc_cmd},
@@ -100,6 +63,15 @@ struct COMMANDS axis_cmds[] = {
 	{"TEL2",tel2_cmd},
 	{"TICKLOST @ .",ticklost_cmd},
 	{"TIME?",time_cmd},
+	{"BRAKE.ON",brakeon_cmd},
+	{"BRAKE.OFF",brakeoff_cmd},
+	{"CLAMP.ON",clampon_cmd},
+	{"CLAMP.OFF",clampoff_cmd},
+	{"CW",cw_cmd},
+	{"CWPOS",cwpos_cmd},
+	{"CWINST",cwinst_cmd},
+	{"CWABORT",cwabort_cmd},
+	{"CWSTATUS",cwstatus_cmd},
 	{NULL,dummy_cmd}		/* termination */
 };
 #define __CMD_H__             /* do only once */

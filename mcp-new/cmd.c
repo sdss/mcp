@@ -41,6 +41,11 @@
 #include "in.h"
 #include "string.h"
 
+#include "frame.h"
+#include "ms.h"
+#include "idsp.h"
+#include "pcdsp.h"
+#include "axis.h"
 #include "cmd.h"
 
 /* below is a place for DIAGNOStic flag for turning off the feature

@@ -23,8 +23,13 @@
 #define DAC128V_CHANS		8
 #define INST_DEFAULT		16
 
+char *balance_weight(int inst);
+char *balance_cmd(char *cmd);
 void cw_set_positionv(int inst, short p1, short p2, short p3, short p4);
 void cw_set_posv(int inst, short *p1, short *p2, short *p3, short *p4);
+void cw_posv(int cw, short *pos);
+int cw_get_inst(char *cmd);
+
 #define __CW_H__             /* do only once */
 
 #endif	/* End __CW_H__ */
