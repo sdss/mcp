@@ -99,6 +99,7 @@ mcp-new/ms.h -text
 mcp-new/mv162.h -text
 mcp-new/serial.c -text
 mcp-new/telescope_motion.c -text
+mcp-new/telnetCmds.c -text
 mcp-new/timerint.h -text
 mcp-new/tm.h -text
 mcp-new/umbilical.c -text
