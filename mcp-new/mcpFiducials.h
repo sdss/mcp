@@ -24,6 +24,7 @@ struct FIDUCIARY {
 
 struct FIDUCIALS {
    int markvalid;			/* is this valid? */
+   int disabled;			/* is this fiducial disabled? */
    long mark;				/* position the last time we crossed
 					   a fiducial */
    long last;				/* previous value of mark */
