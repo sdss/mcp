@@ -177,6 +177,12 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "   AXIS axis;\n");
    fprintf(fd, "} MS_OFF;\n");
    fprintf(fd, "\n");
+
+   fprintf(fd, "typedef struct {\n");
+   fprintf(fd, "   int time;\n");
+   fprintf(fd, "   int dio316;\n");
+   fprintf(fd, "} BAD_DIO316;\n");
+   fprintf(fd, "\n");
 }
 
 /*****************************************************************************/
@@ -286,6 +292,9 @@ write_fiducial_log(const char *type,	/* type of entry */
       fprintf(fd, "%s %d %s\n", type, time(NULL), aname);
    } else if(strcmp(type, "MS_OFF") == 0) {
       fprintf(fd, "%s %d %s\n", type, time(NULL), aname);
+   } else if(strcmp(type, "BAD_DIO316") == 0) {
+      int dio316 = iarg0;
+      fprintf(fd, "%s %d %d\n", type, time(NULL), dio316);
    } else {
       TRACE(0, "Unknown entry type for fiducial log: %s", type, 0);
    }
@@ -737,6 +746,23 @@ tLatch(const char *name)
  */
       assert(relatch == 1);		/* == we saw a latchCrossed_type msg */
 
+      if(dio316int_bit == AZIMUTH_INT) {
+	 axis = AZIMUTH;
+      } else if(dio316int_bit == ALTITUDE_INT) {
+	 axis = ALTITUDE;
+      } else if(dio316int_bit == INSTRUMENT_INT) {
+	 axis = INSTRUMENT;
+      } else {
+	 TRACE(1, "More than one axis reports a fiducial interrupt: 0x%x",
+	       dio316int_bit, 0);
+
+	 write_fiducial_log("BAD_DIO316", axis,
+			    0, 0, 0, 0, 0,
+			    0.0, 0.0, dio316int_bit, 0);
+
+	 continue;
+      }
+
       for(i = 0; i < 15; i++) {
 	 ret = semTake(semMEI, WAIT_FOREVER);
 	 assert(ret != ERROR);
@@ -754,24 +780,15 @@ tLatch(const char *name)
 	 int nlatch_allowed = 1;	/* max. number of tries allowed
 					   (unlimited if <= 0)*/
 	 if(i > 1) {			/* but too late */
-	    char axis_str[20];
-
-	    if(dio316int_bit == AZIMUTH_INT) {
-	       strcpy(axis_str,"azimuth");
-	    } else if(dio316int_bit == ALTITUDE_INT) {
-	       strcpy(axis_str, "altitude");
-	    } else if(dio316int_bit == INSTRUMENT_INT) {
-	       strcpy(axis_str, "rotator");
-	    } else {
-	       sprintf(axis_str, "(0x%x)", dio316int_bit);
-	    }
-
+	    get_velocity(2*axis, &vel);
 	    TRACE(3, "%s: took %d attempts to read MEI latch status",
-								  axis_str, i);
+							   axis_name(axis), i);
+	    TRACE(3, "CONT   vel = %f", vel, 0);
 
 	    nlatch_allowed = -1;	/* allow any number */
 	    if(nlatch_allowed > 0 && i > nlatch_allowed) {
-	       TRACE(1, "Ignoring delayed latch on %s (%d tries)", axis_str,i);
+	       TRACE(1, "Ignoring delayed latch on %s (%d tries)",
+		     axis_name(axis), i);
 	       continue;		/* We can't trust delayed latches */
 	    }
 	 }
@@ -783,14 +800,14 @@ tLatch(const char *name)
 	    latchpos[latchidx].axis = -0x10;
 	 }
 
-	 TRACE(1, "failed to read latch position: status = %d axis 0x%x",
-	       status, dio316int_bit);
+	 TRACE(1, "failed to read latch position: status = %d axis %s",
+	       status, axis_name(axis));
 
 	 continue;
       }
 /*
- * OK, we latched on (at least one) fiducial, so read the positions of
- * the appropriate axis (axes) and take proper actions
+ * OK, we latched exactly one fiducial, so read the positions of
+ * the appropriate axis and take proper actions
  */
       ret = semTake(semLatch, WAIT_FOREVER);
       assert(ret != ERROR);
@@ -879,10 +896,7 @@ tLatch(const char *name)
 	       }
 	    }
 	 }
-      }
-
-      
-      if(dio316int_bit & ALTITUDE_INT) {
+      } else if(dio316int_bit & ALTITUDE_INT) {
 	 latchpos[latchidx].axis = ALTITUDE;
 	 ret = semTake(semMEI,WAIT_FOREVER);
 	 assert(ret != ERROR);
@@ -943,9 +957,7 @@ tLatch(const char *name)
 	       maybe_reset_axis_pos(ALTITUDE, alt_fiducial[fididx].poserr, 0);
 	    }
 	 }
-      }
-      
-      if(dio316int_bit & INSTRUMENT_INT) {
+      } else if(dio316int_bit & INSTRUMENT_INT) {
 	 latchpos[latchidx].axis = INSTRUMENT;
 	 ret = semTake(semMEI,WAIT_FOREVER);
 	 assert(ret != ERROR);
@@ -1066,6 +1078,8 @@ tLatch(const char *name)
       
 	 fiducial[INSTRUMENT].last_latch = rot_latch =
 						     latchpos[latchidx].pos[1];
+      } else {
+	 TRACE(0, "More than one axis reports a fiducial interrupt", 0, 0);
       }
 
       semGive(semLatch);

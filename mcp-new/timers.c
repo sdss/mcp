@@ -476,14 +476,12 @@ DID48_interrupt(int type)
 	 timer_start(1);		/* reset microsecond timer */
 	 return;
       }
-      
-      taskLock();
-
+/*
+ * N.b. taskLock() is not callable from interrupt routines
+ */
       SDSStime = (SDSStime + 1)%ONE_DAY;
       NIST_sec = timer_read(1);
       timer_start(1);			/* reset microsecond timer */
-
-      taskUnlock();
 
       if(NIST_sec < 1000000 - dt) {
 	 TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);

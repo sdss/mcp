@@ -602,7 +602,8 @@ char *
 status_cmd(char *cmd)
 {
    const int axis = ublock->axis_select;
-   double pos, vel;
+   double pos, vel;			/* position and velocity */
+   int ret;				/* a return code */
    double sdss_time;			/* time from sdss_get_time() */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
@@ -614,17 +615,32 @@ status_cmd(char *cmd)
       sdss_time += 1.0;
    }
    
-   if(semTake(semMEIUPD,60) == ERROR) {
-      TRACE(0, "status_cmd: failed to get semMEIUPD: %d %s",
+   if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "status_cmd: failed to get semMEI: %d %s",
 	    errno, strerror(errno));
-      sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
+      sprintf(ublock->buff, "ERR: semMEI : %s", strerror(errno));
 
       return(ublock->buff);
    }
 
    get_position_corr(2*axis, &pos);
-   get_velocity(2*axis, &vel);
+   if((ret = get_velocity(2*axis, &vel)) != DSP_OK) {
+      TRACE(0, "STATUS get_velocity: %s %s", axis_name(axis), _error_msg(ret));
+   }
+   
+   semGive(semMEI);
 
+   pos /= axis_ticks_deg(axis);
+   vel /= axis_ticks_deg(axis);
+
+   TRACE(8, "taking semMEIUPD", 0, 0);
+   if (semTake(semMEIUPD, 60) == ERROR) { 
+      TRACE(5, "status_cmd: semMEIUPD : %d", errno, 0);
+      sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
+
+      return(ublock->buff);
+   }
+   
    sprintf(ublock->buff, "%f %f %f %ld %f", pos, vel, sdss_time,
 	   (*(long *)&axis_stat[axis][0] & ~STATUS_MASK), 0.0);
    
@@ -648,16 +664,6 @@ status_cmd(char *cmd)
 **		bits status
 **		deg last index" or "ERR:..."
 **	currently returning only "bits status"
-**
-** CALLS TO:
-**	sdss_get_time
-**
-** GLOBALS REFERENCED:
-**	semMEIUPD
-**	tmaxis
-**	fiducial
-**	axis_stat
-**
 **=========================================================================
 */
 char *
