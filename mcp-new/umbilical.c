@@ -68,7 +68,9 @@ instrument_id(void)
 
    semGive(semSDSSDC);
 
-   if(inst_id1 == inst_id2 && inst_id1 == inst_id3) {
+   if(inst_id1 == inst_id2 && inst_id1 == inst_id3) { /* consistent */
+      notify = -1;
+   } else if(pri_latch_opn) {		/* not latched */
       notify = -1;
    } else {
       notify = (notify + 1)%notify_rate;
