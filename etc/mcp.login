@@ -242,4 +242,7 @@ ms_max_cmd "600"
 #
 traceOff barcodcan, 16,16
 traceTtyOn 0, 4
-
+#
+# List all tasks in case we get a task ID later; can help with debugging
+#
+i
