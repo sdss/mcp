@@ -140,6 +140,20 @@ Thu Jan 31 07:04:35 MST 2002
 	cvs rtag -r v5_9 v5_9_4 mcp
 		Fix PR 3123
 
+
 Thu Jan 31 14:48:31 MST 2002
 	cvs rtag -r v5_9 v5_9_6 mcp
 		Add BAD_DIO316
+
+Thu Feb 21 12:29:54 MST 2002
+	cvs rtag -r v5_9 v5_9_6 mcp
+	(no conflicts => no checkins beyond v5_8_7)
+	cvs update -A
+	(nothing to do)
+	cvs update -j v5_9_0 -j v5_9_6
+	cvs ci -m "Merged from v5_9 branch at point v5_9_6"
+	(n.b. some ci messages may have been:
+		"Merged from v5_8 branch at point v5_8_7"
+	in error)
+	cvs tag v5_10_0
+	cvs tag -b -r v5_10_0 v5_10
