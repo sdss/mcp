@@ -400,21 +400,30 @@ slc500_data_collection(unsigned long freq)
 **=========================================================================
 */
 int SM_COPY=TRUE;
-void DataCollectionTrigger()
+
+void
+DataCollectionTrigger(void)
 {
-  DC_freq++;
-  rawtick=tickGet();
-  
-  if ((semMEIDC!=NULL)&&(!(DC_freq%mei_freq))) semGive (semMEIDC);
-  if ((semSLCDC!=NULL)&&(!(DC_freq%slc_freq))) semGive (semSLCDC);
-  if (SM_COPY)
-  {
-    *(short *)SHARE_MEMORY = TRUE;
-    bcopy ((char *)&sdssdc,(char *)(SHARE_MEMORY+2),sizeof(struct SDSS_FRAME));
-    *(short *)SHARE_MEMORY = FALSE;
-    dc_interrupt();
-  }
+   DC_freq++;
+   rawtick=tickGet();
+   
+   if(semMEIDC != NULL && !(DC_freq%mei_freq)) {
+      semGive(semMEIDC);
+   }
+   
+   if(semSLCDC != NULL && !(DC_freq%slc_freq)) {
+      semGive (semSLCDC);
+   }
+   
+   if(SM_COPY) {
+      *(short *)SHARE_MEMORY = TRUE;
+      bcopy((char *)&sdssdc,
+	    (char *)(SHARE_MEMORY+2),sizeof(struct SDSS_FRAME));
+      *(short *)SHARE_MEMORY = FALSE;
+      dc_interrupt();
+   }
 }
+
 /*=========================================================================
 **=========================================================================
 **
