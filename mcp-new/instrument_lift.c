@@ -124,7 +124,7 @@ setup_wd(char *addr,
    sbrd.brd_ptr=(BYTE *)addr;
    
    SetInterruptVector(&sbrd,vec);
-   attach_ihandler(0,sbrd.m_InterruptVector,0,(int (*)(int))wd_isr,
+   attach_ihandler(0,sbrd.m_InterruptVector,0,(void (*)(int))wd_isr,
 		   (struct handler_data *)&sbrd);
    rebootHookAdd((FUNCPTR)shutdown_wd);
 
@@ -151,7 +151,7 @@ il_setup_wd(void)
 void
 il_data_collection(void)
 {
-   short adc;
+   unsigned short adc;
    
    if(il_ADC128F1 != -1) {
       ADC128F1_Read_Reg(il_ADC128F1,IL_POSITION,&adc);
@@ -202,7 +202,7 @@ il_data_collection(void)
 int lift_initialize(unsigned char *addr)
 {
   int i;
-  short val;
+  unsigned short val;
   struct IPACK *ip;
 
   ip = (struct IPACK *)malloc (sizeof(struct IPACK));
@@ -284,7 +284,7 @@ int lift_initialize(unsigned char *addr)
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
     {
-      setup_wd(ip->adr[i], 0xB4,3);
+      setup_wd((char *)ip->adr[i], 0xB4,3);
       il_setup_wd();
  /* VIPC610_IP_Interrupt_Enable (addr, 0, irq);*/
 /*  VMESC5_IP_Interrupt_Enable (addr, 0, irq);*/

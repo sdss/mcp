@@ -181,14 +181,14 @@ tm_print_coeffs(int mei_axis)
 **  Not used in code; only for vxWorks experiments
 */
 void
-tm_set_filter_coeff(int mei_axis, int index, int val)
+tm_set_filter_coeff(int mei_axis, int ind, int val)
 {
    short coeff[COEFFICIENTS];
    
    semTake(semMEI,WAIT_FOREVER);
 
    get_filter(mei_axis, (P_INT)coeff);
-   coeff[index] = val;
+   coeff[ind] = val;
    set_filter(mei_axis, (P_INT)coeff);
 
    semGive(semMEI);

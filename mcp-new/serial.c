@@ -81,8 +81,8 @@ void barcode_shutdown(int type);
 */
 int
 sdss_transmit(FILE *output_stream,
-	      unsigned char *const cmd,
-	      unsigned char *const buffer)
+	      char *const cmd,
+	      char *const buffer)
 {
    int status;
 
@@ -118,12 +118,12 @@ sdss_transmit(FILE *output_stream,
 static int
 sdss_receive(FILE *input_stream,
 	     int port,
-	     unsigned char *buffer,
+	     char *buffer,
 	     int size)			/* size of buffer */
 {
    int c;
    int status;
-   unsigned char *ptr;
+   char *ptr;
    int charcnt;
 
    /* Initialize if necessary */
@@ -254,7 +254,7 @@ tcc_serial(int port)
 **=========================================================================
 */
 void barcode_init(unsigned char *ip_base, unsigned short model, 
-		unsigned int vec, short ch)
+		  int vec, short ch)
 {
   struct IPACK ip;
   char devName[32];
@@ -270,7 +270,7 @@ void barcode_init(unsigned char *ip_base, unsigned short model,
       base = *((short *)(IP_MEM_BASE_BASE+(i*2)));
       printf ("\r\n base=%x, %p, %p",base, (char *)(base<<16),
 		(char *)((long)base<<16));
-      pOctSerDv=octSerModuleInit((char *)(((long)(base)<<16)+1),
+      pOctSerDv=octSerModuleInit((unsigned char *)(((long)(base)<<16)+1),
 		ip.adr[i],vec);
       printf ("\r\n pOctSerDv=%p, ip.adr[i]=%p",pOctSerDv,ip.adr[i]);
       if (octSerDrv() == ERROR)
@@ -392,7 +392,7 @@ barcode_serial(int port)
   int status;
   char barcode_buffer[256];
   int c;
-  unsigned char *ptr;
+  char *ptr;
   char *bf;
   int fiducial;
   int charcnt;
