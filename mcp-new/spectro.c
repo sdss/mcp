@@ -25,18 +25,10 @@ MSG_Q_ID msgAlignClamp = NULL;		/* control alignment clamp */
 MSG_Q_ID msgLamps = NULL;		/* control lamps */
 MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
 
-/*=========================================================================
-**
-**      Turn on/off the instrument change clamp.
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int clamp_cnt;
-
+/*****************************************************************************/
+/*
+ * Control the alignment clamp.
+ */
 void
 tAlgnClmp(void)
 {
@@ -47,7 +39,6 @@ tAlgnClmp(void)
    int ret;				/* return code */   
    struct B10_0 tm_ctrl;   
    struct B10_1 tm_ctrl1;   
-   int cnt;
 
    for(;;) {
       ret = msgQReceive(msgAlignClamp, (char *)&msg, sizeof(msg),
@@ -55,10 +46,32 @@ tAlgnClmp(void)
       assert(ret != ERROR);
 
       TRACE(8, "read msg on msgAlignClamp", 0, 0);
-      assert(msg.type == alignClamp_type);
-
-      engage = (msg.u.alignClamp.op == ENGAGE) ? 1 : 0;
-             
+/*
+ * What sort of message?
+ *   alignClamp_type        A request from the outside world to move clamp
+ *   alignClampCheck_type   A request from us to check that the clamp moved
+ */
+      switch (msg.type) {
+       case alignClamp_type:
+	 engage = (msg.u.alignClamp.op == ENGAGE) ? 1 : 0;
+	 timerSend(alignClampCheck_type, tmr_e_abort, 0, 0, msgAlignClamp);
+	 break;
+       case alignClampCheck_type:
+	 if(sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
+	    continue;
+	 } else {			/* Failure; turn off and disengage */
+	    TRACE(0, "Alignment clamp did NOT engage..."
+		  "turning off and disengaging", 0, 0);
+	    engage = 0;
+	 }
+	 break;
+       default:
+	 TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 continue;	 
+      }
+/*
+ * Time to do the work
+ */
       if(semTake(semSLC,60) == ERROR) {
 	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
 	 continue;
@@ -92,56 +105,15 @@ tAlgnClmp(void)
 	 continue;
       }
       
-      if(!engage) {
-	 continue;
-      }
-
-      cnt = 15;				/* wait 15s */
-      TRACE(1, "Waiting %ds for alignment clamp to engage", cnt, 0);
-
-      cnt *= 60;			/* ticks */
-      while(sdssdc.status.i9.il0.clamp_en_stat == 0 && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      clamp_cnt = cnt;
-      
-      if(sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
-	 continue;
-      }
-/*
- * Failure; turn off clamp and disengage
- */
-      TRACE(0, "Alignment clamp did NOT engage...turning off and disengaging",
-	    0, 0);
-      
-      if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "Unable to retake semaphore: %s (%d)",
-	       strerror(errno), errno);
-	 continue;
-      }
-      
-      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-      if(err) {
-	 semGive (semSLC);
-	 TRACE(0, "tAlgnClmp: error rereading slc: 0x%04x", err, 0);
-	 continue;
-      }
-      
-      swab((char *)&ctrl[0], (char *)&tm_ctrl, 2);
-      swab((char *)&ctrl[1], (char *)&tm_ctrl1, 2);
-      
-      tm_ctrl.mcp_clamp_engage_cmd = 0;
-      tm_ctrl1.mcp_clamp_disen_cmd = 1;
-      
-      swab((char *)&tm_ctrl, (char *)&ctrl[0], 2);
-      swab((char *)&tm_ctrl1, (char *)&ctrl[1], 2);
-      
-      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-      semGive(semSLC);
-      if(err) {
-	 TRACE(0, "tAlgnClmp: error rewriting slc: 0x%04x", err, 0);
-	 continue;
+      if(engage) {			/* wait, then see if we succeeded */
+	 int wait = 15;			/* how many seconds to wait */
+	 TRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0);
+	 
+	 if(timerSend(alignClampCheck_type, tmr_e_add,
+		      wait*60, 0, msgAlignClamp) == ERROR) {
+	    TRACE(0, "Failed to send message to timer task: %s (%d)",
+		  strerror(errno), errno);
+	 }
       }
    }
 }
