@@ -1055,13 +1055,13 @@ spectroInit(void)
    define_cmd("NE.OFF",              neoff_cmd,                0, 0, 1);
    define_cmd("NE.ON",               neon_cmd,                 0, 0, 1);
    define_cmd("SLIT.STATUS",         slitstatus_cmd,           0, 0, 1);
-   define_cmd("SLITDOOR.CLEAR",      slitdoor_clear_cmd,       0, 1, 1);
-   define_cmd("SLITDOOR.CLOSE",      slitdoor_close_cmd,       0, 1, 1);
-   define_cmd("SLITDOOR.OPEN",       slitdoor_open_cmd,        0, 1, 1);
-   define_cmd("SLITHEADLATCH.CLOSE", slithead_latch_close_cmd, 0, 1, 1);
-   define_cmd("SLITHEADLATCH.EXT",   slithead_latch_open_cmd,  0, 1, 1);
-   define_cmd("SLITHEADLATCH.OPEN",  slithead_latch_open_cmd,  0, 1, 1);
-   define_cmd("SLITHEADLATCH.RET",   slithead_latch_close_cmd, 0, 1, 1);
+   define_cmd("SLITDOOR.CLEAR",      slitdoor_clear_cmd,       0, 0, 1);
+   define_cmd("SLITDOOR.CLOSE",      slitdoor_close_cmd,       0, 0, 1);
+   define_cmd("SLITDOOR.OPEN",       slitdoor_open_cmd,        0, 0, 1);
+   define_cmd("SLITHEADLATCH.CLOSE", slithead_latch_close_cmd, 0, 0, 1);
+   define_cmd("SLITHEADLATCH.EXT",   slithead_latch_open_cmd,  0, 0, 1);
+   define_cmd("SLITHEADLATCH.OPEN",  slithead_latch_open_cmd,  0, 0, 1);
+   define_cmd("SLITHEADLATCH.RET",   slithead_latch_close_cmd, 0, 0, 1);
    define_cmd("SP1", sp1_cmd,                                  0, 0, 0);
    define_cmd("SP2", sp2_cmd,                                  0, 0, 0);
 }
