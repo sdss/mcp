@@ -3,14 +3,13 @@
 
 <H1>MCP Axis Status Bits</H1>
 
-The status word that the MCP passes to the TCC upon receipt of a
+The <A HREF="http://www.apo.nmsu.edu/Telescopes/HardwareControllers/AxisCommands.html#StatusBits">status word</A> that the MCP passes to the TCC upon receipt of a
 <CODE>STATUS</CODE> command is defined in data_collection.h; the
-version as of Guy Fawkes day 2000 is:
+version as of Twelth Night 2001 is:
 
 <PRE>
 struct AXIS_STAT {
 	unsigned <A HREF="#always_zero">always_zero</A> : 1;
-
 	unsigned <A HREF="#bump_up_ccw_sticky">bump_up_ccw_sticky</A> : 1;
 	unsigned <A HREF="#bump_dn_cw_sticky">bump_dn_cw_sticky</A> : 1;
 	unsigned  : 4;
@@ -19,10 +18,15 @@ struct AXIS_STAT {
 	unsigned  : 6;
 	unsigned <A HREF="#clock_slow_signal">clock_slow_signal</A> : 1;
 	unsigned <A HREF="#clock_loss_signal">clock_loss_signal</A> : 1;
-        unsigned : 5;
-	unsigned <A HREF="#stop_ok">stop_ok</A> : 1;
-	unsigned <A HREF="#amp_ok">amp_ok</A> : 1;
-	unsigned <A HREF="#closed_loop">closed_loop</A> : 1;
+
+        unsigned : 1;
+	unsigned <A HREF="#semCmdPort_taken">semCmdPort_taken</A> : 1;
+	unsigned <A HREF="#stop_in">stop_in</A> : 1;
+	unsigned <A HREF="#amp_bad">amp_bad</A> : 1;
+	unsigned <A HREF="#out_closed_loop">out_closed_loop</A> : 1;
+	unsigned <A HREF="#stop_ok">stop_ok</A> : 1; <A HREF="#bit_masked">*</A>
+	unsigned <A HREF="#amp_ok">amp_ok</A> : 1; <A HREF="#bit_masked">*</A>
+	unsigned <A HREF="#closed_loop">closed_loop</A> : 1; <A HREF="#bit_masked">*</A>
 
 	unsigned <A HREF="#max_limit">max_limit</A>: 1;
 	unsigned <A HREF="#min_limit">min_limit</A>: 1;
@@ -35,61 +39,85 @@ struct AXIS_STAT {
 };
 </PRE>
 
-with meanings:
+The <A HREF="#bit_masked">*</A> means that this bit is
+<EMPH>not</EMPH> passed to the TCC.
+
+The bits' significances are:
 <DL>
-<DT> <A NAME="always_zero">always_zero</A>
+<DT> <A NAME="always_zero">always_zero</A> &nbsp&nbsp 0x80000000
 <DD> Sign bit; always zero.
 
-<DT> <A NAME="bump_up_ccw_sticky">bump_up_ccw_sticky</A>
+<DT> <A NAME="bump_up_ccw_sticky">bump_up_ccw_sticky</A> &nbsp&nbsp 0x40000000
 <DD> The windscreen touched.  Only valid for altitude (up)
 or azimuth (anticlockwise)
 
-<DT> <A NAME="bump_dn_cw_sticky">bump_dn_cw_sticky</A>
+<DT> <A NAME="bump_dn_cw_sticky">bump_dn_cw_sticky</A> &nbsp&nbsp 0x20000000
 <DD> The windscreen touched.  Only valid for altitude (down)
 or azimuth (clockwise)
 
-<DT> <A NAME="ms_on_correction_too_large">ms_on_correction_too_large</A>
+<DT> <A NAME="ms_on_correction_too_large">ms_on_correction_too_large</A> &nbsp&nbsp 0x01000000
 <DD> The correction made by an MS.ON command would have exceeded MS.MAX
 
-<DT> <A NAME="clock_slow_signal">clock_slow_signal</A>
+<DT> <A NAME="clock_slow_signal">clock_slow_signal</A> &nbsp&nbsp 0x00020000
 <DD> Unused
 
-<DT> <A NAME="clock_loss_signal">clock_loss_signal</A>
+<DT> <A NAME="clock_loss_signal">clock_loss_signal</A> &nbsp&nbsp 0x00010000
 <DD> Failed to see the GPS interrupt
 
-<DT> <A NAME="stop_ok">stop_ok</A>
-<DD> A stop button has <EM>not</EM> been pushed.
+<DT> <A NAME="semCmdPort_taken">semCmdPort_taken</A> &nbsp&nbsp 0x00004000
+<DD> Someone else has the semCmdPort semaphore (and is thus
+permitted to use the mcpMenu to move the telescope)
 
-<DT> <A NAME="amp_ok">amp_ok</A>
+<DT> <A NAME="stop_in">stop_in</A> &nbsp&nbsp 0x00002000
+<DD> A stop button <EM>has</EM> been pushed.
+
+<DT> <A NAME="amp_bad">amp_bad</A> &nbsp&nbsp 0x00001000
+<DD> The amplifier for this axis is <EMPH>not</EMPH> OK
+
+<DT> <A NAME="out_closed_loop">out_closed_loop</A> &nbsp&nbsp 0x00000800
+<DD> This axis is out of closed loop
+
+<DT> <A NAME="stop_ok">stop_ok</A> &nbsp&nbsp 0x00000400
+<DD> A stop button has <EM>not</EM> been pushed
+(<A HREF="#bit_masked">masked</A>).
+
+<DT> <A NAME="amp_ok">amp_ok</A> &nbsp&nbsp 0x00000200
 <DD> The amplifier for this axis is OK
+(<A HREF="#bit_masked">masked</A>).
 
-<DT> <A NAME="closed_loop">closed_loop</A>
+<DT> <A NAME="closed_loop">closed_loop</A> &nbsp&nbsp 0x00000100
 <DD> This axis is in closed loop
+(<A HREF="#bit_masked">masked</A>).
 
-<DT> <A NAME="max_limit">max_limit</A>
+<DT> <A NAME="max_limit">max_limit</A> &nbsp&nbsp 0x00000080
 <DD> Unused
 
-<DT> <A NAME="min_limit">min_limit</A>
+<DT> <A NAME="min_limit">min_limit</A> &nbsp&nbsp 0x00000040
 <DD> Unused
 
-<DT> <A NAME="max_acc">max_acc</A>
+<DT> <A NAME="max_acc">max_acc</A> &nbsp&nbsp 0x00000020
 <DD> Unused
 
-<DT> <A NAME="max_vel">max_vel</A>
+<DT> <A NAME="max_vel">max_vel</A> &nbsp&nbsp 0x00000010
 <DD> Unused
 
-<DT> <A NAME="max_pos">max_pos</A>
+<DT> <A NAME="max_pos">max_pos</A> &nbsp&nbsp 0x00000008
 <DD> Unused
 
-<DT> <A NAME="min_pos">min_pos</A>
+<DT> <A NAME="min_pos">min_pos</A> &nbsp&nbsp 0x00000004
 <DD> Unused
 
-<DT> <A NAME="pvt_time_late">pvt_time_late</A>
+<DT> <A NAME="pvt_time_late">pvt_time_late</A> &nbsp&nbsp 0x00000002
 <DD> Unused
 
-<DT> <A NAME="pvt_empty">pvt_empty</A>
+<DT> <A NAME="pvt_empty">pvt_empty</A> &nbsp&nbsp 0x00000001
 <DD> Unused
 
 </DL>
+
+<H3><A NAME="bit_masked">Masked Bits</A></H3>
+The MCP reserves the right to mask certain status bits and thus not
+pass them to the TCC; the current value of the mask is 0x00000700,
+and thus all except 3 bits are available.
 
 </HTML>
