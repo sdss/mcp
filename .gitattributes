@@ -16,6 +16,7 @@ ab/sdudhp.bin -text
 ab/std_dhp.c -text
 ab/std_dhp.h -text
 ab/vmeinst.c -text
+bin/Makefile -text
 bin/fix-make_make -text
 bin/switchMCP -text
 /branches -text
