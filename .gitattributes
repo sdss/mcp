@@ -287,6 +287,7 @@ util/.cvsignore -text
 util/Makefile -text
 util/dscTrace.c -text
 util/iptime.c -text
+util/mcpNtp.h -text
 util/microtime.c -text
 util/ntp.c -text
 util/rtc.c -text
