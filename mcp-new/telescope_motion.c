@@ -36,21 +36,6 @@
 #include "cw.h"
 #include "instruments.h"
 
-/*========================================================================
-**========================================================================
-**
-** LOCAL MACROS, DEFINITIONS, ETC.
-**
-**========================================================================
-*/
-/*------------------------------------------------------------------------
-**
-** LOCAL DEFINITIONS
-*/
-#define NULLFP (void(*)()) 0
-#define NULLPTR ((void *) 0)
-#define ONCE if (YES)
-
 /*-------------------------------------------------------------------------
 **
 ** GLOBAL VARIABLES
@@ -745,107 +730,111 @@ void tm_read_all_adc(int cnt)
 **
 **=========================================================================
 */
-int az_cnt;
-int tm_az_brake(short val) 
+static int az_cnt;
+
+int
+tm_az_brake(short val) 
 {
    int err;
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       semGive (semSLC);
-       return err;
-     }
-     swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-/*   printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
-     if (val==1) 
-     {
-       tm_ctrl.mcp_az_brk_en_cmd = 1;
-       tm_ctrl.mcp_az_brk_dis_cmd = 0;
-     }
-     else
-     {
-       tm_ctrl.mcp_az_brk_en_cmd = 0;
-       tm_ctrl.mcp_az_brk_dis_cmd = 1;
-     }
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-     swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-     err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   if (semTake (semSLC,60) == ERROR) {
+      printf("tm_az_brake: unable to take semaphore: %s", strerror(errno));
+      return(-1);
    }
+
+   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+   if(err) {
+      printf ("R Err=%04x\r\n",err);
+      semGive (semSLC);
+      return err;
+   }
+   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+
+   if(val==1) {
+      tm_ctrl.mcp_az_brk_en_cmd = 1;
+      tm_ctrl.mcp_az_brk_dis_cmd = 0;
+   } else {
+      tm_ctrl.mcp_az_brk_en_cmd = 0;
+      tm_ctrl.mcp_az_brk_dis_cmd = 1;
+   }
+
+   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
+   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
+   semGive (semSLC);
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
+   }
+   
 #ifdef TURNOFF
-   if (val==1)
-   {
-     cnt=120;
-     while ((sdssdc.status.i9.il0.az_brake_en_stat==0)&&(cnt>0)) 
-     {
-       taskDelay(1);
-       cnt--;
-     }
+   if(val==1) {
+      cnt=120;
+      while(sdssdc.status.i9.il0.az_brake_en_stat == 0 && cnt > 0) {
+	 taskDelay(1);
+	 cnt--;
+      }
 /*   hold on the brake command */
-   }
-   else
-   {
-     cnt=60*6;
-     while ((sdssdc.status.i9.il0.az_brake_dis_stat==0)&&(cnt>0))
-     {
-       taskDelay(1);
-       cnt--;
-     }
-     taskDelay(12*60);
-     if (semTake (semSLC,60)!=ERROR)
-     {
-       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-       if (err)
-       {
-         printf ("R Err=%04x\r\n",err);
-         semGive (semSLC);
-         return err;
-       }
-       swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-/*     printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
-       tm_ctrl.mcp_az_brk_dis_cmd = 0;
-/*     printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-       swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-       err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-       semGive (semSLC);
-       if (err)
-       {
-         printf ("W Err=%04x\r\n",err);
-         return err;
-       }
-     }
+   } else {
+      cnt=60*6;
+      while(sdssdc.status.i9.il0.az_brake_dis_stat == 0 && cnt > 0) {
+	 taskDelay(1);
+	 cnt--;
+      }
+      taskDelay(12*60);
+
+      if(semTake(semSLC,60) == ERROR) {
+	 printf("tm_az_brake: unable to take semaphore to write: %s",
+		strerror(errno));
+	 return(-1);
+      }
+
+      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+      if(err) {
+	 printf ("R Err=%04x\r\n",err);
+	 semGive (semSLC);
+	 return err;
+      }
+      swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+      
+      tm_ctrl.mcp_az_brk_dis_cmd = 0;
+      
+      swab ((char *)&tm_ctrl,(char *)&ctrl,2);
+      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
+      semGive (semSLC);
+      if(err) {
+	 printf("W Err=%04x\r\n",err);
+	 return err;
+      }
    }
    az_cnt=cnt;
 #endif
-/*   printf ("\r\n cnt=%d",cnt);
-   tm_brake_status();*/
+
    return 0;
 }
-void tm_az_brake_on()
+
+void
+tm_az_brake_on()
 {
     tm_az_brake (1);
 }
-void tm_az_brake_off()
+
+void
+tm_az_brake_off()
 {
     tm_az_brake (0);
 }
-void tm_sp_az_brake_on()
+
+void
+tm_sp_az_brake_on()
 {
   if (taskIdFigure("tmAzBrk")==ERROR)
     taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,1,0,0,0,0,0,0,0,0,0);
 }
-void tm_sp_az_brake_off()
+
+void
+tm_sp_az_brake_off()
 {
   if (taskIdFigure("tmAzBrk")==ERROR)
     taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
@@ -881,104 +870,107 @@ int tm_alt_brake(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
-             
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       semGive (semSLC);
-       return err;
-     }
-     swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-/*   printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
-     if (val==1) 
-     {
-       tm_ctrl.mcp_alt_brk_en_cmd = 1;
-       tm_ctrl.mcp_alt_brk_dis_cmd = 0;
-     }
-     else
-     {
-       tm_ctrl.mcp_alt_brk_en_cmd = 0;
-       tm_ctrl.mcp_alt_brk_dis_cmd = 1;
-     }
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-     swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-     err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   
+   if (semTake(semSLC,60) == ERROR) {
+      printf("tm_alt_brake: unable to take semaphore: %s", strerror(errno));
+      return(-1);
    }
+   
+   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+   if(err) {
+      printf ("R Err=%04x\r\n",err);
+      semGive(semSLC);
+      return err;
+   }
+   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+
+   if(val == 1) {
+      tm_ctrl.mcp_alt_brk_en_cmd = 1;
+      tm_ctrl.mcp_alt_brk_dis_cmd = 0;
+   } else {
+      tm_ctrl.mcp_alt_brk_en_cmd = 0;
+      tm_ctrl.mcp_alt_brk_dis_cmd = 1;
+   }
+
+   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
+   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
+   semGive (semSLC);
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
+   }
+
 #ifdef TURNOFF
-   if (val==1)
-   {
-     while ((sdssdc.status.i9.il0.alt_brake_en_stat==0)&&(cnt>0))
-     {
-        taskDelay(1);
-        cnt--;
-     }
-/*   hold on the brake command */
-   }
-   else
-   {
-     cnt=60*4;
-     while ((sdssdc.status.i9.il0.alt_brake_dis_stat==0)&&(cnt>0)) 
-     {
-       taskDelay(1);
-       cnt--;
-     }
-     taskDelay(60*4);
-     if (semTake (semSLC,60)!=ERROR)
-     {
-       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-       if (err)
-       {
-         printf ("R Err=%04x\r\n",err);
-         semGive (semSLC);
-         return err;
-       }
-       swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-/*   printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
-       tm_ctrl.mcp_alt_brk_dis_cmd = 0;
-/*     printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-       swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-       err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-       semGive (semSLC);
-       if (err)
-       {
-         printf ("W Err=%04x\r\n",err);
-         return err;
-       }
-     }
+   if(val == 1) {
+      while(sdssdc.status.i9.il0.alt_brake_en_stat == 0 && cnt > 0) {
+	 taskDelay(1);
+	 cnt--;
+      }
+      /*   hold on the brake command */
+   } else {
+      cnt=60*4;
+      while(sdssdc.status.i9.il0.alt_brake_dis_stat == 0 && cnt >0) {
+	 taskDelay(1);
+	 cnt--;
+      }
+      taskDelay(60*4);
+      
+      if(semTake (semSLC,60)== ERROR) {
+	 printf("tm_alt_brake: unable to take semaphore for write: %s",
+		strerror(errno));
+	 return(-1);
+      }
+      
+      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+      if(err) {
+	 printf ("R Err=%04x\r\n",err);
+	 semGive (semSLC);
+	 return err;
+      }
+      swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+      
+      tm_ctrl.mcp_alt_brk_dis_cmd = 0;
+      
+      swab ((char *)&tm_ctrl,(char *)&ctrl,2);
+      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
+      semGive(semSLC);
+      if(err) {
+	 printf ("W Err=%04x\r\n",err);
+	 return err;
+      }
    }
    alt_cnt=cnt;
 #endif
-/*   printf ("\r\n cnt=%d",cnt);
-   tm_brake_status();*/
+   
    return 0;
 }
-void tm_alt_brake_on()
+
+void
+tm_alt_brake_on()
 {
     tm_alt_brake (1);
 }
-void tm_alt_brake_off()
+
+void
+tm_alt_brake_off()
 {
     tm_alt_brake (0);
 }
-void tm_sp_alt_brake_on()
+
+void
+tm_sp_alt_brake_on()
 {
   if (taskIdFigure("tmAltBrk")==ERROR)
     taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,1,0,0,0,0,0,0,0,0,0);
 }
-void tm_sp_alt_brake_off()
+
+void
+tm_sp_alt_brake_off()
 {
-  if (taskIdFigure("tmAltBrk")==ERROR)
-    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
+   if (taskIdFigure("tmAltBrk")==ERROR)
+     taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1010,18 +1002,22 @@ int tm_brake_status()
   printf("\r\nALT\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
     sdssdc.status.i9.il0.alt_brake_en_stat,
     sdssdc.status.i9.il0.alt_brake_dis_stat,alt_cnt);
-  if (semTake (semSLC,60)!=ERROR)
-  {
-    err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-    semGive (semSLC);
-    if (err)
-    {
-      printf ("R Err=%04x\r\n",err);
-      return err;
-    }
+  
+#if 0
+  if(semTake(semSLC,60) == ERROR) {
+     printf("tm_brake_status: unable to take semaphore: %s", strerror(errno));
+     return(-1);
   }
-  swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-  printf (" read ctrl = 0x%04x\r\n",ctrl);
+  
+  err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+  semGive (semSLC);
+  if(err) {
+     printf ("R Err=%04x\r\n",err);
+     return err;
+  }
+  swab((char *)&ctrl,(char *)&tm_ctrl,2);
+#endif
+
   return 0;
 }
 /*=========================================================================
@@ -1204,69 +1200,64 @@ int tm_clamp_status()
 **
 **=========================================================================
 */
-int slit_cnt;
-int tm_slit(short val) 
+static int slit_cnt;
+
+int
+tm_slit(short val) 
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("tm_slit: unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-/*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
-   if (val==5)
-   {
-     tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+
+   switch (val) {
+    case 5:
+      tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
+      tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+      break;
+    case 4:
+      tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
+      tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+      break;
+    case 3:
+      tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
+      tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
+      break;
+    case 2:
+      tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
+      tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
+      break;
+    case 1:
+      tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
+      tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
+      break;
+    case 0:
+      tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
+      tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
+      break;
    }
-   if (val==4)
-   {
-     tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
-     tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
+
+   swab((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+   if(err) {
+      printf("W Err=%04x\r\n",err);
+      return err;
    }
-   if (val==3)
-   {
-     tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
-   }
-   if (val==2)
-   {
-     tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
-   }
-   if (val==1) 
-   {
-     tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
-     tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
-   }
-   if (val==0)
-   {
-     tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-     tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
-   }
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
-   }
-/*   printf ("\r\n cnt=%d",cnt);
-   tm_slit_status();*/
+
    return 0;
 }
 void tm_slit_clear(int door)
@@ -1315,46 +1306,49 @@ void tm_sp_slit_close(int door)
 **
 **=========================================================================
 */
-int tm_cart(short val) 
+int
+tm_cart(short val) 
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake (semSLC,60) == ERROR) {
+      printf("tm_cart: unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
- /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
-   if (val==3)
-     tm_ctrl1.mcp_slit_latch2_cmd = 1;
-   if (val==2)
-     tm_ctrl1.mcp_slit_latch2_cmd = 0;
-   if (val==1)
-     tm_ctrl1.mcp_slit_latch1_cmd = 1;
-   if (val==0)
-     tm_ctrl1.mcp_slit_latch1_cmd = 0;
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+
+   switch (val) {
+    case 3:
+      tm_ctrl1.mcp_slit_latch2_cmd = 1;
+      break;
+    case 2:
+      tm_ctrl1.mcp_slit_latch2_cmd = 0;
+      break;
+    case 1:
+      tm_ctrl1.mcp_slit_latch1_cmd = 1;
+      break;
+    case 0:
+      tm_ctrl1.mcp_slit_latch1_cmd = 0;
+      break;
    }
-/*   printf ("\r\n cnt=%d",cnt);
-   tm_slit_status();*/
+   
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
+   }
+
    return 0;
 }
 void tm_cart_latch(int door)
@@ -1375,23 +1369,26 @@ void tm_sp_cart_unlatch(int door)
   if (taskIdFigure("tmCart")==ERROR)
     taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_unlatch,door,0,0,0,0,0,0,0,0,0);
 }
-int tm_slit_status()
+int
+tm_slit_status()
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
 
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+   if (err) {
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+   
   printf (" read ctrl = 0x%04x\r\n",(unsigned int)ctrl);
   printf ("\r\n mcp_slit_dr1_opn_cmd=%d, mcp_slit_dr1_cls_cmd=%d",
      tm_ctrl1.mcp_slit_dr1_opn_cmd,tm_ctrl1.mcp_slit_dr1_cls_cmd);
@@ -1416,6 +1413,7 @@ int tm_slit_status()
 	sdssdc.status.o1.ol9.slit_dr2_opn_perm,
 	sdssdc.status.o1.ol9.slit_dr2_cls_perm,
 	sdssdc.status.o1.ol9.slit_latch2_opn_perm);
+
   return 0;
 }
 /*=========================================================================
