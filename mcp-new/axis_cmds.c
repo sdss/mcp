@@ -46,6 +46,7 @@
 #include "mcpTimers.h"
 #include "mcpFiducials.h"
 #include "cmd.h"
+#include "instruments.h"
 
 /*========================================================================
 **========================================================================
@@ -70,6 +71,12 @@ struct FRAME_QUEUE axis_queue[3] = {
    {0, NULL, NULL},
    {0, NULL, NULL}
 };
+/*
+ * Status buffers for AXIS.STATUS/SYSTEM.STATUS
+ */
+char axis_status_buff[NAXIS][STATUS_BUFF_SIZE]; /* usually set  */
+char system_status_buff[STATUS_BUFF_SIZE];	/*           by set_status() */
+
 /*
  * Maximum allowed velocity/acceleration and arrays to keep account of
  * the maximum |values| actually requested
@@ -336,20 +343,6 @@ init_cmd(char *cmd)
    tm_reset_integrator(2*axis);
    enable_pvt(axis);
 /*
- * Clear the axis status; well, don't actually _clear_ it, set it to
- * the last non-sticky value. That way the TCC will see the current
- * set of bad bits.
- */
-   while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "init_cmd: failed to get semMEIUPD: %d %s",
-	    errno, strerror(errno));
-      taskSuspend(NULL);
-   }
- 
-   axis_stat[axis][0] = axis_stat[axis][1];
-
-   semGive(semMEIUPD);
-/*
  * OK, the axis status is updated
  */
    switch(axis) {
@@ -447,6 +440,55 @@ init_cmd(char *cmd)
  */
    clear_sticky_bumps(axis, 0);
    clear_sticky_bumps(axis, 1);
+/*
+ * Clear the axis status; well, don't actually _clear_ it, set it to
+ * the last non-sticky value. That way the TCC will see the current
+ * set of bad bits.
+ *
+ * This isn't quite good enough (see PR 2553) as some of those bits may
+ * have been reporting problems such as not having the semCmdPort semaphore
+ * which is taken by INIT itself.
+ *
+ * A compromise is to explicitly clear bits that are known to be now OK
+ */
+   while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "init_cmd: failed to get semMEIUPD: %d %s",
+	    errno, strerror(errno));
+      taskSuspend(NULL);
+   }
+ 
+   axis_stat[axis][0] = axis_stat[axis][1];
+/*
+ * Clear some bits after checking their current status
+ */
+   taskDelay(60);
+
+   if(axis_stat[axis][0].semCmdPort_taken) {
+      if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+	 axis_stat[axis][0].semCmdPort_taken = 0;
+      }
+   }
+   
+   if(axis_stat[axis][0].amp_bad) {
+      int amp_ok;
+      switch (axis) {
+       case AZIMUTH:    amp_ok = az_amp_ok(1);  break;
+       case ALTITUDE:   amp_ok = alt_amp_ok(1); break;
+       case INSTRUMENT: amp_ok = rot_amp_ok(1); break;
+      }
+      axis_stat[axis][0].amp_bad = amp_ok ? 0 : 1;
+   }
+
+   if(axis_stat[axis][0].out_closed_loop) {
+      axis_stat[axis][0].out_closed_loop =
+				(sdssdc.axis_state[axis] <= NEW_FRAME) ? 0 : 1;
+   }
+
+   if(axis_stat[axis][0].stop_in) {
+      axis_stat[axis][0].stop_in = check_stop_in(0) ? 1 : 0;
+   }
+
+   semGive(semMEIUPD);
 /*
  * flush the MCP command logfile
  */
@@ -645,8 +687,12 @@ status_long_cmd(char *cmd)		/* NOTUSED */
  * Is an e-stop in?
  */
 int
-check_stop_in(void)
+check_stop_in(int update)
 {
+   if(update) {
+      update_sdssdc_status_i6();
+   }
+
    if(sdssdc.status.i6.il0.w_lower_stop &&
       sdssdc.status.i6.il0.e_lower_stop &&
       sdssdc.status.i6.il0.s_lower_stop &&
@@ -698,6 +744,27 @@ read_clinometer(void)
 char *
 axis_status_cmd(char *cmd)
 {
+#if 1
+   const int axis = ublock->axis_select;
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      return("ERR: ILLEGAL DEVICE SELECTION");
+   }
+
+   if(semTake(semStatusCmd, 2) == ERROR) {
+#if 0
+      TRACE(3, "axis_status_cmd failed to take semStatusCmd: %s",
+	    strerror(errno), 0);
+#endif
+      return("ERR: Cannot take semStatusCmd");
+   }
+
+   strncpy(ublock->buff, axis_status_buff[axis], UBLOCK_SIZE);
+
+   semGive(semStatusCmd);
+
+   return(ublock->buff);
+#else
    const int axis = ublock->axis_select;	/* in case it changes */
    int brake_is_on = -1;		/* is the brake on for current axis? */
    long fid_mark = 0;			/* position of fiducial mark */
@@ -743,16 +810,17 @@ axis_status_cmd(char *cmd)
 	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
 	   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
 	   fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
-	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis][0],
+	   check_stop_in(0), brake_is_on, *(long *)&axis_stat[axis][0],
 	   read_clinometer());
 
    TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
 
    TRACE(8, "Checking ublock->buff[end]: %d", ublock->buff[UBLOCK_SIZE], 0);
-   assert(ublock->buff[200] == '\a');	/* check for overflow */
+   assert(ublock->buff[UBLOCK_SIZE] == '\a');	/* check for overflow */
 
    return(ublock->buff);
+#endif
 }
 
 /*****************************************************************************/
@@ -765,10 +833,11 @@ get_miscstatus(char *status,
 {
   int len;
 
-  sprintf(status,"Misc: %d %d  %d\n",
+  sprintf(status,"Misc: %d %d  %d %d\n",
 	  sdssdc.status.i9.il0.clamp_en_stat, /* alignment clamp */
 	  sdssdc.status.i9.il0.clamp_dis_stat,
-	  iacked);
+	  iacked,
+	  sdssdc.status.b3.w1.version_id);
   
   len = strlen(status);
   assert(len < size);
@@ -785,6 +854,21 @@ get_miscstatus(char *status,
 char *
 system_status_cmd(char *cmd)
 {
+#if 1
+   if(semTake(semStatusCmd, 2) == ERROR) {
+#if 0
+      TRACE(3, "system_status_cmd failed to take semStatusCmd: %s",
+	    strerror(errno), 0);
+#endif
+      return("ERR: Cannot take semStatusCmd");
+   }
+
+   strncpy(ublock->buff, system_status_buff, UBLOCK_SIZE);
+
+   semGive(semStatusCmd);
+
+   return(ublock->buff);
+#else   
    int i;
 
    ublock->buff[UBLOCK_SIZE] = '\a';
@@ -810,6 +894,69 @@ system_status_cmd(char *cmd)
    assert(ublock->buff[UBLOCK_SIZE] == '\a');	/* check for overflow */
 
    return(ublock->buff);
+#endif
+}
+
+/*****************************************************************************/
+/*
+ * Set the string to return in response to an {AXIS,SYSTEM}.STATUS command
+ */
+void
+set_status(int axis,			/* axis, or NOINST for system status */
+	   char *buff,			/* buffer to set */
+	   int size)			/* size of buff[] */
+{
+   int brake_is_on = -1;		/* is the brake on for current axis? */
+   long fid_mark = 0;			/* position of fiducial mark */
+
+   if(axis != NOINST &&
+      axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      strncpy(buff, "ERR: ILLEGAL DEVICE SELECTION", size);
+      return;
+   }
+
+   buff[size - 1] = '\a';
+
+   if(axis == NOINST) {
+      int i = 0;
+      i += get_cwstatus(&buff[i], size - i);
+      i += get_ffstatus(&buff[i], size - i);
+      i += get_slitstatus(&buff[i], size - i);
+      i += get_miscstatus(&buff[i], size - i);
+      i += get_umbilstatus(&buff[i], size - i);
+   } else {
+      switch (axis) {
+       case AZIMUTH:
+	 brake_is_on = sdssdc.status.i9.il0.az_brake_en_stat;
+	 fid_mark = az_fiducial[fiducialidx[axis]].mark;
+	 break;
+       case ALTITUDE:
+	 brake_is_on = sdssdc.status.i9.il0.alt_brake_en_stat;
+	 fid_mark = alt_fiducial[fiducialidx[axis]].mark;
+	 break;
+       case INSTRUMENT:
+	 brake_is_on = -1;			/* there is no brake */
+	 fid_mark = rot_fiducial[fiducialidx[axis]].mark - ROT_FID_BIAS;
+	 break;
+       default:
+	 fprintf(stderr,"axis_status_cmd: impossible instrument %d\n",
+		 axis);
+	 abort();
+	 break;				/* NOTREACHED */
+      }
+      
+      sprintf(buff,
+	      "%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d %d 0x%lx  %.4f",
+	      ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
+	      tmaxis[axis]->actual_position, tmaxis[axis]->position,
+	      tmaxis[axis]->voltage, tmaxis[axis]->velocity,
+	      fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
+	      check_stop_in(0), brake_is_on, *(long *)&axis_stat[axis][0],
+	      read_clinometer());
+   }
+   
+   TRACE(8, "set_status: checking buff[end]: %d", buff[size - 1], 0);
+   assert(buff[size - 1] == '\a');	/* check for overflow */
 }
 
 /*=========================================================================
