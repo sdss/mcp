@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "ip480.h"
+#include "acromag.h"
 
 #define C_MASK  (unsigned)0xFFFFFC00  /* Forms carrier base address from IP address */
 
@@ -201,16 +202,15 @@ struct conf_blk *cblk;		/* pointer to config block */
 /*
 	Local data areas
 */
-
-struct map96x0 *carrier;	/* pointer to carrier base address */
 int i,j;
 UWORD i_stat;
-UWORD i_stat_overall;
 /*
     DECLARE MODULES CALLED:
 */
-UWORD inpw();
-UWORD outpw();
+#if !defined(ACROMAG_H)
+   UWORD inpw();
+   UWORD outpw();
+#endif
 
 /*
     DECLARE LOCAL DATA AREAS
