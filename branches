@@ -189,3 +189,13 @@ Sun Nov 24 18:13:30 MST 2002
 
 	cvs rtag v5_15_0 mcp
 	cvs rtag -b v5_15 -r v5_15_0 mcp
+
+Mon Nov 25 01:29:29 MST 2002
+	cvs rtag v5_16_0 mcp
+	cvs rtag -b v5_16 -r v5_16_0 mcp
+
+	A memory corruption bug that turned out to be in the
+	non-critical routine cmdShow wasted hours of shake...
+
+	Fixed, and some buffers with only c. 20by overhead expanded;
+	otherwise the same as v5_15_0
