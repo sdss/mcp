@@ -64,7 +64,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    char buff[MSG_SIZE];			/* buffer to reply to messages */
    char cmd[MSG_SIZE];			/* buffer to read messages */
    int n;				/* number of bytes read */
-   int nerr;				/* number of consecutive errors seen */
+   int nerr = 0;			/* number of consecutive errors seen */
    const int port = ntohs(client->sin_port); /* the port they connected on */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
@@ -118,9 +118,11 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 /*
  * Take the sem that display.c used to take; XXX
  */
-      if(semTake(semMEIUPD, 60) == ERROR) {
- 	 TRACE(0, "Cannot take semMEIUPD to process cmd %s (%d)", cmd, errno);
-	 continue;
+      if(semMEIUPD != NULL) {
+	 if(semTake(semMEIUPD, 60) == ERROR) {
+	    TRACE(0, "Cannot take semMEIUPD to process cmd %s (%d)", cmd,errno);
+	    continue;
+	 }
       }
 /*
  * Maybe execute command
@@ -193,7 +195,9 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 } else {
 	    if(force) {
 	       (void)semMGiveForce(semCmdPort);
-	       (void)semMGiveForce(semMEIUPD);
+	       if(semMEIUPD != NULL) {
+		  (void)semMGiveForce(semMEIUPD);
+	       }
 	    }
 
 	    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
@@ -246,12 +250,16 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 		 buff, cmd, strerror(errno));
 	 errno = 0;			/* we've already handled error */
 
-	 semGive(semMEIUPD);
+	 if(semMEIUPD != NULL) {
+	    semGive(semMEIUPD);
+	 }
 
 	 break;
       }
 
-      semGive(semMEIUPD);
+      if(semMEIUPD != NULL) {
+	 semGive(semMEIUPD);
+      }
    }
 
    if(n == ERROR && errno != 0) {
@@ -259,7 +267,9 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    }
 
    (void)semGive(semCmdPort);
-   (void)semGive(semMEIUPD);
+   if(semMEIUPD != NULL) {
+      (void)semGive(semMEIUPD);
+   }
 
    close(fd);
 
