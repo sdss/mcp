@@ -161,16 +161,7 @@ and ensure that no more than one command is active at a time.
   <LI> Used to set axis_stat[].semCmdPort_taken in slc500_data_collection()
   <LI> Given up if held by cpsWorkTask() in response to SEM.GIVE
   <LI> GiveForced by cpsWorkTask() in response to SEM.GIVE 1
-  <LI> Given up if held by cpsWorkTask() if can take semPleaseGiveCmdPort
   <LI> Taken in response to SEM.TAKE/SEM.STEAL command in cpsWorkTask()
-</UL>
-
-<DT> semPleaseGiveCmdPort
-<DD>
-<UL>
-  <LI> Binary semaphore
-  <LI> Created SEM_Q_PRIORITY, SEM_FULL in cmdPortServer()
-  <LI> Taken by cpsWorkTask() to request that semCmdPort be given
 </UL>
 
 </DL>

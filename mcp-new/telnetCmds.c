@@ -35,8 +35,6 @@
  */
 SEM_ID semCmdPort = NULL;		/* semaphore to control permission
 					   to axis motions etc. */
-SEM_ID semPleaseGiveCmdPort = NULL;	/* semaphore to request its owner
-					   to give up semCmdPort */
 
 /*****************************************************************************/
 /*
@@ -89,20 +87,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       
       cmd[n] = '\0';
 /*
- * See if we can take semPleaseGiveCmdPort; if we cannot someone else
- * has taken it, so give the semCmdPort if we have it
- */
-      if(getSemTaskId(semCmdPort) == taskIdSelf()) {
-	 if(semTake(semPleaseGiveCmdPort, 0) == OK) { /* nothing to do */
-	    semGive(semPleaseGiveCmdPort);
-	 } else {			/* give up the semCmdPort semaphore */
-	    if(semGive(semCmdPort) == ERROR) {
-	       fprintf(stderr,"Unable to give semCmdPort semaphore: %s",
-		       strerror(errno));
-	    }
-	 }
-      }
-/*
  * Maybe execute command
  */
       if(strncmp(cmd, "USER.ID", 7) == 0) {
@@ -135,19 +119,8 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 reply = NULL;
 	 
 	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
-	    if(semTake(semCmdPort,60) != OK) {
-	       if(semTake(semPleaseGiveCmdPort, 60) == ERROR) {
-		  sprintf(buff, "Unable to take semCmdPort semaphore: %s",
-			  strerror(errno));
-		  reply = buff;
-	       } else {
-		  if(semTake(semCmdPort,5*60) != OK) {
-		     reply = "unable to steal semCmdPort semaphore";
-		  }
-		     
-		  semGive(semPleaseGiveCmdPort);
-	       }
-	    }
+	    (void)semMGiveForce(semCmdPort);
+	    (void)semTake(semCmdPort, 60);
 	 }
 
 	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
@@ -295,13 +268,6 @@ cmdPortServer(int port)			/* port to bind to */
    if(semCmdPort == NULL) {
       if((semCmdPort = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE)) == NULL){
 	 fprintf(stderr,"Creating semCmdPort semaphore: %s", strerror(errno));
-      }
-   }
-   if(semPleaseGiveCmdPort == NULL) {
-      if((semPleaseGiveCmdPort = semBCreate(SEM_Q_PRIORITY, SEM_FULL))
-								     == NULL) {
-	 fprintf(stderr,"Creating semPleaseGiveCmdPort semaphore: %s",
-		 strerror(errno));
       }
    }
 /*
