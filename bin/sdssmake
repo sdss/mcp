@@ -1,3 +1,2 @@
 #!/bin/sh
-export SDSSMAKEFLAGS="$SDSSMAKEFLAGS -CC CC68k"
-$(SDSSTOOLS_DIR)/bin "$@"
+$SDSSTOOLS_DIR/bin/sdssmake -CC CC68K "$@"
