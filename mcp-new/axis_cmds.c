@@ -67,9 +67,9 @@ SEM_ID semSLC = NULL;
 int MEI_interrupt = FALSE;
 int sdss_was_init = FALSE;
 struct FRAME_QUEUE axis_queue[3] = {
-   {0, NULL, NULL},
-   {0, NULL, NULL},
-   {0, NULL, NULL}
+   {0, NULL, NULL, NULL},
+   {0, NULL, NULL, NULL},
+   {0, NULL, NULL, NULL}
 };
 /*
  * Status buffers for AXIS.STATUS/SYSTEM.STATUS
@@ -372,7 +372,6 @@ init_cmd(char *cmd)
 /*
  * reinitialize the queue of pvts to none
  */
-   axis_queue[axis].active = axis_queue[axis].end;
    axis_queue[axis].active = NULL;
 
    tcc_may_release_semCmdPort = 0;	/* don't allow the TCC
