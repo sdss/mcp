@@ -10,8 +10,6 @@ extern int check_stop_in(void);
 extern int fsm(int inst,int action);
 extern int il_ADC128F1;
 void il_data_collection(void);
-extern long *axis2pos;
-extern long *axis4pos;
 
 /*
  * 
