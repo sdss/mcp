@@ -27,6 +27,7 @@ etc/mcp.login -text
 ip/Makefile -text
 ip/acromag/.cvsignore -text
 ip/acromag/Makefile -text
+ip/acromag/acromag.h -text
 ip/acromag/carrier.c -text
 ip/acromag/cnfg480.c -text
 ip/acromag/drvr480.c -text
