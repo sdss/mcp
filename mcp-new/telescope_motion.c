@@ -29,24 +29,7 @@
 #include "dscTrace.h"
 #include "mcpFiducials.h"
 
-/*-------------------------------------------------------------------------
-**
-** GLOBAL VARIABLES
-*/
-short az1vlt,az1cur,az2vlt,az2cur;
-short alt1vlt,alt1cur,alt2vlt,alt2cur;
-short rot1vlt,rot1cur;
-#define TM_ROT1VLT	6
-#define TM_ROT1CUR	7
-#define TM_AZ1VLT	0
-#define TM_AZ1CUR	1
-#define TM_AZ2VLT	4
-#define TM_AZ2CUR	5
-#define TM_ALT1VLT	2
-#define TM_ALT1CUR	3
-#define TM_ALT2VLT	6
-#define TM_ALT2CUR	7
-int tm_ADC128F1=-1;
+int tm_ADC128F1 = -1;
 
 /*
  * tm_mgt variables to enable safe operation if telescope is not in control
@@ -108,6 +91,7 @@ tm_start_move(int mei_axis, int pos, int vel, int accel)
    semGive(semMEI);
 }
 
+# if 0
 /*=========================================================================
 **
 **      Telescope motion to go over a fiducial point back-and-forth a
@@ -157,6 +141,7 @@ tm_bf(int axis,				/* axis to move (AZ, ALT, ROT) */
    }
    printf(" Done\n");
 }
+#endif
 
 /*=========================================================================
 **
@@ -490,6 +475,8 @@ ADC128F1_initialize(unsigned char *addr, int occur)
   }
   return 0;
 }
+
+#if 0
 /*=========================================================================
 **=========================================================================
 **
@@ -552,6 +539,9 @@ tm_data_collection(void)
     else alt2cur = adc&0xFFF;
   }
 }
+#endif
+
+#if 0
 /*=========================================================================
 **=========================================================================
 **
@@ -596,6 +586,7 @@ void tm_read_all_adc(int cnt)
     printf ("\r\n");
   }
 }
+#endif
 
 /*=========================================================================
 **
@@ -641,6 +632,7 @@ rot_amp_ok(void)
       return FALSE;
    }
 }
+
 /*=========================================================================
 **
 **     Shutdown the telescope by turning on the brakes due to a software reboot
@@ -711,7 +703,7 @@ tm_amp_mgt(void)
 	    if(!alt_amp_ok()) {
 	       TRACE(0, "MGT: bad alt amp", 0, 0);
 	       tm_sem_controller_idle(2*ALTITUDE);
-	       mcp_set_brake(AZIMUTH);
+	       mcp_set_brake(ALTITUDE);
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	 }
