@@ -251,9 +251,6 @@ unsigned long timer_stop(int timer)
 /*
  * Return the name of a logfile in /mcptpm/<mjd>, making sure that
  * the directory exists.
- *
- * While the TPM and MCP cannot agree on file permissions, create it
- * in /mcptpm/mcp/<mjd> if creation in /mcptpm/<mjd> fails
  */
 #define FILESIZE 100			/* size of filename buffer */
 
@@ -275,29 +272,15 @@ fopen_logfile(const char *file,		/* desired file */
    assert(strlen(filename) < FILESIZE);
 
    if(stat(filename, &status) == ERROR) { /* doesn't exist */
+      trace_open_lvl = 1;		/* watch the open being tried */
       (void)mkdir(filename); s_errno = errno;
 
       if(stat(filename, &status) == ERROR) { /* still doesn't exist */
 	 TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
-	 trace_open_lvl = 1;		/* we want to see the open succeed */
-      }
-/*
- * OK, try a different directory. This may be needed until the permissions
- * are sorted out between the TPM and the MCP
- */
-      sprintf(filename, "/mcptpm/mcp/%d", mjd()); /* directory */
-      assert(strlen(filename) < FILESIZE);
-      
-      if(stat(filename, &status) == ERROR) { /* this one doesn't exist either*/
-	 (void)mkdir(filename); s_errno = errno;
-
-	 if(stat(filename, &status) == ERROR) { /* still doesn't exist */
-	    TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
-	    return(NULL);
-	 }
+	 return(NULL);
       }
    }
-
+      
    if(!S_ISDIR(status.st_mode)) {
       TRACE(0, "%s isn't a directory", filename, 0);
       return(NULL);
