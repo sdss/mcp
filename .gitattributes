@@ -23,6 +23,8 @@ bin/sdssmake -text
 bin/showMCP -text
 bin/switchMCP -text
 /branches -text
+doc/www/index.html -text
+doc/www/ms.html -text
 etc/Makefile -text
 etc/mcp.login -text
 etc/trace.el -text
