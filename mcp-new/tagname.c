@@ -2,10 +2,6 @@
  * This function is provided so that the dollar-Name:-dollar only
  * needs to be expanded in one file
  */
-#include "vxWorks.h"
-#include "semLib.h"
-#include "axis.h"
-
 const char *
 getCvsTagname(void)
 {
