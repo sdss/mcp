@@ -1,6 +1,10 @@
 #if !defined(AXIS_H)
 #define AXIS_H
 
+#if !defined(M_PI)
+#  define M_PI 3.14159265358979323846
+#endif
+
 #define NAXIS			3
 #define NOT_SPECIFIED		-1
 #define AZIMUTH			0
@@ -127,8 +131,10 @@ int mcp_slithead_latch_close(int spec);
  * Semaphores
  */
 extern SEM_ID semMEI;
+extern SEM_ID semMEIDC;
 extern SEM_ID semMEIUPD;
 extern SEM_ID semSLC;
+extern SEM_ID semSDSSDC;
 
 /*
  * extern declarations for globals
@@ -138,7 +144,6 @@ extern double sec_per_tick[NAXIS];
 extern double ticks_per_degree[NAXIS];
 extern struct FRAME_QUEUE axis_queue[NAXIS];
 extern struct AXIS_STAT axis_stat[NAXIS];
-extern struct AXIS_STAT persistent_axis_stat[NAXIS];
 extern double max_velocity[NAXIS];
 extern double max_acceleration[NAXIS];
 extern double max_velocity_requested[NAXIS];
