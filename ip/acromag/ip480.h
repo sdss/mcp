@@ -180,9 +180,9 @@ struct handler_data {
 
 /* function protypes - FNAL */
 IPSTAT GetInterruptVector(struct conf_blk *c_blk, BYTE *vector);
-IPSTAT SetInterruptVector(struct conf_blk *c_blk, BYTE *vector);
-IPSTAT ReadCounter(struct conf_blk *c_blk, int counter, ULONG val);
-IPSTAT GetCounterConstant(struct conf_blk *c_blk, int counter, ULONG val);
+IPSTAT SetInterruptVector(struct conf_blk *c_blk, BYTE vector);
+IPSTAT ReadCounter(struct conf_blk *c_blk, int counter, ULONG *val);
+IPSTAT GetCounterConstant(struct conf_blk *c_blk, int counter, ULONG *val);
 IPSTAT SetCounterConstant(struct conf_blk *c_blk, int counter, ULONG val);
 IPSTAT WriteCounterConstant(struct conf_blk *c_blk, int counter);
 IPSTAT GetMode(struct conf_blk *c_blk, int counter, BYTE *mode);
@@ -199,10 +199,10 @@ IPSTAT GetTriggerSource(struct conf_blk *c_blk, int counter, BYTE *trigger);
 IPSTAT SetTriggerSource(struct conf_blk *c_blk, int counter, BYTE trigger);
 IPSTAT GetWatchdogLoad(struct conf_blk *c_blk, int counter, BOOL *load);
 IPSTAT SetWatchdogLoad(struct conf_blk *c_blk, int counter, BOOL load);
-IPSTAT GetOutputPolarity(struct conf_blk *c_blk, int counter, BYTE *polarity);
-IPSTAT SetOutputPolarity(struct conf_blk *c_blk, int counter, BYTE polarity);
-IPSTAT GetInputPolarity(struct conf_blk *c_blk, int counter, BYTE *polarity);
-IPSTAT SetInputPolarity(struct conf_blk *c_blk, int counter, BYTE polarity);
+IPSTAT GetOutputPolarity(struct conf_blk *c_blk, int counter, BOOL *polarity);
+IPSTAT SetOutputPolarity(struct conf_blk *c_blk, int counter, BOOL polarity);
+IPSTAT GetInputPolarity(struct conf_blk *c_blk, int counter, BOOL *polarity);
+IPSTAT SetInputPolarity(struct conf_blk *c_blk, int counter, BOOL polarity);
 IPSTAT StopCounter(struct conf_blk *c_blk, int counter);
 IPSTAT DisableInterrupt(struct conf_blk *c_blk, int counter);
 IPSTAT StartCounter(struct conf_blk *c_blk, int counter);

@@ -2,11 +2,7 @@ CPU = MC68040
 
 HOST = irix
 
-IP = /home/briegel/mcp/ip/
-SYSTRAN = /home/briegel/mcp/ip/systran/
-ACROMAG = /home/briegel/mcp/ip/acromag/
-AB = /home/briegel/mcp/ab/
-VW = /p/vx_dsc/v5_1_1f3/
+VW = $(VX_VW_BASE)/
 VWH = $(VW)h/
 H1 = $(VWH)
 H2 = $(VWH)net/
@@ -14,13 +10,12 @@ H3 = $(VWH)rpc/
 H4 = $(VWH)68k/
 H5 = $(VWH)private/
 
-INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5)  \
-	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) /
+INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5)
 CC = cc68k
 CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
 -DMEI_MC680X0_CPU -D__USE_GETC__
-#CFLAGS = -g -ansi -mc68020 -m68881
-#CFLAGS = -S -O -traditional -mc68020 -m68881
+#CFLAGS = -g -ansi -mc68040
+#CFLAGS = -S -O -traditional -mc68040
 
 CPP = cpp68k
 #CPP = gcc-cpp  

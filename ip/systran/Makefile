@@ -1,34 +1,31 @@
-CPU = MC68020
+CPU = MC68040
 
-HOST = hpux
+HOST = irix
 
-DESTDIR = /users/briegel/vw/acnet/systran/
-GENDIR = /users/briegel/vw/acnet/systran/
-LIBDIR = /users/briegel/vw/acnet/systran
-LIBSSM = /users/briegel/vw/acnet/ssm/
-LIBUTILS = /users/briegel/vw/acnet/utils/
-#VW = /usr/vw/
-VW = /usr/vw_51/
+VW = $(VX_VW_BASE)/
 VWH = $(VW)h/
 H1 = $(VWH)
-H2 = $(VWH)net/   
+H2 = $(VWH)net/
 H3 = $(VWH)rpc/
 H4 = $(VWH)68k/
+H5 = $(VWH)private/
 
-INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I/usr/include -I$(GENDIR)
+INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5)
 CC = cc68k
-CFLAGS = -g -ansi -mc68020 -m68881
-#CFLAGS = -g -traditional -mc68020 -m68881
-#CFLAGS = -S -O -traditional -mc68020 -m68881
+CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
+-DMEI_MC680X0_CPU -D__USE_GETC__
+#CFLAGS = -g -ansi -mc68040
+#CFLAGS = -S -O -traditional -mc68040
 
-CPP = gcc-cpp
+CPP = cpp68k
+#CPP = gcc-cpp  
 CPPFLAGS = -P
 #CPPFLAGS = -P -Caa
 
 ASM = as68k
-AFLAGS = -mc68020
+AFLAGS = -mc68040
 
-LINK = ld68k
+LINK = ld68k                       
 LFLAGS = -r -M
 AR = ar68k
 ARFLAGS = crsv
@@ -47,23 +44,25 @@ ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o
 
 .SUFFIXES: .o .c .asm .s
 
-.c.o: $*.c
+.c.o:
 	$(CC) -DVXWORKS -D CPU=$(CPU) $(CFLAGS) $(INCLUDES) -c $*.c
 
-.asm.s: $*.asm
+.asm.s:
 	$(CPP) $(CPPFLAGS) $*.asm $*.s
 
-.s.o: $*.s
+.s.o:
 	$(ASM) $(AFLAGS) -o $*.o $*.s
 
 dg: $(ASRCS) $(OBJS)
 	$(LINK) $(LFLAGS) -o dio316.out \
 		dio316dc.o  dio316ie.o  dio316ri.o  dio316rr.o  dio316wr.o \
 		dio316ic.o  dio316oc.o  dio316rp.o  dio316wp.o \
-	>$(DESDIR)dio316.map
+	>dio316.map
+
 	$(LINK) $(LFLAGS) -o dac128v.out \
 		da128vri.o  da128vsv.o da128vrr.o  da128vwr.o da128vrs.o \
-	>$(DESDIR)dac128v.map
+	>dac128v.map
+
 	$(LINK) $(LFLAGS) -o adc128f1.out \
 		ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o \
-	>$(DESDIR)adc128f1.map
+	>adc128f1.map
