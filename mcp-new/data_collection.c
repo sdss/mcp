@@ -106,13 +106,13 @@ long *axis5pos=NULL;
 float sdss_time_dc;
 
 struct SDSS_FRAME sdssdc={SDSS_FRAME_VERSION,DATA_TYPE};
-struct TM_M68K *tmaxis[3]={
-   (struct TM_M68K *)&sdssdc.axis[0],
-   (struct TM_M68K *)&sdssdc.axis[1],
-   (struct TM_M68K *)&sdssdc.axis[2]
+struct TM_M68K *tmaxis[NAXIS] = {
+   (struct TM_M68K *)&sdssdc.axis[AZIMUTH],
+   (struct TM_M68K *)&sdssdc.axis[ALTITUDE],
+   (struct TM_M68K *)&sdssdc.axis[INSTRUMENT]
 };
-struct AXIS_STAT axis_stat[3]={0,0,0};
-struct AXIS_STAT persistent_axis_stat[3]={0,0,0};
+struct AXIS_STAT axis_stat[NAXIS] = {0x0, 0x0, 0x0};
+struct AXIS_STAT persistent_axis_stat[NAXIS]={0x0, 0x0, 0x0};
 int meistatcnt=0;
 #define	DATA_STRUCT(dsp, axis, offset)	(P_DSP_DM)((dsp)->data_struct+(DS_SIZE* (axis)) + offset)
 
@@ -407,7 +407,7 @@ slc500_data_collection(unsigned long freq)
    assert(sizeof(status_b10) == sizeof(struct B10) + 1);
    status[sizeof(status) - 1] = status_b10[sizeof(status_b10) - 1] = '\a';
    
-   semSLCDC = semBCreate (SEM_Q_FIFO,SEM_EMPTY);
+   semSLCDC = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
    slc_freq=freq;
    
    for(;;) {
