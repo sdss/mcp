@@ -990,12 +990,9 @@ tm_sp_alt_brake_off()
 **
 **=========================================================================
 */
-int tm_brake_status()
+int
+tm_brake_status()
 {
-  int err;
-  unsigned short ctrl;
-  struct B10_0 tm_ctrl;   
-
   printf("\r\nAZ\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
     sdssdc.status.i9.il0.az_brake_en_stat,
     sdssdc.status.i9.il0.az_brake_dis_stat,az_cnt);
@@ -1004,6 +1001,10 @@ int tm_brake_status()
     sdssdc.status.i9.il0.alt_brake_dis_stat,alt_cnt);
   
 #if 0
+  int err;
+  unsigned short ctrl;
+  struct B10_0 tm_ctrl;   
+
   if(semTake(semSLC,60) == ERROR) {
      printf("tm_brake_status: unable to take semaphore: %s", strerror(errno));
      return(-1);
@@ -1200,8 +1201,6 @@ int tm_clamp_status()
 **
 **=========================================================================
 */
-static int slit_cnt;
-
 int
 tm_slit(short val) 
 {
