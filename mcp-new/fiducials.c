@@ -117,9 +117,9 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "\n");
    
    fprintf(fd, "typedef enum {\n");
-   fprintf(fd, "   AZIMUTH = 0,\n");
-   fprintf(fd, "   ALTITUDE = 1,\n");
-   fprintf(fd, "   INSTRUMENT = 2,\n");
+   fprintf(fd, "   azimuth = 0,\n");
+   fprintf(fd, "   altitude = 1,\n");
+   fprintf(fd, "   rotator = 2,\n");
    fprintf(fd, "} AXIS;\n");
    fprintf(fd, "\n");
       
@@ -630,16 +630,15 @@ tLatch(const char *name)
    for(latchidx = 0;; latchidx = (latchidx + 1)%MAX_LATCHED) {
       if(relatch) {
 /*
- * send message requesting the latches to rearm, reenabling interrupts
+ * send message requesting the latches to rearm and to reenable interrupts
  */
 	 msg.type = latchReenable_type;
-	 msg.u.latchReenable.timeout = 0;	
+	 msg.u.latchReenable.timeout = 1;	
 	 msg.u.latchReenable.dio316int_bit = dio316int_bit;
  
 	 ret = msgQSend(msgLatchReenable, (char *)&msg, sizeof(msg),
 			NO_WAIT, MSG_PRI_NORMAL);
 	 assert(ret == OK);
-	 TRACE(2, "RHL Sending latch reenable: 0x%x", dio316int_bit, 0);
       }
 /*
  * The interrupt routine DIO316_interrupt sends a message to msgLatched
@@ -659,8 +658,6 @@ tLatch(const char *name)
        case latchCrossed_type:
 	 dio316int_bit = msg.u.latchCrossed.dio316int_bit;
 	 relatch = 1;
-	 TRACE(2, "RHL Saw latch crossing: 0x%x", dio316int_bit, 0);
-	 
 	 TRACE(8, "read latchCrossed on msgLatched, delay = %dus 0x%x",
 	       timer_read(2) - msg.u.latchCrossed.time, dio316int_bit);
 	 break;
@@ -734,8 +731,6 @@ tLatch(const char *name)
 	 
 	 taskDelay(1);
       }
-      
-      TRACE(2, "RHL read latch status: 0x%x", dio316int_bit, 0);
       
       if(status == FALSE) {		/* The MEIs didn't latch */
 	 latchpos[latchidx].axis = -(dio316int_bit & 0xe);
@@ -1086,24 +1081,24 @@ DIO316ClearISR_delay(void)
 /*
  * OK, we have our orders
  */
-      taskDelay(msg.u.latchReenable.timeout);
-
-      DIO316ClearISR(tm_DIO316);
-      
       status = semTake(semMEI,WAIT_FOREVER);
       assert(status == OK);
-
-      TRACE(2, "RHL Reenabling latches: 0x%x", dio316int_bit, 0);
 
       TRACE(5, "arming latches", 0, 0);
       while((status = arm_latch(TRUE)) != DSP_OK) {
 	 TRACE(4, "Trying to ARM Latch; status=%d", status, 0);
       }
       semGive (semMEI);
-
+/*
+ * Wait if so requested.  We want to be sure that there's no interrupt
+ * until after the MEI has been rearmed.
+ */
+      taskDelay(msg.u.latchReenable.timeout);
 /*
  * Reenable interrupts on all axes
  */
+      DIO316ClearISR(tm_DIO316);
+
       DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
       DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
       DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
@@ -1934,6 +1929,9 @@ print_fiducials(int axis,		/* which axis */
 {
   int i;
 
+  printf("%s. MS.ON: %d (max correction: %d)\n", axis_name(axis),
+	 fiducial[axis].ms_on, fiducial[axis].max_correction);
+
   switch (axis) {
    case AZIMUTH:
      for(i = 0;i < N_AZ_FIDUCIALS; i++) {
@@ -1942,9 +1940,10 @@ print_fiducials(int axis,		/* which axis */
 	   if(fiducial[axis].seen_index) printf ("!");
 	}
 	if(az_fiducial[i].markvalid) {
-	   printf("AZ %d %d degs:  pos= %ld, mark= %ld, last= %ld "
+	   printf("AZ %d %d degs:  enabled %c pos= %ld mark= %ld last= %ld "
 		  " err= %ld, poserr= %ld\n",
 		  i, (int)(az_fiducial[i].mark/AZ_TICKS_DEG),
+		  (az_fiducial[i].disabled ? 'N' : 'Y'),
 		  az_fiducial_position[i],
 		  az_fiducial[i].mark, az_fiducial[i].last,
 		  (az_fiducial[i].last == 0 ? 0 : az_fiducial[i].err),
@@ -1963,9 +1962,10 @@ print_fiducials(int axis,		/* which axis */
 	   if(fiducial[axis].seen_index) printf ("!");
 	}
 	if(alt_fiducial[i].markvalid) {
-	   printf("ALT %d %d degs:  pos= %ld, mark= %ld, last= %ld "
+	   printf("ALT %d %d degs:  enabled %c pos= %ld, mark= %ld, last= %ld "
 		  " err= %ld, poserr= %ld\n",
 		  i, (int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
+		  (alt_fiducial[i].disabled ? 'N' : 'Y'),
 		  alt_fiducial_position[i],
 		  alt_fiducial[i].mark, alt_fiducial[i].last,
 		  (alt_fiducial[i].last == 0 ? 0 : alt_fiducial[i].err),
@@ -1985,9 +1985,10 @@ print_fiducials(int axis,		/* which axis */
 	}
 
 	if(rot_fiducial[i].markvalid) {	   
-	   printf("ROT %d %d degs: pos= %ld, mark= %ld, last= %ld "
+	   printf("ROT %d %d degs: enabled %c pos= %ld, mark= %ld, last= %ld "
 		  " err= %ld, poserr= %ld\n", i,
 		  (int)((rot_fiducial[i].mark - ROT_FID_BIAS)/ROT_TICKS_DEG),
+		  (rot_fiducial[i].disabled ? 'N' : 'Y'),
 		  rot_fiducial_position[i],
 		  rot_fiducial[i].mark, rot_fiducial[i].last,
 		  (rot_fiducial[i].last == 0 ? 0 : rot_fiducial[i].err),
