@@ -1,23 +1,14 @@
-#include "copyright.h"
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		AXIS control						*/
-/************************************************************************/
-
-/*------------------------------*/
-/*	includes		*/
-/*------------------------------*/
-#include "vxWorks.h"                            
-#include "stdio.h"
+#include <vxWorks.h>
+#include <stdio.h>
 #include <errno.h>
-#include "semLib.h"
-#include "sigLib.h"
-#include "tickLib.h"
-#include "taskLib.h"
-#include "usrLib.h"
-#include "string.h"
-#include "inetLib.h"
-#include "rebootLib.h"
+#include <semLib.h>
+#include <sigLib.h>
+#include <tickLib.h>
+#include <taskLib.h>
+#include <usrLib.h>
+#include <string.h>
+#include <inetLib.h>
+#include <rebootLib.h>
 #include "in.h"
 #include "timers.h"
 #include "time.h"
@@ -56,198 +47,158 @@ short rot1vlt,rot1cur;
 #define TM_ALT2VLT	6
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
-/* tm_mgt variables to enable safe operation if telescope is not in control */
-int monitor_axis[3];	/* provides mechanism to prevent deadlocks for startup */
+
+/*
+ * tm_mgt variables to enable safe operation if telescope is not in control
+ */
+int monitor_axis[3];	/* provides mechanism to prevent deadlocks at startup*/
 int monitor_on[3];	/* overrides monitoring of axis...possible disable */
-/* keep watch dog alive based on all axis software active */
-int axis_alive=0;
-double ilcpos[6]={120.6,0,90.0,0,0,0};
-int ilcvel[6]={200000,0,200000,0,500000,0};
-int ilcacc[6]={10000,10000,10000,10000,10000,10000};
-
+
+/*
+ * keep watch dog alive based on all axis software active
+ */
+int axis_alive = 0;
+
 /*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_move_instchange
-**
-** DESCRIPTION:
-**      Telescope motion to the instrument change position.  The routine 
-**	returns to 
-**	the caller immediately while the motion is being fulfilled.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-int tm_move_instchange ()
+ *
+ *      Telescope motion to the instrument change position.  The routine 
+ *	returns immediately while the motion is taking place
+ *
+ * Instrument change position, and velocity and acceleration to get there
+ */
+double ilcpos[] = { 120.6, 90.0, 0,0 };
+double ilcvel[] = { 200000, 200000, 500000};
+double ilcacc[] = { 10000, 10000, 10000};
+
+int
+tm_move_instchange(void)
 {
-  if (semTake (semMEI,60)!=ERROR)
-  {
-    sem_controller_run (0);
-    sem_controller_run (2);
-    sem_controller_run (4);
-    start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
-		(double)ilcvel[0],(double)ilcacc[0]);
-    start_move(2,(double)(ilcpos[2]*ticks_per_degree[1]),
-		(double)ilcvel[2],(double)ilcacc[2]);
-    start_move(4,(double)(ilcpos[4]*ticks_per_degree[2]),
-		(double)ilcvel[4],(double)ilcacc[4]);
-    semGive (semMEI); 
-  }
-  else
-  {
-    printf("Err: Could not take semMEI semphore     ");
-    return ERROR;
-  }
-  return 0;
+   int axis;
+   
+   if(semTake(semMEI, 60) == ERROR) {
+      printf("Err: Could not take semMEI semphore\n");
+      return ERROR;
+   }
+
+   for(axis = 0; axis < NAXIS; axis++) {
+      sem_controller_run(2*axis);
+      start_move(2*axis,
+		 ilcpos[axis]*ticks_per_degree[axis],
+		 ilcvel[axis], ilcacc[axis]);
+   }
+
+   semGive (semMEI); 
+
+   return 0;
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_start_move
-**
-** DESCRIPTION:
 **      Telescope motion to a specified position.  The routine returns to 
 **	the caller immediately while the motion is being fulfilled.
 **	Encaspulates the MEI function and converts args from ints to doubles.
 **
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_start_move (int axis, int vel, int accel, int pos)
+void
+tm_start_move (int axis, int vel, int accel, int pos)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	start_move(axis,(double)pos,(double)vel,(double)accel);
-	semGive (semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   start_move(axis,(double)pos,(double)vel,(double)accel);
+   semGive (semMEI);
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_bf
-**
-** DESCRIPTION:
 **      Telescope motion to go over a fiducial point back-and-forth a
-**	specified number of times.
-**	Boroski spec.
+**	specified number of times.  Boroski spec.
 **
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
+void
+tm_bf(int axis,
+      int vel,
+      int accel,
+      int pos1, int pos2,
+      int times)
 {
-  int i;
-  int status;
+   int i;
+   int status;
+   
+   printf("Pass ");
+   for(i = 0; i < times; i++) {
+      printf ("%d ",i);
+      tm_controller_run(axis);
+      tm_start_move(axis,vel,accel,pos1);
 
-  printf ("\r\nPass ");
-  for (i=0;i<times;i++)
-  {
-    printf ("\r\n%d ",i);
-    tm_controller_run (axis);
-    tm_start_move (axis,vel,accel,pos1);
-    status=FALSE;
-    while (!status)
-    {
-      taskDelay(60);
-      semTake(semMEI,WAIT_FOREVER);
-      status=motion_done(axis);
-      semGive (semMEI);
-    }
-    tm_start_move (axis,vel,accel,pos2);
-    status=FALSE;
-    while (!status)
-    {
-      taskDelay(60);
-      semTake(semMEI,WAIT_FOREVER);
-      status=motion_done(axis);
-      semGive (semMEI);
-    }
-  }
-  printf(" Done");
+      status = FALSE;
+      while(!status) {
+	 taskDelay(60);
+
+	 semTake(semMEI, WAIT_FOREVER);
+	 status=motion_done(axis);
+	 semGive(semMEI);
+      }
+
+      tm_start_move (axis,vel,accel,pos2);
+
+      status = FALSE;
+      while(!status) {
+	 taskDelay(60);
+
+	 semTake(semMEI, WAIT_FOREVER);
+	 status = motion_done(axis);
+	 semGive(semMEI);
+      }
+   }
+   printf(" Done\n");
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_print_coeffs
-**
-** DESCRIPTION:
 **      Print the specified axis PID coefficients and sample rate.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_print_coeffs(int axis)
+void
+tm_print_coeffs(int axis)
 {
-	short coeff[COEFFICIENTS];
-	short mode;
-	short rate;
-
-	semTake(semMEI,WAIT_FOREVER);
-	get_filter (axis,(P_INT)coeff);
-	get_integration (axis,&mode);
-	rate=dsp_sample_rate();
-	semGive (semMEI);
-	printf ("\r\n AXIS %d: P=%d, I=%d, D=%d",axis,
-		coeff[0],coeff[1],coeff[2]);
-	printf ("\r\n          AFF=%d, VFF=%d, FFF=%d",
-		coeff[3],coeff[4],coeff[9]);
-	printf ("\r\n          ILIMIT=%d, OFFSET=%d, OLIMIT=%d, SHIFT=%d",
-		coeff[5],coeff[6],coeff[7],coeff[8]);
-	printf ("\r\n integration mode is %d",mode);
-	printf ("\r\n and sample is %d Hz",rate);
+   short coeff[COEFFICIENTS];
+   short mode;
+   short rate;
+   
+   semTake(semMEI,WAIT_FOREVER);
+   
+   get_filter(axis,(P_INT)coeff);
+   get_integration(axis,&mode);
+   rate = dsp_sample_rate();
+   
+   semGive (semMEI);
+   
+   printf("AXIS %d: P=%d, I=%d, D=%d\n", axis, coeff[0], coeff[1], coeff[2]);
+   printf("         AFF=%d, VFF=%d, FFF=%d\n", coeff[3], coeff[4], coeff[9]);
+   printf("         ILIMIT=%d, OFFSET=%d, OLIMIT=%d, SHIFT=%d\n",
+	   coeff[5], coeff[6], coeff[7], coeff[8]);
+   printf("integration mode is %d and sample is %d Hz\n", mode, rate);
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_set_coeffs 
-**
-** DESCRIPTION:
 **      Set the specified axis coefficient where index is used to specify
 **	one of 10 possible coefficients.
 **		index=0(P),1(I),2(D),3(AFF),4(VFF),5(ILIM),6(OFF),7(DLIM)
 **		8(SHIFT)(-5 is 1/32),9(FFF)
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_set_coeffs(int axis, int index, int val)
+void
+tm_set_coeffs(int axis, int index, int val)
 {
-	short coeff[COEFFICIENTS];
+   short coeff[COEFFICIENTS];
+   
+   semTake(semMEI,WAIT_FOREVER);
 
-	semTake(semMEI,WAIT_FOREVER);
-	get_filter (axis,(P_INT)coeff);
-	coeff[index]=val;
-	set_filter (axis,(P_INT)coeff);
-	semGive (semMEI);
+   get_filter(axis,(P_INT)coeff);
+   coeff[index] = val;
+   set_filter(axis,(P_INT)coeff);
+
+   semGive (semMEI);
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -255,36 +206,46 @@ void tm_set_coeffs(int axis, int index, int val)
 **
 **=========================================================================
 */
-void tm_clear_pos (int axis)
+void
+tm_clear_pos(int axis)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_position (axis,0.0);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   set_position (axis,0.0);
+   semGive(semMEI);
 }
-void tm_get_pos (int axis,double *position)
+
+void
+tm_get_pos(int axis, double *position)
 {
-	semTake(semMEI,WAIT_FOREVER);
-        get_position(axis,position);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   get_position(axis,position);
+   semGive(semMEI);
 }
-void tm_get_vel (int axis,double *velocity)
+
+void
+tm_get_vel(int axis,
+	   double *velocity)
 {
-	semTake(semMEI,WAIT_FOREVER);
-        get_velocity(axis,velocity);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   get_velocity(axis,velocity);
+   semGive(semMEI);
 }
-void tm_set_sample_rate (unsigned short rate)
+
+void
+tm_set_sample_rate(unsigned short rate)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_sample_rate (rate);
-	printf("\r\n Sample Rate=%d",(unsigned short)dsp_sample_rate());
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   set_sample_rate (rate);
+   printf("Sample Rate=%d\n", (unsigned short)dsp_sample_rate());
+   semGive(semMEI);
 }
-void tm_reset_integrator (int axis)
+
+void
+tm_reset_integrator(int axis)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	reset_integrator (axis);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   reset_integrator (axis);
+   semGive(semMEI);
 }
 
 void
@@ -336,68 +297,56 @@ tm_adjust_pos(int axis,			/* desired axis */
    return(0);
 }
   
-void tm_set_encoder(int axis)
+void
+tm_set_encoder(int axis)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_feedback(axis,FB_ENCODER);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   set_feedback(axis,FB_ENCODER);
+   semGive(semMEI);
 }
-void tm_dual_loop (int axis, int dual)
+
+void
+tm_dual_loop(int axis, int dual)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_dual_loop (axis,axis+1,dual);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   set_dual_loop (axis,axis+1,dual);
+   semGive(semMEI);
 }
+
+#if 0
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_set_analog_encoder
-**
-** DESCRIPTION:
 **      Telescope motion sets up the tachometer as the encoder.  No longer
 **	used at this time.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_set_analog_encoder(int axis, int channel)
+void
+tm_set_analog_encoder(int axis, int channel)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_analog_channel(axis,channel,TRUE,TRUE);
-	set_axis_analog (axis,TRUE);
-	set_feedback(axis,FB_ANALOG);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+   
+   set_analog_channel(axis,channel,TRUE,TRUE);
+   set_axis_analog (axis,TRUE);
+   set_feedback(axis,FB_ANALOG);
+
+   semGive(semMEI);
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_set_analog_channel
-**
-** DESCRIPTION:
 **      Telescope motion sets analog channel as feedback to PID.  Not used.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_set_analog_channel(int axis, int channel)
+void
+tm_set_analog_channel(int axis, int channel)
 {
-	semTake(semMEI,WAIT_FOREVER);
-	set_analog_channel(axis,channel,TRUE,TRUE);
-	set_axis_analog (axis,TRUE);
-	semGive(semMEI);
+   semTake(semMEI,WAIT_FOREVER);
+
+   set_analog_channel(axis,channel,TRUE,TRUE);
+   set_axis_analog (axis,TRUE);
+
+   semGive(semMEI);
 }
+#endif
+
 /*=========================================================================
 **=========================================================================
 **
@@ -465,7 +414,8 @@ sem_controller_run(int axis)
 **
 **=========================================================================
 */
-void tm_controller_idle (int axis)
+void
+tm_controller_idle(int axis)
 {
 	int retry;
 
@@ -475,7 +425,9 @@ void tm_controller_idle (int axis)
 	  controller_idle (axis);
 	semGive(semMEI);
 }
-void sem_controller_idle (int axis)
+
+void
+sem_controller_idle(int axis)
 {
 	int retry;
 
@@ -576,7 +528,8 @@ ADC128F1_initialize(unsigned char *addr, int occur)
 **
 **=========================================================================
 */
-void tm_data_collection()
+void
+tm_data_collection(void)
 {
   short adc;
 
@@ -990,970 +943,58 @@ tm_brake_status()
 
   return 0;
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_clamp
-**	    tm_clamp_on
-**	    tm_clamp_off
-**	    tm_sp_clamp_on
-**	    tm_sp_clamp_off
-**
-** DESCRIPTION:
-**      Turn on/off the instrument change clamp.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int clamp_cnt;
-int
-tm_clamp(short val) 
-{
-   int err;
-   unsigned short ctrl[2];
-   struct B10_0 tm_ctrl;   
-   struct B10_1 tm_ctrl1;   
-   int cnt;
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
-   swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
-
-   if(val == 1) {
-      tm_ctrl.mcp_clamp_engage_cmd = 1;
-      tm_ctrl1.mcp_clamp_disen_cmd = 0;
-   } else {
-      tm_ctrl.mcp_clamp_engage_cmd = 0;
-      tm_ctrl1.mcp_clamp_disen_cmd = 1;
-   }
-   
-   swab((char *)&tm_ctrl, (char *)&ctrl[0],2);
-   swab((char *)&tm_ctrl1,(char *)&ctrl[1],2);
-   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   semGive (semSLC);
-   
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-   
-   if(val == 0) {
-      return 0;
-   }
-
-   cnt=60*15;				/* wait 15s */
-   while(sdssdc.status.i9.il0.clamp_en_stat == 0 && cnt > 0) {
-      taskDelay(1);
-      cnt--;
-   }
-   clamp_cnt = cnt;
-
-   if (sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
-      return -1;
-   }
-/*
- * Failure; turn off clamp and disengage
- */
-   printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   if(err) {
-      semGive (semSLC);
-      printf ("R2 Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
-   swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
-
-   tm_ctrl.mcp_clamp_engage_cmd = 0;
-   tm_ctrl1.mcp_clamp_disen_cmd = 1;
-   
-   swab((char *)&tm_ctrl,(char *)&ctrl[0],2);
-   swab((char *)&tm_ctrl1,(char *)&ctrl[1],2);
-   
-   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   semGive(semSLC);
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_clamp_on()
-{
-    tm_clamp (1);
-}
-void tm_clamp_off()
-{
-    tm_clamp (0);
-}
-void tm_sp_clamp_on()
-{
-  if (taskIdFigure("tmClamp")==ERROR)
-    taskSpawn("tmClamp",90,0,2000,(FUNCPTR)tm_clamp,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_clamp_off()
-{
-  if (taskIdFigure("tmClamp")==ERROR)
-    taskSpawn("tmClamp",90,0,2000,(FUNCPTR)tm_clamp,0,0,0,0,0,0,0,0,0,0);
-}
-int tm_clamp_status()
-{
-   int err;
-   unsigned short ctrl[2],sctrl[2];
-   
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-   semGive (semSLC);
-   if(err) {
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   
-   swab ((char *)&ctrl[0],(char *)&sctrl[0],2);
-   swab ((char *)&ctrl[1],(char *)&sctrl[1],2);
-   
-   printf (" read ctrl = 0x%4x 0x%4x\r\n",sctrl[0],sctrl[1]);
-   
-   return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_slit
-**	    tm_slit_clear
-**	    tm_slit_open
-**	    tm_slit_close
-**	    tm_sp_slit_open
-**	    tm_sp_slit_close
-**
-** DESCRIPTION:
-**      Open/close/clear the slit door.  Clear neither closes nor opens the
-**	door, the actuator is inactive.  There are two spectographs so the
-**	door must be specified.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_slit(short val) 
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("tm_slit: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   switch (val) {
-    case 5:
-      tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
-      break;
-    case 4:
-      tm_ctrl1.mcp_slit_dr2_opn_cmd = 1;
-      tm_ctrl1.mcp_slit_dr2_cls_cmd = 0;
-      break;
-    case 3:
-      tm_ctrl1.mcp_slit_dr2_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr2_cls_cmd = 1;
-      break;
-    case 2:
-      tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
-      break;
-    case 1:
-      tm_ctrl1.mcp_slit_dr1_opn_cmd = 1;
-      tm_ctrl1.mcp_slit_dr1_cls_cmd = 0;
-      break;
-    case 0:
-      tm_ctrl1.mcp_slit_dr1_opn_cmd = 0;
-      tm_ctrl1.mcp_slit_dr1_cls_cmd = 1;
-      break;
-   }
-
-   swab((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   if(err) {
-      printf("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_slit_clear(int door)
-{
-    tm_slit (2+(door*3));
-}
-void tm_slit_open(int door)
-{
-    tm_slit (1+(door*3));
-}
-void tm_slit_close(int door)
-{
-    tm_slit (0+(door*3));
-}
-
-void
-tm_sp_slit_clear(int door)
-{
-   if(taskIdFigure("tmSlit") == ERROR) {
-      taskSpawn("tmSlit",90,0,2000,
-		(FUNCPTR)tm_slit_clear, door,
-		0,0,0,0,0,0,0,0,0);
-   }
-}
-
-void
-tm_sp_slit_open(int door)
-{
-   if(taskIdFigure("tmSlit") == ERROR) {
-      taskSpawn("tmSlit",90,0,2000,
-		(FUNCPTR)tm_slit_open, door,
-		0,0,0,0,0,0,0,0,0);
-   }
-}
-
-void
-tm_sp_slit_close(int door)
-{
-   if(taskIdFigure("tmSlit") == ERROR) {
-      taskSpawn("tmSlit",90,0,2000,
-		(FUNCPTR)tm_slit_close, door,
-		0,0,0,0,0,0,0,0,0);
-   }
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_cart
-**	    tm_cart_latch
-**	    tm_cart_unlatch
-**	    tm_sp_cart_latch
-**	    tm_sp_cart_unlatch
-*
-** DESCRIPTION:
-**      Latch/unlatch the fiber cartridge latch for the selected spectograph
-**	specified by the door.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_cart(short val) 
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake (semSLC,60) == ERROR) {
-      printf("tm_cart: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   switch (val) {
-    case 3:
-      tm_ctrl1.mcp_slit_latch2_cmd = 1;
-      break;
-    case 2:
-      tm_ctrl1.mcp_slit_latch2_cmd = 0;
-      break;
-    case 1:
-      tm_ctrl1.mcp_slit_latch1_cmd = 1;
-      break;
-    case 0:
-      tm_ctrl1.mcp_slit_latch1_cmd = 0;
-      break;
-   }
-   
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_cart_latch(int door)
-{
-    tm_cart (1+(door*2));
-}
-void tm_cart_unlatch(int door)
-{
-    tm_cart (0+(door*2));
-}
-void tm_sp_cart_latch(int door)
-{
-  if (taskIdFigure("tmCart")==ERROR)
-    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_latch,door,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_cart_unlatch(int door)
-{
-  if (taskIdFigure("tmCart")==ERROR)
-    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_unlatch,door,0,0,0,0,0,0,0,0,0);
-}
-
-int
-tm_slit_status()
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-
-   if(semTake(semSLC,60) == ERROR) {
-      printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   if (err) {
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-   
-  printf (" read ctrl = 0x%04x\r\n",(unsigned int)ctrl);
-  printf ("\r\n mcp_slit_dr1_opn_cmd=%d, mcp_slit_dr1_cls_cmd=%d",
-     tm_ctrl1.mcp_slit_dr1_opn_cmd,tm_ctrl1.mcp_slit_dr1_cls_cmd);
-  printf ("\r\n mcp_slit_dr2_opn_cmd=%d, mcp_slit_dr2_cls_cmd=%d",
-     tm_ctrl1.mcp_slit_dr2_opn_cmd,tm_ctrl1.mcp_slit_dr2_cls_cmd);
-  printf ("\r\n mcp_slit_latch1_cmd=%d, mcp_slit_latch2_cmd=%d",
-     tm_ctrl1.mcp_slit_latch1_cmd,tm_ctrl1.mcp_slit_latch2_cmd);
-
-  printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
-	sdssdc.status.i1.il9.slit_head_door1_opn,
-	sdssdc.status.i1.il9.slit_head_door1_cls,
-	sdssdc.status.i1.il9.slit_head_latch1_ext);
-  printf ("\r\n slit_door2_opn=%d, slit_door2_cls=%d, cart_latch2_opn=%d",
-	sdssdc.status.i1.il9.slit_head_door2_opn,
-	sdssdc.status.i1.il9.slit_head_door2_cls,
-	sdssdc.status.i1.il9.slit_head_latch2_ext);
-  printf ("\r\n slit_dr1_ext_perm=%d, slit_dr1_cls_perm=%d, slit_latch1_ext_perm=%d",
-	sdssdc.status.o1.ol9.slit_dr1_opn_perm,
-	sdssdc.status.o1.ol9.slit_dr1_cls_perm,
-	sdssdc.status.o1.ol9.slit_latch1_ext_perm);
-  printf ("\r\n slit_dr2_opn_perm=%d, slit_dr2_cls_perm=%d, slit_latch2_ext_perm=%d",
-	sdssdc.status.o1.ol9.slit_dr2_opn_perm,
-	sdssdc.status.o1.ol9.slit_dr2_cls_perm,
-	sdssdc.status.o1.ol9.slit_latch2_ext_perm);
-
-  return 0;
-}
-
-/*
- * Commands to control the spectrograph doors/latches
- */
-int
-mcp_slit_clear(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_sp_slit_clear(spec);
-
-   return(0);
-}
-
-int
-mcp_slit_open(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_sp_slit_open(spec);
-
-   return(0);
-}
-
-int
-mcp_slit_close(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_sp_slit_close(spec);
-
-   return(0);
-}
-
-int
-mcp_slithead_latch_open(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_cart_unlatch(spec);
-
-   return(0);
-}
-
-int
-mcp_slithead_latch_close(int spec)
-{
-   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
-      return(-1);
-   }
-   
-   tm_cart_latch(spec);
-
-   return(0);
-}
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_ffs
-**	    tm_ffs_open
-**	    tm_ffs_close
-**          tm_ffs_enable
-**	    tm_sp_ffs_move
-**	    tm_ffs_open_status
-**	    tm_ffs_close_status
-**
-** DESCRIPTION:
-**      Open/close the flat field screen
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-/*
- * Set the FFS control bits. If val is < 0, it isn't set
- */
-static int
-set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
-		 int enab)		/* value of mcp_ff_screen_enable */
-{
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-   int err;
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab((char *)&ctrl[0], (char *)&tm_ctrl1, 2);
-
-   if(val >= 0) {
-      tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
-   }
-   tm_ctrl1.mcp_ff_screen_enable = enab;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-
-/*
- * Open or close the FF screen
- */
-int
-tm_ffs(short val)			/* FFS_CLOSE or FFS_OPEN */
-{
-   int cnt;
-   int err;
-   int failed = 0;			/* did operation fail? */
-   int wait_time = 30;			/* FF screen timeout (seconds) */
-
-   if(set_mcp_ffs_bits(val, 1) != 0) {
-      return(err);
-   }
-
-   cnt=60*wait_time;
-   printf("Waiting up to %ds for flat field to move\n", wait_time);
-   if(val == 1) {
-      while(!tm_ffs_open_status() && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      if(!tm_ffs_open_status()) {	/* did not work */
-	 failed = 1;
-	 TRACE(0, "FFS did NOT all open", 0, 0);
-	 printf("\r\n FFS did NOT all open ");
-      }
-   } else {
-      while(!tm_ffs_close_status() && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      if(!tm_ffs_close_status()) {	/* did not work */
-	 failed = 1;
-	 TRACE(0, "FFS did NOT all close", 0, 0);
-	 printf("\r\n FFS did NOT all close ");
-      }
-   }
-   
-   if(failed) {
-      return(set_mcp_ffs_bits(!val, 1)); /* don't leave command pending */
-   } else {
-      return 0;
-   }
-}
-
-/*
- * Enable the flat field screen
- */
-int
-tm_ffs_enable(int val)
-{
-   return(set_mcp_ffs_bits(-1, 1));
-}
-
-void
-tm_ffs_open(void)
-{
-   tm_ffs(FFS_OPEN);
-}
-
-void
-tm_ffs_close(void)
-{
-   tm_ffs(FFS_CLOSE);
-}
-
-void
-tm_sp_ffs_move(int open_close)		/* FFS_CLOSE or FFS_OPEN */
-{
-   if(taskIdFigure("tmFFS") == ERROR) {
-      taskSpawn("tmFFS", 90, 0, 2000, (FUNCPTR)tm_ffs, open_close,
-		0,0,0,0,0,0,0,0,0);
-   } else {
-      TRACE(0, "Task tmFFS is already active; not moving FF screen (%d)",
-	    open_close, 0);
-   }
-}
-
-int
-tm_ffs_open_status(void)
-{
-  if ((sdssdc.status.i1.il13.leaf_1_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_2_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_3_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_4_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_5_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_6_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_7_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_8_open_stat))
-    return TRUE;
-  else 
-    return FALSE;
-}
-
-int
-tm_ffs_close_status(void)
-{
-  if ((sdssdc.status.i1.il13.leaf_1_closed_stat)&&
- 	(sdssdc.status.i1.il13.leaf_2_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_3_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_4_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_5_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_6_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_7_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_8_closed_stat)) 
-    return TRUE;
-  else 
-    return FALSE;
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_ffl
-**	    tm_ffl_on
-**	    tm_ffl_off
-**	    tm_sp_ffl_on
-**	    tm_sp_ffl_off
-**
-** DESCRIPTION:
-**      Turn on/off the incandescent lamps for the flat field.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_ffl(short val)
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_ff_lamp_on_cmd = val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_ffl_on()
-{
-   tm_ffl(1);
-}
-void tm_ffl_off()
-{
-   tm_ffl(0);
-}
-void tm_sp_ffl_on()
-{
-  if (taskIdFigure("tmFFL")==ERROR)
-    taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_ffl_off()
-{
-  if (taskIdFigure("tmFFL")==ERROR)
-    taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,0,0,0,0,0,0,0,0,0,0);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_neon
-**	    tm_neon_on
-**	    tm_neon_off
-**	    tm_sp_neon_on
-**	    tm_sp_neon_off
-**
-** DESCRIPTION:
-**      Turn on/off the Neon lamps for the flat field.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_neon(short val)
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_ne_lamp_on_cmd = val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_neon_on()
-{
-    tm_neon (1);
-}
-void tm_neon_off()
-{
-    tm_neon (0);
-}
-void tm_sp_neon_on()
-{
-  if (taskIdFigure("tmNeon")==ERROR)
-    taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_neon_off()
-{
-  if (taskIdFigure("tmNeon")==ERROR)
-    taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,0,0,0,0,0,0,0,0,0,0);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_hgcd
-**	    tm_hgcd_on
-**	    tm_hgcd_off
-**	    tm_sp_hgcd_on
-**	    tm_sp_hgcd_off
-**
-** DESCRIPTION:
-**      Turn on/off the Mercury Cadmium lamps for the flat field.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_hgcd(short val)
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_hgcd_lamp_on_cmd = val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_hgcd_on()
-{
-    tm_hgcd (1);
-}
-void tm_hgcd_off()
-{
-    tm_hgcd (0);
-}
-void tm_sp_hgcd_on()
-{
-  if (taskIdFigure("tmHgCd")==ERROR)
-    taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_hgcd_off()
-{
-  if (taskIdFigure("tmHgCd")==ERROR)
-    taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,0,0,0,0,0,0,0,0,0,0);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: az_amp_ok
-**	    alt_amp_ok
-**	    rot_amp_ok
-**
-** DESCRIPTION:
 **      Check if amp is ok.
 **
-** RETURN VALUES:
-**      T/F
-**
-** CALLS TO:
-**
 ** GLOBALS REFERENCED:
 **	sdssdc
 **
 **=========================================================================
 */
-int az_amp_ok()
+int
+az_amp_ok(void)
 {
-  if ((sdssdc.status.i6.il0.az_mtr_ccw_perm_in) &&
-	(sdssdc.status.i6.il0.az_mtr_cw_perm_in) &&
-	(sdssdc.status.i6.il0.az_plc_perm_in))
-	return TRUE;
-  else
-    if (((sdssdc.status.i6.il0.az_mtr_ccw_perm_in) ||
-	(sdssdc.status.i6.il0.az_mtr_cw_perm_in)) &&
-	(sdssdc.status.i6.il0.az_plc_perm_in))
+   if((sdssdc.status.i6.il0.az_mtr_ccw_perm_in ||
+				     sdssdc.status.i6.il0.az_mtr_cw_perm_in) &&
+      sdssdc.status.i6.il0.az_plc_perm_in) {
       return TRUE;
-    else
-	return FALSE;
+   } else {
+      return FALSE;
+   }
 }
-int alt_amp_ok()
+
+int
+alt_amp_ok(void)
 {
-  if ((sdssdc.status.i6.il0.alt_mtr_dn_perm_in) &&
-	(sdssdc.status.i6.il0.alt_mtr_up_perm_in) &&
-	(sdssdc.status.i6.il0.alt_plc_perm_in))
-	return TRUE;
-  else
-    if (((sdssdc.status.i6.il0.alt_mtr_dn_perm_in) ||
-	(sdssdc.status.i6.il0.alt_mtr_up_perm_in)) &&
-	(sdssdc.status.i6.il0.alt_plc_perm_in))
+   if((sdssdc.status.i6.il0.alt_mtr_dn_perm_in ||
+				    sdssdc.status.i6.il0.alt_mtr_up_perm_in) &&
+       sdssdc.status.i6.il0.alt_plc_perm_in) {
       return TRUE;
-    else
-	return FALSE;
+   } else {
+      return FALSE;
+   }
 }
-int rot_amp_ok()
+
+int
+rot_amp_ok(void)
 {
-  if ((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in) &&
-        (sdssdc.status.i7.il0.rot_mtr_cw_perm_in) &&
-	(sdssdc.status.i7.il0.rot_plc_perm_in))
-	return TRUE;
-  else
-    if (((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in) ||
-	(sdssdc.status.i7.il0.rot_mtr_cw_perm_in)) &&
-	(sdssdc.status.i7.il0.rot_plc_perm_in))
+   if((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in ||
+				    sdssdc.status.i7.il0.rot_mtr_cw_perm_in) &&
+      sdssdc.status.i7.il0.rot_plc_perm_in) {
       return TRUE;
-    else
-	return FALSE;
+   } else {
+      return FALSE;
+   }
 }
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: mgt_shutdown
-**	    tm_amp_mgt	task 
-**
-** DESCRIPTION:
-**      Shutdown the telescope by turning on the brakes due to a software reboot.
-**	Check the amplifiers to see if fault and need to turn brakes on.
-**	Must allow for restart...reason for monitor boolean only turned on
-**	by tm_controller_run.
-**	Keep the watchdog timer on which enables the amplifiers.
-**
-** RETURN VALUES:
-**      void
+**     Shutdown the telescope by turning on the brakes due to a software reboot
+**     Check the amplifiers to see if fault and need to turn brakes on.
+**     Must allow for restart...reason for monitor boolean only turned on
+**     by tm_controller_run.
+**     Keep the watchdog timer on which enables the amplifiers.
 **
 ** CALLS TO:
 **	tm_amp_engage
@@ -1962,7 +1003,6 @@ int rot_amp_ok()
 **	sddsdc
 **	monitor_axis
 **
-**=========================================================================
 */
 #define TM_WD		4		/* WD channel    15 */
 
@@ -2037,64 +1077,46 @@ tm_amp_mgt(void)
       }
    }
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_print_amp_status
-**
-** DESCRIPTION:
 **      Print the amp status.
 **
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-void tm_print_amp_status()
+void
+tm_print_amp_status(void)
 {
-    if (!az_amp_ok())
-      printf ("\r\nAz Amp Disengaged: az_mtr_ccw_perm=%d,az_mtr_cw_perm=%d",
-	sdssdc.status.o11.ol0.az_mtr_ccw_perm,
-	sdssdc.status.o11.ol0.az_mtr_cw_perm);
-    else
-      printf ("\r\nAZ Amp OK");
-    if (!alt_amp_ok())
-      printf ("\r\nAlt Amp Disengaged: alt_mtr_dn_perm=%d,alt_mtr_up_perm=%d",
-	sdssdc.status.o11.ol0.alt_mtr_dn_perm,
-	sdssdc.status.o11.ol0.alt_mtr_up_perm);
-    else
-      printf ("\r\nALT Amp OK");
-    if (!rot_amp_ok())
-      printf ("\r\nRot Amp Disengaged: rot_mtr_rdy=%d,rot_mtr_ccw_perm=%d,rot_mtr_cw_perm=%d",
-	sdssdc.status.i8.il0.rot_mtr_rdy,
-	sdssdc.status.o11.ol0.rot_mtr_ccw_perm,
-	sdssdc.status.o11.ol0.rot_mtr_cw_perm);
-    else
-      printf ("\r\nROT Amp OK");
+    if(az_amp_ok()) {
+       printf("AZ Amp OK\n");
+    } else {
+       printf ("Az Amp Disengaged: az_mtr_ccw_perm=%d,az_mtr_cw_perm=%d\n",
+	       sdssdc.status.o11.ol0.az_mtr_ccw_perm,
+	       sdssdc.status.o11.ol0.az_mtr_cw_perm);
+    }
+
+    if(alt_amp_ok()) {
+       printf("ALT Amp OK\n");
+    } else {
+       printf("Alt Amp Disengaged: alt_mtr_dn_perm=%d,alt_mtr_up_perm=%d\n",
+	      sdssdc.status.o11.ol0.alt_mtr_dn_perm,
+	      sdssdc.status.o11.ol0.alt_mtr_up_perm);
+    }
+
+    if(rot_amp_ok()) {
+       printf("ROT Amp OK\n");
+    } else {
+       printf("Rot Amp Disengaged: "
+	      "rot_mtr_rdy=%d,rot_mtr_ccw_perm=%d,rot_mtr_cw_perm=%d\n",
+	      sdssdc.status.i8.il0.rot_mtr_rdy,
+	      sdssdc.status.o11.ol0.rot_mtr_ccw_perm,
+	      sdssdc.status.o11.ol0.rot_mtr_cw_perm);
+    }
 }
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_amp_disengage
-**	    tm_amp_engage
-**	    tm_setup_wd
-**
-** DESCRIPTION:
 **      Enable/disable the amp utilizing the watchdog which is setup with
 **	the initialization routine.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
 void
 tm_amp_disengage(void)
@@ -2131,92 +1153,81 @@ tm_setup_wd(void)
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_axis_status
-**	    tm_print_axis_status
-**
-** DESCRIPTION:
 **      Telescope motion prints status of axis_status funciton.
 **
-** RETURN VALUES:
-**	int	axis status
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
 */
-char const* const msg_axis_status[]=
-	{"IN_SEQUENCE",
-	 "IN_POSITION",
-	 "IN_MOTION",
-	 "DIRECTION positive",
-	 "FRAMES_LEFT"};
-int  tm_axis_status(int axis)
-{
-  int value;
+char const* const msg_axis_status[] = {
+   "IN_SEQUENCE",
+   "IN_POSITION",
+   "IN_MOTION",
+   "DIRECTION positive",
+   "FRAMES_LEFT"
+};
 
-  semTake(semMEI,WAIT_FOREVER);
-  value=axis_status(axis);
-  semGive(semMEI);
-  return value;
-}
-void tm_print_axis_status(int axis)
+int
+tm_axis_status(int axis)
 {
-  int i,value;
+   int value;
+   
+   semTake(semMEI,WAIT_FOREVER);
+   value = axis_status(axis);
+   semGive(semMEI);
 
-  value=tm_axis_status(axis);
-  printf ("AXIS STATUS: %x",value);
-  for (i=0;i<sizeof(msg_axis_status)/sizeof(char *);i++)
-    if ((value>>(i+4))&1) printf ("     %s\r\n",msg_axis_status[i]);
+   return value;
 }
+
+void
+tm_print_axis_status(int axis)
+{
+   int i,value;
+   
+   value = tm_axis_status(axis);
+   printf("AXIS STATUS: 0x%x",value);
+   for(i = 0; i < sizeof(msg_axis_status)/sizeof(char *); i++) {
+      if((value >> (i + 4)) & 1) {
+	 printf("     %s\r\n",msg_axis_status[i]);
+      }
+  }
+}
+
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_axis_state
-**	    tm_print_axis_state
-**
-** DESCRIPTION:
 **      Telescope motion prints status of axis_state funciton.
 **
-** RETURN VALUES:
-**      int	state value
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
 **=========================================================================
 */
-char const* const msg_axis_state[]=
-	{"NO_EVENT",
-	 "NEW_FRAME",
-	 "STOP_EVENT",
-	 "E_STOP_EVENT",
-	 "ABORT_EVENT",
-	 "Running???",
-	 "Undocumented Value"};
-int tm_axis_state(int axis)
+char const* const msg_axis_state[] = {
+   "NO_EVENT",
+   "NEW_FRAME",
+   "STOP_EVENT",
+   "E_STOP_EVENT",
+   "ABORT_EVENT",
+   "Running???",
+   "Undocumented Value"
+};
+
+int
+tm_axis_state(int axis)
 {
   int value;
 
-  semTake(semMEI,WAIT_FOREVER);
-  value=axis_state(axis);
+  semTake(semMEI, WAIT_FOREVER);
+  value = axis_state(axis);
   semGive(semMEI);
+
   return value;
 }
-void tm_print_axis_state(int axis)
-{
-  int i,value;
 
-  value=tm_axis_state(axis);
-  printf ("AXIS STATE: %x",value);
-  switch (value)
-  {
+void
+tm_print_axis_state(int axis)
+{
+   int i,value;
+   
+   value = tm_axis_state(axis);
+   printf("AXIS STATE: 0x%x", value);
+   
+   switch (value) {
     case NO_EVENT:
       i=0;
       break;
@@ -2237,49 +1248,42 @@ void tm_print_axis_state(int axis)
       break;
     default:
       i=6;
-  }
-  printf ("     %s\r\n",msg_axis_state[i]);
+   }
+
+   printf ("     %s\n",msg_axis_state[i]);
 }
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: tm_print_axis_source
-**
-** DESCRIPTION:
 **      Telescope motion prints status of axis_source funciton.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
 **
 **=========================================================================
 */
-char const* const msg_axis_source[]=
-	{"ID_NONE",
-	 "ID_HOME_SWITCH",
-	 "ID_POS_LIMIT",
-	 "ID_NEG_LIMIT",
-	 "ID_AMP_FAULT",
-	 "unused",
-	 "unused",
-	 "ID_X_NEG_LIMIT",
-	 "ID_X_POS_LIMIT",
-	 "ID_ERROR_LIMIT",
-	 "ID_PC_COMMAND",
-	 "ID_OUT_OF_FRAMES",
-	 "ID_TEMPO_PROBE_FAULT",
-	 "ID_AXIS_COMMAND"};
-void tm_print_axis_source(int axis)
-{
-  int value;
+char const* const msg_axis_source[] = {
+   "ID_NONE",
+   "ID_HOME_SWITCH",
+   "ID_POS_LIMIT",
+   "ID_NEG_LIMIT",
+   "ID_AMP_FAULT",
+   "unused",
+   "unused",
+   "ID_X_NEG_LIMIT",
+   "ID_X_POS_LIMIT",
+   "ID_ERROR_LIMIT",
+   "ID_PC_COMMAND",
+   "ID_OUT_OF_FRAMES",
+   "ID_TEMPO_PROBE_FAULT",
+   "ID_AXIS_COMMAND"
+};
 
-  semTake(semMEI,WAIT_FOREVER);
-  value=axis_source(axis);
-  semGive(semMEI);
-  printf ("AXIS SOURCE: %x",value);
-    printf ("     %s\r\n",msg_axis_source[value]);
+void
+tm_print_axis_source(int axis)
+{
+   int value;
+   
+   semTake(semMEI,WAIT_FOREVER);
+   value=axis_source(axis);
+   semGive(semMEI);
+   printf ("AXIS SOURCE: %x",value);
+   printf ("     %s\r\n",msg_axis_source[value]);
 }                                                              
  
