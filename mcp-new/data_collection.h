@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                  /* Cartridge 1 on the telescope */
    unsigned no_inst_in_place : 1;             /* No Instrument on the telescope */
    unsigned disc_cable : 1;                   /* Instrument ID Cable Disconnected */
-   unsigned version_id : 16;                  /* Version 18  $Name$ */
+   unsigned version_id : 16;                  /* Version 19  $Name$ */
 } B3_L1;
 
 typedef struct {
@@ -929,10 +929,10 @@ typedef struct {
    unsigned rot_mtr_cw_perm_in : 1;           /* Rotator motor CW permit status */
    unsigned spare_s8_c7 : 1;                  /* Spare splitter chassis channel */
    unsigned spare_s8_c6 : 1;                  /* Spare splitter chassis channel */
-   unsigned az_pos_410b_ccw : 1;              /* Azimuth less than +410 degree limit status */
-   unsigned az_neg_170b_cw : 1;               /* Azimuth greater than -170 degrees status */
-   unsigned az_pos_410a_ccw : 1;              /* Azimuth less than +410 degree limit status */
-   unsigned az_neg_170a_cw : 1;               /* Azimuth greater then -170 degrees status */
+   unsigned az_pos_445b_ccw : 1;              /* Azimuth less than +445 degree limit status */
+   unsigned az_neg_201b_cw : 1;               /* Azimuth greater than -201 degrees status */
+   unsigned az_pos_445a_ccw : 1;              /* Azimuth less than +445 degree limit status */
+   unsigned az_neg_201a_cw : 1;               /* Azimuth greater then -201 degrees status */
    unsigned az_dir_ccw : 1;                   /* Azimuth direction CCW status */
    unsigned az_dir_cw : 1;                    /* Azimuth direction CW status */
    unsigned alt_velocity_limit : 1;           /* Altitude velocity limit status */
@@ -974,8 +974,8 @@ typedef struct {
    unsigned alt_mtr1_rdy : 1;                 /* Altitude motor 1 ready status */
    unsigned az_mtr2_rdy : 1;                  /* Azimuth motor 2 ready status */
    unsigned az_mtr1_rdy : 1;                  /* Azimuth motor 1 ready status */
-   unsigned az_pos_400_ccw : 1;               /* Azimuth less than +400 degree limit status */
-   unsigned az_neg_165_cw : 1;                /* Azimuth greater than -165 degree limit status */
+   unsigned az_pos_440_ccw : 1;               /* Azimuth less than +440 degree limit status */
+   unsigned az_neg_196_cw : 1;                /* Azimuth greater than -196 degree limit status */
    unsigned az_110_130_limit : 1;             /* Azimuth between 110 and 130 degree limit status */
    unsigned az_stow_cntr_sw : 1;              /* Azimuth stow center switch status */
 } I8_L0;
@@ -1398,7 +1398,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 18  $Name$";
+   static char plcVersion[] = "Version 19  $Name$";
 #endif
 /*
  * End of machine generated code
