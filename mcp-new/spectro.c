@@ -40,7 +40,7 @@ tAlgnClmp(void)
    unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */   
-   B10_W0 tm_ctrl;   
+   B10_L0 tm_ctrl;   
 
    for(;;) {
       ret = msgQReceive(msgAlignClamp, (char *)&msg, sizeof(msg),
@@ -144,7 +144,7 @@ tSpecDoor(void)
    unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
-   B10_W0 tm_ctrl;
+   B10_L0 tm_ctrl;
    int spec;				/* which spectrograph? */
 
    for(;;) {
@@ -305,7 +305,7 @@ tm_slithead(short val)
 {
    int err;
    unsigned short ctrl[2];
-   B10_W0 tm_ctrl;   
+   B10_L0 tm_ctrl;   
              
    if(semTake (semSLC,60) == ERROR) {
       printf("tm_slithead: unable to take semaphore: %s", strerror(errno));
@@ -364,7 +364,7 @@ tm_slit_status()
 {
    int err;
    unsigned short ctrl[2];
-   B10_W0 tm_ctrl;
+   B10_L0 tm_ctrl;
 
    if(semTake(semSLC,60) == ERROR) {
       printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
@@ -447,7 +447,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 		 int enab)		/* value of mcp_ff_screen_enable */
 {
    unsigned short ctrl[2];
-   B10_W0 tm_ctrl;   
+   B10_L0 tm_ctrl;   
    int err;
              
    TRACE(3, "Setting FFS: %d %d", val, enab); /* XXX */
@@ -655,7 +655,7 @@ tLamps(void)
    unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
-   B10_W0 tm_ctrl;   
+   B10_L0 tm_ctrl;   
 
    for(;;) {
       ret = msgQReceive(msgLamps, (char *)&msg, sizeof(msg), WAIT_FOREVER);
