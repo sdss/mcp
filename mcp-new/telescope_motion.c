@@ -394,33 +394,28 @@ void tm_set_analog_channel(int axis, int channel)
 **
 **=========================================================================
 */
-void tm_controller_run (int axis)
+void
+tm_controller_run (int axis)
 {
-	int retry;
-
-	retry=12;
-	semTake(semMEI,WAIT_FOREVER);
-  	while ((axis_state(axis)>2)&&(--retry>0)) 
-	{
-	  taskDelay(20);
-	  controller_run (axis);
-	}
-	semGive(semMEI);
-	if (retry!=0)
-	  monitor_axis[axis/2]=TRUE;
+   semTake(semMEI,WAIT_FOREVER);
+   sem_controller_run(axis);
+   semGive(semMEI);
 }
-void sem_controller_run (int axis)
-{
-	int retry;
 
-	retry=12;
-  	while ((axis_state(axis)>2)&&(--retry>0)) 
-	{
-	  taskDelay(20);
-	  controller_run (axis);
-	}
-	if (retry!=0)
-	  monitor_axis[axis/2]=TRUE;
+void
+sem_controller_run(int axis)
+{
+   const int nretry = 12;
+   int i;
+   
+   for(i = 0; axis_state(axis) > 2 && i < nretry; i++) {
+      taskDelay(20);
+      controller_run(axis);
+   }
+   
+   if(i == nretry) {
+      monitor_axis[axis/2] = TRUE;
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -742,6 +737,7 @@ tm_az_brake(short val)
              
    if (semTake (semSLC,60) == ERROR) {
       printf("tm_az_brake: unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -788,6 +784,7 @@ tm_az_brake(short val)
       if(semTake(semSLC,60) == ERROR) {
 	 printf("tm_az_brake: unable to take semaphore to write: %s",
 		strerror(errno));
+	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
 	 return(-1);
       }
 
@@ -875,6 +872,7 @@ int tm_alt_brake(short val)
    TRACE(10, "Taking semaphore", 0, 0);
    if (semTake(semSLC,60) == ERROR) {
       printf("tm_alt_brake: unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
    
@@ -926,6 +924,7 @@ int tm_alt_brake(short val)
       if(semTake (semSLC,60)== ERROR) {
 	 printf("tm_alt_brake: unable to take semaphore for write: %s",
 		strerror(errno));
+	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
 	 return(-1);
       }
       
@@ -1015,6 +1014,7 @@ tm_brake_status()
 
   if(semTake(semSLC,60) == ERROR) {
      printf("tm_brake_status: unable to take semaphore: %s", strerror(errno));
+     TRACE(0, "Unable to take semaphore: %d", errno, 0);
      return(-1);
   }
   
@@ -1064,6 +1064,7 @@ tm_clamp(short val)
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1098,7 +1099,7 @@ tm_clamp(short val)
       return 0;
    }
 
-   cnt=60*7;
+   cnt=60*15;				/* wait 15s */
    while(sdssdc.status.i9.il0.clamp_en_stat == 0 && cnt > 0) {
       taskDelay(1);
       cnt--;
@@ -1114,6 +1115,7 @@ tm_clamp(short val)
    printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1166,6 +1168,7 @@ int tm_clamp_status()
    
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1218,6 +1221,7 @@ tm_slit(short val)
              
    if(semTake(semSLC,60) == ERROR) {
       printf("tm_slit: unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1342,6 +1346,7 @@ tm_cart(short val)
              
    if(semTake (semSLC,60) == ERROR) {
       printf("tm_cart: unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1406,6 +1411,7 @@ tm_slit_status()
 
    if(semTake(semSLC,60) == ERROR) {
       printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1514,8 +1520,8 @@ mcp_slithead_latch_close(int spec)
 ** ROUTINE: tm_ffs
 **	    tm_ffs_open
 **	    tm_ffs_close
-**	    tm_sp_ffs_open
-**	    tm_sp_ffs_close
+**          tm_ffs_enable
+**	    tm_sp_ffs_move
 **	    tm_ffs_open_status
 **	    tm_ffs_close_status
 **
@@ -1533,17 +1539,20 @@ mcp_slithead_latch_close(int spec)
 **
 **=========================================================================
 */
-int
-tm_ffs(short val)
+/*
+ * Set the FFS control bits. If val is < 0, it isn't set
+ */
+static int
+set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
+		 int enab)		/* value of mcp_ff_screen_enable */
 {
-   int err;
-   int cnt;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   int wait_time = 30;			/* FF screen timeout (seconds) */
+   int err;
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1553,10 +1562,12 @@ tm_ffs(short val)
       printf("R Err=%04x\r\n",err);
       return err;
    }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+   swab((char *)&ctrl[0], (char *)&tm_ctrl1, 2);
 
-   tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
-   tm_ctrl1.mcp_ff_screen_enable = 1;
+   if(val >= 0) {
+      tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
+   }
+   tm_ctrl1.mcp_ff_screen_enable = enab;
 
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
    err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
@@ -1567,48 +1578,90 @@ tm_ffs(short val)
       return err;
    }
 
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,1);
+   return 0;
+}
+
+/*
+ * Open or close the FF screen
+ */
+int
+tm_ffs(short val)			/* FFS_CLOSE or FFS_OPEN */
+{
+   int cnt;
+   int err;
+   int failed = 0;			/* did operation fail? */
+   int wait_time = 30;			/* FF screen timeout (seconds) */
+
+   if(set_mcp_ffs_bits(val, 1) != 0) {
+      return(err);
+   }
+
    cnt=60*wait_time;
    printf("Waiting up to %ds for flat field to move\n", wait_time);
    if(val == 1) {
-     while ((!tm_ffs_open_status())&&(cnt>0)) {
-        taskDelay(1);
-        cnt--;
-     }
-     if(!tm_ffs_open_status()) {	/* did not work */
-	printf("\r\n FFS did NOT all open ");
-     }
+      while(!tm_ffs_open_status() && cnt > 0) {
+	 taskDelay(1);
+	 cnt--;
+      }
+      if(!tm_ffs_open_status()) {	/* did not work */
+	 failed = 1;
+	 TRACE(0, "FFS did NOT all open", 0, 0);
+	 printf("\r\n FFS did NOT all open ");
+      }
    } else {
-      while ((!tm_ffs_close_status())&&(cnt>0)) {
+      while(!tm_ffs_close_status() && cnt > 0) {
 	 taskDelay(1);
 	 cnt--;
       }
       if(!tm_ffs_close_status()) {	/* did not work */
-	 printf ("\r\n FFS did NOT all close ");
+	 failed = 1;
+	 TRACE(0, "FFS did NOT all close", 0, 0);
+	 printf("\r\n FFS did NOT all close ");
       }
    }
+   
+   if(failed) {
+      return(set_mcp_ffs_bits(!val, 1)); /* don't leave command pending */
+   } else {
+      return 0;
+   }
+}
 
-   return 0;
-}
-void tm_ffs_open()
+/*
+ * Enable the flat field screen
+ */
+int
+tm_ffs_enable(int val)
 {
-    tm_ffs (1);
+   return(set_mcp_ffs_bits(-1, 1));
 }
-void tm_ffs_close()
+
+void
+tm_ffs_open(void)
 {
-    tm_ffs (0);
+   tm_ffs(FFS_OPEN);
 }
-void tm_sp_ffs_open()
+
+void
+tm_ffs_close(void)
 {
-  if (taskIdFigure("tmFFS")==ERROR)
-    taskSpawn("tmFFS",90,0,2000,(FUNCPTR)tm_ffs,1,0,0,0,0,0,0,0,0,0);
+   tm_ffs(FFS_CLOSE);
 }
-void tm_sp_ffs_close()
+
+void
+tm_sp_ffs_move(int open_close)		/* FFS_CLOSE or FFS_OPEN */
 {
-  if (taskIdFigure("tmFFS")==ERROR)
-    taskSpawn("tmFFS",90,0,2000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
+   if(taskIdFigure("tmFFS") == ERROR) {
+      taskSpawn("tmFFS", 90, 0, 2000, (FUNCPTR)tm_ffs, open_close,
+		0,0,0,0,0,0,0,0,0);
+   } else {
+      TRACE(0, "Task tmFFS is already active; not moving FF screen (%d)",
+	    open_close, 0);
+   }
 }
-int tm_ffs_open_status()
+
+int
+tm_ffs_open_status(void)
 {
   if ((sdssdc.status.i1.il13.leaf_1_open_stat)&&
 	(sdssdc.status.i1.il13.leaf_2_open_stat)&&
@@ -1622,7 +1675,9 @@ int tm_ffs_open_status()
   else 
     return FALSE;
 }
-int tm_ffs_close_status()
+
+int
+tm_ffs_close_status(void)
 {
   if ((sdssdc.status.i1.il13.leaf_1_closed_stat)&&
  	(sdssdc.status.i1.il13.leaf_2_closed_stat)&&
@@ -1668,6 +1723,7 @@ tm_ffl(short val)
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1742,6 +1798,7 @@ tm_neon(short val)
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -1816,6 +1873,7 @@ tm_hgcd(short val)
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
