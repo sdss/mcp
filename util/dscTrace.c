@@ -40,13 +40,9 @@ trc_tskSwHk(WIND_TCB	*pOldTcb,
    TRACEPROC("pSwHook");
    
 #if WATCH_MEMORY
-   TRACEP(31, "BEGIN: switching from cccc == 0x%08x (%p)",
-	  *(int *)taskName((int)pOldTcb), taskName((int)pOldTcb));
-   TRACEP(31, "       %p (name == %s)", pOldTcb, taskName((int)pOldTcb));
-
-   TRACEP(31, "       switching to   cccc == 0x%08x (%p)",
-	  *(int *)taskName((int)pNewTcb), taskName((int)pNewTcb));
-   TRACEP(31, "END:   %p (watch = %d)", pNewTcb, *watch);
+   TRACEP(31, "switching to 0x%x%x",
+	  ((int *)taskName((int)pNewTcb))[0],
+	  ((int *)taskName((int)pNewTcb))[1]);
 
    if(*watch != watch_val || watch == NULL || *taskName((int)pOldTcb) == '/') {
       TRACE(31, "Suspending task %p", pOldTcb, 0);
