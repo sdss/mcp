@@ -315,33 +315,6 @@ init_cmd(char *cmd)
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 /*
- * If we are the TCC, try to take the semCmdPort semaphore; if the
- * axis init fails we'll still have it (but it can be stolen).
- *
- * The TCC's AXIS STOP command issues a MOVE command, which gives
- * up the semaphore.
- */
-   if(taskIdSelf() == taskNameToId("TCC")) {
-      char name[100];			/* name of initer */
-
-      TRACE(3, "AXIS INIT: taking semCmdPort", 0, 0);
-
-      sprintf(name, "%s:%d", ublock->uname, ublock->pid);
-
-      if(take_semCmdPort(60, name) != OK) {
-	 TRACE(0, "init_cmd: failed to take semCmdPort semaphore", 0, 0);
-	 return("ERR: failed to take semCmdPort semaphore");
-      }
-   }
-/*
- * Do we have the semCmdPort semaphore?  We couldn't make cmd_handler()
- * check for us, as the TCC is allowed to try to take the semaphore
- * when it issues an INIT
- */
-   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
-      return("ERR: I don't have the semCmdPort semaphore");
-   }
-/*
  * send MS.OFF to stop updating of axis position from fiducials
  */
    if(set_ms_off(axis, 0) < 0) {
@@ -790,9 +763,10 @@ get_miscstatus(char *status,
 {
   int len;
 
-  sprintf(status,"Misc: %d %d\n",
+  sprintf(status,"Misc: %d %d  %d\n",
 	  sdssdc.status.i9.il0.clamp_en_stat, /* alignment clamp */
-	  sdssdc.status.i9.il0.clamp_dis_stat);
+	  sdssdc.status.i9.il0.clamp_dis_stat,
+	  iacked);
   
   len = strlen(status);
   assert(len < size);
@@ -1837,35 +1811,35 @@ axisMotionInit(void)
 /*
  * Declare commands
  */
-   define_cmd("+MOVE",         plus_move_cmd, 	 -1, 1, 1);
-   define_cmd("AB.STATUS",     abstatus_cmd, 	  2, 0, 1);
-   define_cmd("AMP.RESET",     amp_reset_cmd, 	  0, 1, 1);
-   define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0);
-   define_cmd("BUMP.CLEAR",    bump_clear_cmd,    0, 1, 1);
-   define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1);
-   define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 1);
-   define_cmd("HALT",          hold_cmd, 	  0, 1, 1);
-   define_cmd("HOLD",          hold_cmd, 	  0, 1, 1);
-   define_cmd("ID",            id_cmd, 		  0, 0, 1);
-   define_cmd("INIT",          init_cmd, 	  0, 0, 1);
-   define_cmd("ROT",           rot_cmd, 	  0, 0, 0);
-   define_cmd("IR",            rot_cmd, 	  0, 0, 0);
-   define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 1);
-   define_cmd("MC.MAXVEL",     mc_maxvel_cmd,     0, 0, 1);
-   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1);
-   define_cmd("SET.MONITOR",   set_monitor_cmd,   1, 1, 1);
-   define_cmd("SET.POS.VA",    goto_pos_va_cmd,   3, 1, 1);
-   define_cmd("SET.POSITION",  set_pos_cmd, 	  1, 1, 1);
-   define_cmd("SET.VELOCITY",  set_vel_cmd, 	  1, 1, 1);
-   define_cmd("STATS",         stats_cmd, 	  0, 0, 1);
-   define_cmd("STATUS",        status_cmd, 	  0, 0, 1);
-   define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 1);
-   define_cmd("STOP",          stop_cmd, 	  0, 1, 1);
-   define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0);
-   define_cmd("AZ",            tel1_cmd,          0, 0, 0);
-   define_cmd("TEL1",          tel1_cmd,          0, 0, 0);
-   define_cmd("ALT",           tel2_cmd,          0, 0, 0);
-   define_cmd("TEL2",          tel2_cmd,          0, 0, 0);
+   define_cmd("+MOVE",         plus_move_cmd, 	 -1, 1, 0, 1, "");
+   define_cmd("AB.STATUS",     abstatus_cmd, 	  2, 0, 0, 1, "");
+   define_cmd("AMP.RESET",     amp_reset_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0, 0, "");
+   define_cmd("BUMP.CLEAR",    bump_clear_cmd,    0, 1, 0, 1, "");
+   define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1, 1, "");
+   define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 0, 1, "");
+   define_cmd("HALT",          hold_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("HOLD",          hold_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("ID",            id_cmd, 		  0, 0, 0, 1, "");
+   define_cmd("INIT",          init_cmd, 	  0, 0, 1, 1, "");
+   define_cmd("ROT",           rot_cmd, 	  0, 0, 0, 0, "");
+   define_cmd("IR",            rot_cmd, 	  0, 0, 0, 0, "");
+   define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 0, 1, "");
+   define_cmd("MC.MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1, "");
+   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, "");
+   define_cmd("SET.MONITOR",   set_monitor_cmd,   1, 1, 0, 1, "");
+   define_cmd("SET.POS.VA",    goto_pos_va_cmd,   3, 1, 0, 1, "");
+   define_cmd("SET.POSITION",  set_pos_cmd, 	  1, 1, 0, 1, "");
+   define_cmd("SET.VELOCITY",  set_vel_cmd, 	  1, 1, 0, 1, "");
+   define_cmd("STATS",         stats_cmd, 	  0, 0, 0, 1, "");
+   define_cmd("STATUS",        status_cmd, 	  0, 0, 0, 1, "");
+   define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 0, 1, "");
+   define_cmd("STOP",          stop_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0, 0, "");
+   define_cmd("AZ",            tel1_cmd,          0, 0, 0, 0, "");
+   define_cmd("TEL1",          tel1_cmd,          0, 0, 0, 0, "");
+   define_cmd("ALT",           tel2_cmd,          0, 0, 0, 0, "");
+   define_cmd("TEL2",          tel2_cmd,          0, 0, 0, 0, "");
    
    return 0;
 }
