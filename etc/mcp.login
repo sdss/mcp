@@ -7,6 +7,7 @@ memOptionsSet 0x1ff
 #
 hostAdd "sdsshost.apo.nmsu.edu", "192.41.211.171"
 hostAdd "tcc25m.apo.nmsu.edu",   "192.41.211.162"
+hostAdd "utc-time.apo.nmsu.edu", "192.41.211.40"
 #
 routeAdd("0", "192.41.211.1")
 #
@@ -178,7 +179,7 @@ taskPrioritySet (taskIdFigure("tExcTask"),1)
 ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
 ld < util/ntp.o
 
-setTimeFromNTP "tcc25m.apo.nmsu.edu", 0, 1, 0
+setTimeFromNTP "utc-time.apo.nmsu.edu", 0, 1, 0
 
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
