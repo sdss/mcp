@@ -21,6 +21,8 @@
 #include "dscTrace.h"
 #include "mcpMsgQ.h"
 
+char *ffsclose_cmd(char *cmd);
+
 MSG_Q_ID msgAlignClamp = NULL;		/* control alignment clamp */
 MSG_Q_ID msgFFS = NULL;			/* control flat field screens */
 MSG_Q_ID msgLamps = NULL;		/* control lamps */
@@ -556,12 +558,14 @@ tFFS(void)
 	 if(msg.type == FFSCheckClosed_type) {
 	    if(!ffs_close_status()) {
 	       TRACE(0, "FFS did NOT all close", 0, 0);
-	       (void)set_mcp_ffs_bits(1, 1);
 	    }
+	    (void)set_mcp_ffs_bits(0, 0); /* disable motors */
 	 } else if(msg.type == FFSCheckOpen_type) {
-	    if(!ffs_open_status()) {
-	       TRACE(0, "FFS did NOT all open", 0, 0);
-	       (void)set_mcp_ffs_bits(0, 1);
+	    if(ffs_open_status()) {
+	       (void)set_mcp_ffs_bits(1, 0); /* disable motors */
+	    } else {
+	       TRACE(0, "FFS did NOT all open; closing", 0, 0);
+	       ffsclose_cmd(NULL);
 	    }
 	 } else {
 	    TRACE(0, "Impossible message type: %d", msg.type, 0);
@@ -1039,27 +1043,27 @@ spectroInit(void)
 /*
  * define spectro commands to the command interpreter
  */
-   define_cmd("CLAMP.OFF",           clampoff_cmd, 	       0, 1, 1);
-   define_cmd("CLAMP.ON",            clampon_cmd, 	       0, 1, 1);
-   define_cmd("FF.OFF",              ffloff_cmd,               0, 0, 1);
-   define_cmd("FF.ON",               fflon_cmd,                0, 0, 1);
-   define_cmd("FF.STATUS",           ffstatus_cmd,             0, 0, 1);
-   define_cmd("FFL.OFF",             ffloff_cmd,               0, 0, 1);
-   define_cmd("FFL.ON",              fflon_cmd,                0, 0, 1);
-   define_cmd("FFS.CLOSE",           ffsclose_cmd,             0, 0, 1);
-   define_cmd("FFS.OPEN",            ffsopen_cmd,              0, 0, 1);
-   define_cmd("HGCD.OFF",            hgcdoff_cmd,              0, 0, 1);
-   define_cmd("HGCD.ON",             hgcdon_cmd,               0, 0, 1);
-   define_cmd("NE.OFF",              neoff_cmd,                0, 0, 1);
-   define_cmd("NE.ON",               neon_cmd,                 0, 0, 1);
-   define_cmd("SLIT.STATUS",         slitstatus_cmd,           0, 0, 1);
-   define_cmd("SLITDOOR.CLEAR",      slitdoor_clear_cmd,       0, 0, 1);
-   define_cmd("SLITDOOR.CLOSE",      slitdoor_close_cmd,       0, 0, 1);
-   define_cmd("SLITDOOR.OPEN",       slitdoor_open_cmd,        0, 0, 1);
-   define_cmd("SLITHEADLATCH.CLOSE", slithead_latch_close_cmd, 0, 0, 1);
-   define_cmd("SLITHEADLATCH.EXT",   slithead_latch_open_cmd,  0, 0, 1);
-   define_cmd("SLITHEADLATCH.OPEN",  slithead_latch_open_cmd,  0, 0, 1);
-   define_cmd("SLITHEADLATCH.RET",   slithead_latch_close_cmd, 0, 0, 1);
-   define_cmd("SP1", sp1_cmd,                                  0, 0, 0);
-   define_cmd("SP2", sp2_cmd,                                  0, 0, 0);
+   define_cmd("CLAMP.OFF",           clampoff_cmd, 	       0, 1, 0, 1, "");
+   define_cmd("CLAMP.ON",            clampon_cmd, 	       0, 1, 0, 1, "");
+   define_cmd("FF.OFF",              ffloff_cmd,               0, 0, 0, 1, "");
+   define_cmd("FF.ON",               fflon_cmd,                0, 0, 0, 1, "");
+   define_cmd("FF.STATUS",           ffstatus_cmd,             0, 0, 0, 1, "");
+   define_cmd("FFL.OFF",             ffloff_cmd,               0, 0, 0, 1, "");
+   define_cmd("FFL.ON",              fflon_cmd,                0, 0, 0, 1, "");
+   define_cmd("FFS.CLOSE",           ffsclose_cmd,             0, 0, 0, 1, "");
+   define_cmd("FFS.OPEN",            ffsopen_cmd,              0, 0, 0, 1, "");
+   define_cmd("HGCD.OFF",            hgcdoff_cmd,              0, 0, 0, 1, "");
+   define_cmd("HGCD.ON",             hgcdon_cmd,               0, 0, 0, 1, "");
+   define_cmd("NE.OFF",              neoff_cmd,                0, 0, 0, 1, "");
+   define_cmd("NE.ON",               neon_cmd,                 0, 0, 0, 1, "");
+   define_cmd("SLIT.STATUS",         slitstatus_cmd,           0, 0, 0, 1, "");
+   define_cmd("SLITDOOR.CLEAR",      slitdoor_clear_cmd,       0, 0, 0, 1, "");
+   define_cmd("SLITDOOR.CLOSE",      slitdoor_close_cmd,       0, 0, 0, 1, "");
+   define_cmd("SLITDOOR.OPEN",       slitdoor_open_cmd,        0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH.CLOSE", slithead_latch_close_cmd, 0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH.EXT",   slithead_latch_open_cmd,  0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH.OPEN",  slithead_latch_open_cmd,  0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH.RET",   slithead_latch_close_cmd, 0, 0, 0, 1, "");
+   define_cmd("SP1", sp1_cmd,                                  0, 0, 0, 0, "");
+   define_cmd("SP2", sp2_cmd,                                  0, 0, 0, 0, "");
 }
