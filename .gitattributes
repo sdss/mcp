@@ -98,6 +98,7 @@ mcp-new/data_collection.c -text
 mcp-new/data_collection.h -text
 mcp-new/display.c -text
 mcp-new/display.h -text
+mcp-new/fiducials.c -text
 mcp-new/frame.h -text
 mcp-new/instrument_lift.c -text
 mcp-new/instruments.h -text
@@ -105,6 +106,7 @@ mcp-new/io.h -text
 mcp-new/ipcast.c -text
 mcp-new/ipcast.h -text
 mcp-new/ipsym.c -text
+mcp-new/mcpFiducials.h -text
 mcp-new/mcpMsgQ.h -text
 mcp-new/mcpTimers.h -text
 mcp-new/mcpUtils.h -text
