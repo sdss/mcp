@@ -124,6 +124,7 @@ struct DIAG_Q {
 */
 FILE *fidfp=NULL;
 int latchidx=0;
+int LATCH_error=FALSE;
 int LATCH_verbose=FALSE;
 #define MAX_LATCHED	2000
 struct LATCH_POS latchpos[MAX_LATCHED];
@@ -900,7 +901,7 @@ char *plus_move_cmd(char *cmd)
   int cnt;
   int i;
 
-  printf (" +MOVE command fired\r\n");
+/*  printf (" +MOVE command fired\r\n");*/
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   for (i=0;i<OFF_MAX;i++)
@@ -928,14 +929,9 @@ are spread over a time period averaging .4 degs per second */
 	  offset[axis_select][i][1].end_time=(double).75;
 	else
 	  offset[axis_select][i][1].end_time=
-		(double)((int)((position/.2)*20))/20.;
+		(double)((int)((position/.15)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
-/*	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
-		&offset[axis_select][i],offset_queue_end[axis_select][i],
-		offset[axis_select][i][1].position,
-		offset[axis_select][i][1].velocity,
-		offset[axis_select][i][1].end_time);*/
         break;
     case 2:
 	if ((position==0.0)&&(velocity==0.0)) break;
@@ -949,7 +945,7 @@ are spread over a time period averaging .4 degs per second */
 	  offset[axis_select][i][1].end_time=(double).75;
 	else	/* average .4 degree per second */
 	  offset[axis_select][i][1].end_time=
-		(double)((int)((position/.20)*20))/20.;
+		(double)((int)((position/.15)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
         break;
@@ -972,6 +968,11 @@ are spread over a time period averaging .4 degs per second */
 */
         break;
   }
+	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
+		&offset[axis_select][i],offset_queue_end[axis_select][i],
+		offset[axis_select][i][1].position,
+		offset[axis_select][i][1].velocity,
+		offset[axis_select][i][1].end_time);
   sdssdc.tccpmove[axis_select].position=
 	(long)(offset[axis_select][i][1].position*ticks_per_degree[axis_select]);
   sdssdc.tccpmove[axis_select].velocity=
@@ -1102,12 +1103,12 @@ char *ms_map_load_cmd(char *cmd)
 */
 char *ms_off_cmd(char *cmd)
 {
-  printf (" MS.OFF command fired\r\n");
+/*  printf (" MS.OFF command fired\r\n");*/
   return "";
 }
 char *ms_on_cmd(char *cmd)
 {
-  printf (" MS.ON command fired\r\n");
+/*  printf (" MS.ON command fired\r\n");*/
   return "";
 }
 
@@ -2387,7 +2388,7 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
     printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
     printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, ",ai,j,t,start);
   }
-  for (i=0;i<(int)min(MAX_CALC-1,
+  for (i=0;i<(int)min(MAX_CALC,
 		(int)(dt*FRMHZ)-start);i++)
   {
     t=(i+start+1)/FLTFRMHZ;
@@ -3177,6 +3178,8 @@ void tm_TCC(int axis)
 	      offset_queue_end[axis][i]=frame->nxt;
 	      offset_queue_end[axis][i]->position-=offset[axis][i][1].position;
 	      offset_queue_end[axis][i]->velocity-=offset[axis][i][1].velocity;
+	      printf ("\r\noffset end=%p, pos=%lf,idx=%d",offset_queue_end[axis][i],
+		offset_queue_end[axis][i]->position,offset_idx[axis][i]);
 /*	      clroffset(axis,1);
 	      cntoff=calc_offset(axis,&offset[axis][i][0],offset_idx[axis][i],1);
 	      frame->position+=(poff[axis][0]);
@@ -4012,9 +4015,10 @@ void tm_latch(char *name)
 	 	    rot_fiducial_position[fididx];
                   rot_fiducial[fididx].markvalid=TRUE;
                   fiducialidx[2]=fididx;
-	          if ((abs(rot_fiducial[fididx].poserr)>200)&&
+	          if (LATCH_error)
+	            if ((abs(rot_fiducial[fididx].poserr)>200)&&
 		      (rot_fiducial_position[fididx]!=0))
-                    printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
+                      printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
 	  	      latchpos[latchidx].axis,
 	              (long)rot_fiducial[fididx].poserr,
 	              (float)latchpos[latchidx].pos1,
