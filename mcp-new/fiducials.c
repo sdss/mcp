@@ -698,7 +698,7 @@ tLatch(const char *name)
 	    TRACE(0, "Invalid barcode in azimuth: fididx = %d, pos = %d",
 		  fididx, latchpos[latchidx].pos1);
 	 } else {
-#if 1
+#if 0
 	    if(sdssdc.status.i7.il0.az_dir_cw) {
 	       fididx += 24;
 	    }
@@ -1349,6 +1349,7 @@ set_ms_off(int axis,			/* the desired axis */
 /*
  * and send one that's active _now_, if MS.ON is currently true
  */
+#if 0
    if(semTake(semLatch, 60) != ERROR) {
       int ms_is_on = fiducial[axis].ms_on;
       semGive(semLatch);
@@ -1359,6 +1360,13 @@ set_ms_off(int axis,			/* the desired axis */
 	 return(0);
       }
    }
+#else
+   if(!fiducial[axis].ms_on) {			/* nothing to do */
+      TRACE(6, "Not sending MS.OFF to %s as it's already off",
+	    axis_name(axis), 0);
+      return(0);
+   }
+#endif
 /*
  * Time to actually set MS.OFF
  */
