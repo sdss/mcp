@@ -92,6 +92,7 @@ struct COMMANDS axis_cmds[] = {
 	{"HGCD.OFF",hgcdoff_cmd},
 	{"FF.STATUS",ffstatus_cmd},
 	{"AB.STATUS",abstatus_cmd},
+	{"VERSION",version_cmd},
 	{NULL,dummy_cmd}		/* termination */
 };
 #define __CMD_H__             /* do only once */
