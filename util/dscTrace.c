@@ -69,8 +69,9 @@ trc_tskSwHk(WIND_TCB	*pOldTcb,
       traceMode(0);
    }
 #else
-   TRACEP(31, "switching from %s to %s",
-	  taskName((int)pOldTcb), taskName((int)pNewTcb) );
+   TRACEP(31, "switching to 0x%x%x",
+	  ((int *)taskName((int)pNewTcb))[0],
+	  ((int *)taskName((int)pNewTcb))[1]);
 #endif
 }	/* trc_tskSwHk */
 
