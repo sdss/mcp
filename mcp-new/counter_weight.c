@@ -1,29 +1,22 @@
 #include "copyright.h"
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		Counter Weight Control					*/
-/*   File:	counter_weight.c							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	counter_weight : VxWorks				*/
-/*   Modules:	balance : 	    					*/	
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      counter_weight.c
+**
+** ABSTRACT:
 	Balance the telescope utilizing the four counter weights.  The 
-control is by moving a motor through an ADC to a position decoded by an
+control is by moving a motor through an DAC to a position decoded by an
 absolute encoded (similar to a potentiometer) which is read back through 
-a DAC.  The motor is slowed as it approaches the known balance point of the
+an ADC.  The motor is slowed as it approaches the known balance point of the
 axis and stopped upon arrival. The telescope is then finely balanced by 
 monitoring the motor currents of the motion controls.
-Requirements:
+Hardware Requirements:
 	2 DO bits to select the CW (0-3)
-not	1 DO bit to select the direction (no longer required since +- DAC)
-not	1 DO bit to brake the motion
-	1 DO bit to inhibit the drive
+	1 DO bit to enable/inhibit the drive - watchdog timer
 	4*2 DI bits for limit switch status
 	1 DI bit interlock status
+
 DIO316 3*16
   port	0 bi-directional
 	1 bi-directional
@@ -68,11 +61,71 @@ ADC128F1
 	+/-10 volts is the range for the DAC (direction based on sign)
 	5:1 gear box
 	10 volts is 2500 RPM or 500 RPM after the gear reduction
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+** cw_DIO316_shutdown
+** cw_DIO316_interrupt
+** balance_initialize
+** kbd_input
+** balance_weight
+** balance_cmd
+** balance_init
+** balance 
+** cw_pos
+** cw_position
+** cw_calc 
+** cw_DIO316_interrupt
+** cw_DIO316_shutdown
+** read_ADC 
+** read_all_ADC 
+** cw_brake_on
+** cw_brake_off
+** cw_power_on
+** cw_power_off
+** cw_select
+** cw_status
+** cw_abort
+** cw_motor_raw
+** cw_motor
+** cw_list 
+** cw_read_position
+** cw_set_position 
+** cw_set_params 
+** cw_set_const 
+** CW_help
+** CW_Verbose
+** CW_Quiet
+** cw_data_collection	public	counter-weight data collection
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
+
+/************************************************************************/
+/* Project: 	SDSS - Sloan Digital Sky Survey				*/
+/* 		Counter Weight Control					*/
+/*   File:	counter_weight.c							*/
+/************************************************************************/
+/*   Location:	Fermi National Accelerator Lab				*/
+/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
+/*   Program:	counter_weight : VxWorks				*/
+/*   Modules:	balance : 	    					*/	
+/*++ Version:
+  1.00 - initial --*/
+/*++ Description:
 --*/
 /*++ Notes:
 --*/
 /************************************************************************/
-
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
@@ -108,19 +161,28 @@ ADC128F1
 #include "data_collection.h"
 #include "io.h"
 
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
 /* below is a place for DIAGNOStic flag for turning off the feature
 #define DIAGNOS 0
 */
-/* Prototypes */
-void cw_DIO316_shutdown(int type);
-void cw_DIO316_interrupt(int type);
-int balance_initialize(unsigned char *addr, unsigned short vecnum);
-int kbd_input();
-
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
 #define ONCE if (YES)
 
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
 /*
   Brake is applied: If positive direction, go below stop limit (i.e. 0) but
 not less than moving limit.  If negative direction, go above stop limit but 
@@ -129,7 +191,6 @@ Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 ---------|-----------------|---------|---------------------|--------------------
           Positive Brake............. Negative Brake.......
 */
-/* either the following digital bit, or voltage levels */ 
 #define STOP_LIM	10
 
 #define INST_CAMERA	0
@@ -208,6 +269,16 @@ struct CW_LOOP	cw_inst[] = {	{   50,    50,   50,   50},	/*CAMERA*/
 int CW_verbose=FALSE;
 int CW_limit_abort=FALSE;
 unsigned char cwLimit;
+/* counter-weight ip hardware index reference */
+int cw_DIO316=-1;
+int cw_ADC128F1=-1;
+int cw_DAC128V=-1;
+
+/* Prototypes */
+void cw_DIO316_shutdown(int type);
+void cw_DIO316_interrupt(int type);
+int balance_initialize(unsigned char *addr, unsigned short vecnum);
+int kbd_input();
 char *balance_weight(int inst);
 char *balance_cmd(char *cmd);
 int balance_init();
@@ -237,23 +308,35 @@ void CW_help();
 void CW_Verbose();
 void CW_Quiet();
 void cw_data_collection();
-int dc_interrupt();
 
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: balance_weight   executed from the shell for testing
+**	    balance_cmd      executed from the TCC
+**
+** DESCRIPTION:
+**      Balances for the instrument all four counter-weights in series.
+**
+**
+** RETURN VALUES:
+**      char *       error msg
+**
+** CALLS TO:
+**      balance
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char *balance_weight(int inst)
 {
   int cw;
-  int fd;
 
-  fd=open ("cw.log",O_RDWR|O_CREAT,0666);
-  logFdSet (fd);
-  ioTaskStdSet(0,1,fd);
-  ioTaskStdSet(0,2,fd);
   printf ("\r\nBALANCE WEIGHT\r\n");
   for (cw=CW_0;cw<CW_MAX;cw++)
     balance (cw,inst);
-  logFdDelete (fd);
-  close (fd);
-  return NULL;
+  return "";
 }
 char *balance_cmd(char *cmd)
 {
@@ -264,14 +347,45 @@ char *balance_cmd(char *cmd)
   {
     for (cw=CW_0;cw<CW_MAX;cw++)
       balance (cw,inst);
-    return NULL;
+    return "";
   }
   else
     return "BAD NAME";
 }
-int cw_DIO316=-1;
-int cw_ADC128F1=-1;
-int cw_DAC128V=-1;
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: balance_initialize   initialize the hardware
+**
+** DESCRIPTION:
+**      Initializes all the hardware needed for the counter_weight system.
+**
+**
+** RETURN VALUES:
+**      int 	ERROR or zero
+**
+** CALLS TO:
+**      Industry_Pack
+**      ADC128F1Init
+**	ADC128F1_CVT_Update_Control
+**      DAC128VInit
+**	DAC128V_Read_Reg
+**	DAC128V_Write_Reg
+**      DIO316Init
+**	IP_Interrupt_Enable
+**	DIO316_OE_Control
+**	DIO316_Interrupt_Configuration
+**	DIO316_Write_Reg
+**	DIO316_Interrupt_Enable_Control
+**	cw_power_off
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**	cw_DAC128V
+**	cw_DIO316
+**
+**=========================================================================
+*/
 int balance_initialize(unsigned char *addr, unsigned short vecnum)
 {
   int i,ii;                          
@@ -281,6 +395,8 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
 
   ip = (struct IPACK *)malloc (sizeof(struct IPACK));
   if (ip==NULL) return ERROR;
+
+/*  Initialize the ADC */
   Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
@@ -296,6 +412,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   }
   ADC128F1_CVT_Update_Control(cw_ADC128F1,ENABLE);
 
+/*  Initialize the DAC */
   Industry_Pack (addr,SYSTRAN_DAC128V,ip);
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
@@ -309,15 +426,15 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
     free (ip);
     return ERROR;
   }
-
+/* check if voltages are zero */
   for (i=0;i<DAC128V_CHANS;i++) 
   {
     DAC128V_Read_Reg(cw_DAC128V,i,&val);
     if ((val&0xFFF) != 0x800) 
-		printf ("\r\nDAC128V Chan %d Init error %x",
-			i,val);
+      printf ("\r\nDAC128V Chan %d Init error %x",i,val);
   }
 
+/*  Initialize the DIO316 */
   Industry_Pack (addr,SYSTRAN_DIO316,ip);
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
@@ -343,10 +460,15 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   DIO316_Interrupt_Configuration (cw_DIO316,0,DIO316_INT_FALL_EDGE);
   sysIntEnable(DIO316_IRQ);
   DIO316_Write_Reg(cw_DIO316,6,0xF);
+
+/* Turned off the interrupts for the limits - unreliable */
 /*  DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);*/
   cw_power_off();
+
+/* zero the DAC - there is a 2048 offset on the 12 bit DAC */
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
 
+/* Initialize the data structures for nominal operation */
   for (i=0;i<sizeof(cw_inst)/sizeof(struct CW_LOOP);i++)
   {
     for (ii=0;ii<CW_MAX;ii++)
@@ -361,9 +483,35 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
     cw_inst[i].stop_count=6;		/* stop polarity swing counts allowed */
     cw_calc (&cw_inst[i]);
   }
+
   free (ip);
   return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: balance
+**
+** DESCRIPTION:
+**      Balances one counter-weight according to its data structure for the 
+**	instrument.
+**      This enables a log file 'cwp.log' to track the motion by redirecting
+**	all std out and error to the file.
+**
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	DAC128V_Write_Reg
+**	cw_power_on
+**	cw_brake_off
+**	cw_status
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void balance (int cw, int inst)
 {
   int fd;
@@ -375,12 +523,12 @@ void balance (int cw, int inst)
   short last_direction;
   int totcnt, cnt, last_error;
 
-/* set mux for specified counter-weight */
   printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
   fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
   ioTaskStdSet(0,1,fd);
   ioTaskStdSet(0,2,fd);
 
+/* set mux for specified counter-weight */
   cw_select (cw);
 
 /* iterate until good or exceed stop count */
@@ -501,6 +649,27 @@ void balance (int cw, int inst)
   printf ("\r\n .................time=%d secs\r\n",totcnt/cw_inst[inst].updates_per_sec);
   close (fd);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_posv	- differs in argument passing
+**	    cw_positionv
+**
+** DESCRIPTION:
+**      Set the DEFAULT instrument to a position specified in volts
+**	Deprecated functions implemented inches across the table (0-24).
+**
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	cw_set_positionv
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void cw_pos(int cw, float *pos)
 {
   cw_set_position (INST_DEFAULT, (double)*pos, (double)*pos, (double)*pos, (double)*pos);
@@ -522,6 +691,26 @@ void cw_positionv(int cw, short pos)
   balance (cw, INST_DEFAULT);
 }
 
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_calc
+**
+** DESCRIPTION:
+**      Based on the instruments specifications, safe limits are imposed
+**	for velocity, acceleration, and deceleration.
+**	Numbers are pre-calculated into DAC units from an rpm specification.
+**	The time to slow down is appoximated for a limit.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 /* DAC is set for +1 10volts where 0=-10 volts;0x800=0 volts; 0xFFF=+10 volts */
 /* pos and neg voltages provide direction control */
 #define ONE_VLT		204.8		/* 0x800/10.0 */
@@ -594,6 +783,31 @@ void cw_calc (struct CW_LOOP *cw)
    }
 
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_DIO316_interrupt
+**
+** DESCRIPTION:
+**      Handles interrupt for hight/low limits of all four counter_weights.
+**	Provides a software abort of motion in appropriate direction.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	DIO316ReadISR
+**	DAC128V_Read_Reg
+**	DIO316_Read_Port
+**	cw_rdselect
+**	cw_abort
+**	DIO316ClearISR
+**
+** GLOBALS REFERENCED:
+**	CW_limit_abort
+**
+**=========================================================================
+*/
 void cw_DIO316_interrupt(int type)
 {
   unsigned char limit;
@@ -623,6 +837,25 @@ void cw_DIO316_interrupt(int type)
 		CW_limit_abort,0);
   DIO316ClearISR (cw_DIO316);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_DIO316_shutdown
+**
+** DESCRIPTION:
+**      Rundown of DIO316
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	DIO316_Interrupt_Enable_Control
+**
+** GLOBALS REFERENCED:
+**	cw_DIO316
+**
+**=========================================================================
+*/
 void cw_DIO316_shutdown(int type)
 {
 
@@ -636,6 +869,26 @@ void cw_DIO316_shutdown(int type)
     }
     taskDelay(30);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: read_ADC
+**	    read_all_ADC
+**
+** DESCRIPTION:
+**      Diagnositc functions to read ADCs in raw counts and volts a 
+**	specified number of times in succession.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	ADC128F1_Read_Reg
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void read_ADC (int chan, int cnt)
 {
   int i;
@@ -671,9 +924,36 @@ void read_all_ADC (int cnt)
     }
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_brake_on
+**	    cw_brake_off
+**
+** DESCRIPTION:
+**      Brake is applied: If positive direction, go below stop limit (i.e. 0)
+**	but not less than moving limit.  If negative direction, go above stop
+**	limit but not greater than moving limit.
+**	Negative Moving Limit      0     Stop Limit      Positive Moving Limit
+**	---------|-----------------|---------|---------------------|----------
+**	          Positive Brake............. Negative Brake.......
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**      DAC128V_Read_Reg
+**      DAC128V_Write_Reg
+**
+** GLOBALS REFERENCED:
+**	cw_DAC128V
+**
+**=========================================================================
+*/
 int cw_brake_on()
 {
 	short vel;
+
 	if (cw_DAC128V==-1) return ERROR;
         DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
 	if (vel>=0)
@@ -682,10 +962,32 @@ int cw_brake_on()
 	  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+STOP_LIM);
 	return 0;
 }
+/* not required, but specified for uniformity and was used at one time */
 int cw_brake_off()
 {
 	return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_power_on
+**	    cw_power_off
+**
+** DESCRIPTION:
+**	Enable/disable for motion.  Should be replaced with watchdog timer.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**      DIO316_Read_Reg
+**      DIO316_Write_Reg
+**
+** GLOBALS REFERENCED:
+**	cw_DIO316
+**
+**=========================================================================
+*/
 int cw_power_on()
 {
 	unsigned char val;
@@ -705,6 +1007,28 @@ int cw_power_off()
 	DIO316_Write_Port (cw_DIO316,CW_POWER,val&CW_POWER_OFF);
 	return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_select
+**	    cw_rdselect
+**
+** DESCRIPTION:
+**	Select which counter-weight to manipulate.
+**	Read which counter-weight is currently selected.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**      DIO316_Read_Port
+**      DIO316_Write_Port
+**
+** GLOBALS REFERENCED:
+**	cw_DIO316
+**
+**=========================================================================
+*/
 int cw_select(int cw)
 {
 	unsigned char val;
@@ -722,6 +1046,26 @@ int cw_rdselect()
 	DIO316_Read_Port (cw_DIO316,CW_SELECT,&val);
 	return (val&CW_SELECT);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_status
+**
+** DESCRIPTION:
+**	Diagnostic to display current status of counter-weight system.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**	DIO316_Read_Port
+**	cw_read_position
+**
+** GLOBALS REFERENCED:
+**	cw_DIO316
+**
+**=========================================================================
+*/
 int cw_status()
 {
 	unsigned char val;
@@ -749,12 +1093,56 @@ int cw_status()
 	cw_read_position (1);
 	return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_abort
+**
+** DESCRIPTION:
+**	Abort the counter_weight motion by turning the brake on and disabling
+**	the motion.
+**
+** RETURN VALUES:
+**      int 	ERROR or zero
+**
+** CALLS TO:
+**	cw_brake_on
+**	cw_power_off
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 int cw_abort ()
 {
     if (cw_brake_on()==0) 
       if (cw_power_off()==0) return 0;
     return ERROR;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_motor_raw	volts specified
+**	    cw_motor		rpm specified
+**
+** DESCRIPTION:
+**	Diagnostic to drive the counter-weight motor similar to the routine 
+**	called to move the counter-weight.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	cw_select
+**	DAC128V_Write_Reg
+**	cw_power_on
+**	cw_brake_off
+**
+** GLOBALS REFERENCED:
+**	cw_DAC128V
+**
+**=========================================================================
+*/
 #define MOTOR_RAMP	40
 void cw_motor_raw (int cw, int vel)
 {
@@ -782,6 +1170,24 @@ void cw_motor (int cw, double vel_rpm)
   vel = (vel_rpm*RPM_IN_VOLTS)*ONE_VLT;
   cw_motor_raw (cw, vel);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_list
+**
+** DESCRIPTION:
+**	Diagnostic to list the corresponding instrument's counter-weight 
+**	parameters.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void cw_list (int inst)
 {
   int i;
@@ -812,6 +1218,26 @@ void cw_list (int inst)
     printf ("\r\n");
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_read_position
+**
+** DESCRIPTION:
+**	Diagnostic to read the positions a specified number of consecutive
+**	times.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**      ADC128F1_Read_Reg
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**
+**=========================================================================
+*/
 void cw_read_position (int cnt)
 {
   int i, ii;
@@ -834,6 +1260,25 @@ void cw_read_position (int cnt)
   }
   printf ("\r\n");
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_set_position	inches
+**	    cw_set_positionv	volts
+**
+** DESCRIPTION:
+**	Sets the the four desired positions for a selected instrument
+**	The inches is deprecated, but not deleted.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void cw_set_position (int inst, double p1, double p2, double p3, double p4)
 {
   if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
@@ -880,6 +1325,25 @@ void cw_set_positionv (int inst, short p1, short p2, short p3, short p4)
      cw_inst[inst].pos_error[3]=0;
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_set_params
+**
+** DESCRIPTION:
+**	Set the instruments acceleration, deceleration, velocity, and stop 
+**	velocity values.  Always recalculates the instrument for these changes.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	cw_calc
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 void cw_set_params (int inst, double accel, double vel, double decel, double stop_vel)
 {
   if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
@@ -891,6 +1355,26 @@ void cw_set_params (int inst, double accel, double vel, double decel, double sto
     cw_calc (&cw_inst[inst]);
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_set_const
+**
+** DESCRIPTION:
+**	Set the instrument's update rate, deceleration position, stop position
+**	error acceptable, and retry count.
+**	Always recalculates the instrument for these changes.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	cw_calc
+**
+**=========================================================================
+*/
 void cw_set_const (int inst, int upd, int start_decel_pos, int stop_pos_err, int stop_cnt)
 {
   if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
@@ -902,6 +1386,23 @@ void cw_set_const (int inst, int upd, int start_decel_pos, int stop_pos_err, int
     cw_calc (&cw_inst[inst]);
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: CW_help
+**
+** DESCRIPTION:
+**	Help facility for counter-weight.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char *help_CW[]={
         "CW_help",
 	"CW_Verbose, CW_Quiet",
@@ -933,6 +1434,25 @@ void CW_help()
   for (i=0;i<sizeof(help_CW)/sizeof(char *);i++)
     printf ("%s\r\n",help_CW[i]);
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: CW_Verbose
+**	    CW_Quiet
+**
+** DESCRIPTION:
+**	Turns off/on diagnostic verbosity.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	CW_verbose
+**
+**=========================================================================
+*/
 void CW_Verbose()
 {
 	CW_verbose=TRUE;
@@ -941,6 +1461,23 @@ void CW_Quiet()
 {
 	CW_verbose=FALSE;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: kbd_input
+**
+** DESCRIPTION:
+**	An ugly routine to check for any input to stop cw_motor motion.
+**
+** RETURN VALUES:
+**      TRUE or FALSE depending on if any key is hit.
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 int kbd_input()
 {
   int bytes;
@@ -949,6 +1486,24 @@ int kbd_input()
   if (bytes!=0) return TRUE;
   return FALSE;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_get_inst
+**
+** DESCRIPTION:
+**	Searches the instrument names for a match and returns index.
+**
+** RETURN VALUES:
+**      int 	instrument index or ERROR
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	inst_name
+**
+**=========================================================================
+*/
 int cw_get_inst(char *cmd)
 {
   int inst;
@@ -958,8 +1513,27 @@ int cw_get_inst(char *cmd)
     {
       return inst;
     }
-  return -1;
+  return ERROR;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: set_DAC
+**
+** DESCRIPTION:
+**	Diagnostic to positively ramp up and down the DAC value for any channel.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**      DAC128V_Read_Port
+**
+** GLOBALS REFERENCED:
+**	cw_DAC128V
+**
+**=========================================================================
+*/
 void set_DAC (int chan)
 {
   if (chan==CW_MOTOR) return;
@@ -970,6 +1544,30 @@ void set_DAC (int chan)
     DAC128V_Write_Reg(cw_DAC128V,chan,0x800+(tickGet()%0x800));
   }
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_data_collection
+**
+** DESCRIPTION:
+**	Read positions and limit status for sdssdc structure.
+**	parameters.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**      ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
+**      DIO316_Read_Port
+**	cw_read_position
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**	cw_DIO316
+**	sdssdc
+**
+**=========================================================================
+*/
 void cw_data_collection()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -988,18 +1586,28 @@ void cw_data_collection()
   if (cw_DIO316!=-1)
     DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&cwLimit);
 }
-int dc_interrupt()
-{
-  unsigned char val;
-  int ikey;
-
-  ikey=intLock();
-  DIO316_Read_Port (cw_DIO316,DC_INTERRUPT,&val);
-  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val|DC_INTPULSE);
-  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val);
-  intUnlock(ikey);
-  return 0;
-}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_power_disengage
+**	    cw_power_engage
+**
+** DESCRIPTION:
+**	Enable/disable motion based on the watchdog support.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**	StopCounter
+**	WriteCounterConstant
+**	StartCounter
+**
+** GLOBALS REFERENCED:
+**	sbrd
+**
+**=========================================================================
+*/
 int cw_power_disengage()
 {
   extern struct conf_blk sbrd;
@@ -1015,6 +1623,34 @@ int cw_power_engage()
   StartCounter (&sbrd,CW_WD);
   return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_setup_wd
+**
+** DESCRIPTION:
+**	Setup ACROMAG IP for watchdog support.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**	SetCounterSize
+**	SetCounterConstant
+**	SetMode
+**	SetDebounce
+**	SetInterruptEnable
+**	SetClockSource
+**	SetTriggerSource
+**	SetWatchdogLoad
+**	SetOutputPolarity
+**	ConfigureCounterTimer
+**
+** GLOBALS REFERENCED:
+**	sbrd
+**
+**=========================================================================
+*/
 int cw_setup_wd ()
 {
   extern struct conf_blk sbrd;

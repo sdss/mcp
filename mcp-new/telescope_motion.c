@@ -938,49 +938,27 @@ int tm_slit(short val)
        return err;
      }
    }
-/* must hold the door open, but springs closed */
-   if ((val==0)||(val==2))
-   {
-     swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-     taskDelay(60);
-     if (val==2)
-       tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
-     if (val==0) 
-       tm_ctrl1.mcp_slit_door1_cls_cmd = 0;
- /*    printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
-     swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-     if (semTake (semSLC,60)!=ERROR)
-     {
-       err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-       semGive (semSLC);
-       if (err)
-       {
-         printf ("W Err=%04x\r\n",err);
-         return err;
-       }
-     }
-   }
 /*   printf ("\r\n cnt=%d",cnt);
    tm_slit_status();*/
    return 0;
 }
 void tm_slit_open(int door)
 {
-    tm_slit (1+door);
+    tm_slit (1+(door*2));
 }
 void tm_slit_close(int door)
 {
-    tm_slit (0+door);
+    tm_slit (0+(door*2));
 }
 void tm_sp_slit_open(int door)
 {
   if (taskIdFigure("tmSlit")!=NULL)
-    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit,1,door,0,0,0,0,0,0,0,0);
+    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_open,door,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_slit_close(int door)
 {
   if (taskIdFigure("tmSlit")!=NULL)
-    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit,0,door,0,0,0,0,0,0,0,0);
+    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_close,door,0,0,0,0,0,0,0,0,0);
 }
 int tm_cart(short val) 
 {
@@ -1027,21 +1005,21 @@ int tm_cart(short val)
 }
 void tm_cart_latch(int door)
 {
-    tm_cart (1+door);
+    tm_cart (1+(door*2));
 }
 void tm_cart_unlatch(int door)
 {
-    tm_cart (0+door);
+    tm_cart (0+(door*2));
 }
 void tm_sp_cart_latch(int door)
 {
   if (taskIdFigure("tmCart")!=NULL)
-    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart,1,door,0,0,0,0,0,0,0,0);
+    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_latch,door,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_cart_unlatch(int door)
 {
   if (taskIdFigure("tmCart")!=NULL)
-    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart,0,door,0,0,0,0,0,0,0,0);
+    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_unlatch,door,0,0,0,0,0,0,0,0,0);
 }
 int tm_slit_status()
 {
@@ -1313,10 +1291,10 @@ int tm_ff_status()
 	oo[sdssdc.status.i1.il13.hgcd_3_stat],
 	oo[sdssdc.status.i1.il13.hgcd_4_stat]
   );
-  printf("\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
-  printf("\n\rne_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ne_lamps_on_pmt);
-  printf("\n\rff_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
   printf("\n\rff_screen_open_pmt=%d",sdssdc.status.o1.ol14.ff_screen_open_pmt);
+  printf("\n\rff_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
+  printf("\n\rne_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ne_lamps_on_pmt);
+  printf("\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
   printf ("\r\n");
   return 0;
 }

@@ -86,7 +86,6 @@ axis_cmds.o :	frame.h
 axis_cmds.o :	io.h
 axis_cmds.o :	ms.h
 axis_cmds.o :	tm.h
-bcast.o :	copyright.h
 cmd.o :	cmd.h
 cmd.o :	copyright.h
 counter_weight.o :	copyright.h

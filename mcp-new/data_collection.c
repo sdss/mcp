@@ -29,6 +29,7 @@
 #include "logLib.h"
 #include "inetLib.h"
 #include "sockLib.h"
+#include "sysLib.h"
 #include "symLib.h"
 #include "symbol.h"
 #include "semLib.h"
@@ -38,6 +39,13 @@
 #include "idsp.h"
 #include "time.h"
 #include "data_collection.h"
+#include "gendefs.h"
+#include "dio316dr.h"
+#include "dio316lb.h"
+#include "tm.h"
+#include "io.h"
+#include "abdh.h"
+#include "ipcast.h"
 
 #define SHARE_MEMORY	0x02800000
  
@@ -101,6 +109,7 @@ void print_axis_dc (int axis);
 void print_pos_dc (int axis);
 void slc500_data_collection(unsigned long freq);
 void DataCollectionTrigger();
+int dc_interrupt();
 
 void swapwords (register short *dp, register unsigned short len)
 {
@@ -115,69 +124,9 @@ void swapwords (register short *dp, register unsigned short len)
    }
 }
 
-int mei_axis_collection(int axis, int secs)
-{
-	extern SEM_ID semMEI;
-	short i;
-	size_t buffer_length;
-
-	long
-		* apos,
-		* cpos;
-	short
-		* time,
-		* state,
-		* voltage;
-	
-	buffer_length = secs * dsp_sample_rate();
-
-	apos = (long *)calloc(buffer_length, sizeof(apos[0]));
-	cpos = (long *)calloc(buffer_length, sizeof(cpos[0]));
-	time = (short *)calloc(buffer_length, sizeof(time[0]));
-	state = (short *)calloc(buffer_length, sizeof(state[0]));
-	voltage = (short *)calloc(buffer_length, sizeof(voltage[0]));
-
-	if ((apos==NULL)||(cpos==NULL)||(state==NULL)||(voltage==NULL))
-	{	fprintf(stderr, "Not enough memory.\n");
-	  if (apos!=NULL) free(apos);
-	  if (cpos!=NULL) free(cpos);
-	  if (state!=NULL) free(state);
-	  if (voltage!=NULL) free(voltage);
-	  return -1;
-	}
-	fprintf(stderr, "Sampling...");
-
-	/*  ****************************************************  **
-		put whatever type of motion you want to sample here.
-	**  ****************************************************  */
-
-  	if (semTake (semMEI,60)!=ERROR)
-  	{
-	  get_tuner_data(axis, buffer_length, apos, cpos, time, state, voltage);
-    	  semGive(semMEI);
-
-	  fprintf(stderr, "done.\n");
-	  swapwords ((short *)apos,buffer_length);
-	  swapwords ((short *)cpos,buffer_length);
-
-	  printf("apos\tcpos\ttime\tstate\tvoltage\n");
-	  for (i = 0; i < 100; i++)
-	  {
-	  	printf("%ld\t%ld\t%u\t%d\t%d\n",
-			apos[i], cpos[i], time[i], state[i], voltage[i]);
-	  }
-	}
-	free (apos);
-	free (cpos);
-	free (time);
-	free (state);
-	free (voltage);
-	return 0;
-}
 #define DS_VOLTAGE DS_D(8)
 #define	DATA_STRUCT(dsp, axis, offset)	(P_DSP_DM)((dsp)->data_struct+(DS_SIZE* (axis)) + offset)
 short axis_data[DS(8)];	
-static long runtime;
 short meitime;
 short meichan0,meichan2,meichan4,meichan6;
 double meipos4;
@@ -245,38 +194,27 @@ void mei_data_collection(unsigned long freq)
           {
   	   if (semTake (semMEI,NO_WAIT)!=ERROR)
            {
-	    timer_start (2);
 	    sdss_time_dc=sdss_get_time();
-/*          meitime = dsp_read_dm(0x11E);*/
-/*          meichan0 = get_analog (0,&meichan0);*/
-/*          meichan2 =get_analog (2,&meichan2);*/
-/*	    meichan4=get_analog(4,&meichan4);*/
-/*	    read_axis_analog(5,&meichan0);*/
-/*	    get_position (4,&meipos4);*/
-/*    	    for(i = 0; i < 3; i++)
-            {*/
-	      i=MEIDC_Rotate;
-	      if (MEIDC_Enable[i])
-/*	      if ((MEIDC_Enable[i])&&(i==MEIDC_Rotate))*/
-              {
-	        pcdsp_transfer_block(dspPtr,TRUE,FALSE,DATA_STRUCT(dspPtr,
-	          i*2,DS_PREV_ENCODER) ,DS_SIZE+4,
-	          (short *)tmaxis[i]);
-	        if (dsp_error) 
-	        {
-	          meistatcnt++;
-	          tmaxis[i]->status = dsp_error;
-	          tmaxis[i]->errcnt++;
-	        }
-	        semGive(semMEI);
-	        swapwords ((short *)(&tmaxis[i]->actual_position),1);
-	        swapwords ((short *)(&tmaxis[i]->position),1);
-	        swapwords ((short *)(&tmaxis[i]->time),1);
-	        swapwords ((short *)(&tmaxis[i]->velocity),1);
-	        swapwords ((short *)(&tmaxis[i]->acceleration),1);
-	        swapwords ((short *)(&tmaxis[i]->actual_position2),1);
+            i=MEIDC_Rotate;
+	    if (MEIDC_Enable[i])
+            {
+	      pcdsp_transfer_block(dspPtr,TRUE,FALSE,DATA_STRUCT(dspPtr,
+	        i*2,DS_PREV_ENCODER) ,DS_SIZE+4,
+	        (short *)tmaxis[i]);
+	      if (dsp_error) 
+	      {
+	        meistatcnt++;
+	        tmaxis[i]->status = dsp_error;
+	        tmaxis[i]->errcnt++;
 	      }
-/*	    }*/
+	      semGive(semMEI);
+	      swapwords ((short *)(&tmaxis[i]->actual_position),1);
+	      swapwords ((short *)(&tmaxis[i]->position),1);
+	      swapwords ((short *)(&tmaxis[i]->time),1);
+	      swapwords ((short *)(&tmaxis[i]->velocity),1);
+	      swapwords ((short *)(&tmaxis[i]->acceleration),1);
+	      swapwords ((short *)(&tmaxis[i]->actual_position2),1);
+	    }
     	    for(i = 1; i < 4; i++)	/* find next enabled data collection */
 	    {
 	      rotate = (MEIDC_Rotate+i)%3;
@@ -287,7 +225,6 @@ void mei_data_collection(unsigned long freq)
 	      }
 	    }
 	    tm_data_collection();
-	    runtime=timer_read(2);
 	   }
 	   semGive(semMEIUPD);
           }
@@ -296,7 +233,6 @@ void mei_data_collection(unsigned long freq)
 }
 void print_mei_dc (int cnt)
 {
-	extern SEM_ID semMEI;
 	long *ap, *cp, *ap2;
 	int ii;
 	int i;
@@ -305,7 +241,7 @@ void print_mei_dc (int cnt)
 	  
     	for(ii = 0; ii < cnt; ii++)
 	{
-  	 if (semTake (semMEI,60)!=ERROR)
+  	 if (semTake (semMEIUPD,60)!=ERROR)
   	 {
     	  for(i = 0; i < 3; i++)
           {
@@ -317,24 +253,21 @@ void print_mei_dc (int cnt)
 	    logMsg("\r\n\t%u\t%d\t%x\t%f\t", meitime,tmaxis[i]->voltage, 
 		(long)tmaxis[i],meipos4,0,0);
 	  }
-	  logMsg ("\r\n    time=%d usecs",runtime,
-		0,0,0,0,0);
 	  logMsg ("\r\n%d raw tick, %f Secs",
 		rawtick,((double)rawtick)/sysClkRateGet(),0,0,0,0);
-	  semGive (semMEI);
+	  semGive (semMEIUPD);
 	 }
 	 taskDelay (1);
 	}
 }
 void print_axis_dc (int axis)
 {
-	extern SEM_ID semMEI;
 	long *ap, *cp, *ap2;
 	int i;
 
 	logMsg("\r\n\tapos\tcpos\tapos2\ttach\traw\ttime\tvoltage\tptr\t",0,0,0,0,0,0);
 	i=axis;
-  	 if (semTake (semMEI,60)!=ERROR)
+  	 if (semTake (semMEIUPD,60)!=ERROR)
   	 {
            ap=(long *)&tmaxis[i]->actual_position;
 	   cp=(long *)&tmaxis[i]->position;
@@ -343,26 +276,23 @@ void print_axis_dc (int axis)
 	      *ap, *cp,*ap2,meichan6,(double)(2.5*meichan6)/2048.);
 	   logMsg("\r\n\t%u\t%d\t%x\t%f\t", meitime,tmaxis[i]->voltage, 
 		(long)tmaxis[i],meipos4,0,0);
-	   logMsg ("\r\n    time=%d usecs",runtime,
-		0,0,0,0,0);
-	   semGive (semMEI);
+	   semGive (semMEIUPD);
 	 }
 }
 void print_pos_dc (int axis)
 {
-	extern SEM_ID semMEI;
 	long *ap, *cp, *ap2;
 	int i;
 
 	i=axis;
-  	 if (semTake (semMEI,60)!=ERROR)
+  	 if (semTake (semMEIUPD,60)!=ERROR)
   	 {
 	    ap=(long *)&tmaxis[i]->actual_position;
 	    cp=(long *)&tmaxis[i]->position;
 	    ap2=(long *)&tmaxis[i]->actual_position2;
 	    logMsg("\r\naxis %d:\tap=%ld\tcp=%ld\tap2=%ld\t",i,
 	      *ap, *cp,*ap2,0,0);
-	  semGive (semMEI);
+	  semGive (semMEIUPD);
 	 }
 }
 void slc500_data_collection(unsigned long freq)
@@ -386,9 +316,9 @@ void slc500_data_collection(unsigned long freq)
     {
       if (semTake (semSLC,60)!=ERROR)
       {
-        stat = slc_read_blok(1,9,0x85,96,&status[0],64);
-        stat |= slc_read_blok(1,9,0x85,160,&status[128],64);
-        stat |= slc_read_blok(1,9,0x85,224,&status[256],32);
+        stat = slc_read_blok(1,9,0x85,96,(uint *)&status[0],64);
+        stat |= slc_read_blok(1,9,0x85,160,(uint *)&status[128],64);
+        stat |= slc_read_blok(1,9,0x85,224,(uint *)&status[256],32);
 	semGive (semSLC);
         if (stat==0)
         {
@@ -423,13 +353,13 @@ void slc500_data_collection(unsigned long freq)
     }
 
     if (BCAST_Enable)
-      ipsdss_send (&sdssdc,sizeof(struct SDSS_FRAME));
+      ipsdss_send ((char *)&sdssdc,sizeof(struct SDSS_FRAME));
   }
 }
 int SM_COPY=TRUE;
 void DataCollectionTrigger()
 {
-  extern void dc_interrupt();
+  extern int dc_interrupt();
   DC_freq++;
   rawtick=tickGet();
   
@@ -445,6 +375,40 @@ void DataCollectionTrigger()
 
 
 /*  while (!meidc_enable);*/
+}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: dc_interrupt
+**
+** DESCRIPTION:
+**	Diagnostic to list the corresponding instrument's counter-weight 
+**	parameters.
+**
+** RETURN VALUES:
+**      int 	always zero
+**
+** CALLS TO:
+**      DAC128V_Read_Port
+**	cw_read_position
+**
+** GLOBALS REFERENCED:
+**	cw_DIO316
+**
+**=========================================================================
+*/
+int dc_interrupt()
+{
+  extern int cw_DIO316;
+  unsigned char val;
+  int ikey;
+
+  ikey=intLock();
+  DIO316_Read_Port (cw_DIO316,DC_INTERRUPT,&val);
+  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val|DC_INTPULSE);
+  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val);
+  intUnlock(ikey);
+  return 0;
 }
 void restore_pos()
 {
@@ -771,20 +735,3 @@ printf("umbilical_strain_sw=%d\n",sdssdc.status.i11.ol0.umbilical_strain_sw);
 printf("tbar_latch_cls_perm=%d\n",sdssdc.status.o12.ol0.tbar_latch_cls_perm);
 printf("tbar_latch_opn_perm=%d\n",sdssdc.status.o12.ol0.tbar_latch_opn_perm);
 }
-#ifdef NOTDEFINED
-long tstmem[300];
-test_avail_transfer()
-{
-   long *xmem;
-
-   xmem=&tstmem[0];
-   timer_start (2);
-   while (xmem!=&tstmem[sizeof(tstmem)-1])
-   {
-     while (pcdsp_transfer_available(dspPtr));
-     *xmem++=timer_read(2);
-     while (!pcdsp_transfer_available(dspPtr));
-     *xmem++=timer_read(2);
-   }
-}
-#endif

@@ -174,6 +174,9 @@ int last_door1;
 int last_door2;
 int last_azbrake;
 int last_altbrake;
+int last_ffs;
+int last_ffl;
+int last_ffc;
 int check_stop_in();
 /****************************************************************************/
 static void PrintMenuBanner()
@@ -986,7 +989,7 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
 	     CursPos(1,1);
 printf("Extended Help2..(|)=slit1|slit2 toggle; {|}=cart latch1|cart latch2 toggle    \n");
 	     CursPos(1,2);
-printf(" |=flat field lamp toggle; ""=Ne lamp toggle; :=HgCd lamp toggle               \n");
+printf(" |=flat field lamp toggle; \"=Ne lamp toggle; :=HgCd lamp toggle               \n");
 	     CursPos(1,3);
 printf(" ~=flat field screen toggle                                                   \n");
 	     CursPos(1,4);
@@ -1565,6 +1568,7 @@ static void PrintInstBanner()
   CursPos(1,1);
   MenuInput[21]=NULL;
   last_clamp=last_door1=last_door2=last_azbrake=last_altbrake=-1;
+  last_ffs=last_ffl=last_ffc=-1;
   EraseDisplayRest();
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie Briegel        \n");
@@ -1585,7 +1589,11 @@ static void PrintInstBanner()
   printf("Alt Clinomator=       degrees\n\r");
   CursPos(1,13);    
   printf("ALIGN Clamp            SP1 Slit                     SP2 Slit                 \n\r");
-  CursPos(1,16);    
+  CursPos(1,14);    
+  printf("Leaf FF 1:OC 2:OC 3:OC 4:OC 5:OC 6:OC 7:OC 8:OC Cmd=Off");
+  CursPos(1,15);
+  printf("Lamp FF 1234 Cmd=Off; Ne 1234 Cmd=Off; HgCd 1234 Cmd=OFF");
+  CursPos(1,16);
   printf("CW1\tCW2\tCW3\tCW4\n\r");
   CursPos(1,19);
   CursPos(1,22);
@@ -1947,11 +1955,15 @@ void Inst()
          case '?': 
 	   if (question_mark==0)
 	   {
-	   CursPos(1,1);
+	     CursPos(1,1);
 printf("Extended Help1..+|-=Align Close|Open;                                  \n");
-	   CursPos(1,5);
+             CursPos(1,2);
+printf(" I=Instrument FSM dd; 0=FIBER; 1=Spectograph Corrector Lens 2=TEST            \n");
+	     CursPos(1,3);
+printf("                                                                              \n");
+	     CursPos(1,5);
 printf(" sp=RstScrn X=eXit                                                     \n");
-	   CursPos(1,6);
+	     CursPos(1,6);
 printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                                \n");
 	   }
 	   if (question_mark==1)
@@ -1959,7 +1971,7 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 	     CursPos(1,1);
 printf("Extended Help2..(|)=slit1|slit2 toggle; {|}=cart latch1|cart latch2 toggle    \n");
 	     CursPos(1,2);
-printf(" |=flat field lamp toggle; ""=Ne lamp toggle; :=HgCd lamp toggle               \n");
+printf(" |=flat field lamp toggle; \"=Ne lamp toggle; :=HgCd lamp toggle               \n");
 	     CursPos(1,3);
 printf(" ~=flat field screen toggle                                                   \n");
 	     CursPos(1,4);
@@ -2011,6 +2023,14 @@ void PrintInstPos()
   short adc;
   int limidx;
   extern unsigned char cwLimit;
+  unsigned short ffs, ffl, ffc;
+  char open[]={' ','O'};
+  char close[]={' ','C'};
+  char one[]={' ','1'};
+  char two[]={' ','2'};
+  char three[]={' ','3'};
+  char four[]={' ','4'};
+  char *oo[]={"Off"," On"};
 	
   FOREVER
   {  
@@ -2209,6 +2229,96 @@ void PrintInstPos()
 		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
       		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
 /*		      (sdssdc.status.i1.il9.cart_latch2_opn<<2);*/ 
+      }
+
+      ffs=(int)((sdssdc.status.i1.il13.leaf_1_open_stat)|
+		(sdssdc.status.i1.il13.leaf_1_closed_stat<<1)|
+		(sdssdc.status.i1.il13.leaf_2_open_stat<<2)|
+		(sdssdc.status.i1.il13.leaf_2_closed_stat<<3)|
+		(sdssdc.status.i1.il13.leaf_3_open_stat<<4)|
+		(sdssdc.status.i1.il13.leaf_3_closed_stat<<5)|
+		(sdssdc.status.i1.il13.leaf_4_open_stat<<6)|
+		(sdssdc.status.i1.il13.leaf_4_closed_stat<<7)|
+		(sdssdc.status.i1.il13.leaf_5_open_stat<<8)|
+		(sdssdc.status.i1.il13.leaf_5_closed_stat<<9)|
+		(sdssdc.status.i1.il13.leaf_6_open_stat<<10)|
+		(sdssdc.status.i1.il13.leaf_6_closed_stat<<11)|
+		(sdssdc.status.i1.il13.leaf_7_open_stat<<12)|
+		(sdssdc.status.i1.il13.leaf_7_closed_stat<<13)|
+		(sdssdc.status.i1.il13.leaf_8_open_stat<<14)|
+		(sdssdc.status.i1.il13.leaf_8_closed_stat<<15) );
+
+      if (last_ffs!=ffs)
+      {
+        CursPos(9,14);    
+        printf ("1:%c%c 2:%c%c 3:%c%c 4:%c%c 5:%c%c 6:%c%c 7:%c%c 8:%c%c",
+	open[sdssdc.status.i1.il13.leaf_1_open_stat],
+	close[sdssdc.status.i1.il13.leaf_1_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_2_open_stat],
+	close[sdssdc.status.i1.il13.leaf_2_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_3_open_stat],
+	close[sdssdc.status.i1.il13.leaf_3_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_4_open_stat],
+	close[sdssdc.status.i1.il13.leaf_4_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_5_open_stat],
+	close[sdssdc.status.i1.il13.leaf_5_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_6_open_stat],
+	close[sdssdc.status.i1.il13.leaf_6_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_7_open_stat],
+	close[sdssdc.status.i1.il13.leaf_7_closed_stat],
+	open[sdssdc.status.i1.il13.leaf_8_open_stat],
+	close[sdssdc.status.i1.il13.leaf_8_closed_stat]);
+        last_ffs=ffs;
+      }
+      ffl=(int)((sdssdc.status.i1.il13.ff_1_stat)|
+	(sdssdc.status.i1.il13.ff_2_stat<<1)|
+	(sdssdc.status.i1.il13.ff_3_stat<<2)|
+	(sdssdc.status.i1.il13.ff_4_stat<<3)|
+	(sdssdc.status.i1.il13.ne_1_stat<<4)|
+	(sdssdc.status.i1.il13.ne_2_stat<<5)|
+	(sdssdc.status.i1.il13.ne_3_stat<<6)|
+	(sdssdc.status.i1.il13.ne_4_stat<<7)|
+	(sdssdc.status.i1.il13.hgcd_1_stat<<8)|
+	(sdssdc.status.i1.il13.hgcd_2_stat<<9)|
+	(sdssdc.status.i1.il13.hgcd_3_stat<<10)|
+	(sdssdc.status.i1.il13.hgcd_4_stat<<11) );
+      if (last_ffl!=ffl)
+      {
+        CursPos(9,15);
+        printf ("%c%c%c%c",
+	one[sdssdc.status.i1.il13.ff_1_stat],
+	two[sdssdc.status.i1.il13.ff_2_stat],
+	three[sdssdc.status.i1.il13.ff_3_stat],
+	four[sdssdc.status.i1.il13.ff_4_stat]);
+        CursPos(26,15);
+        printf ("%c%c%c%c",
+	one[sdssdc.status.i1.il13.ne_1_stat],
+	two[sdssdc.status.i1.il13.ne_2_stat],
+	three[sdssdc.status.i1.il13.ne_3_stat],
+	four[sdssdc.status.i1.il13.ne_4_stat]);
+        CursPos(45,15);
+        printf ("%c%c%c%c",
+	one[sdssdc.status.i1.il13.hgcd_1_stat],
+	two[sdssdc.status.i1.il13.hgcd_2_stat],
+	three[sdssdc.status.i1.il13.hgcd_3_stat],
+	four[sdssdc.status.i1.il13.hgcd_4_stat]);
+        last_ffl=ffl;
+      }
+      ffc=(int)((sdssdc.status.o1.ol14.ff_screen_open_pmt)|
+	(sdssdc.status.o1.ol14.ff_lamps_on_pmt<<1)|
+	(sdssdc.status.o1.ol14.ne_lamps_on_pmt<<2)|
+	(sdssdc.status.o1.ol14.hgcd_lamps_on_pmt<<3) );
+      if (last_ffc!=ffc)
+      {
+        CursPos(53,14);
+        printf("%s",oo[sdssdc.status.o1.ol14.ff_screen_open_pmt]);
+        CursPos(18,15);
+        printf("%s",oo[sdssdc.status.o1.ol14.ff_lamps_on_pmt]);
+        CursPos(35,15);
+        printf("%s",oo[sdssdc.status.o1.ol14.ne_lamps_on_pmt]);
+        CursPos(54,15);
+        printf("%s",oo[sdssdc.status.o1.ol14.hgcd_lamps_on_pmt]);
+        last_ffc=ffc;
       }
 
       CursPos(1,17);
