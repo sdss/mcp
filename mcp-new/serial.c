@@ -419,6 +419,7 @@ void barcode_shutdown(int type)
 **
 **=========================================================================
 */
+#if 0
 int
 barcode_serial(int port)
 {
@@ -504,6 +505,100 @@ barcode_serial(int port)
   barcodeidx = (barcodeidx+1)%256;
   return -1;
 }                                             
+#else
+int
+barcode_serial(int port)
+{
+   FILE *stream;  
+   int status;
+   char barcode_buffer[256];
+   int i;
+   char *ptr;
+   char *bf;
+   int fiducial;
+   int charcnt;
+   
+   if(cancel[port].fd == NULL) {
+      stream = barcode_open(port);
+   } else {
+      stream = cancel[port].stream;
+   }
+   if (stream==NULL) return ERROR;
+   
+   taskLock();
+   cancel[port].cancel = FALSE;
+   cancel[port].active = TRUE;
+   cancel[port].tmo = cancel[port].init_tmo;
+   taskUnlock();
+   
+   status = fprintf(stream, "\00221\003");  /* query string */
+   if(status != 4) {			/* four characters sent */
+      printf (" BARCODE **NOT** accepting response (status=%d)\r\n",status);
+   } else {				/* receive answer */
+      barcode_buffer[0] = '\0';
+      ptr = &barcode_buffer[0];
+      charcnt=0;
+/*
+ * Read barcode.  Charlie Briegel tried reading twice; why?
+ */
+      for(i = 0; i < 2; i++) {
+	 while((*ptr = getc(stream)) != EOF && charcnt < 256) {
+	    if(cancel[port].cancel) return -1;
+
+	    if(*ptr == '\003') {		/* All done */
+	       break;
+	    }
+	    
+	    ptr++; charcnt++;
+	 }
+      }
+
+      if(charcnt >= 256) {
+	 return -1;
+      }
+      
+      *ptr = '\0';
+      if(cancel[port].tmo < cancel[port].min_tmo) {
+	 cancel[port].min_tmo = cancel[port].tmo;
+      }
+      cancel[port].active = FALSE;
+      cancel[port].tmo = 0;
+      if(cancel[port].cancel) {
+	 printf("receive got canceled\n");
+      }
+	
+      if(BARCODE_verbose) {
+	 printf ("\r\n%s",&barcode_buffer[0]);
+      }
+      
+      bf = strstr(barcode_buffer, "ALT");
+      if(bf != NULL) {
+	 bf += 3;			/* skip "ALT" */
+	 sscanf(bf,"%3d", &fiducial);
+	 barcode[barcodeidx].axis = 1;
+      }
+      
+      bf = strstr(barcode_buffer, "AZ");
+      if(bf != NULL) {
+	 bf += 2;			/* skip "AZ" */
+	 sscanf(bf, "%3d", &fiducial);
+	 barcode[barcodeidx].axis=0;
+      }
+
+      barcode[barcodeidx].fiducial=fiducial;
+      barcodeidx = (barcodeidx+1)%256;
+      
+      return fiducial;
+   }
+   
+   barcode[barcodeidx].fiducial = 0;
+   barcode[barcodeidx].axis = -1;
+   barcodeidx = (barcodeidx+1)%256;
+
+   return -1;
+}                                             
+#endif
+
 /*=========================================================================
 **=========================================================================
 **
@@ -538,7 +633,7 @@ print_barcode(void)
 ** ROUTINE: cancel_read
 **
 ** DESCRIPTION:
-**      If getc is used for serial communicaitons, then use a global timeout
+**      If getc is used for serial communications, then use a global timeout
 **	for all 8 ports.
 **
 ** RETURN VALUES:
