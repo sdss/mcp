@@ -437,3 +437,48 @@ getSemTaskId(SEM_ID sem)
       return((long)sem->state.owner);
    }
 }
+
+/*****************************************************************************/
+/*
+ * Calculate a CRC for a string of characters. You can call this routine
+ * repeatedly to build up a CRC. Only the last 16bits are significant.
+ *
+ * e.g.
+ *   crc = phCrcCalc(0, buff, n) & 0xFFFF;
+ * or
+ *   crc = 0;
+ *   crc = phCrcCalc(crc, buff0, n);
+ *   crc = phCrcCalc(crc, buff1, n);
+ *   crc = phCrcCalc(crc, buff2, n);
+ *   crc &= 0xFFFF;
+ *
+ * Routine taken from photo/src/utils.c
+ */
+long
+phCrcCalc(long crc,			/* initial value of CRC (e.g. 0) */
+	  const char *buff,		/* buffer to be CRCed */
+	  int n)			/* number of chars in buff */
+{
+   register long c;
+   static long crcta[16] = {
+      0L, 010201L, 020402L, 030603L, 041004L,
+      051205L, 061406L, 071607L, 0102010L,
+      0112211L, 0122412L, 0132613L, 0143014L,
+      0153215L, 0163416L, 0173617L
+   };					/* CRC generation tables */
+   static long crctb[16] = {
+      0L, 010611L, 021422L, 031233L, 043044L,
+      053655L, 062466L, 072277L, 0106110L,
+      0116701L, 0127532L, 0137323L, 0145154L,
+      0155745L, 0164576L, 0174367L
+   };
+   const char *ptr = buff;		/* pointers to buff */
+   const char *const end = buff + n;	/*        and to end of desired data */
+
+   for(;ptr != end;ptr++) {
+      c = crc ^ (long)(*ptr);
+      crc = (crc >> 8) ^ (crcta[(c & 0xF0) >> 4] ^ crctb[c & 0x0F]);
+   }
+
+   return(crc);
+}

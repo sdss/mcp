@@ -13,5 +13,6 @@ void VME2_pre_scaler(unsigned long adjust);
 char *mcpVersion(char *ver, int len);
 char *version_cmd(char *cmd);
 long getSemTaskId(SEM_ID sem);
+long phCrcCalc(long crc, const char *buff, int n);
 
 #endif
