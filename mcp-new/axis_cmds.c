@@ -830,9 +830,7 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 
 
 
-/* cnt and lcnt are used not initialized if there is only one frame in the
- * queue...  bad..
- */
+/* cnt and lcnt can be used unitialized */
 void tm_TCC(int axis)
 {
   int cnt, lcnt;
