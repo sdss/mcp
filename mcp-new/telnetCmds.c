@@ -16,6 +16,7 @@
 #include <taskLib.h>
 #include <taskVarLib.h>
 #include <telnetLib.h>
+#include <usrLib.h>
 #include "pcdsp.h"
 #include "axis.h"
 #include "cmd.h"
@@ -253,7 +254,11 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    }
 	 }
       } else if(strncmp(cmd, "SEM.GIVE", 8) == 0) {
+	 int force = 0;
+
 	 TRACE(5, "PID %d: command SEM.GIVE", client_pid, 0);
+
+	 (void)sscanf(cmd, "SEM.GIVE %d", &force);
 
 	 if(took_semCmdPort && semGive(semCmdPort) == OK) {
 	    took_semCmdPort = 0;
@@ -262,6 +267,12 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 if(!took_semCmdPort) {
 	    reply = "gave semaphore";
 	 } else {
+	    if(force) {
+	       if(semMGiveForce(semCmdPort) == OK) {
+		  took_semCmdPort = 0;
+	       }
+	    }
+	    
 	    sprintf(buff, "Unable to give semaphore: %s",
 		    strerror(errno));
 	    reply = buff;
@@ -275,7 +286,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 if(took_semCmdPort) {
 	    reply = "semCmdPort=1";
 	 } else {
-	    reply = "semCmdPort=0";
+ 	    reply = "semCmdPort=0";
 	 }
       } else if(strncmp(cmd, "TELNET.RESTART", 11) == 0) {
 	 TRACE(5, "PID %d: command TELNET.RESTART", client_pid, 0);
