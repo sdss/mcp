@@ -77,3 +77,46 @@ squeaky:
 	rm -rf *.o
 	rm -rf mcp.map
 	rm -rf mcp.out
+#
+# .h file dependencies
+#
+axis_cmds.o :	axis.h
+axis_cmds.o :	data_collection.h
+axis_cmds.o :	frame.h
+axis_cmds.o :	io.h
+axis_cmds.o :	ms.h
+axis_cmds.o :	tm.h
+bcast.o :	copyright.h
+cmd.o :	cmd.h
+cmd.o :	copyright.h
+counter_weight.o :	copyright.h
+counter_weight.o :	cw.h
+counter_weight.o :	data_collection.h
+counter_weight.o :	io.h
+data_collection.o :	copyright.h
+data_collection.o :	data_collection.h
+display.o :	axis.h
+display.o :	data_collection.h
+display.o :	display.h
+display.o :	frame.h
+display.o :	ms.h
+il.o :	abdh.h
+il.o :	copyright.h
+il.o :	cw.h
+il.o :	data_collection.h
+instrument_lift.o :	abdh.h
+instrument_lift.o :	copyright.h
+instrument_lift.o :	cw.h
+instrument_lift.o :	data_collection.h
+ipcast.o :	copyright.h
+ipsym.o :	copyright.h
+ipsym.o :	timerint.h
+telescope_motion.o :	abdh.h
+telescope_motion.o :	axis.h
+telescope_motion.o :	copyright.h
+telescope_motion.o :	data_collection.h
+telescope_motion.o :	frame.h
+telescope_motion.o :	ms.h
+telescope_motion.o :	tm.h
+util.o :	mv162.h
+util.o :	vmechip2.h
