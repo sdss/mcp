@@ -85,11 +85,20 @@ log_mcp_command(int type,		/* type of command */
 {
    static FILE *mcp_log_fd = NULL;	/* fd for logfile */
    static int nline = 0;		/* number of lines written */
-
+#if 1
+   int tick0 = tickGet(), tick1;	/* initial/final tick around semGet */
+#endif
+   
    if(semTake(semLogfile, WAIT_FOREVER) != OK) {
       TRACE(0, "Cannot take semLogfile %d: %s", errno, strerror(errno));
       taskSuspend(0);
    }
+#if 1
+   tick1 = tickGet();
+   if(tick1 - tick0 > 30) {		/* 1/2 second */
+      TRACE(3, "Waited %.2fs for semLogfile", (tick1 - tick0)/60.0, 0);
+   }
+#endif
 
    if(cmd == NULL) {			/* flush log file */
       if(mcp_log_fd != NULL) {
