@@ -218,7 +218,7 @@ mei_data_collection(unsigned long freq)
       } else {
 	 pcdsp_transfer_block(dspPtr,TRUE,FALSE,
 			      DATA_STRUCT(dspPtr, i*2, DS_PREV_ENCODER),
-			      DS_SIZE+4, (short *)tmaxis[i]);
+			      DS_SIZE+4, (unsigned short *)tmaxis[i]);
 	 if(dsp_error != DSP_OK) {
 	    TRACE(0, "Failed to read MEI data for %s: %d",
 		  axis_name(i), dsp_error);
@@ -275,9 +275,14 @@ slc500_data_collection(unsigned long freq)
    char status[168*2 + 1];
    char status_b10[12 + 1];
    int stat;
-
-   assert(sizeof(status) == sizeof(struct AB_SLC500) + 1);
-   assert(sizeof(status_b10) == sizeof(struct B10) + 1);
+/*
+ * gcc complains about these assertions if I don't introduce tmp.
+ */
+   {
+      volatile int tmp;
+      tmp = sizeof(struct AB_SLC500) + 1; assert(sizeof(status) == tmp);
+      tmp = sizeof(struct B10) + 1; assert(sizeof(status_b10) == tmp);
+   }
    status[sizeof(status) - 1] = status_b10[sizeof(status_b10) - 1] = '\a';
    
    semSLCDC = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
@@ -315,7 +320,7 @@ slc500_data_collection(unsigned long freq)
  * byteswap status/status_b10 and copy them into sdssdc at the same time
  */
 	    swab(status, (char *)(&sdssdc.status.i1),
-		 sizeof(struct AB_SLC500) -
+		 (int)sizeof(struct AB_SLC500) -
 		 ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status));
 	    swab(status_b10, (char *)(&sdssdc.b10), sizeof(struct B10));
 	 }
@@ -483,12 +488,14 @@ DataCollectionTrigger(void)
 					   bytes into struct */
 	 const int offset = offsetof(struct SDSS_FRAME, ctime);
 
+#if 0
 	 if(sdssdc.status.i1.il6.sec_mir_force_limits) {
 	    printf("RHL XXX sec_mir_force_limits is true\n");
 	 }
+#endif
 
 	 sdssdc.CRC = phCrcCalc(0, (char *)&sdssdc + offset,
-				sizeof(sdssdc) - offset) & 0xFFFF;
+				(int)sizeof(sdssdc) - offset) & 0xFFFF;
 	 
 	 *(short *)SHARE_MEMORY = TRUE;
 	 memcpy((char *)(SHARE_MEMORY + 2), (char *)&sdssdc, sizeof(sdssdc));
@@ -501,7 +508,7 @@ DataCollectionTrigger(void)
  * check that CRC
  */
 	 CRC = phCrcCalc(0, (char *)(SHARE_MEMORY + 2) + offset,
-			 sizeof(sdssdc) - offset) & 0xFFFF;
+			 (signed)sizeof(sdssdc) - offset) & 0xFFFF;
 
 	 if(sdssdc.CRC != CRC) {
 	    printf("RHL: CRC has changed: 0x%x v. 0x%x",
