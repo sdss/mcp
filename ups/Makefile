@@ -6,4 +6,4 @@ install : all
 	cp Makefile mcp.table $(MCP_DIR)/ups
 
 clean :
-	- rm *.o core *~
+	- rm -f *.o core *~

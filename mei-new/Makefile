@@ -11,68 +11,24 @@ ARFLAGS		=	crsv
 RAN			=	ranlib68k
 
 LIB			=	medvxw40.a
-OBJ			=	o
 
-OBJS		=	idsp.$(OBJ)			\
-				imemory.$(OBJ)		\
-				iframe.$(OBJ)		\
-				ifixed.$(OBJ)		\
-							\
-				llframe.$(OBJ)		\
-				llstatus.$(OBJ)		\
-				llpid.$(OBJ)		\
-				llpos.$(OBJ)		\
-				llef.$(OBJ)		\
-				llio.$(OBJ)		\
-				llsetvel.$(OBJ)		\
-				llmove.$(OBJ)		\
-				llconfig.$(OBJ)		\
-				llink.$(OBJ)		\
-				llbm.$(OBJ)		\
-				llfirm.$(OBJ)		\
-							\
-				bconfig.$(OBJ)		\
-				blimits.$(OBJ)		\
-							\
-				mldsp.$(OBJ)		\
-				mluom.$(OBJ)		\
-				mlpos.$(OBJ)		\
-				mlef.$(OBJ)		\
-				mlsetvel.$(OBJ)		\
-				mlmove.$(OBJ)		\
-				mlsmove.$(OBJ)		\
-				mlconfig.$(OBJ)		\
-				mlio.$(OBJ)		\
-				mlstatus.$(OBJ)		\
-				mllink.$(OBJ)		\
-				mlerror.$(OBJ)		\
-				mlframe.$(OBJ)		\
-				mlpmove.$(OBJ)		\
-				mldspf.$(OBJ)		\
-				mlrmove.$(OBJ)		\
-		                mlrsmove.$(OBJ)		\
-		                mlspline.$(OBJ)		\
-							\
-				hldsp.$(OBJ)		\
-				envutil.$(OBJ)		\
-				backward.$(OBJ)		\
-				extras.$(OBJ)		\
-				mboard.$(OBJ)		\
-							\
-				system.$(OBJ)		\
-				mlserc.$(OBJ)		\
-				llserc.$(OBJ)		\
-				sercrset.$(OBJ)		\
-				llsrset.$(OBJ)		\
-				sercmisc.$(OBJ)		\
-				sercdiag.$(OBJ)		\
-				sydsp.$(OBJ)		\
-							\
-		                mllsr.$(OBJ)		\
-		                mltan.$(OBJ)		\
-				sincomm.$(OBJ)	
+OBJS =	idsp.o imemory.o iframe.o ifixed.o \
+	\
+	llframe.o llstatus.o llpid.o llpos.o llef.o llio.o llsetvel.o \
+	llmove.o llconfig.o llink.o llbm.o llfirm.o \
+	\
+	bconfig.o blimits.o mldsp.o mluom.o mlpos.o mlef.o mlsetvel.o \
+	mlmove.o mlsmove.o mlconfig.o mlio.o mlstatus.o mllink.o mlerror.o \
+	mlframe.o mlpmove.o mldspf.o mlrmove.o mlrsmove.o mlspline.o \
+	\
+	hldsp.o envutil.o backward.o extras.o mboard.o \
+	\
+	system.o mlserc.o llserc.o sercrset.o llsrset.o sercmisc.o \
+	sercdiag.o sydsp.o \
+	\
+	mllsr.o mltan.o sincomm.o
 
-.c.$(OBJ):
+.c.o:
 	$(CC) $(CFLAGS) $*.c
 
 all : $(LIB)

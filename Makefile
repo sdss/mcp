@@ -67,7 +67,7 @@ make :
 	done
 
 clean :
-	- rm *.o core *~
+	- rm -f *.o core *~
 	@-for d in $(DIRS); do \
 		echo $$d; \
 		(cd $$d; $(MAKE) $(MFLAGS) clean ); \
