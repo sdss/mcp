@@ -30,7 +30,7 @@ LFLAGS = -r
 
 OBJS =cmd.o axis_cmds.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
-display.o umbilical.o telnetCmds.o tagname.o
+display.o umbilical.o telnetCmds.o timers.o tagname.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
@@ -75,16 +75,22 @@ axis_cmds.o : axis.h
 axis_cmds.o : cw.h
 axis_cmds.o : serial.h
 axis_cmds.o : mcpUtils.h
+axis_cmds.o : mcpMsgQ.h
+axis_cmds.o : abdh.h
+axis_cmds.o : mcpTimers.h
 cmd.o : copyright.h
 cmd.o : frame.h
 cmd.o : ms.h
 cmd.o : axis.h
 cmd.o : cmd.h
-counter_weight.o : copyright.h
 counter_weight.o : cw.h
+counter_weight.o : copyright.h
 counter_weight.o : data_collection.h
 counter_weight.o : instruments.h
 counter_weight.o : io.h
+counter_weight.o : mcpUtils.h
+counter_weight.o : mcpMsgQ.h
+counter_weight.o : mcpTimers.h
 data_collection.o : copyright.h
 data_collection.o : data_collection.h
 data_collection.o : tm.h
@@ -104,18 +110,24 @@ display.o : cw.h
 display.o : io.h
 display.o : data_collection.h
 display.o : instruments.h
-instrument_lift.o : copyright.h
+display.o : mcpUtils.h
 instrument_lift.o : cw.h
+instrument_lift.o : copyright.h
 instrument_lift.o : tm.h
 instrument_lift.o : data_collection.h
 instrument_lift.o : abdh.h
 instrument_lift.o : instruments.h
 instrument_lift.o : axis.h
+instrument_lift.o : display.h
 ipcast.o : copyright.h
 ipsym.o : copyright.h
 ipsym.o : timerint.h
+ipsym.o : mcpUtils.h
 serial.o : copyright.h
 serial.o : serial.h
+serial.o : cmd.h
+tagname.o : axis.h
+tagname.o : copyright.h
 telescope_motion.o : copyright.h
 telescope_motion.o : ms.h
 telescope_motion.o : abdh.h
@@ -128,6 +140,11 @@ telescope_motion.o : instruments.h
 telnetCmds.o : axis.h
 telnetCmds.o : copyright.h
 telnetCmds.o : cmd.h
+timers.o : mcpTimers.h
+timers.o : mcpUtils.h
+timers.o : data_collection.h
+timers.o : axis.h
+timers.o : copyright.h
 umbilical.o : copyright.h
 umbilical.o : instruments.h
 util.o : mv162.h
