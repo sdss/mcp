@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 
-DIRS = ab bin etc fiducial-tables ip mei-new mcp-new ups util
+DIRS = ab bin doc etc fiducial-tables ip mei-new mcp-new ups util
 
 all :
 	@for d in $(DIRS); do \
