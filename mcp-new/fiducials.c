@@ -1949,7 +1949,11 @@ tLatchInit(void)
    define_cmd("MS.MAX",       ms_max_cmd,          1, 1, 0, 1, "");
    define_cmd("MS.READ",      ms_read_cmd,         1, 1, 0, 1, "");
    define_cmd("MS.SET",       ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
-   define_cmd("MS.WRITE",     ms_write_cmd,        1, 1, 0, 1, "");
+   define_cmd("MS.WRITE",     ms_write_cmd,        1, 0, 0, 0,
+"Write the fiducial table for the current axis to the specified file;\n"
+"e.g.  ROT MS.WRITE foo.rot\n"
+"This command may be used to check what fiducial tables are actually in use"
+	      );
    define_cmd("SET.FIDUCIAL", ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
    define_cmd("AZ.BARCODE",   az_barcode_cmd,      1, 0, 0, 1,
 "Tell the fiducials to use (1) or not use (0) the azimuth barcode reader\n"
