@@ -21,6 +21,7 @@
 #endif
 
 #ifndef SQRT
+	long sqrtl(long);
 #	define SQRT(n)		sqrtl(n)
 #endif
 
@@ -172,6 +173,8 @@ int16 FNTYPE pcdsp_sprof_trap(int16 axis, double delta, double vel, double accel
 	FRAME frame;
 	double ta, tv, tj, delta_j;
 	int16 retval, dir_negative = 0;
+
+	tj = 0;				/* suppress gcc warning */
 
 	if (delta < 0)
 	{	dir_negative = 1;
