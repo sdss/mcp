@@ -1811,6 +1811,8 @@ restore_fiducials_all ()
  *
  * See also restore_fiducials and write_fiducials
  */
+#define LSIZE 200
+
 char *
 read_fiducials(const char *file,	/* file to read from */
 	       int axis)		/* which axis to read */
@@ -1819,11 +1821,11 @@ read_fiducials(const char *file,	/* file to read from */
    int bias;				/* bias applied to fiducial positions*/
    float error;				/* error in mark */
    int fid;				/* fiducial number from file */
-   char fid_str[40];			/* buffer to read string "fiducials" */
+   char fid_str[LSIZE];			/* buffer to read string "fiducials" */
    struct FIDUCIALS *axis_fiducial;	/* fiducials data structure */
    long *fiducial_position;		/* array to set */
    FILE *fil;				/* F.D. for file */
-   char line[200];			/* buffer to read lines of file */
+   char line[LSIZE + 1];		/* buffer to read lines of file */
    char *lptr;				/* pointer to line[] */
    float mark;				/* mark from file */
    int npt;				/* number of points used to find mark*/
@@ -1863,7 +1865,8 @@ read_fiducials(const char *file,	/* file to read from */
       return("ERR: failed to open file\n");
    }
    
-   while((lptr = fgets(line, 200, fil)) != NULL) {
+   line[sizeof(line)] = '\0';
+   while((lptr = fgets(line, sizeof(line) - 1, fil)) != NULL) {
       while(isspace(*lptr)) lptr++;
 
       if(*lptr == '\0') {		/* blank line */
