@@ -60,12 +60,15 @@ void tm_cart_latch(int door);
 void tm_cart_unlatch(int door);
 void tm_sp_cart_latch(int door);
 void tm_sp_cart_unlatch(int door);
+#define FFS_CLOSE 0
+#define FFS_OPEN 1
+int tm_ffs_enable(int val);		/* enable FF screen */
 void tm_ffs_open(void);
 void tm_ffs_close(void);
-void tm_sp_ffs_open(void);
-void tm_sp_ffs_close(void);
+void tm_sp_ffs_move(int open_close);
 int tm_ffs_open_status(void);
 int tm_ffs_close_status(void);
+
 void tm_ffl_on(void);
 void tm_ffl_off(void);
 void tm_sp_ffl_on(void);
