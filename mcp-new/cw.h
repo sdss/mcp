@@ -28,24 +28,11 @@
 #define ALL_CW -999			/* move all counter weights */
 #define NUMBER_CW 4			/* number of counter weights */
 
-
-char *balance_weight(int inst);
-char *balance_cmd(char *cmd);
-void balance (int cw, int inst);
 int cw_abort(void);
-void cw_set_positionv(int inst, const short[4]);
-void cw_set_posv(int inst, short *p1, short *p2, short *p3, short *p4);
-void cw_pos(int cw, float *pos);
-void cw_posv(int cw, short *pos);
-void cw_position(int cw, double pos);
-void cw_positionv(int cw, short pos);
-int cw_get_inst(char *cmd);
-int cw_select(int cw);
-int cw_rdselect();
-int cw_status();
 void cw_data_collection(void);
-
+int cw_get_inst(char *cmd);
 void set_counterweight(int inst, int cw, short pos);
+
 /*
  * global variables
  */
