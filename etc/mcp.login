@@ -191,7 +191,7 @@ taskPrioritySet (taskIdFigure("tExcTask"),1)
 #
 # Get the current time from the NTP server
 #
-setTimeFromNTP "utc-time.apo.nmsu.edu", 0, 1, 0
+set_time_cmd
 #
 # N.b. The `frequencies' supplied to the *_data_collection routines
 # are interpreted relative to the rate that TimerStart calls serverDCStart,
