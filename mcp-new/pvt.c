@@ -1055,7 +1055,7 @@ void
 tm_TCC(int axis)
 {
    const char *const aname = axis_name(axis); /* name of our axis */
-   int cnt, lcnt, cntoff;
+   int cnt, lcnt;
    struct FRAME *frame;
    struct FRAME *frmoff;
    int i;
@@ -1205,8 +1205,8 @@ tm_TCC(int axis)
 	       clroffset(axis,cnt);
 	       
 	       if(offset_queue_end[axis][i] != NULL) {
-		  cntoff = calc_offset(axis, &offset[axis][i][0],
-				       offset_idx[axis][i], cnt);
+		  calc_offset(axis,
+			      &offset[axis][i][0], offset_idx[axis][i], cnt);
 		  offset_idx[axis][i] += cnt;
 		  
 		  if(offset_idx[axis][i]/20.0 > offset[axis][i][1].end_time) {
@@ -1636,7 +1636,7 @@ mcp_move(int axis,			/* the axis to move */
 	 (axis == ALTITUDE || axis_queue[ALTITUDE].active == NULL) &&
 	 (axis == INSTRUMENT || axis_queue[INSTRUMENT].active == NULL)) {
 	 (void)give_semCmdPort(0);
-	 TRACE(3, "%s MOVE: gave up semaphore: %s", axis_name(axis), 0);
+	 TRACE(3, "%s MOVE: gave up semaphore", axis_name(axis), 0);
       } else {
 	 char buff[50];
 	 sprintf(buff, "AzAltRot: %d %d %d",
