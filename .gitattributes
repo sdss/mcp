@@ -22,6 +22,7 @@ ip/acromag/vxworks.c -text
 ip/ioLibx.h -text
 ip/ipOctalSerial.c -text
 ip/ipOctalSerial.h -text
+ip/ipOctalSerial.o -text svneol=unset#unset
 ip/mv162IndPackInit.c -text
 ip/mv162IndPackInit.h -text
 ip/systran/Makefile -text

@@ -73,7 +73,7 @@ Leif Thuresson,  Control System Group,
 #include "ctype.h"
 #include "stdlib.h"
 #include "stdio.h"
-#include "drv/serial/ipOctalSerial.h"
+#include "ipOctalSerial.h"
                           
 struct HISTORY_POOL {
 	char outchar;
