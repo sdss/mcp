@@ -26,6 +26,7 @@
 #include "sigLib.h"
 #include "tickLib.h"
 #include "taskLib.h"
+#include "usrLib.h"
 #include "string.h"
 #include "inetLib.h"
 #include "rebootLib.h"
@@ -1511,6 +1512,7 @@ int tm_ffs(short val)
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
+   int wait_time = 30;			/* FF screen timeout (seconds) */
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1540,7 +1542,8 @@ int tm_ffs(short val)
    }
 
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,1);
-   cnt=60*12;
+   cnt=60*wait_time;
+   printf("Waiting %ds for flat field to move\n", wait_time);
    if (val==1) 
    {
      while ((!tm_ffs_open_status())&&(cnt>0))
