@@ -79,7 +79,7 @@ int
 mcp_cw_abort(void)
 {
    MCP_MSG msg;
-   STATUS stat;
+   STATUS status;
 
    if(semTake(semMoveCWBusy, 0) == OK) { /* task is idle */
       semGive(semMoveCWBusy);
@@ -88,9 +88,9 @@ mcp_cw_abort(void)
       msg.u.moveCWAbort.abort = 1;
 
       TRACE(1, "Sending abort msg to msgMoveCWAbort", 0, 0);
-      stat = msgQSend(msgMoveCWAbort, (char *)&msg, sizeof(msg),
+      status = msgQSend(msgMoveCWAbort, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
-      assert(stat == OK);
+      assert(status == OK);
    }
    
    cw_abort();
@@ -141,7 +141,7 @@ mcp_set_cw(int inst,			/* instrument to balance for */
  * send message requesting a counter weight motion
  */
       MCP_MSG msg;
-      STATUS stat;
+      STATUS status;
 
       if(semTake(semMoveCWBusy, 0) == OK) { /* task is idle */
 	 semGive(semMoveCWBusy);
@@ -159,9 +159,9 @@ mcp_set_cw(int inst,			/* instrument to balance for */
       msg.u.moveCW.cw = cw;
       msg.u.moveCW.cwpos = cwpos;
       
-      stat = msgQSend(msgMoveCW, (char *)&msg, sizeof(msg),
+      status = msgQSend(msgMoveCW, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
-      assert(stat == OK);
+      assert(status == OK);
    }
 
    if(errstr != NULL) {
@@ -383,8 +383,8 @@ balance_initialize(unsigned char *addr,
 		   unsigned short vecnum)
 {
    int i;
-   short val;
-   STATUS stat;                               
+   unsigned short val;
+   STATUS status;                               
    struct IPACK ip;
 /*
  * Initialize the ADC
@@ -445,10 +445,10 @@ balance_initialize(unsigned char *addr,
 /*
  * set interrupt handlers
  */
-   stat = intConnect(INUM_TO_IVEC(vecnum),
+   status = intConnect(INUM_TO_IVEC(vecnum),
 		      (VOIDFUNCPTR)cw_DIO316_interrupt,
 		      DIO316_TYPE);
-   TRACE(5, "CW vector = %d, result = 0x%8x", vecnum, stat);
+   TRACE(5, "CW vector = %d, result = 0x%8x", vecnum, status);
    rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
    
    IP_Interrupt_Enable(&ip, DIO316_IRQ);
@@ -501,7 +501,9 @@ balance(int cw,				/* counter weight to move */
    int cw0, cw1;			/* move counterweights cw0..cw1 incl.*/
    int CW_next;				/* go on to next counterweight */
    int i;
-   short vel,pos,delta,direction;
+   short vel;
+   short pos;
+   short delta,direction;
    short last_direction;
    int totcnt = 0, cnt, last_error;
    MCP_MSG msg;				/* message to read */
@@ -529,7 +531,7 @@ balance(int cw,				/* counter weight to move */
       CW_limit_abort = FALSE;
       
       for(CW_next = i = 0; !CW_next && i < cw_inst[inst].stop_count; i++) {
-	 ADC128F1_Read_Reg(cw_ADC128F1,cw,&pos);
+	 ADC128F1_Read_Reg(cw_ADC128F1,cw,(unsigned short *)&pos);
 	 if((pos & 0x800) == 0x800) {
 	    pos |= 0xF000;
 	 } else {
@@ -589,7 +591,7 @@ balance(int cw,				/* counter weight to move */
  * Read velocity and decide what to do; the first time through we
  * must accelerate even if within start_decel_position of our destination
  */
-	    DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, &vel);
+	    DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, (unsigned short *)&vel);
 	    vel -= 0x800;
 	    
 	    if(cnt > 1 && delta < cw_inst[inst].start_decel_position) {
@@ -650,7 +652,7 @@ balance(int cw,				/* counter weight to move */
 /*
  * where did we get to?
  */
-	    ADC128F1_Read_Reg(cw_ADC128F1, CW_POS + cw, &pos);
+	    ADC128F1_Read_Reg(cw_ADC128F1, CW_POS + cw, (unsigned short*)&pos);
 	    if((pos & 0x800) == 0x800) {
 	       pos |= 0xF000;
 	    } else {
@@ -845,7 +847,7 @@ void cw_DIO316_interrupt(int type)
    int cw;
    
    DIO316ReadISR (cw_DIO316,&int_bit[0]);
-   DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
+   DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR, (unsigned short *)&vel);
    vel-=0x800;
    DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&limit);
    cw = cw_rdselect();
@@ -927,15 +929,20 @@ void cw_DIO316_shutdown(int type)
 static int
 cw_brake_on(void)
 {
-	short vel;
+   short vel;
 
-	if (cw_DAC128V==-1) return ERROR;
-        DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
-	if (vel>=0)
-	  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
-	else
-	  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+STOP_LIM);
-	return 0;
+   if(cw_DAC128V == -1) {
+      return ERROR;
+   }
+   
+   DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, (unsigned short *)&vel);
+   if(vel >= 0) {
+      DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
+   } else {
+      DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+STOP_LIM);
+   }
+   
+   return 0;
 }
 
 /*=========================================================================
@@ -1253,7 +1260,7 @@ void
 cw_read_position(int cnt)
 {
   int i, ii;
-  short adc;
+  unsigned short adc;
 
   if(cnt == 0) cnt=1;
 
@@ -1373,8 +1380,8 @@ cw_get_inst(char *cmd)
 void
 cw_data_collection(void)
 {
-  short adc;
-  int ii;
+   unsigned short adc;
+   int ii;
 
   if(cw_ADC128F1 != -1) {
      for(ii = 0; ii < NUMBER_CW; ii++) {
@@ -1638,7 +1645,7 @@ static void
 read_ADC (int chan, int cnt)
 {
   int i;
-  short adc;
+  unsigned short adc;
 
   if (cnt==0) cnt=1;
   for (i=0;i<cnt;i++)
@@ -1654,7 +1661,7 @@ static void
 read_all_ADC (int cnt)
 {
   int i,ii;
-  short adc;
+  unsingned short adc;
 
   if (cnt==0) cnt=1;
   printf ("\r\n");
