@@ -121,6 +121,7 @@ mcp-new/ipcast.h -text
 mcp-new/ipsym.c -text
 mcp-new/mcpFiducials.h -text
 mcp-new/mcpMsgQ.h -text
+mcp-new/mcpSpectro.h -text
 mcp-new/mcpTimers.h -text
 mcp-new/mcpUtils.h -text
 mcp-new/ms.h -text
