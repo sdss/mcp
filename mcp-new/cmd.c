@@ -268,7 +268,7 @@ print_a_cmd(char *name,			/* name of command */
       funcname = "(static)";
    }
    
-   printf("%-20s %-20s  %-4d %-6d %-10d %d\n", name, funcname,
+   printf("%-20s %-25s  %-4d %-6d %-10d %d\n", name, funcname,
 	  (type & CMD_TYPE_NARG),
 	  (type & CMD_TYPE_VARARG ? 1 : 0),
 	  (type & CMD_TYPE_LOCKED ? 1 : 0),
@@ -281,8 +281,8 @@ print_a_cmd(char *name,			/* name of command */
 void
 cmdShow(char *pattern)
 {
-   printf("%-20s %-20s  %-4s %-6s %-10s %s\n\n",
-	  "Name", " Function", "Narg", "Vararg", "Restricted", "Print");
+   printf("%-20s %-25s %-4s %-6s %-10s %s\n\n",
+	  "Name", "Function", "Narg", "Vararg", "Restricted", "Print");
 
    symEach(cmdSymTbl, (FUNCPTR)print_a_cmd, (int)pattern);
 }
