@@ -262,8 +262,8 @@ int
 umbilical_move(int val) 
 {
    int err;
-   unsigned short ctrl;
-   struct B10_1 il_ctrl;   
+   unsigned short ctrl[2];
+   B10_W0 tm_ctrl;
    
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical_move: failed to get semSLC: %s (%d)",
@@ -271,18 +271,18 @@ umbilical_move(int val)
       return(-1);
    }
    
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl,1);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(tm_ctrl)/2);
    if(err) {
       semGive(semSLC);
       TRACE(0, "umbilical_move: error reading slc: 0x%04x", err, 0);
       return(err);
    }
    
-   swab((char *)&ctrl, (char *)&il_ctrl, 2);
-   il_ctrl.mcp_umbilical_up_dn = val;
-   swab((char *)&il_ctrl, (char *)&ctrl, 2);
+   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
+   tm_ctrl.mcp_umbilical_up_dn = val;
+   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
 
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl,1);
+   err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
 
    if(err) {
@@ -313,8 +313,8 @@ int
 umbilical_onoff(int val) 
 {
    int err;
-   unsigned short ctrl;
-   struct B10_1 il_ctrl;   
+   unsigned short ctrl[2];
+   B10_W0 tm_ctrl;
              
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical: failed to get semSLC: %s (%d)",
@@ -322,18 +322,18 @@ umbilical_onoff(int val)
       return(-1);
    }
 
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl,1);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(tm_ctrl)/2);
    if(err) {
       semGive(semSLC);
       TRACE(0, "umbilical: error reading slc: 0x%04x", err, 0);
       return(err);
    }
 
-   swab ((char *)&ctrl,(char *)&il_ctrl,2);
-   il_ctrl.mcp_umbilical_on_off = val;
-   swab ((char *)&il_ctrl,(char *)&ctrl,2);
+   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
+   tm_ctrl.mcp_umbilical_on_off = val;
+   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
    
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl,1);
+   err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive(semSLC);
 
    if(err) {

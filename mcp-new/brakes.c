@@ -27,11 +27,11 @@ void
 tBrakes(void)
 {
    int axis;				/* the axis to (un)set the brake for */
-   unsigned short ctrl;			/* short to read/write; SLC byte order*/
+   unsigned short ctrl[2];		/* short to read/write; SLC byte ordr*/
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
    int set_brake;			/* true if the brake should go on */
-   struct B10_0 tm_ctrl;		/* the bits we want */
+   B10_W0 tm_ctrl;			/* the bits we want */
 
    for(;;) {
       ret = msgQReceive(msgBrakes, (char *)&msg, sizeof(msg),
@@ -76,13 +76,13 @@ tBrakes(void)
       }
       
       TRACE(10, "Reading blok", 0, 0);
-      ret = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl, 1);
+      ret = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(ret) {
 	 TRACE(0, "%s: error reading slc: 0x%04x", axis_name(axis), ret);
 	 semGive(semSLC);
 	 continue;
       }
-      swab((char *)&ctrl, (char *)&tm_ctrl, 2);
+      swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
       
       if(axis == ALTITUDE) {
 	 tm_ctrl.mcp_alt_brk_en_cmd =  set_brake ? 1 : 0;
@@ -95,8 +95,8 @@ tBrakes(void)
 	 abort();
       }
       
-      swab((char *)&tm_ctrl, (char *)&ctrl, 2);
-      ret = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl, 1);
+      swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+      ret = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive(semSLC);
       if(ret) {
 	 TRACE(0, "%s: error writing slc: 0x%04x", axis_name(axis), ret);

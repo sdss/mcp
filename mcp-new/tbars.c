@@ -27,8 +27,8 @@ int
 tBars(void)
 {
    int err;
-   unsigned short ctrl[1];
-   struct B10_2 tm_ctrl1;
+   unsigned short ctrl[2];
+   B10_W1 tm_ctrl;
    int latch_status;			/* latched status from ABs */
    int latch_tbars;			/* should we latch the tbars? */
    MCP_MSG msg;				/* message to pass around */
@@ -90,23 +90,23 @@ tBars(void)
 	 continue;
       }
       
-      err = slc_read_blok(1,10,BIT_FILE,2,&ctrl[0],1);
+      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
 	 TRACE(0, "tBars: error reading slc: 0x%04x", err, 0);
 	 continue;
       }
-      swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+      swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
       
       if(latch_tbars < 0) {
-	 tm_ctrl1.mcp_t_bar_latch = tm_ctrl1.mcp_t_bar_unlatch = 0;
+	 tm_ctrl.mcp_t_bar_latch = tm_ctrl.mcp_t_bar_unlatch = 0;
       } else {
-	 tm_ctrl1.mcp_t_bar_latch = latch_tbars;
-	 tm_ctrl1.mcp_t_bar_unlatch = !latch_tbars;
+	 tm_ctrl.mcp_t_bar_latch = latch_tbars;
+	 tm_ctrl.mcp_t_bar_unlatch = !latch_tbars;
       }
       
-      swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-      err = slc_write_blok(1,10,BIT_FILE,2,&ctrl[0],1);
+      swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
+      err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive (semSLC);
       
       if(err) {
