@@ -16,3 +16,8 @@ Fri Jan  5 08:28:53 MST 2001
 
 	cvs rtag -r v4_3_10 v4_3_10b_0 mcp
 	cvs rtag -r v4_3_10b_0 -b v4_3_10b mcp
+
+Thu Jan 11 18:15:43 MST 2001
+	For shakedown
+	cvs rtag v4_4_0 mcp
+	cvs rtag -r v4_4_0 -b v4_4 mcp
