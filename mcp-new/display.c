@@ -26,6 +26,7 @@
 #include "mcpUtils.h"
 #include "cw.h"
 #include "mcpFiducials.h"
+#include "cmd.h"
 
 /*------------------------------------------------------------------------
 **
@@ -41,7 +42,7 @@ static int last_altbrake;
 static int refreshing=FALSE;
 static char *limitstatus[]={"LU", "L.", ".U", ".."};
 
-static int Axis=4;
+static int mei_axis=4;
 static long adjpos[6]={0,0,0,0,0,0};
 static long adjvel[6]={0,0,0,0,0,0};
 static long adjacc[6]={70000,10000,10000,10000,10000,10000};
@@ -267,10 +268,11 @@ PrintMenuBanner(void)
   CursPos(1,16);    
   printf("CW1\tCW2\tCW3\tCW4\n\r");
   CursPos(1,19);
-  if (Axis==0) printf("Azimuth Controls  ");
-  if (Axis==2) printf("Altitude Controls ");
-  if (Axis/2==2) printf("Rotator Controls  ");
-  printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",Axis_vel[Axis],incvel[Axis]);
+  if (mei_axis==0) printf("Azimuth Controls  ");
+  if (mei_axis==2) printf("Altitude Controls ");
+  if (mei_axis/2==2) printf("Rotator Controls  ");
+  printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
+	  Axis_vel[mei_axis],incvel[mei_axis]);
   CursPos(1,22);
   printf("/////////////////////////////// Menu ////////////////////////////////\n\r");
   printf("R=Rotator Z=aZimuth L=aLtitude S=Stop H=Hold ?=help X=eXit......Command->\n\r");
@@ -303,22 +305,22 @@ PrintMenuMove(void)
   double arcsecond;
   long marcs,arcs,arcm,arcd;
 
-  arcsecond=(sec_per_tick[Axis>>1]*abs(adjpos[Axis]));
+  arcsecond=(sec_per_tick[mei_axis>>1]*abs(adjpos[mei_axis]));
   arcd=(long)(arcsecond)/3600;	     
   arcm=((long)(arcsecond)-(arcd*3600))/60;
   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
   marcs = (arcsecond-(long)arcsecond)*1000;
   CursPos(18,20);
   printf("Move to  Position ");
-  if (adjpos[Axis]<0)
+  if (adjpos[mei_axis]<0)
     printf("-%03ld:%02ld:%02ld:%03ld %10ld Cts",
-	arcd,arcm,arcs,marcs,adjpos[Axis]);
+	arcd,arcm,arcs,marcs,adjpos[mei_axis]);
   else
     printf(" %03ld:%02ld:%02ld:%03ld %10ld Cts",
-	arcd,arcm,arcs,marcs,adjpos[Axis]);
+	arcd,arcm,arcs,marcs,adjpos[mei_axis]);
   CursPos(18,21);
   printf("   Velocity ");
-  printf ("%10ld Cts/Sec",adjvel[Axis]);
+  printf ("%10ld Cts/Sec",adjvel[mei_axis]);
 }
 /*=========================================================================
 **=========================================================================
@@ -384,25 +386,25 @@ Menu(void)
     switch(buf[0]) {
        case 'Z': case 'z': CursPos(1,19);
          printf("Azimuth Controls  ");
-         Axis=0;
+         mei_axis=0;
          printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
-		 Axis_vel[Axis], incvel[Axis]);
+		 Axis_vel[mei_axis], incvel[mei_axis]);
          PrintMenuMove();
          break;
 
        case 'L': case 'l': CursPos(1,19);
          printf("Altitude Controls ");
-         Axis=2;
+         mei_axis=2;
          printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
-		 Axis_vel[Axis], incvel[Axis]);
+		 Axis_vel[mei_axis], incvel[mei_axis]);
          PrintMenuMove();
          break;
 
        case 'R': case 'r': CursPos(1,19);
          printf("Rotator Controls  ");
-         Axis=4;
+         mei_axis=4;
          printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
-		 Axis_vel[Axis], incvel[Axis]);
+		 Axis_vel[mei_axis], incvel[mei_axis]);
          PrintMenuMove();
          break;
 
@@ -423,11 +425,11 @@ Menu(void)
              negative=FALSE;
            }
 	   pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-		      (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
+		      (arcsec*1000.)+marcsec)/(sec_per_tick[mei_axis>>1]*1000);
 	   
            if (negative) pos = -pos;
 
-	   (void)mcp_set_pos(Axis/2, pos);
+	   (void)mcp_set_pos(mei_axis/2, pos);
          }
          CursPos(20,24);
          printf("                                        ");
@@ -435,7 +437,7 @@ Menu(void)
 
        case 'F': case 'f': CursPos(20,24);
      	 printf("Set Fiducial Position                    ");
-	 if(mcp_set_fiducial(Axis/2) < 0) {
+	 if(mcp_set_fiducial(mei_axis/2) < 0) {
 	    printf("ERR: fiducial for axis not crossed      ");
 	 }
 	 break;
@@ -461,16 +463,16 @@ Menu(void)
 		&deg,&min,&arcsec,&marcsec);
 	     negative=FALSE;
 	   }
-	   adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-	     (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
-	   if (negative) adjpos[Axis] = -adjpos[Axis];
+	   adjpos[mei_axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     (arcsec*1000.)+marcsec)/(sec_per_tick[mei_axis>>1]*1000);
+	   if (negative) adjpos[mei_axis] = -adjpos[mei_axis];
 	   CursPos(36,20);
-	   if (adjpos[Axis]<0)
+	   if (adjpos[mei_axis]<0)
 	     printf("-%03d:%02ld:%02ld:%03ld %10ld Cts",
-		abs(deg),min,arcsec,marcsec,adjpos[Axis]);
+		abs(deg),min,arcsec,marcsec,adjpos[mei_axis]);
      	   else
 	     printf(" %03ld:%02ld:%02ld:%03ld %10ld Cts",
-		deg,min,arcsec,marcsec,adjpos[Axis]);
+		deg,min,arcsec,marcsec,adjpos[mei_axis]);
 	 }
 	 CursPos(20,24);
 	 printf("                                        ");
@@ -494,22 +496,22 @@ Menu(void)
 		&deg,&min,&arcsec,&marcsec);
 	     negative=FALSE;
 	   }
-	   adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-	     (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
-	   if (negative) adjpos[Axis] = -adjpos[Axis];
-           adjpos[Axis] += (*tmaxis[Axis/2]).actual_position;
-	   arcsecond=(sec_per_tick[Axis>>1]*abs(adjpos[Axis]));
+	   adjpos[mei_axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     (arcsec*1000.)+marcsec)/(sec_per_tick[mei_axis>>1]*1000);
+	   if (negative) adjpos[mei_axis] = -adjpos[mei_axis];
+           adjpos[mei_axis] += (*tmaxis[mei_axis/2]).actual_position;
+	   arcsecond=(sec_per_tick[mei_axis>>1]*abs(adjpos[mei_axis]));
 	   arcd=(long)(arcsecond)/3600;	     
 	   arcm=((long)(arcsecond)-(arcd*3600))/60;
 	   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
 	   marcs = (arcsecond-(long)arcsecond)*1000;
 	   CursPos(36,20);
-	   if (adjpos[Axis]<0)
+	   if (adjpos[mei_axis]<0)
 	     printf("-%03ld:%02ld:%02ld:%03ld %10ld Cts",
-		arcd,arcm,arcs,marcs,adjpos[Axis]);
+		arcd,arcm,arcs,marcs,adjpos[mei_axis]);
 	   else
 	     printf(" %03ld:%02ld:%02ld:%03ld %10ld Cts",
-		arcd,arcm,arcs,marcs,adjpos[Axis]);
+		arcd,arcm,arcs,marcs,adjpos[mei_axis]);
 	 }
 	 CursPos(20,24);
 	 printf("                                        ");
@@ -521,20 +523,20 @@ Menu(void)
 	 {
 	   memcpy(&buf[0],&MenuInput[0],21);
 	   memset(&MenuInput[0],' ',20);
-	   sscanf (buf,"%ld",&adjpos[Axis]);
-           adjpos[Axis] += (*tmaxis[Axis/2]).actual_position;
-	   arcsecond=(sec_per_tick[Axis>>1]*abs(adjpos[Axis]));
+	   sscanf (buf,"%ld",&adjpos[mei_axis]);
+           adjpos[mei_axis] += (*tmaxis[mei_axis/2]).actual_position;
+	   arcsecond=(sec_per_tick[mei_axis>>1]*abs(adjpos[mei_axis]));
 	   arcd=(long)(arcsecond)/3600;	     
 	   arcm=((long)(arcsecond)-(arcd*3600))/60;
 	   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
 	   marcs = (arcsecond-(long)arcsecond)*1000;
 	   CursPos(36,20);
-	   if (adjpos[Axis]<0)
+	   if (adjpos[mei_axis]<0)
 	     printf("-%03ld:%02ld:%02ld:%03ld %10ld Cts",
-		arcd,arcm,arcs,marcs,adjpos[Axis]);
+		arcd,arcm,arcs,marcs,adjpos[mei_axis]);
 	   else
 	     printf(" %03ld:%02ld:%02ld:%03ld %10ld Cts",
-		arcd,arcm,arcs,marcs,adjpos[Axis]);
+		arcd,arcm,arcs,marcs,adjpos[mei_axis]);
 	 }
 	 CursPos(20,24);
 	 printf("                                        ");
@@ -546,12 +548,12 @@ Menu(void)
 	 {
 	   memcpy(&buf[0],&MenuInput[0],21);
 	   memset(&MenuInput[0],' ',20);
-	   sscanf (buf,"%ld",&adjvel[Axis]);
-	   adjvel[Axis]=abs(adjvel[Axis]);
-	   if (adjvel[Axis]>Axis_vel_pos[Axis]) 
-	     adjvel[Axis]=Axis_vel_pos[Axis];
+	   sscanf (buf,"%ld",&adjvel[mei_axis]);
+	   adjvel[mei_axis]=abs(adjvel[mei_axis]);
+	   if (adjvel[mei_axis]>Axis_vel_pos[mei_axis]) 
+	     adjvel[mei_axis]=Axis_vel_pos[mei_axis];
 	   CursPos(30,21);
-	   printf ("%10ld Cts/Sec",adjvel[Axis]);
+	   printf ("%10ld Cts/Sec",adjvel[mei_axis]);
 	 }
 	 CursPos(20,24);
 	 printf("                                        ");
@@ -563,11 +565,11 @@ Menu(void)
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%ld",&incvel[Axis]);
-	     incvel[Axis]=abs(incvel[Axis]);
-	     if (incvel[Axis]>10000) incvel[Axis]=10000;
+	     sscanf (buf,"%ld",&incvel[mei_axis]);
+	     incvel[mei_axis]=abs(incvel[mei_axis]);
+	     if (incvel[mei_axis]>10000) incvel[mei_axis]=10000;
 	     CursPos(49,19);
-	     printf ("%ld Cts",incvel[Axis]);
+	     printf ("%ld Cts",incvel[mei_axis]);
 	   }
 	   CursPos(20,24);
 	   printf("                                        ");
@@ -579,46 +581,46 @@ Menu(void)
 	   break;
 
          case 'B': case 'b': CursPos(20,24);
-	   if(Axis==0) {
+	   if(mei_axis==0) {
 	     printf("Azimuth Brake Turned On                 ");
-	   } else if(Axis==2) {
+	   } else if(mei_axis==2) {
 	     printf("Altitude Brake Turned On                ");
 	   }
-           mcp_set_brake(Axis/2);
+           mcp_set_brake(mei_axis/2);
 
-           STOPed[Axis]=TRUE;
+           STOPed[mei_axis]=TRUE;
 	   break;
 
          case 'C': case 'c': CursPos(20,24);
-	   if(Axis == 0) {
+	   if(mei_axis == 0) {
 	      printf("Azimuth Brake Turned Off                ");
-	   } else if(Axis == 2) {
+	   } else if(mei_axis == 2) {
 	      printf("Altitude Brake Turned Off               ");
 	   }
 
-           Axis_vel[Axis]=0;
-           CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
+           Axis_vel[mei_axis]=0;
+           CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[mei_axis]);
 
-	   if(mcp_unset_brake(Axis/2) < 0) {
+	   if(mcp_unset_brake(mei_axis/2) < 0) {
 	      CursPos(20,24);
 	      printf("Err: Could not take semMEI semphore     ");
 	      break;
 	   }
 
-	   STOPed[Axis] = FALSE;
+	   STOPed[mei_axis] = FALSE;
       
  	   break;
 
          case '+': case '=':
 	   CursPos(20,24);
 	   printf("ALIGNment Clamp Turned On               ");
-	   (void)clampon_cmd(NULL);
+	   (void)cmd_handler(1, "CLAMP.ON");
 	   break;
 
          case '_': case '-':
            CursPos(20,24);
 	   printf("ALIGNment Clamp Turned Off              ");
-	   (void)clampoff_cmd(NULL);
+	   (void)cmd_handler(1, "CLAMP.OFF");
 	   break;
 
          case '(':
@@ -681,55 +683,46 @@ Menu(void)
 	   printf("Flat Field Screen Toggled ");
 	   if(sdssdc.status.o1.ol14.ff_screen_open_pmt) {
 	      printf("Close ");
-	      (void)ffsclose_cmd(NULL);
+	      (void)cmd_handler(1, "FFS.CLOSE");
 	   } else {
 	      printf("Open  ");
-	      (void)ffsopen_cmd(NULL);
+	      (void)cmd_handler(1, "FFS.OPEN");
 	   }
 	   break;
 
          case '|':
 	   CursPos(20,24);
 	   printf("Flat Field Lamps Toggled ");
-	   if (sdssdc.status.o1.ol14.ff_lamps_on_pmt)
-	   {
-	     printf("Off   ");
-	     (void)ffloff_cmd(NULL);
-	   }
-	   else
-	   {
-	     printf("On    ");
-	     (void)fflon_cmd(NULL);
+	   if (sdssdc.status.o1.ol14.ff_lamps_on_pmt) {
+	      printf("Off   ");
+	      (void)cmd_handler(1, "FFL.OFF");
+	   } else {
+	      printf("On    ");
+	      (void)cmd_handler(1, "FFL.ON");
 	   }
 	   break;
 
          case '"':
 	   CursPos(20,24);
 	   printf("Flat Field Neon Toggled ");
-	   if (sdssdc.status.o1.ol14.ne_lamps_on_pmt)
-	   {
-	     printf("Off     ");
-	     (void)neoff_cmd(NULL);
-	   }
-	   else
-	   {
-	     printf("On     ");
-	     (void)neon_cmd(NULL);
+	   if(sdssdc.status.o1.ol14.ne_lamps_on_pmt) {
+	      printf("Off     ");
+	      (void)cmd_handler(1, "NE.OFF");
+	   } else {
+	      printf("On     ");	
+	      (void)cmd_handler(1, "NE.ON");
 	   }
 	   break;
 
          case ':':
 	   CursPos(20,24);
 	   printf("Flat Field HgCd Toggled ");
-	   if (sdssdc.status.o1.ol14.hgcd_lamps_on_pmt)
-	   {
-	     printf("Off    ");
-	     (void)hgcdoff_cmd(NULL);
-	   }
-	   else
-	   {
-	     printf("On     ");
-	     (void)hgcdon_cmd(NULL);
+	   if(sdssdc.status.o1.ol14.hgcd_lamps_on_pmt) {
+	      printf("Off    ");
+	      (void)cmd_handler(1, "HGCD.OFF");
+	   } else {
+	      printf("On     ");	
+	      (void)cmd_handler(1, "HGCD.ON");
 	   }
 	   break;
 
@@ -813,26 +806,26 @@ Menu(void)
 
          case '&':
 	   CursPos(20,24);
-	   mcp_set_monitor(Axis/2, -1);
+	   mcp_set_monitor(mei_axis/2, -1);
 	   printf("Toggle the axis monitor_on to %s",
-		  (monitor_on[Axis/2] ? "TRUE " : "FALSE "));
+		  (monitor_on[mei_axis/2] ? "TRUE " : "FALSE "));
 
 	   break;
 
          case '*':
 	   CursPos(20,24);
            printf ("AMP RESET                              ");
-           mcp_amp_reset(Axis/2);
+           mcp_amp_reset(mei_axis/2);
 	   break;
 
          case 'H': case 'h':
-	   if(mcp_hold(Axis/2) < 0) {
+	   if(mcp_hold(mei_axis/2) < 0) {
 	      CursPos(20,24);
 	      printf("Err: Could not take semMEI semphore     ");
 	   }
 
-	   Axis_vel[Axis] = 0;
-	   STOPed[Axis] = FALSE;
+	   Axis_vel[mei_axis] = 0;
+	   STOPed[mei_axis] = FALSE;
 
 	   break;
 
@@ -871,10 +864,10 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 	   break;
 	
 	 case 'S': case 's':	     
-	   Axis_vel[Axis]=0;
-	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-           STOPed[Axis]=TRUE;
-	   if(mcp_stop_axis(Axis/2) < 0) {
+	   Axis_vel[mei_axis]=0;
+	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[mei_axis]);
+           STOPed[mei_axis]=TRUE;
+	   if(mcp_stop_axis(mei_axis/2) < 0) {
 	      CursPos(20,24);
 	      printf("Err: stopping axes");
 	   }
@@ -903,18 +896,18 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
              if (STOPed[0])
              {
                STOPed[0]=FALSE;
-               sem_controller_run (0);
+               sem_controller_run(2*AZIMUTH);
              }
              if (STOPed[2])
              {
                STOPed[2]=FALSE;
-               sem_controller_run (2);
+               sem_controller_run(2*ALTITUDE);
              }
 	     Axis_vel[0]=0;
 	     Axis_vel[2]=0;
-	     start_move(0,(double)(adjpos[0]),
+	     start_move_corr(0,(double)(adjpos[0]),
 		(double)adjvel[0],(double)adjacc[0]);
-             start_move(2,(double)(adjpos[2]),
+             start_move_corr(2,(double)(adjpos[2]),
 		(double)adjvel[2],(double)adjacc[2]);
 	     semGive (semMEI); 
            }
@@ -925,31 +918,31 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 	   break;
 
          case 'M': case 'm':  CursPos(20,24);
-	   if (adjvel[Axis]==0) {
+	   if (adjvel[mei_axis]==0) {
 	      printf("ERR: Velocity is Zero                   ");
 	      break;
 	   }
 	 
-           if(STOPed[Axis]) {
-	      if (Axis==0 && sdssdc.status.i9.il0.az_brake_en_stat) {
+           if(STOPed[mei_axis]) {
+	      if (mei_axis==0 && sdssdc.status.i9.il0.az_brake_en_stat) {
 		 CursPos(20,24);
 		 printf("ERR: AZ Brake is Engaged                ");
 		 break;
 	      }
-	      if(Axis == 2 && sdssdc.status.i9.il0.alt_brake_en_stat) {
+	      if(mei_axis == 2 && sdssdc.status.i9.il0.alt_brake_en_stat) {
 		 CursPos(20,24);
 		 printf("ERR: ALT Brake is Engaged               ");
 		 break;
 	      }
-	      STOPed[Axis]=FALSE;
+	      STOPed[mei_axis]=FALSE;
 	   }
 
-	   if(mcp_move_va(Axis/2, adjpos[Axis], adjvel[Axis], adjacc[Axis])
-									 < 0) {
+	   if(mcp_move_va(mei_axis/2, adjpos[mei_axis],
+			  adjvel[mei_axis], adjacc[mei_axis]) < 0) {
 	      CursPos(20,24);
 	      printf("Err: Could not take semMEI semphore     ");
 	   } else {
-	      Axis_vel[Axis] = 0;
+	      Axis_vel[mei_axis] = 0;
 	   }
 
 	 break;
@@ -957,37 +950,37 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
          case 'J': case 'j':
          case 'K': case 'k':
 	   if(buf[0] == 'J' || buf[0] == 'j') {
-	      Axis_vel[Axis] -= incvel[Axis];
-	      if(Axis_vel[Axis] < Axis_vel_neg[Axis]) {
-		 Axis_vel[Axis] = Axis_vel_neg[Axis];
+	      Axis_vel[mei_axis] -= incvel[mei_axis];
+	      if(Axis_vel[mei_axis] < Axis_vel_neg[mei_axis]) {
+		 Axis_vel[mei_axis] = Axis_vel_neg[mei_axis];
 	      }
 	   } else {
-	      Axis_vel[Axis] += incvel[Axis];
-	      if(Axis_vel[Axis] > Axis_vel_pos[Axis]) {
-		 Axis_vel[Axis] = Axis_vel_pos[Axis];
+	      Axis_vel[mei_axis] += incvel[mei_axis];
+	      if(Axis_vel[mei_axis] > Axis_vel_pos[mei_axis]) {
+		 Axis_vel[mei_axis] = Axis_vel_pos[mei_axis];
 	      }
 	   }
 	 
-	 CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
+	 CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[mei_axis]);
 
 	 CursPos(20,24);
-	 if(Axis == 0 && sdssdc.status.i9.il0.az_brake_en_stat &&
-							 Axis_vel[Axis] != 0) {
+	 if(mei_axis == 0 && sdssdc.status.i9.il0.az_brake_en_stat &&
+						     Axis_vel[mei_axis] != 0) {
 	    printf("ERR: AZ Brake is Engaged                ");
 	    break;
 	 }
-	 if(Axis == 2 && sdssdc.status.i9.il0.alt_brake_en_stat &&
-							 Axis_vel[Axis] != 0) {
+	 if(mei_axis == 2 && sdssdc.status.i9.il0.alt_brake_en_stat &&
+						     Axis_vel[mei_axis] != 0) {
 	    printf("ERR: ALT Brake is Engaged               ");
 	    break;
 	 }
 
-	 if(STOPed[Axis]) {
-	    if(mcp_unset_brake(Axis/2) < 0) {
+	 if(STOPed[mei_axis]) {
+	    if(mcp_unset_brake(mei_axis/2) < 0) {
 	       printf("Err: Could not take semMEI semphore     ");
 	    }
 
-	    STOPed[Axis]=FALSE;
+	    STOPed[mei_axis]=FALSE;
 	 }
 
 	 if(semTake (semMEI,60) == ERROR) {
@@ -995,13 +988,13 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 	 }
 	 
 #if SWITCH_PID_COEFFS
-	 if(Axis == 4) {
-	    while(coeffs_state_cts(Axis, Axis_vel[Axis]) == TRUE) {
+	 if(mei_axis == 4) {
+	    while(coeffs_state_cts(mei_axis, Axis_vel[mei_axis]) == TRUE) {
 	       ;
 	    }
 	 }
 #endif
-	 set_velocity (Axis, Axis_vel[Axis]);
+	 set_velocity (mei_axis, Axis_vel[mei_axis]);
 	 semGive (semMEI); 
 
 	   break;
@@ -1161,7 +1154,7 @@ PrintMenuPos()
           marcs = (farcsec-(long)farcsec)*1000;
           if (fiducialidx[i]!=-1)
           {
-            if (fiducial[i].markvalid) printf("  V");
+            if (fiducial[i].seen_index) printf("  V");
             else printf("   ");
             if (fidsign<0)
               printf("%3d;-%03ld:%02ld:%02ld:%03ld\n",
