@@ -28,7 +28,7 @@ CFLAGS = -g -ansi -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW -Wall \
 LINK = ld68k                       
 LFLAGS = -r
 
-OBJS =cmd.o axis_cmds.o counter_weight.o serial.o util.o \
+OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
 display.o umbilical.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
 tagname.o
