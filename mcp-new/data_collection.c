@@ -479,7 +479,7 @@ update_sdssdc_status_i6(void)
    int err;
    const int offset = (char *)&sdssdc.status.i6 - (char *)&sdssdc.status;
 /*
- * set err in assertion to supress compiler warning
+ * set err in assertion to suppress compiler warning
  */
    assert(err = (sizeof(sdssdc.status.i6) == sizeof(ctrl)));
 
@@ -488,8 +488,7 @@ update_sdssdc_status_i6(void)
       return;
    }
 
-   err = slc_read_blok(1, 9, BIT_FILE, offset/2,
-			      &ctrl[0],sizeof(ctrl)/2);
+   err = slc_read_blok(1, 9, BIT_FILE, offset/2, &ctrl[0], sizeof(ctrl)/2);
    if(err) {
       TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
    }
@@ -497,7 +496,7 @@ update_sdssdc_status_i6(void)
    
    if(!err) {
       swab((char *)&ctrl[0], (char *)&sdssdc.status.i6,
-	   sizeof(sdssdc.status.i6));
+						     sizeof(sdssdc.status.i6));
    }
 }
 
