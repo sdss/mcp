@@ -185,7 +185,6 @@ mei-new/lynxasm.c -text
 mei-new/masync.c -text
 mei-new/mboard.c -text
 mei-new/mboard.h -text
-mei-new/medvxw40.a -text
 mei-new/minthnd.c -text
 mei-new/mlconfig.c -text
 mei-new/mldebug.c -text
