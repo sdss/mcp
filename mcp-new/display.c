@@ -25,6 +25,7 @@
 #include "instruments.h"
 #include "mcpUtils.h"
 #include "cw.h"
+#include "mcpFiducials.h"
 
 /*------------------------------------------------------------------------
 **
@@ -1132,17 +1133,20 @@ PrintMenuPos()
             break;
 
           case INSTRUMENT:
-            farcsec=(sec_per_tick[i]*abs(rot_fiducial[fiducialidx[i]].mark));
-	    if (rot_amp_ok()) printf ("*");
-	    else
-	    {
-	      if (check_stop_in()) printf ("S");
-	        else printf ("?");
+            farcsec=(sec_per_tick[i]*
+		     abs(rot_fiducial[fiducialidx[i]].mark - ROT_FID_BIAS));
+	    if(rot_amp_ok()) {
+	       printf ("*");
+	    } else {
+	       if(check_stop_in()) printf ("S");
+	       else printf ("?");
 	    }
-            if (rot_fiducial[fiducialidx[i]].mark<0)
-              fidsign=-1;
-            else
-              fidsign=1;
+	    
+            if(rot_fiducial[fiducialidx[i]].mark < ROT_FID_BIAS) {
+	       fidsign=-1;
+            } else {
+	       fidsign=1;
+	    }
 	    break;
 
 	  default:
