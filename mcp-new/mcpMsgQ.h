@@ -16,11 +16,22 @@ typedef struct {
       lamps_type,			/* turn lamps on/off */
 
       latchCrossed_type,		/* we crossed a fiducial */
+      ms_on_az_type,			/* process an MS.ON command for AZ */
+      ms_off_az_type,			/* process an MS.OFF */
+      ms_on_alt_type,			/* process an MS.ON command for ALT */
+      ms_off_alt_type,			/* process an MS.OFF */
+      ms_on_inst_type,			/* process an MS.ON command for INST */
+      ms_off_inst_type,			/* process an MS.OFF */
 
       latchReenable_type,		/* reenable fiducial latches */
 
       moveCW_type,			/* counterweights motion */
       moveCWAbort_type,			/* abort counterweights */
+
+      TbarsLatch_type,			/* latch imager t-bars */
+      TbarsUnlatch_type,		/* unlatch imager t-bars */
+      TbarsLatchCheck_type,		/* check that imager t-bars latched */
+      TbarsUnlatchCheck_type,		/* check that imager t-bars unlatched*/
 
       specDoor_type			/* control spectrograph doors */
    } type;
@@ -41,11 +52,12 @@ typedef struct {
 
       struct {
 	 unsigned int time;		/* when we saw the fiducial */
+	 unsigned char dio316int_bit;	/* bits set by interrupt */
       } latchCrossed;
 
       struct {
 	 int timeout;
-	 unsigned char dio316int_bit;
+	 unsigned char dio316int_bit;	/* bits set by interrupt */
       } latchReenable;
 
       struct {
@@ -57,6 +69,10 @@ typedef struct {
       struct {
 	 int abort;			/* always true */
       } moveCWAbort;
+
+      struct {
+	 int dummy;			/* NOTUSED */
+      } Tbars;
 
       struct {
 	 int spec;			/* which spectrograph? */
@@ -94,5 +110,9 @@ extern MSG_Q_ID msgLamps;
  * tSpecDoor task
  */
 extern MSG_Q_ID msgSpecDoor;
+/*
+ * tBars task
+ */
+extern MSG_Q_ID msgTbars;
 
 #endif
