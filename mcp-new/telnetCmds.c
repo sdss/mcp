@@ -82,6 +82,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
    TRACE(16, "PID %d: Above fioRdString", client_pid, 0);
    for(;;) {
+      errno = 0;
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
 	 if(errno != 0) {
 	    fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
