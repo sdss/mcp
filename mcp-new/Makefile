@@ -21,7 +21,7 @@ H5 = $(VWH)private/
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) -I$(MEIDSP) -I$(DESTDIR) \
 	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) /
 CC = cc68k
-CFLAGS = -v -Q -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW -Wall \
+CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW -Wall \
 -DMEI_MC680X0_CPU -D__USE_GETC__
 #CFLAGS = -g -ansi -mc68020 -m68881
 #CFLAGS = -S -O -traditional -mc68020 -m68881
