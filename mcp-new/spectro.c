@@ -451,26 +451,39 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    struct B10 b10;
    unsigned short ctrl[sizeof(b10)/2];
    int err;
+   int val1, val2;			/* operations for screen[12] */
              
    TRACE(3, "Setting FFS: %d %d", val, enab); /* XXX */
+/*
+ * What do they want us to do?
+ */
+   switch (val) {
+    case FFS_SAME:
+    case FFS_OPEN:
+    case FFS_CLOSE:
+      val1 = val2 = val;
+      break;
+    case FFS_TOGGLE:
+      val1 = ffs_open_status(1, 1) ? FFS_CLOSE : FFS_OPEN;
+      val2 = ffs_open_status(2, 1) ? FFS_CLOSE : FFS_OPEN;
+      break;
+   }
 /*
  * If we're currently enabled and the requested motion is in the opposite
  * direction, disable the FFS for a moment before complying with the request.
  * (Why? French doesn't want us to blow relays)
  */
    if(enab && val >= 0 &&
-      ((sdssdc.status.b10.w0.mcp_ff_screen_enable &&
-	sdssdc.status.b10.w0.mcp_ff_scrn_opn_cmd != val) ||
-       (sdssdc.status.b10.w1.mcp_ff_screen2_enabl &&
-	sdssdc.status.b10.w1.mcp_ff_scrn2_opn_cmd != val))) {
+      (((which_ffs & 0x1) && sdssdc.status.b10.w0.mcp_ff_screen_enable &&
+	sdssdc.status.b10.w0.mcp_ff_scrn_opn_cmd != val1) ||
+       ((which_ffs & 0x2) && sdssdc.status.b10.w1.mcp_ff_screen2_enabl &&
+	sdssdc.status.b10.w1.mcp_ff_scrn2_opn_cmd != val2))) {
       int ntick = 60;			/* 1 second */
 
       TRACE(3, "Disabling FFS for %d ticks: %d", ntick, val);
       set_mcp_ffs_bits(val, 0);
 
       taskDelay(ntick);
-
-      return(set_mcp_ffs_bits(val, enab));
    }
 /*
  * Do what is asked of us
@@ -488,15 +501,19 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    }
    swab((char *)ctrl, (char *)&b10, sizeof(b10));
       
-   if(val >= 0) {
-      b10.w0.mcp_ff_scrn_opn_cmd = val;
+   if(which_ffs & 0x1) {
+      if(val1 >= 0) {
+	 b10.w0.mcp_ff_scrn_opn_cmd = val1;
+      }
+      b10.w0.mcp_ff_screen_enable = enab;
    }
-   b10.w0.mcp_ff_screen_enable = (which_ffs & 0x1) ? enab : 0;
 
-   if(val >= 0) {
-      b10.w1.mcp_ff_scrn2_opn_cmd = val;
+   if(which_ffs & 0x2) {
+      if(val2 >= 0) {
+	 b10.w1.mcp_ff_scrn2_opn_cmd = val2;
+      }
+      b10.w1.mcp_ff_screen2_enabl = enab;
    }
-   b10.w1.mcp_ff_screen2_enabl = (which_ffs & 0x2) ? enab : 0;
 
    swab ((char *)&b10, (char *)ctrl, sizeof(b10));
    err = slc_write_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
@@ -518,7 +535,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 int
 ffs_enable(int val)
 {
-   return(set_mcp_ffs_bits(-1, 1));
+   return(set_mcp_ffs_bits(FFS_SAME, 1));
 }
 
 /*
@@ -526,7 +543,8 @@ ffs_enable(int val)
  * or 3 of the 4 if only half are being commanded
  */
 int
-ffs_open_status(void)
+ffs_open_status(int which,
+		int silent)
 {
    int nopen;				/* number of open petals */
    int nopen1 =				/* first 4 petals */
@@ -540,28 +558,28 @@ ffs_open_status(void)
 	 (sdssdc.status.i1.il13.leaf_7_open_stat ? 1 : 0) +
 	   (sdssdc.status.i1.il13.leaf_8_open_stat ? 1 : 0);
 
-   if(which_ffs == 0x3) {		/* all petals */
+   if(which == 0x3) {			/* all petals */
       nopen = nopen1 + nopen2;
       if(nopen >= 6) {
-	 if(nopen != 8) {
+	 if(!silent && nopen != 8) {
 	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
 	 }
 	 return(TRUE);
       } else {
-	 if(nopen != 0) {
+	 if(!silent && nopen != 0) {
 	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
 	 }
 	 return(FALSE);
       }
    } else {				/* just first/last 4 */
-      nopen = (which_ffs & 0x1) ? nopen1 : nopen2;
+      nopen = (which & 0x1) ? nopen1 : nopen2;
       if(nopen >= 3) {
-	 if(nopen != 4) {
+	 if(!silent && nopen != 4) {
 	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
 	 }
 	 return(TRUE);
       } else {
-	 if(nopen != 0) {
+	 if(!silent && nopen != 0) {
 	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
 	 }
 	 return(FALSE);
@@ -570,7 +588,8 @@ ffs_open_status(void)
 }
 
 int
-ffs_close_status(void)
+ffs_close_status(int which,
+		int silent)
 {   
    int nclosed;
    int nclosed1 =
@@ -584,28 +603,28 @@ ffs_close_status(void)
 	 (sdssdc.status.i1.il13.leaf_7_closed_stat ? 1 : 0) +
 	   (sdssdc.status.i1.il13.leaf_8_closed_stat ? 1 : 0);
    
-   if(which_ffs == 0x3) {		/* all petals */
+   if(which == 0x3) {			/* all petals */
       nclosed = nclosed1 + nclosed2;
       if(nclosed >= 6) {
-	 if(nclosed != 8) {
+	 if(!silent && nclosed != 8) {
 	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
 	 }
 	 return(TRUE);
       } else {
-	 if(nclosed != 0) {
+	 if(!silent && nclosed != 0) {
 	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
 	 }
 	 return(FALSE);
       }
    } else {
-      nclosed = (which_ffs & 0x1) ? nclosed1 : nclosed2;
+      nclosed = (which & 0x1) ? nclosed1 : nclosed2;
       if(nclosed >= 3) {
-	 if(nclosed != 4) {
+	 if(!silent && nclosed != 4) {
 	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
 	 }
 	 return(TRUE);
       } else {
-	 if(nclosed != 0) {
+	 if(!silent && nclosed != 0) {
 	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
 	 }
 	 return(FALSE);
@@ -620,10 +639,12 @@ ffs_close_status(void)
 void
 tFFS(void)
 {
+   int FFS_vals[3];			/* do we want to open/close
+					   screen[12] */
    MCP_MSG msg;				/* message to pass around */
    int msg_type;			/* type of check message to send */
    int ret;				/* return code */
-   int wait = 30;			/* FF screen timeout (seconds) */
+   int wait = 15;			/* FF screen timeout (seconds) */
 
    for(;;) {
       ret = msgQReceive(msgFFS, (char *)&msg, sizeof(msg), WAIT_FOREVER);
@@ -633,36 +654,66 @@ tFFS(void)
 /*
  * What sort of message?
  *   FFS_type            A request from the outside world to move screens
- *   FFSCheckOpen_type   A request from us to check that the screens opened
- *   FFSCheckClosed_type A request from us to check that the screens closed
+ *   FFSCheckMoved_type  A request from us to check that the screens moved
  */
       if(msg.type == FFS_type) {
-	 (void)timerSend(FFSCheckClosed_type, tmr_e_abort_ns,
-			 0, FFSCheckClosed_type, 0);
-	 (void)timerSend(FFSCheckOpen_type, tmr_e_abort_ns,
-			 0, FFSCheckOpen_type, 0);
-      } else {
-	 if(msg.type == FFSCheckClosed_type) {
-	    if(!ffs_close_status()) {
-	       TRACE(0, "FFS did NOT all close", 0, 0);
-	    }
-#if 0
-	    (void)set_mcp_ffs_bits(0, 0); /* disable motors */
-#endif
-	 } else if(msg.type == FFSCheckOpen_type) {
-	    if(ffs_open_status()) {
-#if 0
-	       (void)set_mcp_ffs_bits(1, 0); /* disable motors */
-#endif
+	 (void)timerSend(FFSCheckMoved_type, tmr_e_abort_ns,
+			 0, FFSCheckMoved_type, 0);
+      } else if(msg.type == FFSCheckMoved_type) {
+	 int i;
+	 int move_ok = 1;		/* did move complete OK? */
+
+	 for(i = 1; i <= 2; i++) {
+	    if(FFS_vals[i] == FFS_OPEN) {
+	       if(!ffs_open_status(i, 0)) {
+		  move_ok = 0;
+		  TRACE(0, "FFS %d did NOT all open; closing", i, 0);
+		  ffsclose_cmd(NULL);
+	       }
 	    } else {
-	       TRACE(0, "FFS did NOT all open; closing", 0, 0);
-	       ffsclose_cmd(NULL);
+	       if(!ffs_close_status(i, 0)) {
+		  move_ok = 0;
+		  TRACE(0, "FFS %d did NOT all close", i, 0);
+	       }
 	    }
-	 } else {
-	    TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 }
+
+	 if(move_ok) {
+	    TRACE(1, "Flat field screen moved OK", 0, 0);
 	 }
 
 	 continue;
+      } else {
+	 TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 continue;
+      }
+/*
+ * Setup to check if the move succeeded
+ */
+      msg_type = FFSCheckMoved_type;
+      if(msg.u.FFS.op == FFS_OPEN) {
+	 if(ffs_open_status(which_ffs, 1)) { /* already open */
+	    continue;
+	 }
+	 FFS_vals[1] = (which_ffs & 0x1) ? FFS_OPEN : FFS_SAME;
+	 FFS_vals[2] = (which_ffs & 0x2) ? FFS_OPEN : FFS_SAME;
+      } else if(msg.u.FFS.op == FFS_TOGGLE) {
+	 if(which_ffs & 0x1) {
+	    FFS_vals[1] = ffs_open_status(1, 1) ? FFS_CLOSE : FFS_OPEN;
+	 } else {
+	    FFS_vals[1] = FFS_SAME;
+	 }
+	 if(which_ffs & 0x2) {
+	    FFS_vals[2] = ffs_open_status(2, 1) ? FFS_CLOSE : FFS_OPEN;
+	 } else {
+	    FFS_vals[2] = FFS_SAME;
+	 }
+      } else {
+	 if(ffs_close_status(which_ffs, 1)) { /* already closed */
+	    continue;
+	 }
+	 FFS_vals[1] = (which_ffs & 0x1) ? FFS_CLOSE : FFS_SAME;
+	 FFS_vals[2] = (which_ffs & 0x2) ? FFS_CLOSE : FFS_SAME;
       }
 /*
  * Time to do the work
@@ -672,19 +723,9 @@ tFFS(void)
       }
       
       TRACE(1, "Waiting %ds for flat field screen to move", wait, 0);
-
-      if(msg.u.FFS.op == FFS_OPEN) {
-	 if(ffs_open_status()) {	/* already open */
-	    continue;
-	 }
-	 msg_type = FFSCheckOpen_type;
-      } else {
-	 if(ffs_close_status()) {	/* already closed */
-	    continue;
-	 }
-	 msg_type = FFSCheckClosed_type;
-      }
-
+/*
+ * And schedule the check
+ */
       if(timerSend(msg_type, tmr_e_add, wait*60, msg_type, msgFFS) == ERROR) {
 	 TRACE(0, "Failed to send message to timer task: %s (%d)",
 	       strerror(errno), errno);
@@ -864,13 +905,14 @@ ffstatus_cmd(char *cmd)			/* NOTUSED */
 }
 
 char *
-ffsopen_cmd(char *cmd)			/* NOTUSED */
+ffsopen_cmd(char *cmd)			/* If == 1, toggle petals */
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
+   int toggle = atoi(cmd);
 
    msg.type = FFS_type;
-   msg.u.FFS.op = FFS_OPEN;
+   msg.u.FFS.op = toggle ? FFS_TOGGLE : FFS_OPEN;
 
    ret = msgQSend(msgFFS, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
    assert(ret == OK);
@@ -904,7 +946,7 @@ ffsselect_cmd(char *cmd)
       }
    }
    
-   if(which <= 0 || which > 3) {
+   if(which < 0 || which > 3) {
       TRACE(0, "Invalid FFS.SELECT argument: %s", cmd, 0);
       return("Invalid FFS.SELECT argument");
    }
@@ -1130,25 +1172,25 @@ spectroInit(void)
    if(msgAlignClamp == NULL) {
       msgAlignClamp = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgAlignClamp != NULL);
-      ret = taskSpawn("tAlgnClmp",90,0,2000,(FUNCPTR)tAlgnClmp,
+      ret = taskSpawn("tAlgnClmp",90,0,5000,(FUNCPTR)tAlgnClmp,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
 
       msgFFS = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgFFS != NULL);
-      ret = taskSpawn("tFFS",90,0,3000,(FUNCPTR)tFFS,
+      ret = taskSpawn("tFFS",90,0,5000,(FUNCPTR)tFFS,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
 
       msgLamps = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgLamps != NULL);
-      ret = taskSpawn("tLamps",90,0,2000,(FUNCPTR)tLamps,
+      ret = taskSpawn("tLamps",90,0,5000,(FUNCPTR)tLamps,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
 
       msgSpecDoor = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgSpecDoor != NULL);
-      ret = taskSpawn("tSpecDoor",90,0,2000,
+      ret = taskSpawn("tSpecDoor",90,0,5000,
 		      (FUNCPTR)tSpecDoor,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
@@ -1164,7 +1206,9 @@ spectroInit(void)
    define_cmd("FFL.OFF",             ffloff_cmd,               0, 0, 0, 1, "");
    define_cmd("FFL.ON",              fflon_cmd,                0, 0, 0, 1, "");
    define_cmd("FFS.CLOSE",           ffsclose_cmd,             0, 0, 0, 1, "");
-   define_cmd("FFS.OPEN",            ffsopen_cmd,              0, 0, 0, 1, "");
+   define_cmd("FFS.OPEN",            ffsopen_cmd,             -1, 0, 0, 1,
+	      "Open flat field screens;\n"
+	      "with an argument 1 open closed ones and close open ones");
    define_cmd("FFS.SELECT",          ffsselect_cmd,            1, 0, 0, 1,
 	      "Select petal set 1 (0x1), petal set 2 (0x2) or all (0x3)");
    define_cmd("HGCD.OFF",            hgcdoff_cmd,              0, 0, 0, 1, "");
