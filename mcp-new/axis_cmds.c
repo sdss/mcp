@@ -721,7 +721,7 @@ axis_status_cmd(char *cmd)
 	   "%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d %d 0x%lx  %.4f",
 	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
 	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
-		   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
+	   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
 	   fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
 	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis],
 	   read_clinometer());
@@ -1664,9 +1664,9 @@ restore_pos(void)
    for(i = 0; i < NAXIS; i++) {
       restore = (struct TM_M68K *)&save->axis[i];
       
-      fprintf(stderr, "Restoring encode position for %s: %d\n",
+      fprintf(stderr, "Restoring encoder position for %s: %d\n",
 	      axis_name(i), restore->actual_position);
-      TRACE(3, "Restoring encode position for %s: %d",
+      TRACE(3, "Restoring encoder position for %s: %d",
 	    axis_name(i), restore->actual_position);
       
       tm_set_position(2*i, restore->actual_position);
