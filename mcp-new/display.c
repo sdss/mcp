@@ -1709,9 +1709,9 @@ static void PrintInstBanner()
   last_ffs=last_ffl=last_ffc=-1;
   EraseDisplayRest();
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
-  printf("    //       //   //  //       //           software by Charlie Briegel        \n");
+  printf("    //       //   //  //       //           software by Charlie and Robert     \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
-  printf("      //   //   //       //       //                                           \n");
+  printf("      //   //   //       //       //      Tag: %-20s            \n", "$Name$");
   printf("     //   //   //       //       //                                            \n");
   printf("//////  ///////    //////   //////                                             \n");  
   printf("Time Since Boot:       Days               Date:     \n");
