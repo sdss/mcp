@@ -181,15 +181,25 @@ char *
 drift_cmd(char *cmd)
 {
    double position;
+   char *reply;				/* reply to MS.OFF command */
    double arcdeg, veldeg;
    float time;
    
-/*  printf (" DRIFT command fired\r\n");*/
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-
+/*
+ * send MS.OFF to stop updating of axis position from fiducials
+ */
+   reply = ms_off_cmd(NULL);
+   if(*reply != '\0') {
+      TRACE(0, "drift_cmd: failed to set MS.OFF: %s", reply, 0);
+      return("ERR: failed to set MS.OFF");
+   }
+/*
+ * Get the MEI semaphore and proceed
+ */
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "drift_cmd: failed to get semMEI: %s (%d)",
 	    strerror(errno), errno);
@@ -322,27 +332,43 @@ char *
 init_cmd(char *cmd)
 {
    int state;
+   char *reply;				/* reply to MS.OFF command */
    int retry;
    
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-
-   state = tm_axis_state(2*axis_select);
+/*
+ * send MS.OFF to stop updating of axis position from fiducials
+ */
+   reply = ms_off_cmd(NULL);
+   if(*reply != '\0') {
+      TRACE(0, "init_cmd: failed to set MS.OFF: %s", reply, 0);
+      return("ERR: failed to set MS.OFF");
+   }
 /*
  * I (Charlie) don't really agree with this, JEG directed...
  * I think the axis should remain in closed loop if in close loop
  */
-  if(state > 2) {			/* normal...NOEVENT,running, or
+   state = tm_axis_state(2*axis_select);
+
+   if(state > 2) {			/* normal...NOEVENT,running, or
 					   NEW_FRAME */
-     printf("INIT axis %d: not running, state=0x%x\n", 2*axis_select, state);
-     tm_controller_idle(2*axis_select);
-  }
+      printf("INIT axis %d: not running, state=0x%x\n", 2*axis_select, state);
+      tm_controller_idle(2*axis_select);
+   }
    
-  tm_reset_integrator(2*axis_select);
-  drift_break[axis_select] = FALSE;
-  frame_break[axis_select] = FALSE;
+   tm_reset_integrator(2*axis_select);
+   drift_break[axis_select] = FALSE;
+   frame_break[axis_select] = FALSE;
+   
+   if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "couldn't take semSLCDC semahore.", 0, 0);
+   } else {
+      memset(&axis_stat[axis_select], '\0', sizeof(struct AXIS_STAT *));
+      semGive(semSLCDC);
+   }
 
   switch(axis_select) {
    case AZIMUTH:
@@ -668,13 +694,23 @@ move_cmd(char *cmd)
    int i;
    int cnt;
    double dt;
+   char *reply;				/* reply to MS.OFF command */
    
-/*  printf (" MOVE command fired\r\n");*/
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-
+/*
+ * send MS.OFF to stop updating of axis position from fiducials
+ */
+   reply = ms_off_cmd(NULL);
+   if(*reply != '\0') {
+      TRACE(0, "move_cmd: failed to set MS.OFF: %s", reply, 0);
+      return("ERR: failed to set MS.OFF");
+   }
+/*
+ * Proceed with the MOVE
+ */
    if(sdss_get_time() < 0) {
       TRACE(0, "move_cmd(): bad time", 0, 0);
       return "ERR: BAD TIME";
