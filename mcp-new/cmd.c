@@ -563,12 +563,12 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
    int i;
    char *name;				/* name of command */
    int funcval;				/* value of symbol in sysSymTbl */
-   char *funcname = NULL;		/* name of function called */
+   char funcname_s[100], *funcname;	/* name of function called */
    SYM_TYPE functype = 0;		/* type of function in sysSymTbl
 					   (not used) */
    SYM_TYPE type = 0;			/* type of function called */
    char upattern[100];			/* upper-case version of pattern */
-   int val;				/* value of symbol in cmdSymTbl */
+   char (*addr)(char *);		/* value of symbol in cmdSymTbl */
 /*
  * Find and sort all commands
  */
@@ -587,6 +587,7 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
 /*
  * If pattern is provided, convert it to uppercase
  */
+   if(*pattern == '\0') { pattern = NULL; }
    if(pattern != NULL) {
       for(i = 0; i < sizeof(upattern) - 1 && pattern[i] != '\0'; i++) {
 	 upattern[i] = toupper(pattern[i]);
@@ -604,14 +605,15 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
    for(i = 0; i < ncommand; i++) {
       name = commands[i];
 
-      if(pattern != NULL && strstr(name, pattern) == NULL) {
+      if(pattern != NULL && strstr(name, pattern) == NULL){
 	 continue;			/* pattern doesn't match */
       }
 
-      symFindByName(cmdSymTbl, name, (char **)&val, &type);
-      symFindByValue(sysSymTbl, val, funcname, &funcval, &functype);
+      symFindByName(cmdSymTbl, name, (char **)&addr, &type);
+      symFindByValue(sysSymTbl, (UINT)addr, funcname_s, &funcval, &functype);
 
-      if(val == funcval) {		/* found it */
+      funcname = funcname_s;
+      if((int)addr == funcval) {	/* found it */
 	 if(*funcname == '_') {
 	    funcname++;			/* skip leading _ */
 	 }
