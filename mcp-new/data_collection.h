@@ -325,7 +325,7 @@ typedef struct {
 	unsigned man_lift_dn : 4;
 	unsigned man_lift_up : 4;
 	unsigned inst_lift_auto : 1;
-	unsigned solenoid_engage_sw : 1;
+	unsigned : 1;
 }IF1_L12;
 typedef struct {
 	unsigned leaf_8_closed_stat : 1;
@@ -403,8 +403,7 @@ struct I1 {
 typedef struct {
 	unsigned dcm_status : 16;
 
-	unsigned low_lvl_lighting_req : 1;
-	unsigned : 9;
+	unsigned : 10;
 	unsigned wind_alt_perm : 1;
 	unsigned wind_az_perm : 1;
 	unsigned wind_alt1_fault : 1;
@@ -465,7 +464,7 @@ struct I5 {
 };
 typedef struct {
 	unsigned spare_s2_c7 : 1;
-	unsigned spare_s2_c6 : 1;
+	unsigned nw_fork_stop : 1;
 	unsigned s_wind_stop : 1;
 	unsigned w_lower_stop : 1;
 	unsigned e_lower_stop : 1;
@@ -585,8 +584,8 @@ typedef struct {
 	unsigned in_9_bit_11_spare: 1;
 	unsigned in_9_bit_10_spare: 1;
 	unsigned in_9_bit_9_spare: 1;
-	unsigned in_9_bit_8_spare: 1;
-	unsigned in_9_bit_7_spare: 1;
+	unsigned solenoid_engage_sw : 1;
+	unsigned low_lvl_lighting_req : 1;
 	unsigned alt_brake_dis_stat : 1;
 	unsigned alt_brake_en_stat : 1;
 	unsigned az_brake_dis_stat : 1;
@@ -798,9 +797,7 @@ struct O1 {
 typedef struct {
 	unsigned : 16;
 	
-	unsigned : 10;
-	unsigned inst_chg_pos_light : 1;
-	unsigned stow_pos_light : 1;
+	unsigned : 12;
 	unsigned wind_mtr_dn_perm : 1;
 	unsigned wind_mtr_up_perm : 1;
 	unsigned wind_mtr_ccw_perm : 1;
@@ -870,9 +867,9 @@ typedef struct {
 	unsigned out_12_bit_11_spare : 1;
 	unsigned out_12_bit_10_spare : 1;
 	unsigned out_12_bit_9_spare : 1;
-	unsigned out_12_bit_8_spare : 1;
-	unsigned out_12_bit_7_spare : 1;
-	unsigned out_12_bit_6_spare : 1;
+	unsigned stow_pos_light : 1;
+	unsigned inst_chg_pos_light : 1;
+	unsigned nw_fork_led : 1;
 	unsigned umbilical_up_dn : 1;
 	unsigned umbilical_on_off : 1;
 	unsigned alt_brake_en : 1;
