@@ -41,7 +41,9 @@
 #endif
 #define E_ILLARG	-2
 #define E_BUSERR	-3
-#define NULL 		0
+#if !defined(NULL)
+#  define NULL 		0
+#endif
 typedef unsigned char u_int8;
 typedef unsigned short u_int16;
 /*
