@@ -1734,7 +1734,7 @@ axisMotionInit(void)
 
    coeff[DF_P] = 160;
    coeff[DF_I] = 6;
-   coeff[DF_D] = 1500;
+   coeff[DF_D] = 700;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
    coeff[DF_I_LIMIT] = 32767;

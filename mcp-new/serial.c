@@ -24,6 +24,7 @@
 #include "serial.h"
 #include "cmd.h"
 #include "dscTrace.h"
+#include "axis.h"
 
 /*------------------------------------------------------------------------
 **
