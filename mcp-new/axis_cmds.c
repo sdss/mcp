@@ -292,7 +292,7 @@ char *encl_cmd(char *cmd)
   return "";
 }
 
-char *id_ans={"0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x"};
+char id_ans[]={"0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x"};
 char *id_cmd(char *cmd)
 {
   static char *axis_name[]={"None Specified","Azimuth","Altitude","Rotator",
