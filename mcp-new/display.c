@@ -56,6 +56,7 @@ erase the screen etc.
 #include "gendefs.h"
 #include "ad12f1lb.h"
 #include "axis.h"
+#include "frame.h"
 #include "tm.h"
 #include "cw.h"
 #include "io.h"
@@ -246,6 +247,36 @@ int GetString(char *buf, int cnt)
 /*=========================================================================
 **=========================================================================
 **
+** ROUTINE: TCC_check
+**
+** DESCRIPTION:
+**      Check if TCC has active queue entries and print messages for each axis
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	axis_queue[]
+**
+**=========================================================================
+*/
+void TCC_check()
+{
+  extern struct FRAME_QUEUE axis_queue[];
+  int i;
+
+  for (i=0;i<3;i++)
+    if (axis_queue[i].active!=NULL)
+    {
+      printf ("\r\n Axis %d: TCC is has active entries in queue",i);
+      taskDelay (2*60);
+    }
+}
+/*=========================================================================
+**=========================================================================
+**
 ** ROUTINE: PrintMenuBanner
 **
 ** DESCRIPTION:
@@ -393,6 +424,7 @@ void Menu()
   time_t fidtim;
   extern FILE *fidfp;
 
+  TCC_check();
   Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
   ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
   if (semTake (semMEIUPD,60)!=ERROR)
