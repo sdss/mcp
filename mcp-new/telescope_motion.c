@@ -50,9 +50,11 @@ int tm_ADC128F1=-1;
 
 /*
  * tm_mgt variables to enable safe operation if telescope is not in control
+ *
+ * The monitor_axis array provides a mechanism to prevent deadlocks at startup
  */
-int monitor_axis[3];	/* provides mechanism to prevent deadlocks at startup*/
-int monitor_on[3];	/* overrides monitoring of axis...possible disable */
+int monitor_on[NAXIS];	/* overrides monitoring of axis...possible disable */
+int monitor_axis[NAXIS];
 
 /*
  * keep watch dog alive based on all axis software active
@@ -82,9 +84,8 @@ tm_move_instchange(void)
 
    for(axis = 0; axis < NAXIS; axis++) {
       sem_controller_run(2*axis);
-      start_move(2*axis,
-		 ilcpos[axis]*ticks_per_degree[axis],
-		 ilcvel[axis], ilcacc[axis]);
+      start_move_corr(2*axis, ilcpos[axis]*ticks_per_degree[axis],
+		      ilcvel[axis], ilcacc[axis]);
    }
 
    semGive (semMEI); 
@@ -96,15 +97,15 @@ tm_move_instchange(void)
 **
 **      Telescope motion to a specified position.  The routine returns to 
 **	the caller immediately while the motion is being fulfilled.
-**	Encaspulates the MEI function and converts args from ints to doubles.
+**	Encapsulates the MEI function and converts args from ints to doubles.
 **
 */
 void
-tm_start_move (int axis, int vel, int accel, int pos)
+tm_start_move(int mei_axis, int vel, int accel, int pos)
 {
    semTake(semMEI,WAIT_FOREVER);
-   start_move(axis,(double)pos,(double)vel,(double)accel);
-   semGive (semMEI);
+   start_move_corr(mei_axis, (double)pos, (double)vel, (double)accel);
+   semGive(semMEI);
 }
 
 /*=========================================================================
@@ -114,7 +115,7 @@ tm_start_move (int axis, int vel, int accel, int pos)
 **
 */
 void
-tm_bf(int axis,
+tm_bf(int axis,				/* axis to move (AZ, ALT, ROT) */
       int vel,
       int accel,
       int pos1, int pos2,
@@ -122,30 +123,35 @@ tm_bf(int axis,
 {
    int i;
    int status;
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"Ilegal axis: %d\n", axis);
+      return;
+   }
    
    printf("Pass ");
    for(i = 0; i < times; i++) {
       printf ("%d ",i);
-      tm_controller_run(axis);
-      tm_start_move(axis,vel,accel,pos1);
+      tm_sem_controller_run(2*axis);
+      tm_start_move(2*axis, vel, accel, pos1);
 
       status = FALSE;
       while(!status) {
 	 taskDelay(60);
 
 	 semTake(semMEI, WAIT_FOREVER);
-	 status=motion_done(axis);
+	 status = motion_done(2*axis);
 	 semGive(semMEI);
       }
 
-      tm_start_move (axis,vel,accel,pos2);
+      tm_start_move(2*axis, vel, accel, pos2);
 
       status = FALSE;
       while(!status) {
 	 taskDelay(60);
 
 	 semTake(semMEI, WAIT_FOREVER);
-	 status = motion_done(axis);
+	 status = motion_done(2*axis);
 	 semGive(semMEI);
       }
    }
@@ -157,7 +163,7 @@ tm_bf(int axis,
 **      Print the specified axis PID coefficients and sample rate.
 */
 void
-tm_print_coeffs(int axis)
+tm_print_coeffs(int mei_axis)
 {
    short coeff[COEFFICIENTS];
    short mode;
@@ -165,13 +171,14 @@ tm_print_coeffs(int axis)
    
    semTake(semMEI,WAIT_FOREVER);
    
-   get_filter(axis,(P_INT)coeff);
-   get_integration(axis,&mode);
+   get_filter(mei_axis, (P_INT)coeff);
+   get_integration(mei_axis, &mode);
    rate = dsp_sample_rate();
    
    semGive (semMEI);
    
-   printf("AXIS %d: P=%d, I=%d, D=%d\n", axis, coeff[0], coeff[1], coeff[2]);
+   printf("AXIS %d: P=%d, I=%d, D=%d\n", mei_axis,
+	  coeff[0], coeff[1], coeff[2]);
    printf("         AFF=%d, VFF=%d, FFF=%d\n", coeff[3], coeff[4], coeff[9]);
    printf("         ILIMIT=%d, OFFSET=%d, OLIMIT=%d, SHIFT=%d\n",
 	   coeff[5], coeff[6], coeff[7], coeff[8]);
@@ -186,17 +193,17 @@ tm_print_coeffs(int axis)
 **		8(SHIFT)(-5 is 1/32),9(FFF)
 */
 void
-tm_set_coeffs(int axis, int index, int val)
+tm_set_coeffs(int mei_axis, int index, int val)
 {
    short coeff[COEFFICIENTS];
    
    semTake(semMEI,WAIT_FOREVER);
 
-   get_filter(axis,(P_INT)coeff);
+   get_filter(mei_axis, (P_INT)coeff);
    coeff[index] = val;
-   set_filter(axis,(P_INT)coeff);
+   set_filter(mei_axis, (P_INT)coeff);
 
-   semGive (semMEI);
+   semGive(semMEI);
 }
 
 /*=========================================================================
@@ -207,76 +214,59 @@ tm_set_coeffs(int axis, int index, int val)
 **=========================================================================
 */
 void
-tm_clear_pos(int axis)
+tm_get_position(int mei_axis, double *position)
 {
-   semTake(semMEI,WAIT_FOREVER);
-   set_position (axis,0.0);
+   semTake(semMEI, WAIT_FOREVER);
+   get_position_corr(mei_axis, position);
    semGive(semMEI);
 }
 
 void
-tm_get_pos(int axis, double *position)
+tm_get_velocity(int mei_axis,
+		double *velocity)
 {
-   semTake(semMEI,WAIT_FOREVER);
-   get_position(axis,position);
+   semTake(semMEI, WAIT_FOREVER);
+   get_velocity(mei_axis, velocity);
    semGive(semMEI);
 }
 
 void
-tm_get_vel(int axis,
-	   double *velocity)
+tm_reset_integrator(int mei_axis)
 {
-   semTake(semMEI,WAIT_FOREVER);
-   get_velocity(axis,velocity);
+   semTake(semMEI, WAIT_FOREVER);
+   reset_integrator(mei_axis);
    semGive(semMEI);
 }
 
 void
-tm_set_sample_rate(unsigned short rate)
+tm_set_position(int mei_axis, int pos)
 {
    semTake(semMEI,WAIT_FOREVER);
-   set_sample_rate (rate);
-   printf("Sample Rate=%d\n", (unsigned short)dsp_sample_rate());
-   semGive(semMEI);
-}
-
-void
-tm_reset_integrator(int axis)
-{
-   semTake(semMEI,WAIT_FOREVER);
-   reset_integrator (axis);
-   semGive(semMEI);
-}
-
-void
-tm_set_pos(int axis,int pos)
-{
-   semTake(semMEI,WAIT_FOREVER);
-   set_position (axis,(double)pos);
+   set_position_corr(mei_axis, pos);
    semGive(semMEI);
 }
 
 int
-tm_adjust_pos(int axis,			/* desired axis */
+tm_adjust_position(int axis,			/* desired axis */
 	      int offset)		/* how much to offset position */
 {
    double position;			/* position of axis */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "tm_adjust_pos: invalid axis %d", axis, 0);
+      TRACE(0, "tm_adjust_position: invalid axis %d", axis, 0);
       
       return(-1);
    }
 
    if(semTake(semMEI,60) != OK) {
-      TRACE(0, "adjusting position for axis %s: unable to take semaphore: %s",
+      TRACE(0, "adjusting axis %s position: unable to take semaphore: %s",
 	    axis_name(axis_select), strerror(errno));
       return(-1);
    }
-
+   
    taskLock();
    
-   if(get_position(2*axis, &position) != DSP_OK) {
+   if(get_position_corr(2*axis, &position) != DSP_OK) {
       taskUnlock();
       semGive(semMEI);
       TRACE(0, "adjusting position for axis %s: unable to read position",
@@ -284,33 +274,33 @@ tm_adjust_pos(int axis,			/* desired axis */
       return(-1);
    }
    
-   position += offset;
+   write_fiducial_log("UPDATE_ENCODER", axis, 0, 0, position, 0, offset);
+
+   position += offset + get_axis_encoder_error(axis); /* include software
+							 correction */
    
-   set_position(2*axis, position);
-   set_position(2*axis + 1, position);	/* the second encoder in az/alt isn't
-					   connected/doesn't exist */
-   
+   set_position_corr(2*axis, position);
+   set_position_corr(2*axis + 1, position); /* second az/alt encoder isn't
+					       connected/doesn't exist */
+   set_axis_encoder_error(axis,
+			  -get_axis_encoder_error(axis)); /* zero software
+							     correction term */
+
    taskUnlock();
    semGive(semMEI);
-   
+
    return(0);
 }
-  
-void
-tm_set_encoder(int axis)
-{
-   semTake(semMEI,WAIT_FOREVER);
-   set_feedback(axis,FB_ENCODER);
-   semGive(semMEI);
-}
 
+#if 0
 void
-tm_dual_loop(int axis, int dual)
+tm_set_encoder(int mei_axis)
 {
-   semTake(semMEI,WAIT_FOREVER);
-   set_dual_loop (axis,axis+1,dual);
+   semTake(semMEI, WAIT_FOREVER);
+   set_feedback(mei_axis, FB_ENCODER);
    semGive(semMEI);
 }
+#endif
 
 #if 0
 /*=========================================================================
@@ -319,13 +309,13 @@ tm_dual_loop(int axis, int dual)
 **	used at this time.
 */
 void
-tm_set_analog_encoder(int axis, int channel)
+tm_set_analog_encoder(int mei_axis, int channel)
 {
    semTake(semMEI,WAIT_FOREVER);
    
-   set_analog_channel(axis,channel,TRUE,TRUE);
-   set_axis_analog (axis,TRUE);
-   set_feedback(axis,FB_ANALOG);
+   set_analog_channel(mei_axis, channel, TRUE, TRUE);
+   set_axis_analog(mei_axis, TRUE);
+   set_feedback(mei_axis, FB_ANALOG);
 
    semGive(semMEI);
 }
@@ -335,12 +325,12 @@ tm_set_analog_encoder(int axis, int channel)
 **      Telescope motion sets analog channel as feedback to PID.  Not used.
 */
 void
-tm_set_analog_channel(int axis, int channel)
+tm_set_analog_channel(int mei_axis, int channel)
 {
    semTake(semMEI,WAIT_FOREVER);
 
-   set_analog_channel(axis,channel,TRUE,TRUE);
-   set_axis_analog (axis,TRUE);
+   set_analog_channel(mei_axis,channel, TRUE, TRUE);
+   set_axis_analog(mei_axis, TRUE);
 
    semGive(semMEI);
 }
@@ -349,7 +339,7 @@ tm_set_analog_channel(int axis, int channel)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: tm_controller_run
+** ROUTINE: tm_sem_controller_run
 **	    sem_controller_run (assumes the semaphore is already owned)
 **
 ** DESCRIPTION:
@@ -369,32 +359,32 @@ tm_set_analog_channel(int axis, int channel)
 **=========================================================================
 */
 void
-tm_controller_run (int axis)
+tm_sem_controller_run(int mei_axis)
 {
    semTake(semMEI,WAIT_FOREVER);
-   sem_controller_run(axis);
+   sem_controller_run(mei_axis);
    semGive(semMEI);
 }
 
 void
-sem_controller_run(int axis)
+sem_controller_run(int mei_axis)
 {
    const int nretry = 12;
    int i;
    
-   for(i = 0; axis_state(axis) > 2 && i < nretry; i++) {
+   for(i = 0; axis_state(mei_axis) > 2 && i < nretry; i++) {
       taskDelay(20);
-      controller_run(axis);
+      controller_run(mei_axis);
    }
    
    if(i != nretry) {			/* success */
-      monitor_axis[axis/2] = TRUE;
+      monitor_axis[mei_axis/2] = TRUE;
    }
 }
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: tm_controller_idle
+** ROUTINE: tm_sem_controller_idle
 **	    sem_controller_idle (assumes the semaphore is already owned)
 **
 ** DESCRIPTION:
@@ -414,53 +404,39 @@ sem_controller_run(int axis)
 **=========================================================================
 */
 void
-tm_controller_idle(int axis)
+tm_sem_controller_idle(int mei_axis)
 {
-	int retry;
-
-	retry=6;
-	semTake(semMEI,WAIT_FOREVER);
-  	while ((axis_state(axis)<=2)&&(--retry>0)) 
-	  controller_idle (axis);
-	semGive(semMEI);
+   semTake(semMEI, WAIT_FOREVER);
+   sem_controller_idle(mei_axis);
+   semGive(semMEI);
 }
 
 void
-sem_controller_idle(int axis)
+sem_controller_idle(int mei_axis)
 {
-	int retry;
-
-	retry=6;
-  	while ((axis_state(axis)<=2)&&(--retry>0)) 
-	  controller_idle (axis);
+   int retry = 6;
+   
+   while(axis_state(mei_axis) <= 2 && --retry > 0) {
+      controller_idle(mei_axis);
+   }
 }
-/*=========================================================================
-**=========================================================================
+
+#if 0
+/*
 **
-** ROUTINE: tm_set_boot_filter
-**
-** DESCRIPTION:
-**      Telescope motion makes the current coeffs active for next boot.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
+** Telescope motion makes the current coeffs active for next boot.
 */
 void
-tm_set_boot_filter(int axis)
+tm_set_boot_filter(int mei_axis)
 {
    short coeff[COEFFICIENTS];
    
-   semTake(semMEI,WAIT_FOREVER);
-   get_filter(axis,(P_INT)coeff);
-   set_boot_filter(axis,(P_INT)coeff);
+   semTake(semMEI, WAIT_FOREVER);
+   get_filter(mei_axis, (P_INT)coeff);
+   set_boot_filter(mei_axis, (P_INT)coeff);
    semGive(semMEI);
 }
+#endif
 
 /*=========================================================================
 **=========================================================================
@@ -990,7 +966,7 @@ rot_amp_ok(void)
 **     Shutdown the telescope by turning on the brakes due to a software reboot
 **     Check the amplifiers to see if fault and need to turn brakes on.
 **     Must allow for restart...reason for monitor boolean only turned on
-**     by tm_controller_run.
+**     by tm_sem_controller_run.
 **     Keep the watchdog timer on which enables the amplifiers.
 **
 ** CALLS TO:
@@ -1028,13 +1004,14 @@ tm_amp_mgt(void)
       if(monitor_on[AZIMUTH]) {
 	 if(monitor_axis[AZIMUTH] && sdssdc.status.i9.il0.az_brake_dis_stat) {
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
-	       TRACE(0, "MGT: bad az state %d", state, 0);
+	       TRACE(0, "MGT: bad az state %d: %s",
+		     state, axis_source_str(2*AZIMUTH));
 	       tm_az_brake_on();
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
 	    if(!az_amp_ok()) {
 	       TRACE(0, "MGT: bad az amp", 0, 0);
-	       tm_controller_idle(2*AZIMUTH);
+	       tm_sem_controller_idle(2*AZIMUTH);
 	       tm_az_brake_on();
 	       monitor_axis[AZIMUTH]=FALSE;
 	    }
@@ -1045,13 +1022,15 @@ tm_amp_mgt(void)
 	 if(monitor_axis[ALTITUDE] &&
 	    sdssdc.status.i9.il0.alt_brake_dis_stat) {
 	    if((state = tm_axis_state(2*ALTITUDE)) > 2 && state != STOP_EVENT){
-	       TRACE(0, "MGT: bad alt state %d", state, 0);
+	       TRACE(0, "MGT: bad alt state %d: %s", 
+		     state, axis_source_str(2*ALTITUDE));
+
 	       tm_alt_brake_on();
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	    if(!alt_amp_ok()) {
 	       TRACE(0, "MGT: bad alt amp", 0, 0);
-	       tm_controller_idle(2*ALTITUDE);
+	       tm_sem_controller_idle(2*ALTITUDE);
 	       tm_alt_brake_on();
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
@@ -1060,9 +1039,15 @@ tm_amp_mgt(void)
      
       if(monitor_on[INSTRUMENT]) {
 	 if(monitor_axis[INSTRUMENT]) {
+	    if((state = tm_axis_state(2*INSTRUMENT)) > 2 &&
+							  state != STOP_EVENT){
+	       TRACE(0, "MGT: bad rot state %d: %s", 
+		     state, axis_source_str(2*INSTRUMENT));
+	       monitor_axis[INSTRUMENT] = FALSE;
+	    }
 	    if(!rot_amp_ok()) {
 	       TRACE(0, "MGT: bad rot amp", 0, 0);
-	       tm_controller_idle(2*INSTRUMENT);
+	       tm_sem_controller_idle(2*INSTRUMENT);
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
 	 }
@@ -1113,7 +1098,7 @@ tm_print_amp_status(void)
 void
 tm_amp_disengage(void)
 {
-  StopCounter (&sbrd,TM_WD);
+  StopCounter(&sbrd,TM_WD);
 }
 
 void
@@ -1146,107 +1131,115 @@ tm_setup_wd(void)
 
 /*=========================================================================
 **
-**      Telescope motion prints status of axis_status funciton.
+** Get/print status of current motion
 **
 */
-char const* const msg_axis_status[] = {
-   "IN_SEQUENCE",
-   "IN_POSITION",
-   "IN_MOTION",
-   "DIRECTION positive",
-   "FRAMES_LEFT"
-};
-
 int
-tm_axis_status(int axis)
+tm_axis_status(int mei_axis)
 {
    int value;
    
    semTake(semMEI,WAIT_FOREVER);
-   value = axis_status(axis);
+   value = axis_status(mei_axis);
    semGive(semMEI);
 
    return value;
 }
 
-void
-tm_print_axis_status(int axis)
+static void
+print_axis_status(int mei_axis)
 {
-   int i,value;
-   
-   value = tm_axis_status(axis);
-   printf("AXIS STATUS: 0x%x",value);
-   for(i = 0; i < sizeof(msg_axis_status)/sizeof(char *); i++) {
-      if((value >> (i + 4)) & 1) {
-	 printf("     %s\r\n",msg_axis_status[i]);
+   if(in_sequence(mei_axis)) {
+      printf(" IN_SEQUENCE");
+   }
+   if(in_position(mei_axis)) {
+      printf(" IN_POSITION");
+   } 
+   if(in_motion(mei_axis)) {
+      printf(" IN_MOTION");
+      if(negative_direction(mei_axis)) {
+	 printf(" NEGATIVE");
+      } else {
+	 printf(" POSITIVE");
       }
-  }
+   }
+   if(frames_left(mei_axis)) {
+      printf(" FRAMES_LEFT");
+   }
+   printf("\n");
+}
+
+void
+tm_print_axis_status(int mei_axis)
+{
+   semTake(semMEI, WAIT_FOREVER);
+
+   printf("AXIS STATUS: 0x%x", axis_status(mei_axis));
+   print_axis_status(mei_axis);
+
+   semGive(semMEI);
 }
 
 /*=========================================================================
 **
-**      Telescope motion prints status of axis_state funciton.
+** Get and/or print the state of the axes
 **
 **=========================================================================
 */
-char const* const msg_axis_state[] = {
-   "NO_EVENT",
-   "NEW_FRAME",
-   "STOP_EVENT",
-   "E_STOP_EVENT",
-   "ABORT_EVENT",
-   "Running???",
-   "Undocumented Value"
-};
-
 int
-tm_axis_state(int axis)
+tm_axis_state(int mei_axis)
 {
   int value;
 
   semTake(semMEI, WAIT_FOREVER);
-  value = axis_state(axis);
+  value = axis_state(mei_axis);
   semGive(semMEI);
 
   return value;
 }
 
-void
-tm_print_axis_state(int axis)
+char *
+axis_state_str(int mei_axis)
 {
-   int i,value;
-   
-   value = tm_axis_state(axis);
-   printf("AXIS STATE: 0x%x", value);
+   static char buff[] = "Undocumented Value 0x1234";
+   int value = axis_state(mei_axis);
    
    switch (value) {
     case NO_EVENT:
-      i=0;
+      return("NO_EVENT");
       break;
     case NEW_FRAME:
-      i=1;
+      return("NEW_FRAME");
       break;
     case STOP_EVENT:
-      i=2;
+      return("STOP_EVENT");
       break;
     case E_STOP_EVENT:
-      i=3;
+      return("E_STOP_EVENT");
       break;
     case ABORT_EVENT:
-      i=4;
+      return("ABORT_EVENT");
       break;
     case 1:
-      i=5;
+      return("Running???");
       break;
     default:
-      i=6;
+      value &= 0xffff;			/* don't overrun string */
+      sprintf(buff, "Undocumented Value 0x%x", value);
+      return(buff);
    }
+}
 
-   printf ("     %s\n",msg_axis_state[i]);
+void
+tm_print_axis_state(int mei_axis)
+{
+   semTake(semMEI, WAIT_FOREVER);
+   printf("AXIS STATE: %s\n", axis_state_str(mei_axis));
+   semGive(semMEI);
 }
 /*=========================================================================
 **
-**      Telescope motion prints status of axis_source funciton.
+**      Telescope motion prints status of axis_source function.
 **
 **=========================================================================
 */
@@ -1267,15 +1260,72 @@ char const* const msg_axis_source[] = {
    "ID_AXIS_COMMAND"
 };
 
-void
-tm_print_axis_source(int axis)
+const char *
+axis_source_str(int mei_axis)
 {
+   static char buff[] = "ID_MCP_UNKNOWN 0x1234";
    int value;
+
+   value = axis_source(mei_axis);
    
-   semTake(semMEI,WAIT_FOREVER);
-   value=axis_source(axis);
-   semGive(semMEI);
-   printf ("AXIS SOURCE: %x",value);
-   printf ("     %s\r\n",msg_axis_source[value]);
+   if(value < 0 ||
+      value >= sizeof(msg_axis_source)/sizeof(msg_axis_source[0])) {
+            value &= 0xffff;		/* don't overrun string */
+      sprintf(buff, "ID_MCP_UNKNOWN 0x%x", value);
+      return(buff);
+   } else {
+      return(msg_axis_source[value]);
+   }
 }                                                              
- 
+
+void
+tm_print_axis_source(int mei_axis)
+{
+   semTake(semMEI, WAIT_FOREVER);
+   printf ("AXIS SOURCE: %s\n", axis_source_str(mei_axis));
+   semGive(semMEI);
+}                                                              
+
+/*
+ * A routine to provide all that axis information and more with one command;
+ * an axis < 0 shows all axes
+ */
+void
+tm_show_axis(int axis)
+{
+   int axis0, axis1;			/* range of axes to show */
+   double pos, vel;
+
+   if(axis < 0) {
+      axis0 = AZIMUTH; axis1 = INSTRUMENT;
+   } else {
+      axis0 = axis1 = axis;
+   }
+
+   semTake(semMEI, WAIT_FOREVER);
+
+   for(axis = axis0; axis <= axis1; axis++) {
+      if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+	 fprintf(stderr,"Ilegal axis: %d\n", axis);
+	 break;
+      }
+   
+      get_position_corr(2*axis, &pos);
+      get_velocity(2*axis, &vel);
+      
+      printf("Axis %-8s: p= %9ld (%9.4f deg), v = %9ld (%9.4f deg/s)\n",
+	     axis_name(axis),
+	     (long)pos, pos/axis_ticks_deg(axis),
+	     (long)vel, vel/axis_ticks_deg(axis));
+      
+      printf("  axis state:  %s\n", axis_state_str(2*axis));
+      if(axis_state(2*axis) >= STOP_EVENT) {
+	 printf("  axis source: %s\n", axis_source_str(2*axis));
+      } else {
+	 printf("  axis status:");
+	 print_axis_status(2*axis);
+      }
+   }   
+
+   semGive(semMEI);
+}
