@@ -171,6 +171,10 @@ sdss_receive(FILE *input_stream,
 **
 **=========================================================================
 */
+long tcc_taskId = 0;			/* The TCC task's ID */
+int tcc_may_release_semCmdPort = 0;	/* If all axes are idle, may the
+					   may release semCmdPort? */
+
 void
 tcc_serial(int port)
 {
@@ -185,6 +189,8 @@ tcc_serial(int port)
   extern double sdss_delta_time(double t2, double t1);
   float sdsstime_in;			/* time that command was received */
 #endif
+
+  tcc_taskId = taskNameToId("TCC");	/* save us looking it up */
 
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
