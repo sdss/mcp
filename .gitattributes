@@ -114,6 +114,7 @@ mcp-new/ms.h -text
 mcp-new/mv162.h -text
 mcp-new/serial.c -text
 mcp-new/serial.h -text
+mcp-new/spectro.c -text
 mcp-new/tagname.c -text
 mcp-new/telescope_motion.c -text
 mcp-new/telnetCmds.c -text
