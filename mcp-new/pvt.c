@@ -1415,7 +1415,7 @@ mcp_move(int axis,			/* the axis to move */
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   if(set_ms_off(axis, 0) < 0) {
+   if(nparam == 0 && set_ms_off(axis, 0) < 0) {
       TRACE(0, "move_cmd: failed to set MS.OFF", 0, 0);
       return(-1);
    }
