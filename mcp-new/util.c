@@ -10,6 +10,7 @@
 #include "mv162.h"
 #include "vmechip2.h"
 #include "mcpUtils.h"
+#include "dscTrace.h"
 
 #define SRAM_BASE_ADRS		0xFFE00000L
 
@@ -68,6 +69,8 @@ unsigned long VMEC2_software_interrupt_clear (int interrupt)
 }
 void VME2_sft_int(int interrupt)
 {
+  TRACE0(16, "VME2_sft_int", 0, 0);
+
   if (sft_int_routines[interrupt]!=NULL)
     (*sft_int_routines[interrupt])();
   VMEC2_software_interrupt_clear (interrupt);
