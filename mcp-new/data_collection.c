@@ -4,6 +4,7 @@
 **	Collects data from MEI, AB, CW, and time.  Distributes to shared
 **	memory and broadcasts at 1 Hz.
 ***************************************************************************/
+#define DATA_COLLECTION_C 1		/* allows plcVersion to be defined */
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
@@ -274,6 +275,8 @@ void
 slc500_data_collection(unsigned long freq)
 {
    int i;
+   static int plc_version_id = -1;	/* plc version in data_collection.h */
+   static int plc_version_mismatch = 0;	/* version_id != plc_version_id? */
    char status[176*2 + 1];
    int stat;
 /*
@@ -304,20 +307,22 @@ slc500_data_collection(unsigned long freq)
 	 TRACE(2, "slc500_data_collection failed to take semSLC: %s",
 							   strerror(errno), 0);
       } else {
+	 const int nbyte = (int)sizeof(struct AB_SLC500) -
+	   ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status);
+	 
 	 stat  = slc_read_blok(1,9,BIT_FILE, 0, (uint *)&status[0], 64);
 	 stat |= slc_read_blok(1,9,BIT_FILE, 64, (uint *)&status[128], 64);
 	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 46);
 	 semGive (semSLC);
-	 
+
+	 assert(nbyte == (64 + 64 + 46)*sizeof(short));
 	 assert(status[sizeof(status) - 1] == '\a');
 	 
 	 if(stat == 0) {
 /*
  * byteswap status and copy it into sdssdc
  */
-	    swab(status, (char *)(&sdssdc.status.i1),
-		 (int)sizeof(struct AB_SLC500) -
-		 ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status));
+	    swab(status, (char *)(&sdssdc.status.i1), nbyte);
 	 }
       }
 
@@ -331,7 +336,7 @@ slc500_data_collection(unsigned long freq)
       
       axis_stat[AZIMUTH][1].stop_in =
 	axis_stat[ALTITUDE][1].stop_in =
-	  axis_stat[INSTRUMENT][1].stop_in = (check_stop_in() ? 1 : 0);
+	  axis_stat[INSTRUMENT][1].stop_in = (check_stop_in(0) ? 1 : 0);
 
       {
 	 const int cmdPortTask = getSemTaskId(semCmdPort);
@@ -344,9 +349,9 @@ slc500_data_collection(unsigned long freq)
 		cmdPortTask == taskNameToId("TCC")) ? 0 : 1;
       }
       
-      axis_stat[AZIMUTH][1].amp_bad = az_amp_ok()  ? 0 : 1;
-      axis_stat[ALTITUDE][1].amp_bad = alt_amp_ok() ? 0 : 1;
-      axis_stat[INSTRUMENT][1].amp_bad = rot_amp_ok() ? 0 : 1;
+      axis_stat[AZIMUTH][1].amp_bad = az_amp_ok(0)  ? 0 : 1;
+      axis_stat[ALTITUDE][1].amp_bad = alt_amp_ok(0) ? 0 : 1;
+      axis_stat[INSTRUMENT][1].amp_bad = rot_amp_ok(0) ? 0 : 1;
 /*
  * Set sticky versions of bump switches; these stay on until explicitly
  * cleared with clear_sticky_bumps() (called by e.g. init_cmd())
@@ -369,7 +374,7 @@ slc500_data_collection(unsigned long freq)
 	 axis_stat[AZIMUTH][1].bump_dn_cw_sticky = 0;
       }
       
-      if(sdssdc.status.i1.il6.alt_bump_up) {
+      if(sdssdc.status.i1.il10.alt_bump_up) {
 	 if(!axis_stat[ALTITUDE][0].bump_up_ccw_sticky) {
 	    TRACE(0, "Windscreen touched in altitude: UP", 0, 0);
 	 }
@@ -377,7 +382,7 @@ slc500_data_collection(unsigned long freq)
       } else {
 	 axis_stat[ALTITUDE][1].bump_up_ccw_sticky = 0;
       }
-      if(sdssdc.status.i1.il6.alt_bump_dn) {
+      if(sdssdc.status.i1.il10.alt_bump_dn) {
 	 if(!axis_stat[ALTITUDE][0].bump_dn_cw_sticky) {
 	    TRACE(0, "Windscreen touched in altitude: DOWN", 0, 0);
 	 }
@@ -423,6 +428,57 @@ slc500_data_collection(unsigned long freq)
       }
       
       semGive(semSDSSDC);
+/*
+ * check that the correct version of the PLC's installed
+ */
+      if(plc_version_id < 0) {
+	 sscanf(plcVersion, "Version %d", &plc_version_id);
+      }
+
+      if(sdssdc.status.b3.w1.version_id == plc_version_id) {
+	 plc_version_mismatch = 0;
+      } else {
+	 if(plc_version_mismatch%100 == 0) {
+	    TRACE(0, "Saw PLC version %d; expected \"%s\"",
+		  sdssdc.status.b3.w1.version_id, plcVersion);
+	 }
+
+	 plc_version_mismatch++;
+      }
+   }
+}
+
+
+/*****************************************************************************/
+/*
+ * Update the sdssdc.status.i6 bits
+ */
+void
+update_sdssdc_status_i6(void)
+{
+   unsigned short ctrl[2];
+   int err;
+   const int offset = (char *)&sdssdc.status.i6 - (char *)&sdssdc.status;
+/*
+ * set err in assertion to supress compiler warning
+ */
+   assert(err = (sizeof(sdssdc.status.i6) == sizeof(ctrl)));
+
+   if(semTake(semSLC,60) == ERROR) {
+      TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+      return;
+   }
+
+   err = slc_read_blok(1, 9, BIT_FILE, offset/2,
+			      &ctrl[0],sizeof(ctrl)/2);
+   if(err) {
+      TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
+   }
+   semGive(semSLC);
+   
+   if(!err) {
+      swab((char *)&ctrl[0], (char *)&sdssdc.status.i6,
+	   sizeof(sdssdc.status.i6));
    }
 }
 
@@ -520,27 +576,10 @@ DataCollectionTrigger(void)
    }
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: dc_interrupt
-**
-** DESCRIPTION:
-**	Diagnostic to list the corresponding instrument's counter-weight 
-**	parameters.
-**
-** RETURN VALUES:
-**      int 	always zero
-**
-** CALLS TO:
-**      DAC128V_Read_Port
-**	cw_read_position
-**
-** GLOBALS REFERENCED:
-**	cw_DIO316
-**
-**=========================================================================
-*/
+/*****************************************************************************/
+/*
+ * ??? Provides output pulse for TPM ???
+ */
 int
 dc_interrupt(void)
 {
