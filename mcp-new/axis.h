@@ -149,14 +149,14 @@ struct SW_COEFFS {
         long dnlimit_cts;
 };
 void set_rot_coeffs (int state, int index, short val);
-void print_rot_coeffs ();
+void print_rot_coeffs (void);
 void set_rot_uplimit (int state, int val);
 void set_rot_dnlimit (int state, int val);
 void set_rot_state (int state);
 int coeffs_state_deg (int axis, double degs);
 int coeffs_state_cts (int axis, int cts);
-double sdss_get_time();
-double get_time();
+double sdss_get_time(void);
+double get_time(void);
 void amp_reset(int axis);
 #define __AXIS_H__             /* do only once */
 
