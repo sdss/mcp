@@ -75,7 +75,9 @@ OBJS		=	idsp.$(OBJ)			\
 .c.$(OBJ):
 	$(CC) $(CFLAGS) $*.c
 
-all $(LIB):	$(OBJS)
+all : $(LIB)
+
+$(LIB):	$(OBJS)
 	$(AR) $(ARFLAGS) $(LIB) $?
 	$(RAN) $(LIB)
 
