@@ -165,3 +165,11 @@ Thu Mar 21 15:45:45 MST 2002
 	(nothing to do)
 	cvs tag v5_11_0
 	cvs tag -b -r v5_11_0 v5_11
+
+Tue May 28 07:29:27 MDT 2002
+	cvs rtag -r v5_11 v5_11_3 mcp
+	(no conflicts => no checkins beyond v5_10_0)
+	cvs update -A
+	(nothing to do)
+	cvs rtag v5_12_0 mcp
+	cvs rtag -b -r v5_12_0 v5_12 mcp
