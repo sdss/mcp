@@ -15,7 +15,7 @@ umask 002
 
 cd /p/mcpbase
 
-for f in ab etc ip mcp-new util; do
+for f in ab bin etc ip mcp-new util; do
     if [ -l $f ]; then 
 	rm $f
     fi
