@@ -43,35 +43,48 @@
 
 static int tm_frames_to_execute(int axis);
 
-int CALC_verbose=FALSE;
-int CALCOFF_verbose=FALSE;
-int CALCADDOFF_verbose=FALSE;
-int CALCFINAL_verbose=FALSE;
-int FRAME_verbose=FALSE;
+int CALC_verbose = FALSE;
+int CALCOFF_verbose = FALSE;
+int CALCADDOFF_verbose = FALSE;
+int CALCFINAL_verbose = FALSE;
+int DRIFT_verbose = FALSE;
+int FRAME_verbose = FALSE;
+
 #define FRMHZ		20	/* 20 Hz Frames to MEI */
 #define FLTFRMHZ	20.
 #define MAX_CALC 20
-static double tim[3][MAX_CALC],p[3][MAX_CALC],v[3][MAX_CALC],a[3][MAX_CALC],ji[3][MAX_CALC];
-static double timoff[3][MAX_CALC],poff[3][MAX_CALC],voff[3][MAX_CALC],
-	aoff[3][MAX_CALC],jioff[3][MAX_CALC];
-double time_off[3]={0.0,0.0,0.0};
-double stop_position[3]={0.0,0.0,0.0};
-double drift_velocity[3]={0.0,0.0,0.0};
-int frame_break[3]={FALSE,FALSE,FALSE};
-int drift_break[3]={FALSE,FALSE,FALSE};
-int DRIFT_verbose=FALSE;
-int drift_modify_enable=FALSE;
-#define OFF_MAX	6		/* upto 8 offsets at one time */
-struct FRAME offset[3][OFF_MAX+2][2];
-struct FRAME *offset_queue_end[3][OFF_MAX+2]={
-				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL},
-				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL},
-				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL}
-				};
-int offset_idx[3][OFF_MAX+2]={
-			{0,0,0,0,0,0,0,0},
-			{0,0,0,0,0,0,0,0},
-			{0,0,0,0,0,0,0,0}
+
+static double tim[NAXIS][MAX_CALC];
+static double p[NAXIS][MAX_CALC];
+static double v[NAXIS][MAX_CALC];
+static double a[NAXIS][MAX_CALC];
+static double ji[NAXIS][MAX_CALC];
+
+static double timoff[NAXIS][MAX_CALC];
+static double poff[NAXIS][MAX_CALC];
+static double voff[NAXIS][MAX_CALC];
+static double aoff[NAXIS][MAX_CALC];
+static double jioff[NAXIS][MAX_CALC];
+
+double time_off[NAXIS] = {0.0, 0.0, 0.0};
+double stop_position[NAXIS] = {0.0, 0.0, 0.0};
+double drift_velocity[NAXIS] = {0.0, 0.0, 0.0};
+
+int frame_break[NAXIS] = {FALSE, FALSE, FALSE};
+int drift_break[NAXIS] = {FALSE, FALSE, FALSE};
+int drift_modify_enable = FALSE;
+
+#define OFF_MAX	6		/* upto OFF_MAX + 2 offsets at one time */
+struct FRAME offset[NAXIS][OFF_MAX+2][2];
+struct FRAME *offset_queue_end[NAXIS][OFF_MAX+2]={
+   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}, 
+   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}, 
+   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+};
+int offset_idx[NAXIS][OFF_MAX+2]={
+			{0, 0, 0, 0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0, 0, 0, 0}
 };
 
 /*****************************************************************************/
@@ -454,17 +467,18 @@ start_frame(int axis,double time)
    }
    
    taskDelay(5);
-   if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
       TRACE(0, "start_frame: Failed to get semMEI: %s (%d)",
 	    strerror(errno), errno);
-   } else {
-      time = sdss_delta_time(time, sdss_get_time());
-#if 0
-      printf("time to dwell=%f\n",time);
-#endif
-      dsp_dwell(2*axis, time);
-      semGive(semMEI);
+      taskSuspend(NULL);
    }
+   
+   time = sdss_delta_time(time, sdss_get_time());
+#if 0
+   printf("time to dwell=%f\n",time);
+#endif
+   dsp_dwell(2*axis, time);
+   semGive(semMEI);
    
    printf("START axis=%d: time=%f\n", 2*axis, time);
 }
@@ -488,7 +502,7 @@ get_frame_cnt(int axis, struct FRAME *iframe)
    int cnt;
    
    fframe = iframe->nxt;
-   dt = fframe->end_time-iframe->end_time;
+   dt = fframe->end_time - iframe->end_time;
    cnt = (dt - time_off[axis])*FLTFRMHZ;
 #if 0
    printf("first cnt=%d,%f,%f\n",cnt,dt,(dt-time_off[axis])*FLTFRMHZ);
@@ -520,22 +534,33 @@ get_frame_cnt(int axis, struct FRAME *iframe)
 **=========================================================================
 */
 void
-load_frames(int axis, int cnt, int idx, double sf)
+load_frames(int axis,			/* which axis */
+	    int idx,			/* starting index in p[], a[] etc. */
+	    int cnt)			/* number of frames */
 {
    int e;
    int i;
    FRAME frame;
+   const double sf = ticks_per_degree[axis];
    
    if(FRAME_verbose) {
       printf("\nLoad %d Frames, sf=%f\n",cnt,sf);
    }
-   
-   for(i = idx; i < cnt + idx; i++) {
+
+   if(idx + cnt > MAX_CALC) {
+      TRACE(0, "Buffer overrun in load_frames: %d", idx + cnt, 0);
+      cnt = MAX_CALC - idx - 1;
+   }
+
+   for(i = idx; i < idx + cnt; i++) {
       if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
 	 max_acceleration_requested[axis] = a[axis][i];
       }
       
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
+	 a[axis][i] = (a[axis][i] > 0) ?
+			       max_acceleration[axis] : -max_acceleration[axis];
+
 	 printf("AXIS %d: MAX ACC %f exceeded by %f\n",
 		axis, a[axis][i], max_acceleration[axis]);
 	 {
@@ -553,23 +578,26 @@ load_frames(int axis, int cnt, int idx, double sf)
 		 axis,v[axis][i], max_velocity[axis]);
 	 TRACE(2, "Max vel. for %s exceeded: %ld",
 	       axis_name(axis), (long)v[axis][i]);
+	 v[axis][i] = (v[axis][i] > 0) ?
+				       max_velocity[axis] : -max_velocity[axis];
       }
       
-      if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
 	 TRACE(0, "load_frames: failed to get semMEI: %s (%d)",
 	       strerror(errno), errno);
-      } else {
-	 taskLock();
-	 e=frame_m_xvajt_corr(&frame,"0l xvajt un d", axis<<1,
-			      p[axis][i]*sf,
-			      v[axis][i]*sf,
-			      a[axis][i]*sf,
-			      ji[axis][i]*sf,
-			      tim[axis][i],
-			      FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,NEW_FRAME);
-	 taskUnlock();
-	 semGive (semMEI);
+	 taskSuspend(NULL);
       }
+      
+      taskLock();
+      e = frame_m_xvajt_corr(&frame,"0l xvajt un d", 2*axis,
+			     p[axis][i]*sf,
+			     v[axis][i]*sf,
+			     a[axis][i]*sf,
+			     ji[axis][i]*sf,
+			     tim[axis][i],
+			     NEW_FRAME);
+      taskUnlock();
+      semGive (semMEI);
       
       sdssdc.pvt[axis].position = (long)(p[axis][i]*sf);
       sdssdc.pvt[axis].velocity = (long)(v[axis][i]*sf);
@@ -597,21 +625,6 @@ load_frames(int axis, int cnt, int idx, double sf)
    }
 }
 
-void
-load_frames_test(int axis, int cnt, double sf)
-{
-   int i;
-   
-   printf("\r\n Load %d Frames, sf=%f",cnt,sf);
-   for(i = 0; i < cnt; i++) {
-      printf ("\r\n axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f",
-	      axis<<1,i,
-	      (double)p[axis][i]*sf,(double)v[axis][i]*sf,
-	      (double)a[axis][i]*sf,ji[axis][i]*sf,
-	      tim[axis][i]);
-   }
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -629,40 +642,40 @@ load_frames_test(int axis, int cnt, double sf)
 **
 **=========================================================================
 */
-void stop_frame(int axis,double pos,double sf)
+void
+stop_frame(int axis,
+	   double pos,
+	   double sf)
 {
-  int stopped;
-  int state;
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "stop_frame failed to take semMEI for %s: %s",
+	    axis_name(axis), strerror(errno));
+      taskSuspend(NULL);
+   }
+   set_stop(2*axis);
+   semGive(semMEI);
 
-  printf ("\r\nSTOP axis=%d: p=%12.8f",
-	axis<<1,(double)pos);
-  stopped=FALSE; state = 0;		/* get rid of warnings */
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-    set_stop(axis<<1);
-    stopped=motion_done(axis<<1);
-    state=axis_state(axis<<1);
-    semGive (semMEI);
-  }
-  while (!stopped)
-  {  
-    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-    {
-      stopped=motion_done(axis<<1);
-/*      state=axis_state(axis<<1);*/
-      semGive (semMEI);
-    }
-/*    printf("\r\nStopping");*/
-    taskDelay(3);
-  }
-  printf("\r\nStopped axis=%d, motion_done=%d, axis_state=%d",axis,stopped,state);
-  taskDelay(3);
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-    clear_status(axis<<1);
-    semGive (semMEI);
-  }
+   for(;;) {
+      while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "stop_frame failed to take semMEI for %s: %s",
+	       axis_name(axis), strerror(errno));
+	 taskSuspend(NULL);
+      }
+
+      if(!motion_done(2*axis)) {
+	 break;
+      }
+      
+      semGive(semMEI);
+
+      taskDelay(3);
+   }
+
+   clear_status(2*axis);
+   
+   semGive(semMEI);
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -680,56 +693,58 @@ void stop_frame(int axis,double pos,double sf)
 **
 **=========================================================================
 */
-void stp_frame(int axis,double pos,double sf)
+void
+stp_frame(int axis,
+	  double pos,
+	  double sf)
 {
-  int stopped;
-/*  int state;*/
-  int e;
-  FRAME frame;
-  double position;
-  double velocity;
+   double a;				/* desired acceleration */
+   int e;
+   FRAME frame;
+   int frame_type;			/* what sort of event is desired? */
+   double position;
+   double velocity;
 
-/*  printf ("\r\nSTP axis=%d: p=%12.8f,sf=%f",
-	axis<<1,(double)pos,sf);*/
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "stp_frame failed to take semMEI for %s: %s",
+	    axis_name(axis), strerror(errno));
+      taskSuspend(NULL);
+   }
+   
+   get_position_corr(2*axis, &position);
+   get_velocity(2*axis, &velocity);
 
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR) {
-     get_position_corr(2*axis, &position);
-    get_velocity(axis<<1,&velocity);
-    printf ("pos=%f, vel=%f\n", position, velocity);
-    if (velocity>0.0)
-      e=frame_m(&frame,"0l avj un d",axis<<1,
-	(double)(-.5*sf),(double)0.0,(double)0.0,
-	FUPD_ACCEL|FUPD_JERK|FTRG_VELOCITY,
-	NEW_FRAME|TRIGGER_NEGATIVE);
-    else
-      e=frame_m(&frame,"0l avj un d",axis<<1,
-	(double)(.5*sf),(double)0.0,(double)0.0,
-	FUPD_ACCEL|FUPD_JERK|FTRG_VELOCITY,
-	NEW_FRAME);
-    e=frame_m(&frame,"0l va u d",axis<<1,
-	(double)0.0,(double)0.0,
-	FUPD_ACCEL|FUPD_VELOCITY,0);
-      semGive (semMEI);
-  }
+   a = sf/2;
+   frame_type = NEW_FRAME;
+   if(velocity > 0.0) {
+      a = -a;
+      frame_type |= TRIGGER_NEGATIVE;
+   }
 
-  stopped=TRUE;	/* ...gets rid of warning */
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-    stopped=in_motion(axis<<1);
-    semGive (semMEI);
-  }
-  while (stopped)
-  {  
-    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-    {
-      stopped=in_motion(axis<<1);
-/*      state=axis_state(axis<<1);*/
-      semGive (semMEI);
-    }
-/*    printf("\r\nStopping,in_motion%d,status=%x",stopped,state);*/
-    taskDelay(3);
-  }
-/*  printf("\r\nStopped axis=%d, in_motion=%d",axis,stopped);*/
+   e = frame_m(&frame,"0l avj un d", 2*axis,
+	       a, (double)0.0, (double)0.0,
+	       FUPD_ACCEL | FUPD_JERK | FTRG_VELOCITY, frame_type);
+   e = frame_m(&frame,"0l va u d", 2*axis,
+	       (double)0.0, (double)0.0,
+	       FUPD_ACCEL | FUPD_VELOCITY,0);
+
+   semGive(semMEI);
+   
+   for(;;) {
+      while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "stp_frame failed to take semMEI for %s: %s",
+	       axis_name(axis), strerror(errno));
+	 taskSuspend(NULL);
+      }
+   
+      if(!in_motion(2*axis)) {
+	 semGive (semMEI);
+	 break;
+      }
+      semGive(semMEI);
+      
+      taskDelay(3);
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -748,29 +763,35 @@ void stp_frame(int axis,double pos,double sf)
 **
 **=========================================================================
 */
-void drift_frame(int axis,double vel,double sf)
+void
+drift_frame(int axis,
+	    double vel,
+	    double sf)
 {
-  int e;
-  FRAME frame;
-  
-  printf ("\r\nDRIFT axis=%d: v=%12.8f",
-	axis<<1,
-	(double)vel);
-/*  printf("\r\nDrift frames left=%d",tm_frames_to_execute(axis));*/
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-      e=frame_m(&frame,"0l vaj un d",axis<<1,
-	(double)vel,(double).2*sf,
-	(double)0.0,
-	FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY,NEW_FRAME);
-      e=frame_m(&frame,"0l va u d",axis<<1,
-	(double)vel,(double)0.0,
-	FUPD_ACCEL|FUPD_VELOCITY,0);
-      semGive (semMEI);
-  }
+   int e;
+   FRAME frame;
+   
+   TRACE(1, "drifting %s: v = %ld cts/sec", axis_name(axis), (long)vel);
+   printf ("DRIFT %s: v=%12.8f\n", axis_name(axis), (double)vel);
+   printf("Drift frames left=%d\n", tm_frames_to_execute(axis));
+   
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "drift_frame failed to take semMEI for %s: %s",
+	    axis_name(axis), strerror(errno));
+      taskSuspend(NULL);
+   }
+   
+   e = frame_m(&frame, "0l vaj un d", 2*axis,
+	       vel, 0.2*sf, (double)0.0,
+	       FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY, NEW_FRAME);
+   e = frame_m(&frame, "0l va u d", 2*axis,
+	       vel, (double)0.0,
+	       FUPD_ACCEL|FUPD_VELOCITY, 0);
+   
+   semGive (semMEI);
 }
+
 /*=========================================================================
-**=========================================================================
 **
 **	End frames sent to MEI since there are no new pvts.  This should
 **	bring the motion to a position with no velocity or acceleration.
@@ -784,11 +805,11 @@ end_frame(int axis, int index, double sf)
    int e;
    FRAME frame;
    
-   if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "end_frame: failed to get semMEI: %s (%d)",
-	    strerror(errno), errno);
-      return;
-   } 
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "end_frame failed to take semMEI for %s: %s",
+	    axis_name(axis), strerror(errno));
+      taskSuspend(NULL);
+   }
 
    e = frame_m_xvajt_corr(&frame, "0l xvajt un d", 2*axis,
 			  p[axis][index]*sf,
@@ -796,7 +817,8 @@ end_frame(int axis, int index, double sf)
 			  0.0,
 			  0.0,
 			  (1./FLTFRMHZ),
-			  FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
+			  0);
+
    dsp_set_last_command_corr(dspPtr, 2*axis, (double)p[axis][index]*sf);
    semGive(semMEI);
    
@@ -867,14 +889,12 @@ tm_TCC(int axis)
    struct FRAME *frmoff;
    int i;
    int frame_cnt, frame_idx;
+   int moving;				/* the axis is still moving */
    double position;
    double velocity;
-   long pos;
    int idx;
-   int status;
    
    tm_sem_controller_run(2*axis);
-   idx=0;
    printf("Axis=%s;  Ticks per degree=%f\n", aname, ticks_per_degree[axis]);
    
    for(;;) {
@@ -897,51 +917,54 @@ tm_TCC(int axis)
       frame=axis_queue[axis].active;
       drift_break[axis] = FALSE;
 /*
- * reposition if necessary
+ * reposition if necessary, and if we aren't already moving
  */
-      if(semTake(semMEI,WAIT_FOREVER) == ERROR) {
+      while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
 	 TRACE(0, "tm_TCC: failed to take semMEI: %s (%d)",
 	       strerror(errno), errno);
+	 taskSuspend(NULL);
       }
 
       get_position_corr(2*axis, &position);
-      get_velocity(2*axis,&velocity);
+      get_velocity(2*axis, &velocity);
       semGive(semMEI);
       
-      pos = (long)position;
       TRACE(8, "Check Params for repositioning %s", aname, 0);
 
-      if(abs((long)((frame->position*ticks_per_degree[axis]) - position)) >
-					 (long)(0.01*ticks_per_degree[axis]) &&
-							 fabs(velocity) == 0) {
+      if(fabs(velocity) < 1e-8 &&
+	 fabs(frame->position*ticks_per_degree[axis] - position) >
+						  0.01*ticks_per_degree[axis]) {
 	 while((lcnt = tm_frames_to_execute(axis)) > 1) {
 	    TRACE(8, "Frames left for %s: %d", aname, lcnt);
 	    taskDelay(1);
 	 }
-	 tm_start_move(2*axis,
-		       1*(double)ticks_per_degree[axis],
-		       0.05*(double)ticks_per_degree[axis],
-		       frame->position*(double)ticks_per_degree[axis]);
+	 tm_start_move(2*axis, frame->position*ticks_per_degree[axis],
+		       1*ticks_per_degree[axis], 0.05*ticks_per_degree[axis]);
 
 	 TRACE(3, "Repositioning %s by TCC vmd", aname, 0);
-	 TRACE(3, "    from pos=%lf to pos=%ld",
+	 TRACE(3, "    from pos=%ld to pos=%ld",
 	       (long)position, (long)(frame->position*ticks_per_degree[axis]))
 	 
-	 status=TRUE;
-	 while((abs((frame->position*ticks_per_degree[axis]) - position) >
-		(long)(0.01*ticks_per_degree[axis])) &&
-	       status == TRUE) {
-	    taskDelay (10);
-	    if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+	 while((fabs(frame->position*ticks_per_degree[axis] - position) >
+						 0.01*ticks_per_degree[axis])) {
+	    taskDelay(10);
+
+	    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
 	       TRACE(0, "tm_TCC: failed to retake semMEI: %s (%d)",
 		     strerror(errno), errno);
-	    } else {
-	       status = in_motion(2*axis);
-	       get_position_corr(2*axis, &position);
-	       semGive(semMEI);
-	       pos = (long)position;
+	       taskSuspend(NULL);
 	    }
-	    TRACE(8, "repositioning to %ld, status=%d", (long)pos, status);
+	    
+	    moving = in_motion(2*axis);
+	    get_position_corr(2*axis, &position);
+	    
+	    semGive(semMEI);
+
+	    if(!moving) {	/* not in motion */
+	       break;
+	    }
+
+	    TRACE(8, "repositioning to %ld", (long)position, 0);
 	 }
 	 TRACE(3, "Done repositioning %s to %ld", aname, (long)position);
       } else {
@@ -959,171 +982,180 @@ tm_TCC(int axis)
 	 TRACE(0, "%s frame deleted due to expiration time", aname, 0);
       }
       
-      if(frame != NULL) {
-	 start_frame(axis, frame->end_time);
-	 while(frame->nxt == NULL &&
-	       sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
-	    TRACE(8, "%s waiting for second frame", aname, 0);
-	    taskDelay (3);
+      if(frame == NULL) {
+	 TRACE(3, "%s restart no frames to process", aname, 0);
+	 continue;
+      }
+      
+      start_frame(axis, frame->end_time);
+      while(frame->nxt == NULL &&
+	    sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
+	 TRACE(8, "%s waiting for second frame", aname, 0);
+	 taskDelay (3);
+      }
+
+      while(frame->nxt != NULL ||
+	    (axis_queue[axis].active != NULL &&
+				   !frame_break[axis] && !drift_break[axis])) {
+
+	 if(frame == NULL) {
+	    TRACE(0, "%s frame == NULL", axis_name(axis), 0);
+	    traceMode(0);
+	    taskSuspend(0);
 	 }
-#if 0					/* Charlie's version */
-	 while ( (frame->nxt!=NULL) || (axis_queue[axis].active!=NULL) &&
-		((!frame_break)&&(!drift_break)) ) ;
-#else  /* re-written for clarity */
-	 while(frame->nxt != NULL ||
-	       (axis_queue[axis].active != NULL &&
-				    !frame_break[axis] && !drift_break[axis])) {
 
-#endif
-	    frame_cnt = get_frame_cnt(axis,frame);
+	 frame_cnt = get_frame_cnt(axis, frame);
+	 
+	 TRACE(8, "%s frame_cnt=%d", aname, frame_cnt);
+	 frame_idx = 0;
+	 while(frame_cnt > 0) {
+	    TRACE(8, "%s loop: frame_cnt=%d", aname, frame_cnt);
 
-	    TRACE(8, "%s frames_cnt=%d", aname, frame_cnt);
-	    frame_idx = 0;
-	    while(frame_cnt > 0) {
-	       while((cnt = calc_frames(axis,frame,frame_idx)) == ERROR &&
-		     (lcnt = tm_frames_to_execute(axis)) > 4) {
-		  taskDelay(1);
-	       }
-	       
-	       if(cnt == ERROR) {
-		  frame_break[axis] = TRUE;
-		  printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
-			 frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
-	       } else {			/* OFFSET */
-		  for(i = 0; i < OFF_MAX; i++) {
-		     clroffset(axis,cnt);
-		     if(offset_queue_end[axis][i] != NULL) {
-			cntoff = calc_offset(axis, &offset[axis][i][0],
-					     offset_idx[axis][i], cnt);
-			offset_idx[axis][i] += cnt;
-			
-			if(offset_idx[axis][i]/20.0 >
-			   offset[axis][i][1].end_time) {
-			   TRACE(8, "%s shutdown offset", aname, 0);
-			   frmoff=frame;
-			   taskLock();
-			   while(frmoff != offset_queue_end[axis][i]) {
-			      frmoff->position += offset[axis][i][1].position;
-			      frmoff->velocity += offset[axis][i][1].velocity;
-			      frmoff = frmoff->nxt;
-#if 0
-			      printf("offset end=%p, pos=%f,idx=%d\n",
-				     frmoff, frmoff->position,
-				     offset_idx[axis][i]);
-#endif
-			   }
-			   
-			   frmoff->position += offset[axis][i][1].position;
-			   frmoff->velocity += offset[axis][i][1].velocity;
-#if 0
-			   printf("offset end=%p, pos=%f,idx=%d\n",
-				  frmoff, frmoff->position,
-				  offset_idx[axis][i]);
-#endif
-			   offset_queue_end[axis][i] = NULL;
-			   taskUnlock();
-			}
-		     }
-		     addoffset(axis,cnt);
-		  }
-		  frame_idx += cnt;
-		  frame_cnt -= cnt;
-	       }
-	       
-	       if(drift_break[axis] || frame_break[axis]) {
-		  if(frame_break[axis]) {
-		     TRACE(8, "%s frame_break", aname, 0);
-		  } else {
-		     TRACE(8, "%s drift_break", aname, 0);
-		  }
-		  
-		  axis_queue[axis].active=NULL;
-		  frame_cnt=0;
-		  break;
-	       }
-	       
-	       idx = 0;
-	       while(cnt > 0) {
-		  if(frame_break[axis]) {
-		  TRACE(8, "%s frame_break 2", aname, 0);
-		     axis_queue[axis].active=NULL;
-		     frame_cnt=0;
-		     cnt=0;
-		     break;
-		  }
-		  
-		  if(drift_break[axis]) {
-		     TRACE(8, "%s drift_break 2", aname, 0);
-		     axis_queue[axis].active=NULL;
-		     frame_cnt=0;
-		     cnt=0;
-		     break;
-		  }
-		  
-		  if(cnt > 0) {
-		     load_frames(axis, min(cnt,5), idx,
-				 (double)ticks_per_degree[axis]);
-		     
-		     if(idx == 15 && cnt == 5) {
-			TRACE(1, "Mystery message: p=%f", p[axis][19], 0);
-		     }
-		     
-		     while((lcnt = tm_frames_to_execute(axis)) > 10) {
-			taskDelay(3);
-		     }
-		     
-		     idx += 5;
-		     cnt -= 5;
-		  }
-	       }
+	    while((cnt = calc_frames(axis, frame, frame_idx)) == ERROR &&
+		  tm_frames_to_execute(axis) > 4) {
+	       taskDelay(1);
 	    }
-	    
-	    if(axis_queue[axis].active == NULL) {
-	       frame=axis_queue[axis].end;
+	       
+	    if(cnt == ERROR) {
+	       frame_break[axis] = TRUE;
+	       TRACE(1, "No frames; setting frame_break for %s",
+		     axis_name(axis), 0);
+	       printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
+		      frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
+	       
+	       axis_queue[axis].active = NULL;
+	       frame_cnt = 0;
 	       break;
 	    }
 	    
-	    frame = frame->nxt;
-	    axis_queue[axis].active = frame;
-	    while(frame->nxt == NULL &&
-		  sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
-	       taskDelay (1);
+	    for(i = 0; i < OFF_MAX; i++) {
+	       TRACE(8, "%s offset queue i=%d", aname, i);
+	       clroffset(axis,cnt);
+	       
+	       if(offset_queue_end[axis][i] != NULL) {
+		  cntoff = calc_offset(axis, &offset[axis][i][0],
+				       offset_idx[axis][i], cnt);
+		  offset_idx[axis][i] += cnt;
+		  
+		  if(offset_idx[axis][i]/20.0 > offset[axis][i][1].end_time) {
+		     TRACE(8, "%s shutdown offset", aname, 0);
+		     frmoff = frame;
+		     
+		     taskLock();
+		     while(frmoff != offset_queue_end[axis][i]) {
+			frmoff->position += offset[axis][i][1].position;
+			frmoff->velocity += offset[axis][i][1].velocity;
+			frmoff = frmoff->nxt;
+#if 0
+			printf("offset end=%p, pos=%f,idx=%d\n",
+			       frmoff, frmoff->position,
+			       offset_idx[axis][i]);
+#endif
+		     }
+		     
+		     frmoff->position += offset[axis][i][1].position;
+		     frmoff->velocity += offset[axis][i][1].velocity;
+#if 0
+		     printf("offset end=%p, pos=%f,idx=%d\n",
+			    frmoff, frmoff->position, offset_idx[axis][i]);
+#endif
+		     offset_queue_end[axis][i] = NULL;
+		     taskUnlock();
+		  }
+	       }
+	       
+	       addoffset(axis, cnt);
+	    }
+	    frame_idx += cnt;
+	    frame_cnt -= cnt;
+	    
+	    if(drift_break[axis] || frame_break[axis]) {
+	       TRACE(8, "%s %s_break", aname, 
+		     (frame_break[axis] ? "frame" : "drift"));
+	       
+	       axis_queue[axis].active = NULL;
+	       frame_cnt = 0;
+	       break;
 	    }
 	    
-	    while(frame->nxt == NULL &&
-		  (lcnt = tm_frames_to_execute(axis)) > 1) {
-	       taskDelay(1);
+	    idx = 0;
+	    while(cnt > 0) {
+	       if(drift_break[axis] || frame_break[axis]) {
+		  TRACE(8, "%s %s_break 2", aname, 
+			(frame_break[axis] ? "frame" : "drift"));
+		  
+		  axis_queue[axis].active = NULL;
+		  frame_cnt = 0;
+		  cnt = 0;
+		  break;
+	       }
+	       
+	       TRACE(8, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
+	       load_frames(axis, idx, min(cnt, 5));
+	       
+	       if(idx == MAX_CALC - 5 && cnt == 5) {
+		  TRACE(1, "Last frame in buffer: p=%f",
+			p[axis][MAX_CALC - 1], 0);
+	       }
+	       
+	       while(tm_frames_to_execute(axis) > 10) {
+		  taskDelay(3);
+	       }
+	       
+	       idx += 5;
+	       cnt -= 5;
 	    }
 	 }
 	 
-	 lcnt = tm_frames_to_execute(axis);
-	 TRACE(3, "%s ran out: frames left=%d\n", aname, lcnt);
+	 if(axis_queue[axis].active == NULL) {
+	    frame = axis_queue[axis].end;
+	    break;
+	 }
 	 
-	 taskLock();
-	 axis_queue[axis].active = NULL;
-	 frame = axis_queue[axis].end;
-	 for(i = 0; i < OFF_MAX; i++) {
-	    offset_idx[axis][i]=0;
-	    offset_queue_end[axis][i]=NULL;
+	 frame = frame->nxt;
+	 axis_queue[axis].active = frame;
+	 while(frame->nxt == NULL &&
+	       sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
+	    taskDelay (1);
 	 }
-	 taskUnlock();
 	 
-	 if(idx <= 0) {
-	    idx = 1;
+	 while(frame->nxt == NULL && tm_frames_to_execute(axis) > 1) {
+	    taskDelay(1);
 	 }
-
-	 if(frame_break[axis]) {
-	    stp_frame(axis, stop_position[axis],
-		      (double)ticks_per_degree[axis]);
-	    frame_break[axis] = FALSE;
-	 } else if(drift_break[axis]) {
-	    drift_frame(axis, drift_velocity[axis],
-			(double)ticks_per_degree[axis]);
-	 } else {
-	    end_frame(axis, idx - 1, (double)ticks_per_degree[axis]);
-	 }
+      }
+      
+      lcnt = tm_frames_to_execute(axis);
+      if(frame_break[axis]) {
+	 TRACE(3, "%s frame_break: frames left=%d", aname, lcnt);
+      } else if(drift_break[axis]) {	
+	 TRACE(3, "%s drift_break: frames left=%d", aname, lcnt);
+      } else if(frame->nxt == NULL) {
+	 TRACE(3, "%s no next frame: frames left=%d", aname, lcnt);
       } else {
-	 TRACE(3, "%s restart no frames to process", aname, 0);
+	 TRACE(3, "%s no active frame: frames left=%d", aname, lcnt);
+      }
+      
+      
+      taskLock();
+      axis_queue[axis].active = NULL;
+      frame = axis_queue[axis].end;
+      for(i = 0; i < OFF_MAX; i++) {
+	 offset_idx[axis][i]=0;
+	 offset_queue_end[axis][i]=NULL;
+      }
+      taskUnlock();
+      
+      if(idx <= 0) {
+	 idx = 1;
+      }
+      
+      if(frame_break[axis]) {
+	 stp_frame(axis, stop_position[axis], (double)ticks_per_degree[axis]);
+	 frame_break[axis] = FALSE;
+      } else if(drift_break[axis]) {
+	 drift_frame(axis, drift_velocity[axis],(double)ticks_per_degree[axis]);
+      } else {
+	 end_frame(axis, idx - 1, (double)ticks_per_degree[axis]);
       }
    }
 }
@@ -1150,6 +1182,22 @@ tm_TCC(int axis)
 **
 **=========================================================================
 */
+void
+load_frames_test(int axis, int cnt)
+{
+   int i;
+   const double sf = ticks_per_degree[axis];
+   
+   printf("Load %d Frames, sf=%f\n",cnt,sf);
+   for(i = 0; i < cnt; i++) {
+      printf ("axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f\n",
+	      axis<<1,i,
+	      (double)p[axis][i]*sf,(double)v[axis][i]*sf,
+	      (double)a[axis][i]*sf,ji[axis][i]*sf,
+	      tim[axis][i]);
+   }
+}
+
 void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 {
   int cnt;
@@ -1174,7 +1222,7 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
           frame_idx += cnt;
           printf ("\r\n cnt=%d, i=%d",cnt,i);
 	  if (cnt>0)
-            load_frames_test(axis,cnt,(double)ticks_per_degree[axis]);
+            load_frames_test(axis,cnt);
         }
 	frame_break[axis]=FALSE;
         frame = frame->nxt;
@@ -1212,9 +1260,9 @@ print_axis_queue(int axis)
    struct FRAME *frame;
    struct FRAME_QUEUE *queue;
    
-   printf("List Axis Queue=%d: %p\n",axis,&axis_queue[axis]);
+   printf("List Axis Queue=%s: %p\n", axis_name(axis), &axis_queue[axis]);
    queue = &axis_queue[axis];
-   for(frame = (struct FRAME *)queue->top; frame != NULL; frame = frame->nxt) {
+   for(frame = queue->top; frame != NULL; frame = frame->nxt) {
       if(frame == queue->top) printf("TOP, cnt=%d\n", queue->cnt);
       if(frame == queue->active) printf("ACTIVE\n");
       if(frame == queue->end) printf ("END\n");
@@ -1225,9 +1273,9 @@ print_axis_queue(int axis)
       if(frame->nxt != NULL) {
 	 printf ("      "
 		 "deltas position=%12.8f, velocity=%12.8f, end_time=%12.8f\n",
-		 frame->nxt->position-frame->position,
-		 frame->nxt->velocity-frame->velocity,
-		 frame->nxt->end_time-frame->end_time);
+		 frame->nxt->position - frame->position,
+		 frame->nxt->velocity - frame->velocity,
+		 frame->nxt->end_time - frame->end_time);
       }
    }
 }
@@ -1408,14 +1456,14 @@ mcp_move(int axis,			/* the axis to move */
       return(0);
     case 1:
       position = params[0];
+      velocity = (double)0.10;
 
       tm_get_position(2*axis,&pos);
-      velocity = (double)0.10;
+
       frame->end_time =
-	fmod((double)(sdss_get_time() +
-		      abs((pos/ticks_per_degree[axis] -
-			   position)/velocity)), (double)86400.0);
-      velocity=0.0;
+	sdss_get_time() + abs((pos/ticks_per_degree[axis] - position)/velocity);
+      frame->end_time = fmod(frame->end_time, ONE_DAY);
+
       break;
     case 2:
       position = params[0];
@@ -1423,9 +1471,9 @@ mcp_move(int axis,			/* the axis to move */
 
       tm_get_position(2*axis,&pos);
       frame->end_time =
-	fmod((double)(sdss_get_time() +
-		      abs((pos/ticks_per_degree[axis] -
-			   position)/velocity)), (double)86400.0);
+	sdss_get_time() + abs((pos/ticks_per_degree[axis] - position)/velocity);
+      frame->end_time = fmod(frame->end_time, ONE_DAY);
+
       break;
     case 3:
       position = params[0];
@@ -1434,10 +1482,11 @@ mcp_move(int axis,			/* the axis to move */
 
       if(sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
 	 if(frame != NULL) free(frame);
-	 printf("MOVE CMD: bad time=%f real time=%f\n",
-		frame->end_time, sdss_get_time());
-	 TRACE(0, "MOVE CMD: bad time=%f", frame->end_time, 0);
-	 TRACE(0, "          real time=%f", sdss_get_time(), 0);
+	 printf("MOVE CMD: %s bad time=%f real time=%f\n",
+		axis_name(axis), frame->end_time, sdss_get_time());
+	 TRACE(0, "MOVE CMD: requested time=%f", frame->end_time, 0);
+	 TRACE(0, "            current time=%f", sdss_get_time(), 0);
+	 traceMode(0);			/* XXX */
 	 return(-1);
       }
       
@@ -1454,7 +1503,7 @@ mcp_move(int axis,			/* the axis to move */
  * in practice, shifted around sample frequency (.05) for better
  * err transition
  */
-	 dt -=.043;	/* modify time to reduce error during transition */
+	 dt -= 0.043;	/* modify time to reduce error during transition */
 	 pos = (pos + drift_velocity[axis]*dt)/ticks_per_degree[axis];
 	 if(DRIFT_verbose) {
 	    printf("DRIFT modified pvt %f %f %f, difference=%f, dt=%f\n",
@@ -1487,9 +1536,10 @@ mcp_move(int axis,			/* the axis to move */
      (long)(frame->velocity*ticks_per_degree[axis]);
    sdssdc.tccmove[axis].time=(long)(frame->end_time*1000);
 
-#if 1					/* XXX */
-   printf("%s MOVE %f %f %f\n", axis_name(axis),
-	  frame->position, frame->velocity, frame->end_time);
+#if 0					/* XXX */
+   printf("%s MOVE %f %f %f  %10.4f\n", axis_name(axis),
+	  frame->position, frame->velocity, frame->end_time,
+	  frame->end_time - sdss_get_time());
 #endif
 /*
  * queues are initialized with one dummy entry by axisMotionInit
