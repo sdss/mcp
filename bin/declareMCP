@@ -1,0 +1,80 @@
+#!/bin/sh
+#
+current=""; MCP_DIR=""; flavor=""
+
+while [ X"$1" != X"" ]; do
+	case "$1" in
+	  -h|-\?)
+		cat <<EOF>&2
+Usage:
+	declareMCP [options] -f fl vX_X
+Declare the MCP to ups, flavour <fl> and version is <vx_x>
+
+Options:
+	-h		Print this message
+	-?		Print this message
+	-c		Make MCP current
+	-f flavour	Desired flavour (e.g. IRIX+6)
+	-r root_dir	Root directory. If none is specified, one
+			will be guessed based on the flavour and version.
+
+EOF
+	exit 0;;
+	  -c)
+		current=-c;;
+	  -f)
+		if [ X"$2" = X"" ]; then
+			echo "Please provide a flavour with -f" >&2
+			exit 1
+		fi
+		flavor=$2
+		shift;;
+	  -r)
+		if [ X"$2" = X"" ]; then
+			echo "Please provide a directory with -r" >&2
+			exit 1
+		fi
+		MCP_DIR=$2
+		shift;;
+	  -*)
+		echo "Unknown option $1" >&2
+		exit 1;;
+	  *)
+		break;;
+	esac
+	shift
+done
+
+version=$1;
+if [ X$1 != X ]; then shift; fi
+#
+# Check arguments
+#
+if [ "$flavor" = "" ]; then
+	echo "You must specify a flavour using -f" >&2
+	exit 1
+fi
+
+if [ X"$version" = X"" ]; then
+	echo Please specify a version to declare >&2
+	exit 1
+fi
+
+if [ "$MCP_DIR" = "" ]; then
+	for guess in /p/mcp/$version /p/$flavor/mcp/$version; do
+		if [ -d $guess ]; then
+			MCP_DIR=$guess
+			break
+		fi
+	done
+
+	if [ "$MCP_DIR" = "" ]; then
+		echo "I cannot guess where you want to install; please specify a directory using -r" >&2
+		exit 1
+	fi
+
+	echo Declaring version in $MCP_DIR
+fi
+
+ups declare $current -f $flavor -m mcp.table -r $MCP_DIR mcp $version
+

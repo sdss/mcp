@@ -17,6 +17,7 @@ ab/std_dhp.c -text
 ab/std_dhp.h -text
 ab/vmeinst.c -text
 bin/Makefile -text
+bin/declareMCP -text
 bin/fix-make_make -text
 bin/sdssmake -text
 bin/showMCP -text
