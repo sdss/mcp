@@ -370,8 +370,6 @@ s_slaCldj ( int iy, int im, int id, double *djm, int *j )
 /* Month lengths in days */
    int mtab[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
-
-
 /* Validate year */
    if ( iy < -4699 ) { *j = 1; return; }
 
@@ -408,17 +406,35 @@ get_mjd(void)
    double ldj;
    time_t t;
    struct tm Time;
+/*
+ * I should not have to do this.  I suspect that the Time struct isn't
+ * being put on the stack, and thus that its values change behind my back
+ *
+ * Certainly the value of ldj returned from s_slaCldj was occasionally
+ * changed before being used, and the only way that I can see that
+ * happening is if the Time struct was being modified.
+ */
+   int tm_year; int tm_mon; int tm_mday;
+   int tm_hour; int tm_min; int tm_sec;
 
+#define LOCK 1
+#if LOCK
+   taskLock();
+#endif
    (void)time(&t);
    (void)gmtime_r(&t, &Time);
 
-   s_slaCldj(Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday,
-	   &ldj, &status);
+   tm_year = Time.tm_year; tm_mon = Time.tm_mon; tm_mday = Time.tm_mday;
+   tm_hour = Time.tm_hour; tm_min = Time.tm_min; tm_sec = Time.tm_sec;
+#if LOCK
+   taskUnlock();
+#endif
+
+   s_slaCldj(tm_year + 1900, tm_mon + 1, tm_mday, &ldj, &status);
 
    if(status) {
       static char buff[100];
-      sprintf(buff, "%d %d %d",
-	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday);
+      sprintf(buff, "%d %d %d", tm_year + 1900, tm_mon + 1, tm_mday);
       TRACE(2, "MJD: %d (%s)", status, buff);
    
       return(-1);
@@ -426,13 +442,14 @@ get_mjd(void)
 #if 1
       static char buff[100];
       sprintf(buff, "%d %d %d %d:%d:%d",
-	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday,
-	      Time.tm_hour, Time.tm_min, Time.tm_sec);
+	      tm_year + 1900, tm_mon + 1, tm_mday, tm_hour, tm_min, tm_sec);
 #endif
-      ldj += (Time.tm_hour + (Time.tm_min + Time.tm_sec/60.0)/60.0)/24.0;
+      ldj += (tm_hour + (tm_min + tm_sec/60.0)/60.0)/24.0;
       ldj += 0.3;
 
+#if 1
       TRACE(3, "MJD: %s  LDJ %d", buff, (int)ldj);
+#endif
 	      
       return((int)ldj);
    }
