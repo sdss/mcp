@@ -40,6 +40,7 @@
 **
 ** LOCAL DEFINITIONS
 */
+static const char *rebootedMsg = NULL;	/* the message to send until iacked */
 static SEM_ID semCMD = NULL;
 
 /*-------------------------------------------------------------------------
@@ -66,8 +67,10 @@ iack_cmd(char *cmd)			/* NOTUSED */
  * Set up the command interpreter
  */
 int
-cmdInit(void)
+cmdInit(const char *rebootStr)		/* the command to use until iacked */
 {
+   rebootedMsg = rebootStr;
+
    if(semCMD == NULL) {
       semCMD = semMCreate (SEM_Q_FIFO);
    }
@@ -140,8 +143,6 @@ define_cmd(char *name,			/* name of command */
 ** RETURN VALUES:
 **      char *	answer to be sent by driver making function invocation.
 */
-char *rebootedMsg = NULL;		/* the message to send until iacked */
-
 char *
 cmd_handler(int have_sem,		/* we have semCmdPort */
 	    char *cmd)			/* command to execute */
@@ -167,7 +168,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    }
 
    semTake(semCMD, WAIT_FOREVER);
-   ans = "no reply";			/* ans is returned from function */
+   ans = NULL;				/* ans is returned from function */
 
    nskip = varargs = 0;
    while((tok = strtok(cmd_str, " \t")) != NULL) {

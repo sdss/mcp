@@ -157,7 +157,7 @@ ld < mcp-new/mcpnew.out
 #
 # Initialise message queues and semaphores
 #
-cmdInit; rebootedMsg = "The MCP has rebooted"
+cmdInit "The MCP has rebooted"
 axisMotionInit
 tMoveCWInit 0xFFFF4000, 0xC0
 tLatchInit
