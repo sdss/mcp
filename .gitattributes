@@ -113,6 +113,7 @@ mcp-new/mcpTimers.h -text
 mcp-new/mcpUtils.h -text
 mcp-new/ms.h -text
 mcp-new/mv162.h -text
+mcp-new/pvt.c -text
 mcp-new/serial.c -text
 mcp-new/serial.h -text
 mcp-new/spectro.c -text
