@@ -28,30 +28,30 @@ ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o
 .c.o:
 	$(CC) -DVXWORKS -D CPU=$(CPU) $(CFLAGS) $(INCLUDES) -c $*.c
 
-all : dio316.out dac128v.out adc128f1.out
+all : dio316.out dac128v.out adc128f1.out did48.out
 
-dio316.out : $(OBJS)
-	$(LINK) $(LFLAGS) -o dio316.out \
-		dio316dc.o  dio316ie.o  dio316ri.o  dio316rr.o  dio316wr.o \
-		dio316ic.o  dio316oc.o  dio316rp.o  dio316wp.o \
-	>dio316.map
+DIO316_OBJS = dio316dc.o dio316ie.o dio316ri.o dio316rr.o dio316wr.o \
+		dio316ic.o dio316oc.o dio316rp.o dio316wp.o
+dio316.out : $(DIO316_OBJS)
+	$(LINK) $(LFLAGS) -o dio316.out $(DIO316_OBJS) > dio316.map
 
-dac128v.out : $(OBJS)
-	$(LINK) $(LFLAGS) -o dac128v.out \
-		da128vri.o  da128vsv.o da128vrr.o  da128vwr.o da128vrs.o \
-	>dac128v.map
+DAC128V_OBJS = da128vri.o  da128vsv.o da128vrr.o  da128vwr.o da128vrs.o
+dac128v.out : $(DAC128V_OBJS)
+	$(LINK) $(LFLAGS) -o dac128v.out $(DAC128V_OBJS) > dac128v.map
 
-adc128f1.out : $(OBJS)
-	$(LINK) $(LFLAGS) -o adc128f1.out \
-		ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o \
-	>adc128f1.map
+ADC128F1_OBJS = ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o
+adc128f1.out : $(ADC128F1_OBJS)
+	$(LINK) $(LFLAGS) -o adc128f1.out $(ADC128F1_OBJS) > adc128f1.map
+
+DID48_OBJS = did48ic.o did48ie.o did48ri.o did48rp.o did48rr.o \
+	                did48wp.o did48wr.o
+did48.out : $(DID48_OBJS)
+	$(LINK) $(LFLAGS) -o did48.out $(DID48_OBJS) > did48.map
 
 install : all
 	cp Makefile *.[cho] *.out $(MCP_DIR)/ip/systran
 
 #
-# Don't delete did48.out, we cannot (yet) recreate it
-#
 clean :
-	/bin/rm -f *.o *~ *.map dio316.out dac128v.out adc128f1.out
+	/bin/rm -f *.o *~ *.map *.out
 
