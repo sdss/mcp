@@ -270,13 +270,14 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    if(bad_pvt) {
       int ii;
       
+      TRACE(3, "Bad PVT: time_off = %g", time_off[axis], 0);
       TRACE(3, "Bad PVT: dt = %g", dt, 0);
       TRACE(3, "Bad PVT: dx = %g", dx, 0);
       TRACE(3, "Bad PVT: dv = %g", dv, 0);
       TRACE(3, "Bad PVT: ai = %g", ai, 0);
       TRACE(3, "Bad PVT: j = %g", j, 0);
       
-      for(ii = 0; ii <= i; ii++) {
+      for(ii = 0; ii < i; ii++) {
 	 TRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
 	 TRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
 	 {
@@ -1630,42 +1631,23 @@ mcp_move(int axis,			/* the axis to move */
 
       if(frame != NULL) free(frame);
       
-      taskDelay(5);			/* give frame_break a chance to work */
-
-      if((axis == AZIMUTH || axis_queue[AZIMUTH].active == NULL) &&
-	 (axis == ALTITUDE || axis_queue[ALTITUDE].active == NULL) &&
-	 (axis == INSTRUMENT || axis_queue[INSTRUMENT].active == NULL)) {
-	 (void)give_semCmdPort(0);
-	 TRACE(3, "%s MOVE: gave up semaphore", axis_name(axis), 0);
-      } else {
-	 char buff[50];
-	 sprintf(buff, "AzAltRot: %d %d %d",
-		 (axis_queue[AZIMUTH].active != NULL),
-		 (axis_queue[ALTITUDE].active != NULL),
-		 (axis_queue[INSTRUMENT].active != NULL));
-	 TRACE(3, "%s MOVE: didn't give up semaphore: %s",
-							axis_name(axis), buff);
-      }
+      tcc_may_release_semCmdPort = 1;
 
       return(0);
     case 1:
       position = params[0];
-      velocity = (double)0.10;
+      mcp_move_va(axis, position*ticks_per_degree[axis],
+		  0.9*max_velocity[axis]*ticks_per_degree[axis],
+		  0.9*max_acceleration[axis]*ticks_per_degree[axis]);
 
-      tm_get_position(2*axis,&pos);
-
-      frame->end_time =
-	sdss_get_time() + abs((pos/ticks_per_degree[axis] - position)/velocity);
-      frame->end_time = fmod(frame->end_time, ONE_DAY);
-
-      break;
+      return(0);
     case 2:
       position = params[0];
       velocity = params[1];
 
       tm_get_position(2*axis,&pos);
       frame->end_time =
-	sdss_get_time() + abs((pos/ticks_per_degree[axis] - position)/velocity);
+	sdss_get_time()+ abs((pos/ticks_per_degree[axis] - position)/velocity);
       frame->end_time = fmod(frame->end_time, ONE_DAY);
 
       break;
@@ -1829,38 +1811,14 @@ mcp_plus_move(int axis,			/* the axis to move */
    switch (nparam) {
     case -1:
     case 0:
-      break;		/* NULL offset - does nothing */
+      break;				/* NULL offset - does nothing */
     case 1:
-      position = params[0];
-
-      if(position == 0.0) break;
-      
-      offset[axis][i][0].nxt = &offset[axis][i][1];
-      offset[axis][i][0].position = 0;
-      offset[axis][i][1].position = position;
-      offset[axis][i][0].velocity = 0;
-      offset[axis][i][1].velocity = 0;
-      offset[axis][i][0].end_time = 0;
-/*
- * short offsets are give some extra time for smooth ramp.  long offsets
- * are spread over a time period averaging .4 degs per second
- */
-      if(position < 0.15) {
-	 offset[axis][i][1].end_time = (double)0.75;
-      } else {
-	 offset[axis][i][1].end_time =
-				       (double)((int)((position/0.15)*20))/20.;
-      }
-
-      offset_idx[axis][i] = 0;
-      offset_queue_end[axis][i] = queue->end;
-      
-      break;
-    case 2:
+      params[1] = 0;			/* velocity */
+    case 2:				/* FALL THROUGH */
       position = params[0];
       velocity = params[1];
 
-      if(position == 0.0 && velocity == 0.0) break;
+      if(position == 0.0 && (nparam == 2 && velocity == 0.0)) break;
       
       offset[axis][i][0].nxt = &offset[axis][i][1];
       offset[axis][i][0].position = 0;
@@ -1868,12 +1826,14 @@ mcp_plus_move(int axis,			/* the axis to move */
       offset[axis][i][0].velocity = 0;
       offset[axis][i][1].velocity = velocity;
       offset[axis][i][0].end_time = 0;
-      
-      if(position < 0.15) {
-	 offset[axis][i][1].end_time=(double).75;
-      } else {			/* average .4 degree per second */
-	 offset[axis][i][1].end_time =
-	   (double)((int)((position/.15)*20))/20.;
+/*
+ * short offsets are give some extra time for smooth ramp.  long offsets
+ * are spread over a time period averaging 0.8 degs per second
+ */
+      if(fabs(position) < 0.3) {
+	 offset[axis][i][1].end_time = 0.75;
+      } else {
+	 offset[axis][i][1].end_time = ((int)(fabs(position/0.3)*20))/20.;
       }
       
       offset_idx[axis][i] = 0;
