@@ -26,6 +26,7 @@
 #include "sigLib.h"
 #include "tickLib.h"
 #include "taskLib.h"
+#include "string.h"
 #include "inetLib.h"
 #include "in.h"
 #include "timers.h"
@@ -304,7 +305,7 @@ void tm_set_sample_rate (unsigned short rate)
 	printf("\r\n Sample Rate=%d",(unsigned short)dsp_sample_rate());
 	semGive(semMEI);
 }
-void tm_reset_integrator (unsigned short axis)
+void tm_reset_integrator (int axis)
 {
 	extern SEM_ID semMEI;
 
@@ -1064,7 +1065,7 @@ void tm_get_fiducial(int axis)
 	    arcm=((long)(arcsec)-(arcd*3600))/60;	     
 	    arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
 	    marcs = (arcsec-(long)arcsec)*1000;
-	    printf ("\r\n Fiducial Position = ",i);
+	    printf ("\r\n Fiducial Position = ");
 	    if (fiducial_position[i]<0)
 	      printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
 	    else

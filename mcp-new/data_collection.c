@@ -18,6 +18,7 @@
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"
+#include "string.h"
 #include "intLib.h"
 #include "iv.h"
 #include "memLib.h"
@@ -32,6 +33,7 @@
 #include "symbol.h"
 #include "semLib.h"
 #include "ioLib.h"
+#include "tickLib.h"
 #include "stdio.h"
 #include "idsp.h"
 #include "time.h"
@@ -40,6 +42,7 @@
 #define SHARE_MEMORY	0x02800000
  
 SEM_ID semMEIDC=NULL;
+SEM_ID semMEIUPD=NULL;
 SEM_ID semSLCDC=NULL;
 int meidc_enable=FALSE;
 int rawtick=0;
@@ -193,6 +196,7 @@ void mei_data_collection(unsigned long freq)
 		put whatever type of motion you want to sample here.
 	**  ****************************************************  */
   	if (semMEIDC==NULL) semMEIDC = semBCreate (0,SEM_Q_FIFO);
+  	if (semMEIUPD==NULL) semMEIUPD = semMCreate (SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
         restore_pos();
 	mei_freq=freq;
 	axis0pos=&tmaxis[0]->actual_position;
@@ -236,8 +240,10 @@ void mei_data_collection(unsigned long freq)
 	{
   	 if (semTake (semMEIDC,WAIT_FOREVER)!=ERROR)
   	 {
-  	  if (semTake (semMEI,NO_WAIT)!=ERROR)
+  	  if (semTake (semMEIUPD,60)!=ERROR)
           {
+  	   if (semTake (semMEI,NO_WAIT)!=ERROR)
+           {
 	    timer_start (2);
 	    sdss_time_dc=sdss_get_time();
 /*          meitime = dsp_read_dm(0x11E);*/
@@ -279,7 +285,9 @@ void mei_data_collection(unsigned long freq)
 	    }
 	    tm_data_collection();
 	    runtime=timer_read(2);
-	  }
+	   }
+	   semGive(semMEIUPD);
+          }
 	 }
 	}
 }
@@ -303,8 +311,8 @@ void print_mei_dc (int cnt)
 	    ap2=(long *)&tmaxis[i]->actual_position2;
 	    logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t0x%x\t%fv\t",i,
 	      *ap, *cp,*ap2,meichan6,(double)(2.5*meichan6)/2048.);
-	    logMsg("\r\n\t%u\t%d\t%p\t%f\t", meitime,tmaxis[i]->voltage, tmaxis[i],
-		meipos4,0,0);
+	    logMsg("\r\n\t%u\t%d\t%x\t%f\t", meitime,tmaxis[i]->voltage, 
+		(long)tmaxis[i],meipos4,0,0);
 	  }
 	  logMsg ("\r\n    time=%d usecs",runtime,
 		0,0,0,0,0);
@@ -330,8 +338,8 @@ void print_axis_dc (int axis)
 	   ap2=(long *)&tmaxis[i]->actual_position2;
 	   logMsg("\r\naxis %d:\t%ld\t%ld\t%ld\t0x%x\t%fv\t",i,
 	      *ap, *cp,*ap2,meichan6,(double)(2.5*meichan6)/2048.);
-	   logMsg("\r\n\t%u\t%d\t%p\t%f\t", meitime,tmaxis[i]->voltage, tmaxis[i],
-		meipos4,0,0);
+	   logMsg("\r\n\t%u\t%d\t%x\t%f\t", meitime,tmaxis[i]->voltage, 
+		(long)tmaxis[i],meipos4,0,0);
 	   logMsg ("\r\n    time=%d usecs",runtime,
 		0,0,0,0,0);
 	   semGive (semMEI);

@@ -32,6 +32,8 @@
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"
+#include "stdio.h"
+#include "ctype.h"
 #include "semLib.h"
 #include "sigLib.h"
 #include "tickLib.h"

@@ -24,9 +24,13 @@
 #define SDSS_STOP_RATE		200000.0
 #define SDSS_E_STOP_RATE	200000.0
 #define AZ_TICK		(.0140167104063)   /* (.0035053554041*4)*/
-/*#define ALT_TICK	(.0134507065233)   *//* (.0035022862146*4)*/
 #define ALT_TICK 	(.0035022862146*4)
-#define ROT_TICK	(.0127597662202)
+#ifdef ROT_ROTARY_ENCODER
+#define ROT_ROTARY_ENCODER	1
+#define ROT_TICK	(.0127597662202) /* rotary encoder */
+#else
+#define ROT_TICK	(.0106578926333) /* optical encoder */
+#endif
 #define OPT_TICK	(.0106578926333) /* optical encoder */
 /*#define ROT_TICK	(.0106578926333*4) *//* optical encoder */
 /*#define ROT_TICK	(.0031823575754*4)*/

@@ -1442,17 +1442,17 @@ unsigned long int_count=0;
 float latchpos4,latchpos5;
 int lpos4,lpos5;
 int illegal_NIST=0;
-unsigned char int_bit=0;
+unsigned char dio316int_bit=0;
 void DIO316_interrupt(int type)
 {
 
 	  int_count++;
-          DIO316ReadISR (tm_DIO316,&int_bit);
-          if (int_bit&NIST_INT)
+          DIO316ReadISR (tm_DIO316,&dio316int_bit);
+          if (dio316int_bit&NIST_INT)
           {
 	    illegal_NIST++;
-/*            logMsg ("NIST_INTERRUPT,%d %d, int_bit=%2x\r\n",
-		type,NIST_sec,(short)int_bit,0,0,0);*/
+/*            logMsg ("NIST_INTERRUPT,%d %d, dio316int_bit=%2x\r\n",
+		type,NIST_sec,(short)dio316int_bit,0,0,0);*/
             DIO316ClearISR (tm_DIO316);
           }
 	  else
@@ -1529,8 +1529,7 @@ void tm_latch()
   extern struct SDSS_FRAME sdssdc;
   extern int altclino_off;
   extern float altclino_sf;
-/*  unsigned char int_bit;
-*/
+
   init_fiducial();
   if (semLATCH==NULL) semLATCH = semBCreate(0,SEM_Q_FIFO);
   for (;;)
@@ -1541,7 +1540,7 @@ void tm_latch()
       status=FALSE;
       while ((!status)&&(i>0))
       {
-        if (semTake (semMEI,60)!=ERROR)
+        if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
         {
           status=(int)latch_status;
           semGive (semMEI);
@@ -1551,10 +1550,13 @@ void tm_latch()
       }
       if (i!=0)
       {
-        if (int_bit&AZIMUTH_INT)
+/*        if (!(dio316int_bit&(AZIMUTH_INT|ALTITUDE_INT|INSTRUMENT_INT)))
+	  printf ("\r\n dio316int_bit=%x",dio316int_bit);*/
+        latchpos[latchidx].axis=-9;
+        if (dio316int_bit&AZIMUTH_INT)
         {
 	  latchpos[latchidx].axis=AZIMUTH;
-          if (semTake (semMEI,60)!=ERROR)
+          if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
           {
 	    get_latched_position(0,&latchpos[latchidx].pos1);
 	    get_latched_position(1,&latchpos[latchidx].pos2);
@@ -1588,10 +1590,10 @@ void tm_latch()
 	    fiducialidx[0]=fididx;
 	  }
 	}
-        if (int_bit&ALTITUDE_INT)
+        if (dio316int_bit&ALTITUDE_INT)
         {
 	  latchpos[latchidx].axis=ALTITUDE;
-          if (semTake (semMEI,60)!=ERROR)
+          if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
           {
 	    get_latched_position(2,&latchpos[latchidx].pos1);
 	    get_latched_position(3,&latchpos[latchidx].pos2);
@@ -1631,14 +1633,19 @@ void tm_latch()
 	    }
 	  }
 	}
-        if (int_bit&INSTRUMENT_INT)
+        if (dio316int_bit&INSTRUMENT_INT)
         {
 	  latchpos[latchidx].axis=INSTRUMENT;
-/* switch to 5 for optical encoder */
-          if (semTake (semMEI,60)!=ERROR)
+          if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
           {
+#ifdef ROT_ROTARY_ENCODER
+/* switch to 5 for optical encoder, when using rotary */
 	    get_latched_position(5,&latchpos[latchidx].pos1);
 	    get_latched_position(4,&latchpos[latchidx].pos2);
+#else
+	    get_latched_position(4,&latchpos[latchidx].pos1);
+	    get_latched_position(5,&latchpos[latchidx].pos2);
+#endif
             semGive (semMEI);
           }
           if (LATCH_verbose)
@@ -1728,15 +1735,16 @@ void tm_latch()
       }
       else
       {
-        if (int_bit&AZIMUTH_INT)
+        latchpos[latchidx].axis=-9;
+        if (dio316int_bit&AZIMUTH_INT)
           latchpos[latchidx].axis=-(AZIMUTH+1);
-        if (int_bit&ALTITUDE_INT)
+        if (dio316int_bit&ALTITUDE_INT)
           latchpos[latchidx].axis=-(ALTITUDE+1);
-        if (int_bit&INSTRUMENT_INT)
+        if (dio316int_bit&INSTRUMENT_INT)
           latchpos[latchidx].axis=-(INSTRUMENT+1);
         printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
       }
-      if (semTake (semMEI,60)!=ERROR)
+      if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
       {
         arm_latch(TRUE);
         semGive (semMEI);
@@ -1746,6 +1754,7 @@ void tm_latch()
       latchidx++;
     else
       latchidx=0;
+    taskDelay(5);  /* slow the rate of interrupts */
 /*      taskDelay(60);  *//* slow the rate of interrupts */
     DIO316ClearISR (tm_DIO316);
   }
@@ -1932,24 +1941,24 @@ void axis_DID48_shutdown(int type)
     taskDelay(30);
 }
 unsigned long NIST_sec;
-unsigned char int_bit;
+unsigned char did48int_bit;
 unsigned long NIST_cnt=0;
 unsigned long SDSS_cnt=0;
 #define DAYINSECS	86400
 void DID48_interrupt(int type)
 {
 
-          DID48_Read_Port (tm_DID48,5,&int_bit);
+          DID48_Read_Port (tm_DID48,5,&did48int_bit);
 	  NIST_cnt++;
-          if (int_bit&NIST_INT)
+          if (did48int_bit&NIST_INT)
           {
 	    SDSS_cnt++;
             SDSStime=(SDSStime+1)%DAYINSECS;
 
             NIST_sec=timer_read (1);
             timer_start (1);
-/*            logMsg ("NIST_INTERRUPT,%d %d, int_bit=%x, cnt=%d\r\n",
-		type,NIST_sec,(short)int_bit,NIST_cnt,0,0);*/
+/*            logMsg ("NIST_INTERRUPT,%d %d, did48int_bit=%x, cnt=%d\r\n",
+		type,NIST_sec,(short)did48int_bit,NIST_cnt,0,0);*/
           }
           DID48_Write_Reg (tm_DID48,4,0x20);
 }
