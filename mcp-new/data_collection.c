@@ -477,7 +477,7 @@ update_sdssdc_status_i6(void)
 {
    unsigned short ctrl[2];
    int err;
-   const int offset = (char *)&sdssdc.status.i6 - (char *)&sdssdc.status;
+   const int offset = (char *)&sdssdc.status.i6 - (char *)&sdssdc.status.i1;
 /*
  * set err in assertion to suppress compiler warning
  */
