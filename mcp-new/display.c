@@ -862,17 +862,29 @@ void Menu()
 
          case 'W': case 'w':
 	   CursPos(20,24);
-	   printf("CW Inst dd; 0=CAMERA;1=FIBER; 2=EMPTY   ");
+	   printf("CW Inst dd; 0=CAMERA;1=FIBER;2=EMPTY;3=SCC;etc.");
 	   if (GetString(&MenuInput[0],20))
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%d",&inst);
-	     if ((inst<0)||(inst>16)) 
+	     if ((buf[0]>='0')||(buf[0]<='9'))
 	     {
-	       printf("ERR: Inst Out of Range (0-16)           ");
-	       break;
-	     }
+	       sscanf (buf,"%d",&inst);
+	       if ((inst<0)||(inst>16)) 
+	       {
+	         printf("ERR: Inst Out of Range (0-16)           ");
+	         break;
+	       }
+             }
+             else
+             {
+               inst=cw_get_inst (&buf[0]);
+	       if (inst==ERROR)
+               {
+                 printf("ERR: Inst Name Incorrect               ");
+                 break;
+               }
+             }
 	     CursPos(20,24);
              if (taskIdFigure("cw")!=ERROR)
 	     {
