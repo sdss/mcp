@@ -36,7 +36,10 @@ typedef struct {
       brakesSet_type,			/* set the brakes */
       brakesUnset_type,			/* clear the brakes */
 
-      specDoor_type			/* control spectrograph doors */
+      specDoor_type,			/* control spectrograph doors */
+
+      cmdLog_type,			/* there's a command to log */
+      cmdFlush_type			/* flush command log file */
    } type;
    
    union {
@@ -87,6 +90,16 @@ typedef struct {
       struct {
 	 int axis;			/* which axis */
       } brakes;
+
+      struct {
+	 char cmd[1];			/* The command to log.
+					   N.b. message queue must be declared
+					   with sizeof(MCP_MSG + UBLOCK_SIZE)*/
+      } cmdLog;
+
+      struct {
+	 int dummy;
+      } cmdFlush;
    } u;
 } MCP_MSG;
 
@@ -120,5 +133,9 @@ extern MSG_Q_ID msgSpecDoor;
  * tBars task
  */
 extern MSG_Q_ID msgTbars;
+/*
+ * tCmdLog task
+ */
+extern MSG_Q_ID msgCmdLog;
 
 #endif
