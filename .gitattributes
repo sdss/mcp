@@ -104,6 +104,7 @@ mcp-new/io.h -text
 mcp-new/ipcast.c -text
 mcp-new/ipcast.h -text
 mcp-new/ipsym.c -text
+mcp-new/mcpMsgQ.h -text
 mcp-new/mcpUtils.h -text
 mcp-new/ms.h -text
 mcp-new/mv162.h -text
