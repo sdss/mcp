@@ -27,8 +27,8 @@ void tm_cart_unlatch(int door);
 void tm_sp_cart_latch(int door);
 void tm_sp_cart_unlatch(int door);
 int ffs_enable(int val);		/* enable FF screen */
-int ffs_open_status(void);
-int ffs_close_status(void);
+int ffs_open_status(int which, int silent);
+int ffs_close_status(int which, int silent);
 
 void tm_ffl_on(void);
 void tm_ffl_off(void);
