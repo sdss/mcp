@@ -601,8 +601,8 @@ status_cmd(char *cmd)
    }
    
    if(semTake(semMEIUPD,60) == ERROR) {
-      TRACE(0, "status_cmd: failed to get semMEIUPD: %s (%d)",
-	    strerror(errno), errno);
+      TRACE(0, "status_cmd: failed to get semMEIUPD: %d %s",
+	    errno, strerror(errno));
       sprintf(status_ans, "ERR: semMEIUPD : %s", strerror(errno));
    }
 
