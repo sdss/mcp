@@ -14,7 +14,7 @@ Routines to control the display screen
 These functions can be used with a Vt220 terminal to position the cursor,
 erase the screen etc.
 ******************************************************************************/
-#define SoftwareVersion_	9
+#define SoftwareVersion_	10
 /* INCLUDES */
 #include "display.h"
 #include "stdio.h"
@@ -157,8 +157,8 @@ int adjvel[6]={0,0,0,0,0,0};
 int adjacc[6]={10000,10000,10000,10000,10000,10000};
 int incvel[6]={1000,0,1000,0,1000,0};
 int Axis_vel[6]={0,0,0,0,0,0};
-int Axis_vel_neg[6]={-200000,0,-200000,0,-500000,0};
-int Axis_vel_pos[6]={200000,0,200000,0,500000,0};
+int Axis_vel_neg[6]={-200000,0,-200000,0,-250000,0};
+int Axis_vel_pos[6]={200000,0,200000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
 float altclino_sf=.0049016925256;/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
@@ -198,7 +198,7 @@ static void PrintMenuBanner()
   printf("Time Since Boot: %5.2f Days               Date:     \n",
     Days/*,(char *)get_date()*/);
   CursPos(1,8);
-  printf ("    DegMinSecMAS   ActualPosition  CmdPosition  VoltageOut    Fiducial;Pos\n\r");
+  printf ("    SA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
   CursPos(1,9);    
   printf("AZ\n\r");
   CursPos(1,10);    
@@ -298,8 +298,10 @@ void Menu()
   }
   while(Running)
   {
+    taskUnsafe();
     buf[0]=getchar();
  /*     gets(buf);  */
+    taskSafe();
     if (semTake (semMEIUPD,60)!=ERROR)
     {
      switch(buf[0])
@@ -378,7 +380,11 @@ void Menu()
 /* use optical encoder for axis 4 */
 	   if (Axis/2==2) 
 	   { 
+#ifdef ROT_ROTARY_ENCODER
              pos += ((*tmaxis[Axis/2]).actual_position2-fiducial[Axis/2].mark);
+#else
+             pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
+#endif
 	     tm_set_pos(Axis+1,pos);
 	     tm_set_pos(Axis-1,pos);
              pos = (pos*OPT_TICK)/ROT_TICK;
@@ -595,24 +601,30 @@ void Menu()
 	   }
            Axis_vel[Axis]=0;
            CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-           semTake (semMEI,WAIT_FOREVER);
-           if (STOPed[Axis])
-           {
-             STOPed[Axis]=FALSE;
-             controller_run (Axis);
-             controller_run (Axis);
-             controller_run (Axis);
-             if (Axis==4)
-             while (coeffs_state_cts (Axis,0));
-               v_move(Axis,(double)0,(double)5000);
+           if (semTake (semMEI,60)!=ERROR)
+	   {
+             if (STOPed[Axis])
+             {
+               STOPed[Axis]=FALSE;
+               controller_run (Axis);
+               controller_run (Axis);
+               controller_run (Axis);
+               if (Axis==4)
+               while (coeffs_state_cts (Axis,0));
+                 v_move(Axis,(double)0,(double)5000);
+             }
+             else
+             {
+               set_velocity(Axis,(double)(Axis_vel[Axis]));
+               if (Axis==4)
+               while (coeffs_state_cts (Axis,(long)Axis_vel[Axis]));
+             }
+             semGive (semMEI);
            }
            else
            {
-             set_velocity(Axis,(double)(Axis_vel[Axis]));
-             if (Axis==4)
-             while (coeffs_state_cts (Axis,(long)Axis_vel[Axis]));
-           }
-           semGive (semMEI);
+	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+	   }
  	   break;
 
          case '+': case '=':
@@ -733,37 +745,43 @@ void Menu()
 	   break;
 
          case 'H': case 'h':
-   	   semTake (semMEI,WAIT_FOREVER);
-	   if (STOPed[Axis])
+           if (semTake (semMEI,60)!=ERROR)
 	   {
-	     Axis_vel[Axis]=0;
-             STOPed[Axis]=FALSE;
-             controller_run (Axis);
-             controller_run (Axis);
-             controller_run (Axis);
-             if (Axis==4)
-               while (coeffs_state_cts (Axis,0));
-             v_move(Axis,(double)0,(double)5000);
-	   }
-	   else
-	   {
-             while (abs(Axis_vel[Axis])>5000)
+	     if (STOPed[Axis])
 	     {
-	       if (Axis_vel[Axis]>0) Axis_vel[Axis]-=5000;
-	       else Axis_vel[Axis]+=5000;
- 	       set_velocity(Axis,(double)(Axis_vel[Axis]));
+	       Axis_vel[Axis]=0;
+               STOPed[Axis]=FALSE;
+               controller_run (Axis);
+               controller_run (Axis);
+               controller_run (Axis);
+               if (Axis==4)
+                 while (coeffs_state_cts (Axis,0));
+               v_move(Axis,(double)0,(double)5000);
+  	     }
+  	     else
+	     {
+               while (abs(Axis_vel[Axis])>5000)
+	       {
+	         if (Axis_vel[Axis]>0) Axis_vel[Axis]-=5000;
+	         else Axis_vel[Axis]+=5000;
+ 	         set_velocity(Axis,(double)(Axis_vel[Axis]));
+                 if (Axis==4)
+                   while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+                 CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
+	         taskDelay (15);
+	       }
+	       Axis_vel[Axis]=0;
+  	       set_velocity(Axis,(double)(Axis_vel[Axis]));
                if (Axis==4)
                  while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-               CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-	       taskDelay (15);
 	     }
-	     Axis_vel[Axis]=0;
-  	     set_velocity(Axis,(double)(Axis_vel[Axis]));
-             if (Axis==4)
-               while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+	     semGive (semMEI);
+             CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
+           }
+           else
+	   {
+	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
 	   }
-	   semGive (semMEI);
-           CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
 	   break;
 
          case '?': 
@@ -772,11 +790,11 @@ printf("Extended Help...*=AMP Reset; +|-=Align Close|Open; B|C=Brake Enable|Disa
 	     CursPos(1,2);
 printf(" D=Dest Position; O=Offset Position V=Set Velocity; A=AdjCnt Position;        \n");
 	     CursPos(1,3);
-printf(" M=Move to Position G=Gang Az+Alt Move                                        \n");
+printf(" M=Move to Position G=Gang Az+Alt Move; S(state)=*(running),Stop,Estop,Abort  \n");
 	     CursPos(1,4);
 printf(" K=pos; J=neg; S=Stop Motion; H=Hold Motion I=Set Velocity Increment;         \n");
 	     CursPos(1,5);
-printf(" P=SetPosition; F=SetFiducial; sp=RstScrn X=eXit                                     \n");
+printf(" P=SetPosition; F=SetFiducial; sp=RstScrn X=eXit; A(amp)=*(ok),Stop-in,?(unknown)    \n");
 	     CursPos(1,6);
 printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                                \n");
 
@@ -784,12 +802,18 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 	   Axis_vel[Axis]=0;
 	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
            STOPed[Axis]=TRUE;
-	   semTake(semMEI,WAIT_FOREVER);
-           controller_idle (Axis);
-           controller_idle (Axis);
-           controller_idle (Axis);
-           reset_integrator(Axis);
-	   semGive (semMEI); 
+           if (semTake (semMEI,60)!=ERROR)
+	   {
+             controller_idle (Axis);
+             controller_idle (Axis);
+             controller_idle (Axis);
+             reset_integrator(Axis);
+	     semGive (semMEI); 
+           }
+           else
+           {
+	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+	   }
            break;
 	   
          case 'G': case 'g':  CursPos(20,24);
@@ -810,28 +834,34 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 	     printf("ERR: ALT Brake is Engaged               ");
 	     break;
 	   }
-	   semTake(semMEI,WAIT_FOREVER);
-           if (STOPed[0])
-           {
-             STOPed[0]=FALSE;
-             controller_run (0);
-             controller_run (0);
-             controller_run (0);
-           }
-           if (STOPed[2])
-           {
-             STOPed[2]=FALSE;
-             controller_run (2);
-             controller_run (2);
-             controller_run (2);
-           }
-	   Axis_vel[0]=0;
-	   Axis_vel[2]=0;
-	   start_move(0,(double)(adjpos[0]),
+           if (semTake (semMEI,60)!=ERROR)
+	   {
+             if (STOPed[0])
+             {
+               STOPed[0]=FALSE;
+               controller_run (0);
+               controller_run (0);
+               controller_run (0);
+             }
+             if (STOPed[2])
+             {
+               STOPed[2]=FALSE;
+               controller_run (2);
+               controller_run (2);
+               controller_run (2);
+             }
+	     Axis_vel[0]=0;
+	     Axis_vel[2]=0;
+	     start_move(0,(double)(adjpos[0]),
 		(double)adjvel[0],(double)adjacc[0]);
-           start_move(2,(double)(adjpos[2]),
+             start_move(2,(double)(adjpos[2]),
 		(double)adjvel[2],(double)adjacc[2]);
-	   semGive (semMEI); 
+	     semGive (semMEI); 
+           }
+           else
+           {
+	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+	   }
 	   break;
 
          case 'M': case 'm':  CursPos(20,24);
@@ -844,14 +874,12 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
            {
 	     if ((Axis==0)&&(sdssdc.status.i78.il0.az_brake_engaged))
 	     {
-	       semGive (semMEI); 
 	       CursPos(20,24);
 	       printf("ERR: AZ Brake is Engaged                ");
 	       break;
 	     }
 	     if ((Axis==2)&&(sdssdc.status.i78.il0.alt_brake_engaged))
 	     {
-	       semGive (semMEI); 
 	       CursPos(20,24);
 	       printf("ERR: ALT Brake is Engaged               ");
 	       break;
@@ -861,26 +889,38 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
                while (coeffs_state_cts(Axis,(long)adjvel[Axis]));
 	     }
              STOPed[Axis]=FALSE;
-             semTake(semMEI,WAIT_FOREVER);
-             controller_run (Axis);
-             controller_run (Axis);
-             controller_run (Axis);
-  	     Axis_vel[Axis]=0;
-	     start_move(Axis,(double)(adjpos[Axis]),
-		(double)adjvel[Axis],(double)adjacc[Axis]);
-	     semGive (semMEI); 
+             if (semTake (semMEI,60)!=ERROR)
+	     {
+               controller_run (Axis);
+               controller_run (Axis);
+               controller_run (Axis);
+  	       Axis_vel[Axis]=0;
+	       start_move(Axis,(double)(adjpos[Axis]),
+		 (double)adjvel[Axis],(double)adjacc[Axis]);
+	       semGive (semMEI); 
+             }
+             else
+             {
+	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+	     }
            }
            else
            {
-             semTake(semMEI,WAIT_FOREVER);
-	     if (Axis==4)
+             if (semTake (semMEI,60)!=ERROR)
 	     {
-               while (coeffs_state_cts(Axis,(long)adjvel[Axis]));
+	       if (Axis==4)
+	       {
+                 while (coeffs_state_cts(Axis,(long)adjvel[Axis]));
+	       }
+               Axis_vel[Axis]=0;
+	       start_move(Axis,(double)(adjpos[Axis]),
+		 (double)adjvel[Axis],(double)adjacc[Axis]);
+	       semGive (semMEI); 
+             }
+             else
+             {
+	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
 	     }
-             Axis_vel[Axis]=0;
-	     start_move(Axis,(double)(adjpos[Axis]),
-		(double)adjvel[Axis],(double)adjacc[Axis]);
-	     semGive (semMEI); 
            }
 	   break;
 
@@ -906,28 +946,40 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 	       break;
 	     }
              STOPed[Axis]=FALSE;
-	     semTake(semMEI,WAIT_FOREVER);
-             controller_run (Axis);
-             controller_run (Axis);
-             controller_run (Axis);
-	     v_move(Axis,(double)0,(double)5000);
-             taskDelay (10);
-	     if (Axis==4)
+             if (semTake (semMEI,60)!=ERROR)
 	     {
-               while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+               controller_run (Axis);
+               controller_run (Axis);
+               controller_run (Axis);
+	       v_move(Axis,(double)0,(double)5000);
+               taskDelay (10);
+	       if (Axis==4)
+	       {
+                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+	       }
+               set_velocity(Axis,(double)(Axis_vel[Axis]));
+               semGive (semMEI); 
+             }
+             else
+             {
+	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
 	     }
-             set_velocity(Axis,(double)(Axis_vel[Axis]));
-             semGive (semMEI); 
            }
            else
            {
-	     semTake(semMEI,WAIT_FOREVER);
-	     if (Axis==4)
+             if (semTake (semMEI,60)!=ERROR)
 	     {
-               while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+	       if (Axis==4)
+	       {
+                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+	       }
+               set_velocity (Axis,(double)(Axis_vel[Axis])); 
+               semGive (semMEI); 
+             }
+             else
+             {
+	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
 	     }
-             set_velocity (Axis,(double)(Axis_vel[Axis])); 
-             semGive (semMEI); 
            }
 	   break;
 
@@ -950,29 +1002,41 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 	       break;
              }
              STOPed[Axis]=FALSE;
-	     semTake(semMEI,WAIT_FOREVER);
-             controller_run (Axis);
-             controller_run (Axis);
-             controller_run (Axis);
-             v_move(Axis,(double)0,(double)5000);
-             taskDelay(10);
-	     if (Axis==4)
+             if (semTake (semMEI,60)!=ERROR)
 	     {
-                while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+               controller_run (Axis);
+               controller_run (Axis);
+               controller_run (Axis);
+               v_move(Axis,(double)0,(double)5000);
+               taskDelay(10);
+	       if (Axis==4)
+	       {
+                  while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+	       }
+               set_velocity (Axis,(double)(Axis_vel[Axis]));
+ 	       semGive (semMEI); 
+             }
+             else
+             {
+	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
 	     }
-             set_velocity (Axis,(double)(Axis_vel[Axis]));
- 	     semGive (semMEI); 
            }
            else
            {
-	     semTake(semMEI,WAIT_FOREVER);
-	     if (Axis==4)
+             if (semTake (semMEI,60)!=ERROR)
 	     {
-               while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-	     }
-             set_velocity (Axis,(double)(Axis_vel[Axis]));
- 	     semGive (semMEI); 
-          }
+	       if (Axis==4)
+	       {
+                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
+	       }
+               set_velocity (Axis,(double)(Axis_vel[Axis]));
+ 	       semGive (semMEI); 
+             }
+             else
+             {
+	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+             }
+           }
 	   break;
 	   
          default:  
@@ -996,6 +1060,7 @@ void PrintMenuPos()
 {
   extern struct SDSS_FRAME sdssdc;
   extern SEM_ID semMEIUPD;
+  extern SEM_ID semMEI;
   extern int rawtick;
   extern struct TM_M68K *tmaxis[];
   extern struct FIDUCIARY fiducial[3];
@@ -1003,6 +1068,7 @@ void PrintMenuPos()
   extern struct FIDUCIALS az_fiducial[];
   extern struct FIDUCIALS alt_fiducial[];
   extern struct FIDUCIALS rot_fiducial[];
+  int state;
   int fidsign;
   int i;
   long ap,cp,ap1,ap2;
@@ -1032,13 +1098,36 @@ void PrintMenuPos()
       }
       for(i = 0; i < 3; i++)
       {
-        CursPos(4,9+i);
+        CursPos(5,9+i);
         ap=(*tmaxis[i]).actual_position;
         cp=(*tmaxis[i]).position,
 /*	ap2=(*tmaxis[i]).actual_position2;*/
         ap2=(*tmaxis[i]).voltage;
+        if (semTake (semMEI,NO_WAIT)!=ERROR)
+        {
+	  state=axis_state(i<<1);
+	  semGive(semMEI);
+	  switch (state)
+          {
+	    case NO_EVENT: case 1: case NEW_FRAME: printf ("*");
+	     break;
+	    case STOP_EVENT: printf ("S");
+	     break;
+	    case E_STOP_EVENT: printf ("E");
+	     break;
+	    case ABORT_EVENT: printf ("A");
+	     break;
+	    default: printf ("?");
+	  }
+	}
         if (i==0)
         {
+	  if (az_amp_ok()) printf ("*");
+	  else
+	  {
+	    if (check_stop_in()) printf ("S");
+	    else printf ("?");
+	  }
           arcsec=(AZ_TICK*abs(ap));
           farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
           if (az_fiducial[fiducialidx[i]].mark<0)
@@ -1048,6 +1137,12 @@ void PrintMenuPos()
         }
         if (i==1)
         {
+	  if (alt_amp_ok()) printf ("*");
+	  else
+	  {
+	    if (check_stop_in()) printf ("S");
+	    else printf ("?");
+	  }
           arcsec=(ALT_TICK*abs(ap));
           farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
           if (alt_fiducial[fiducialidx[i]].mark<0)
@@ -1057,6 +1152,12 @@ void PrintMenuPos()
         }
         if (i==2)
         {
+	  if (rot_amp_ok()) printf ("*");
+	  else
+	  {
+	    if (check_stop_in()) printf ("S");
+	    else printf ("?");
+	  }
           arcsec=(ROT_TICK*abs(ap));
           farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
           if (rot_fiducial[fiducialidx[i]].mark<0)
@@ -1064,6 +1165,7 @@ void PrintMenuPos()
           else
             fidsign=1;
         }
+        CursPos(7,9+i);
         arcd=(long)(arcsec)/3600;	     
         arcm=((long)(arcsec)-(arcd*3600))/60;	     
         arcs=((long)(arcsec)-(arcd*3600)-(arcm*60));	     
@@ -1072,7 +1174,7 @@ void PrintMenuPos()
           printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
         else
           printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-        printf("  %10ld\t%10ld\t%10ld",
+        printf(" %10ld  %10ld  %10ld",
           ap,
           cp,
           ap2);
@@ -1082,13 +1184,13 @@ void PrintMenuPos()
         marcs = (farcsec-(long)farcsec)*1000;
         if (fiducialidx[i]!=-1)
         {
-          if (fiducial[i].markvalid) printf("V");
-          else printf(" ");
+          if (fiducial[i].markvalid) printf("  V");
+          else printf("   ");
           if (fidsign<0)
-            printf("  %3d;-%03ld:%02ld:%02ld:%03ld\n",
+            printf("%3d;-%03ld:%02ld:%02ld:%03ld\n",
 	      fiducialidx[i],arcd,arcm,arcs,marcs);
           else
-            printf("  %3d; %03ld:%02ld:%02ld:%03ld\n",
+            printf("%3d; %03ld:%02ld:%02ld:%03ld\n",
 	      fiducialidx[i],arcd,arcm,arcs,marcs);
         }
         else
@@ -1166,7 +1268,7 @@ static void PrintInstBanner()
   printf("Time Since Boot: %5.2f Days               Date:     \n",
     Days/*,(char *)get_date()*/);
   CursPos(1,8);
-  printf ("    DegMinSecMAS   ActualPosition  CmdPosition  VoltageOut    Fiducial;Pos\n\r");
+  printf ("    SA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
   CursPos(1,9);    
   printf("AZ\n\r");
   CursPos(1,10);    
@@ -1260,38 +1362,44 @@ void Inst()
 	   amp_reset(2);
 	   amp_reset(3);
 	   amp_reset(4);
-	   semTake(semMEI,WAIT_FOREVER);
-           if (STOPed[0])
-           {
-             STOPed[0]=FALSE;
-             controller_run (0);
-             controller_run (0);
-             controller_run (0);
-           }
-           if (STOPed[2])
-           {
-             STOPed[2]=FALSE;
-             controller_run (2);
-             controller_run (2);
-             controller_run (2);
-           }
-           if (STOPed[4])
-           {
-             STOPed[4]=FALSE;
-             controller_run (4);
-             controller_run (4);
-             controller_run (4);
-           }
-	   Axis_vel[0]=0;
-	   Axis_vel[2]=0;
-	   Axis_vel[4]=0;
-	   start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
+           if (semTake (semMEI,60)!=ERROR)
+	   {
+             if (STOPed[0])
+             {
+               STOPed[0]=FALSE;
+               controller_run (0);
+               controller_run (0);
+               controller_run (0);
+             }
+             if (STOPed[2])
+             {
+               STOPed[2]=FALSE;
+               controller_run (2);
+               controller_run (2);
+               controller_run (2);
+             }
+             if (STOPed[4])
+             {
+               STOPed[4]=FALSE;
+               controller_run (4);
+               controller_run (4);
+               controller_run (4);
+             }
+	     Axis_vel[0]=0;
+	     Axis_vel[2]=0;
+	     Axis_vel[4]=0;
+	     start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
 		(double)ilcvel[0],(double)ilcacc[0]);
-           start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
+             start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
 		(double)ilcvel[2],(double)ilcacc[2]);
-           start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
-		(double)ilcvel[4],(double)ilcacc[4]);
-	   semGive (semMEI); 
+             start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
+ 		(double)ilcvel[4],(double)ilcacc[4]);
+	     semGive (semMEI); 
+           }
+           else
+           {
+	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+           }
 	   break;
 
          case 'T': case 't': CursPos(20,24);
@@ -1488,7 +1596,7 @@ void PrintInstPos()
       }
       for(i = 0; i < 3; i++)
       {
-        CursPos(4,9+i);
+        CursPos(7,9+i);
         ap=(*tmaxis[i]).actual_position;
         cp=(*tmaxis[i]).position,
 /*	ap2=(*tmaxis[i]).actual_position2;*/
@@ -1528,7 +1636,7 @@ void PrintInstPos()
           printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
         else
           printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-        printf("  %10ld\t%10ld\t%10ld",
+        printf(" %10ld  %10ld  %10ld",
           ap,
           cp,
           ap2);
@@ -1587,8 +1695,8 @@ void PrintInstPos()
 }
 int tm_move_instchange ()
 {
-	extern SEM_ID semMEI;
-	extern void manTrg();
+  extern SEM_ID semMEI;
+  extern void manTrg();
   extern double ticks_per_degree[];
 
 	   CursPos(20,24);
@@ -1597,38 +1705,46 @@ int tm_move_instchange ()
 	   amp_reset(2);
 	   amp_reset(3);
 	   amp_reset(4);
-	   semTake(semMEI,WAIT_FOREVER);
-           if (STOPed[0])
-           {
-             STOPed[0]=FALSE;
-             controller_run (0);
-             controller_run (0);
-             controller_run (0);
-           }
-           if (STOPed[2])
-           {
-             STOPed[2]=FALSE;
-             controller_run (2);
-             controller_run (2);
-             controller_run (2);
-           }
-           if (STOPed[4])
-           {
-             STOPed[4]=FALSE;
-             controller_run (4);
-             controller_run (4);
-             controller_run (4);
-           }
-	   Axis_vel[0]=0;
-	   Axis_vel[2]=0;
-	   Axis_vel[4]=0;
-	   start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
+           if (semTake (semMEI,60)!=ERROR)
+	   {
+             if (STOPed[0])
+             {
+               STOPed[0]=FALSE;
+               controller_run (0);
+               controller_run (0);
+               controller_run (0);
+             }
+             if (STOPed[2])
+             {
+               STOPed[2]=FALSE;
+               controller_run (2);
+               controller_run (2);
+               controller_run (2);
+             }
+             if (STOPed[4])
+             {
+               STOPed[4]=FALSE;
+               controller_run (4);
+               controller_run (4);
+               controller_run (4);
+             }
+	     Axis_vel[0]=0;
+	     Axis_vel[2]=0;
+	     Axis_vel[4]=0;
+	     start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
 		(double)ilcvel[0],(double)ilcacc[0]);
-           start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
+             start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
 		(double)ilcvel[2],(double)ilcacc[2]);
-           start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
+             start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
 		(double)ilcvel[4],(double)ilcacc[4]);
-	   semGive (semMEI); 
+	     semGive (semMEI); 
+           }
+           else
+	   {
+	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+	     return ERROR;
+	   }
+	   return 0;
 }
 int instchange_status_msg()
 {
@@ -1741,53 +1857,70 @@ int is_stop_in()
   inst_display = "Checking stop buttons";
   taskDelay (30);
     return TRUE;
-  if (sdssdc.status.i56.il0.w_lower_stop)
+  if (!sdssdc.status.i56.il0.w_lower_stop)
   {
     inst_display = "West Lower Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.e_lower_stop)
+  if (!sdssdc.status.i56.il0.e_lower_stop)
   {
     inst_display = "East Lower Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.s_lower_stop)
+  if (!sdssdc.status.i56.il0.s_lower_stop)
   {
     inst_display = "South Lower Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.n_lower_stop)
+  if (!sdssdc.status.i56.il0.n_lower_stop)
   {
     inst_display = "North Lower Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.w_rail_stop)
+  if (!sdssdc.status.i56.il0.w_rail_stop)
   {
     inst_display = "West Rail Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.s_rail_stop)
+  if (!sdssdc.status.i56.il0.s_rail_stop)
   {
     inst_display = "South Rail Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.n_rail_stop)
+  if (!sdssdc.status.i56.il0.n_rail_stop)
   {
     inst_display = "North Rail Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i56.il0.n_wind_stop)
+  if (!sdssdc.status.i56.il0.n_wind_stop)
   {
     inst_display = "North Windscreen Stop In";
     return TRUE;
   }
-  if (sdssdc.status.i78.il0.s_wind_e_stop)
+  if (!sdssdc.status.i78.il0.s_wind_e_stop)
   {
     inst_display = "South Windscreen Stop In";
     return TRUE;
   }
   inst_display = "No Stops in Yet";
   return FALSE;
+}
+int check_stop_in()
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  if ((sdssdc.status.i56.il0.w_lower_stop)&&
+     (sdssdc.status.i56.il0.e_lower_stop)&&
+     (sdssdc.status.i56.il0.s_lower_stop)&&
+     (sdssdc.status.i56.il0.n_lower_stop)&&
+     (sdssdc.status.i56.il0.w_rail_stop)&&
+     (sdssdc.status.i56.il0.s_rail_stop)&&
+     (sdssdc.status.i56.il0.n_rail_stop)&&
+     (sdssdc.status.i56.il0.n_wind_stop)&&
+     (sdssdc.status.i78.il0.s_wind_e_stop) )
+    return FALSE;
+  else
+    return TRUE;
 }
 
 int operator_msg2()

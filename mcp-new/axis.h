@@ -29,9 +29,9 @@
 #define ROT_ROTARY_ENCODER	1
 #define ROT_TICK	(.0127597662202) /* rotary encoder */
 #else
-#define ROT_TICK	(.0106578926333) /* optical encoder */
+#define ROT_TICK	(.0106578926333*2) /* optical encoder */
 #endif
-#define OPT_TICK	(.0106578926333) /* optical encoder */
+#define OPT_TICK	(.0106578926333*2) /* optical encoder */
 /*#define ROT_TICK	(.0106578926333*4) *//* optical encoder */
 /*#define ROT_TICK	(.0031823575754*4)*/
 #define ROT4_TICK 	(.0031823575754*4)

@@ -171,8 +171,8 @@ char *drift_cmd(char *cmd)
   if (semTake (semMEI,60)!=ERROR)
   {
     taskLock();
-      get_position(axis_select<<1,&position);
-      time=sdss_get_time();
+    get_position(axis_select<<1,&position);
+    time=sdss_get_time();
     taskUnlock();
     semGive (semMEI);
   }
@@ -390,10 +390,10 @@ char *move_cmd(char *cmd)
             printf("\r\nDRIFT pvt %lf %lf %lf",
 		position,velocity,frame->end_time);
 	  taskLock();
-            tm_get_pos(axis_select<<1,&pos);
-	    dt=frame->end_time-sdss_get_time();
+          tm_get_pos(axis_select<<1,&pos);
+	  dt=frame->end_time-sdss_get_time();
 	  taskUnlock();
-	  dt -=.04;
+	  dt -=.043;
 	  pos=(pos+
 	    (drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
 	  if (DRIFT_verbose)
@@ -533,6 +533,7 @@ void start_frame(int axis,double time)
   int e;
   FRAME frame;
 */
+  double pos;
   int lcnt;
   
   time_off[axis]=0.0;
@@ -541,6 +542,11 @@ void start_frame(int axis,double time)
     printf("\r\nDwell frames left=%d",lcnt);
     taskDelay(3);
   }
+  taskDelay(5);
+/*
+  lcnt=tm_frames_to_execute(axis);
+  printf("\r\nDwell frames left=%d",lcnt);
+*/
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
      time-=sdss_get_time();
@@ -554,6 +560,17 @@ void start_frame(int axis,double time)
 */
      semGive (semMEI);
   }
+/*
+  while ((lcnt=tm_frames_to_execute(axis))>1)
+  {
+    tm_get_pos(axis_select<<1,&pos);
+    printf("\r\nAfter Dwell pos=%lf",pos);
+    printf("\r\nDwell frames left=%d",lcnt);
+  }
+  tm_get_pos(axis_select<<1,&pos);
+  printf("\r\nAfter Dwell pos=%lf",pos);
+  printf("\r\nDwell frames left=%d",lcnt);
+*/
   printf ("\r\nSTART axis=%d: time=%lf",axis<<1,time);
 }
 int get_frame_cnt(int axis, struct FRAME *iframe)
@@ -796,7 +813,7 @@ void drift_frame(int axis,double vel,double sf)
   printf ("\r\nDRIFT axis=%d: v=%12.8lf",
 	axis<<1,
 	(double)vel);
-  printf("\r\nDrift frames left=%d",tm_frames_to_execute(axis));
+/*  printf("\r\nDrift frames left=%d",tm_frames_to_execute(axis));*/
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
 /*  this should work but instaneously to velocity */
@@ -815,9 +832,10 @@ void drift_frame(int axis,double vel,double sf)
 /*      dsp_set_last_command(dspPtr,axis<<1,(double)p[axis][index]*sf);*/
       semGive (semMEI);
   }
+
   while ((lcnt=tm_frames_to_execute(axis))>1) 
   {
-    printf("...%d",lcnt);
+/*    printf("...%d",lcnt);*/
     taskDelay(3);
   }
 }
@@ -1298,10 +1316,10 @@ char *status_cmd(char *cmd)
 {
   extern struct TM_M68K *tmaxis[];
   extern struct FIDUCIARY fiducial[3];
-  extern SEM_ID semMEIDC;
+  extern SEM_ID semMEIUPD;
 
 /*  printf (" STATUS command fired\r\n"); */
-  if (semTake (semMEIDC,60)!=ERROR)
+  if (semTake (semMEIUPD,60)!=ERROR)
   {
     sprintf (status_ans,"%lf %lf %f %ld %lf",
 	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
@@ -1309,10 +1327,10 @@ char *status_cmd(char *cmd)
 	sdss_get_time(),
 	status,
 	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
-    semGive (semMEIDC);
+    semGive (semMEIUPD);
     return status_ans;
   }
-  return "ERR: semMEIDC";
+  return "ERR: semMEIUPD";
 }
 
 /* returns:    "%date %time
@@ -1548,7 +1566,7 @@ void tm_latch()
         taskDelay(1);
         i--;
       }
-      if (i!=0)
+      if (status)
       {
 /*        if (!(dio316int_bit&(AZIMUTH_INT|ALTITUDE_INT|INSTRUMENT_INT)))
 	  printf ("\r\n dio316int_bit=%x",dio316int_bit);*/
@@ -1599,9 +1617,10 @@ void tm_latch()
 	    get_latched_position(3,&latchpos[latchidx].pos2);
             semGive (semMEI);
           }
-/*          printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",latchpos[latchidx].axis,
+          if (LATCH_verbose)
+          printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",latchpos[latchidx].axis,
 	    (float)latchpos[latchidx].pos1,
-	    (float)latchpos[latchidx].pos2);*/
+	    (float)latchpos[latchidx].pos2);
 /*
           fididx = barcode_serial(2);
 	  fididx = barcode_serial(2);
@@ -1744,18 +1763,18 @@ void tm_latch()
           latchpos[latchidx].axis=-(INSTRUMENT+1);
         printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
       }
-      if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-      {
-        arm_latch(TRUE);
-        semGive (semMEI);
-      }
     }
     if (latchidx<MAX_LATCHED)
       latchidx++;
     else
       latchidx=0;
-    taskDelay(5);  /* slow the rate of interrupts */
 /*      taskDelay(60);  *//* slow the rate of interrupts */
+    taskDelay(5);  /* slow the rate of interrupts */
+    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+    {
+      arm_latch(TRUE);
+      semGive (semMEI);
+    }
     DIO316ClearISR (tm_DIO316);
   }
 }
