@@ -278,6 +278,7 @@ util/dscTrace.c -text
 util/iptime.c -text
 util/microtime.c -text
 util/rtc.c -text
+util/tasks.c -text
 util/timer.c -text
 util/timer.h -text
 util/usrtime.c -text
