@@ -189,43 +189,46 @@ set_time_cmd(char *cmd)
    struct tm t;
    int extrasec;
    
-   cnt = sscanf(cmd, "%d %d %d %f %f %f",
-		&t.tm_mon, &t.tm_mday, &t.tm_year, &t1, &t2, &t3);
-   switch (cnt) {
-    case 6:				/* date -> m d y h m s */
-      t.tm_hour = t1;
-      t.tm_min = t2;
-      t.tm_sec = t3;
-      break;		
-      
-    case 4:				/* date -> m d y s  where s is
-					   in floating pt precision */
-      t.tm_hour = t1/3600;
-      t.tm_min = (t1 - t.tm_hour*3600)/60;
-      t3 = t1 - t.tm_hour*3600 - t.tm_min*60;
-      t.tm_sec = t3;
-      break;		
-      
-    default:
-      return "ERR: wrong number of args";
-   }
-
-   t.tm_year -= 1900;
-   t.tm_mon -= 1;
-
-   if(t3 - (int)t3 > 0.75) {
-      taskDelay(20);			/* 1/3 sec */
-      extrasec = 1;
+   if(use_NTP) {
+      setSDSStimeFromNTP(1, 1);
    } else {
-      extrasec = 0;
-   }
-   
-   tp.tv_sec = mktime(&t) + extrasec;
-   tp.tv_nsec = 0;
-   time1 = sdss_get_time();		/* before and after for diagnostic */
-   
-   SDSStime = tp.tv_sec%ONE_DAY;
-   
+      cnt = sscanf(cmd, "%d %d %d %f %f %f",
+		   &t.tm_mon, &t.tm_mday, &t.tm_year, &t1, &t2, &t3);
+      switch (cnt) {
+       case 6:				/* date -> m d y h m s */
+	 t.tm_hour = t1;
+	 t.tm_min = t2;
+	 t.tm_sec = t3;
+	 break;		
+	 
+       case 4:				/* date -> m d y s  where s is
+					   in floating pt precision */
+	 t.tm_hour = t1/3600;
+	 t.tm_min = (t1 - t.tm_hour*3600)/60;
+	 t3 = t1 - t.tm_hour*3600 - t.tm_min*60;
+	 t.tm_sec = t3;
+	 break;		
+	 
+       default:
+	 return "ERR: wrong number of args";
+      }
+      
+      t.tm_year -= 1900;
+      t.tm_mon -= 1;
+      
+      if(t3 - (int)t3 > 0.75) {
+	 taskDelay(20);			/* 1/3 sec */
+	 extrasec = 1;
+      } else {
+	 extrasec = 0;
+      }
+      
+      tp.tv_sec = mktime(&t) + extrasec;
+      tp.tv_nsec = 0;
+      time1 = sdss_get_time();		/* before and after for diagnostic */
+      
+      SDSStime = tp.tv_sec%ONE_DAY;
+   }   
 #if 0
    if(clock_settime(CLOCK_REALTIME, &tp) < 0) {
       TRACE(0, "Failed to set realtime clock: %s", strerror(errno), 0);
@@ -244,14 +247,10 @@ set_time_cmd(char *cmd)
 	  sdss_get_time() - (t3 + 60*(t.tm_min + 60*t.tm_hour)));
 #endif
 
-#if 1
+#if 0
    t.tm_hour = t.tm_min = t.tm_sec = 0;
    setSDSStimeFromNTP(0, 0);
 #endif
-
-   if(use_NTP) {
-      setSDSStimeFromNTP(1, 1);
-   }
 
    return "";
 }
