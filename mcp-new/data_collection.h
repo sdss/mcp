@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                  /* Cartridge 1 on the telescope */
    unsigned no_inst_in_place : 1;             /* No Instrument on the telescope */
    unsigned disc_cable : 1;                   /* Instrument ID Cable Disconnected */
-   unsigned version_id : 16;                  /* Version 16  $Name$ */
+   unsigned version_id : 16;                  /* Version 17  $Name$ */
 } B3_L1;
 
 typedef struct {
@@ -769,7 +769,7 @@ typedef struct {
 } I1_L15;
 
 typedef struct {
-   unsigned dcm_status : 16;                  /* Direct communications module status word. */
+   unsigned dcm_1_status_word : 16;           /* Direct communications module 1 status word. */
    unsigned spare : 1;                        /* Spare PLC input bit. */
    unsigned : 9;                             
    unsigned wind_alt_perm : 1;                /* Windscreen altitude motion permit bit. */
@@ -781,19 +781,39 @@ typedef struct {
 } I2_L0;
 
 typedef struct {
+   unsigned az_pid_status : 16;               /* Azimuth PID Status Word */
    unsigned az_lvdt_error : 16;               /* Azimuth LVDT error analog value. */
-   unsigned alt_lvdt_error : 16;              /* Altitude LVDT error analog value. */
 } I2_L1;
 
 typedef struct {
-   unsigned az_primary_drv : 16;              /* Azimuth primary drive value. */
-   unsigned az_feed_forward_drv : 16;         /* Azimuth feed forward drive value. */
+   unsigned az_pri_drv : 16;                  /* Azimuth primary drive value. */
+   unsigned az_feed_fwd_drv : 16;             /* Azimuth feed forward drive value. */
 } I2_L2;
 
 typedef struct {
-   unsigned alt_primary_drv : 16;             /* Altitude primary drive value. */
-   unsigned : 16;                            
+   unsigned dcm_1_word6_spare : 16;           /* DCM 1 spare word */
+   unsigned dcm_1_word7_spare : 16;           /* DCM 1 spare word */
 } I2_L3;
+
+typedef struct {
+   unsigned dcm_2_status_word : 16;           /* Direct communications module 2 status word. */
+   unsigned dcm_2_word1_spare : 16;           /* DCM 2 spare word */
+} I2_L4;
+
+typedef struct {
+   unsigned alt_pid_status : 16;              /* Altitude PID Status Word */
+   unsigned alt_lvdt_error : 16;              /* Altitude LVDT error analog value. */
+} I2_L5;
+
+typedef struct {
+   unsigned alt_pri_drv : 16;                 /* Altitude primary drive value. */
+   unsigned dcm_2_word5_spare : 16;           /* DCM 2 spare word */
+} I2_L6;
+
+typedef struct {
+   unsigned dcm_2_word6_spare : 16;           /* DCM 2 spare word */
+   unsigned dcm_2_word7_spare : 16;           /* DCM 2 spare word */
+} I2_L7;
 
 typedef struct {
    unsigned az_1_voltage : 16;                /* Azimuth motor 1 voltage. */
@@ -1378,7 +1398,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 16  $Name$";
+   static char plcVersion[] = "Version 17  $Name$";
 #endif
 /*
  * End of machine generated code
