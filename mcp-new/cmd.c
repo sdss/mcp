@@ -85,8 +85,6 @@ log_mcp_command(int type,		/* type of command */
    static FILE *mcp_log_fd = NULL;	/* fd for logfile */
    static int nline = 0;		/* number of lines written */
 
-   return;				/* XXX */
-
    if(semTake(semLogfile, WAIT_FOREVER) != OK) {
       TRACE(0, "Cannot take semLogfile %d: %s", errno, strerror(errno));
       taskSuspend(0);
