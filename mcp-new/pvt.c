@@ -454,7 +454,7 @@ addoffset(int axis,int cnt)
 **=========================================================================
 */
 void
-start_frame(int axis,double time)
+start_frame(int axis, double t)
 {
    int lcnt;
   
@@ -473,14 +473,14 @@ start_frame(int axis,double time)
       taskSuspend(NULL);
    }
    
-   time = sdss_delta_time(time, sdss_get_time());
+   t = sdss_delta_time(t, sdss_get_time());
 #if 0
-   printf("time to dwell=%f\n",time);
+   printf("time to dwell=%f\n",t);
 #endif
-   dsp_dwell(2*axis, time);
+   dsp_dwell(2*axis, t);
    semGive(semMEI);
    
-   printf("START axis=%d: time=%f\n", 2*axis, time);
+   printf("START axis=%d: time=%f\n", 2*axis, t);
 }
 
 /*=========================================================================
@@ -802,7 +802,7 @@ drift_frame(int axis,
 **=========================================================================
 */
 void
-end_frame(int axis, int index)
+end_frame(int axis, int ind)
 {
    int e;
    FRAME frame;
@@ -815,22 +815,22 @@ end_frame(int axis, int index)
    }
 
    e = frame_m_xvajt_corr(&frame, "0l xvajt un d", 2*axis,
-			  p[axis][index]*sf,
+			  p[axis][ind]*sf,
 			  0.0,
 			  0.0,
 			  0.0,
 			  (1./FLTFRMHZ),
 			  0);
 
-   dsp_set_last_command_corr(dspPtr, 2*axis, (double)p[axis][index]*sf);
+   dsp_set_last_command_corr(dspPtr, 2*axis, (double)p[axis][ind]*sf);
    semGive(semMEI);
    
    printf("END axis=%d (%d): "
 	  "p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f, t=%12.8f\n",
-	  2*axis, index,
-	  (double)p[axis][index]*sf,(double)v[axis][index]*sf,
-	  (double)a[axis][index]*sf, (double)ji[axis][index]*sf,
-	  tim[axis][index]);
+	  2*axis, ind,
+	  (double)p[axis][ind]*sf,(double)v[axis][ind]*sf,
+	  (double)a[axis][ind]*sf, (double)ji[axis][ind]*sf,
+	  tim[axis][ind]);
 }
 
 /*=========================================================================
@@ -1322,7 +1322,7 @@ int
 mcp_drift(int axis,			/* the axis in question */
 	  double *arcdeg,		/* return the position */
 	  double *veldeg,		/*            velocity */
-	  double *time)			/*        and time */
+	  double *t)			/*        and time */
 {
    double position;
 /*
@@ -1354,12 +1354,12 @@ mcp_drift(int axis,			/* the axis in question */
 
    taskLock();				/* enforce coincidental data */
    get_position_corr(2*axis, &position);
-   *time = sdss_get_time();
+   *t = sdss_get_time();
    taskUnlock();
    semGive(semMEI);
 
-   if(*time < 0) {
-      TRACE(0, "drift_cmd: bad time %g", *time, 0);
+   if(*t < 0) {
+      TRACE(0, "drift_cmd: bad time %g", *t, 0);
       return(-1);
    }
 
