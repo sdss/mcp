@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 #include <semLib.h>
 #include <sigLib.h>
 #include <tickLib.h>
@@ -63,6 +64,53 @@ iack_cmd(char *cmd)			/* NOTUSED */
    return("");
 }
 
+/*****************************************************************************/
+/*
+ * Deal with logging commands
+ *
+ * vxWorks fflush doesn't seem to work, at least on NFS filesystems,
+ * so we reopen the file every so many lines
+ */
+void
+log_mcp_command(const char *cmd)	/* command, or NULL to flush file */
+{
+   static FILE *mcp_log_fd = NULL;	/* fd for logfile */
+   static int nline = 0;		/* number of lines written */
+   int nline_max = 20;			/* max. no. of lines before flushing */
+
+   if(cmd == NULL) {			/* flush log file */
+      if(mcp_log_fd != NULL) {
+	 fclose(mcp_log_fd); mcp_log_fd = NULL;
+	 nline = 0;
+      }
+      return;
+   }
+
+   if(mcp_log_fd == NULL) {
+      /*
+       * Open logfile
+       */
+      char filename[100];
+
+      sprintf(filename, "mcpCmdLog-%d.dat", mjd());
+      if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
+	 TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
+	 return;
+      }
+   }
+
+   if(cmd != NULL) {
+      fprintf(mcp_log_fd, "%d:%d:%s\n", time(NULL), client_pid, cmd);
+      nline++;
+   }
+
+   if(nline == nline_max) {
+      fclose(mcp_log_fd); mcp_log_fd = NULL;
+      nline = 0;
+   }
+}
+
+/*****************************************************************************/
 /*
  * Set up the command interpreter
  */
@@ -79,6 +127,11 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
       cmdSymTbl = symTblCreate(256, FALSE, memSysPartId);
       assert(cmdSymTbl != NULL);
    }
+/*
+ * log this reboot
+ */
+   log_mcp_command("rebooted");
+   log_mcp_command(version_cmd(NULL));
 /*
  * Define some misc commands that done belong in any init function
  */
@@ -145,7 +198,8 @@ define_cmd(char *name,			/* name of command */
 */
 char *
 cmd_handler(int have_sem,		/* we have semCmdPort */
-	    char *cmd)			/* command to execute */
+	    char *cmd,			/* command to execute */
+	    int *cmd_type)		/* return type; or NULL */
 {
    char *(*addr)(char *);		/* function pointer */
    char *ans;
@@ -192,8 +246,19 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
 	 
 	 semGive(semCMD);
+
+	 if(cmd_type != NULL) {
+	    *cmd_type = -1;
+	 }
+
 	 return("ERR: CMD ERROR");
       } else {
+	 if(cmd_type != NULL) {
+	    *cmd_type = type;
+	 }
+/*
+ * TRACE commands if we feel like it
+ */
 	 lvl = 5;
 	 if(!(type & CMD_TYPE_MURMUR)) {
 	    lvl += 2;
@@ -282,7 +347,7 @@ void
 cmdShow(char *pattern)
 {
    printf("%-20s %-25s %-4s %-6s %-10s %s\n\n",
-	  "Name", "Function", "Narg", "Vararg", "Restricted", "Print");
+	  "Name", "Function", "Narg", "Vararg", "Restricted", "Murmur");
 
    symEach(cmdSymTbl, (FUNCPTR)print_a_cmd, (int)pattern);
 }

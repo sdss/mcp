@@ -188,6 +188,7 @@ tcc_serial(int port)
   int status;
   char command_buffer_in[256];
   char command_buffer[256];
+  int cmd_type;				/* type of command from symb. table */
   char *answer_buffer;
 
   sprintf(serial_port,"/tyCo/%d",port);
@@ -218,7 +219,14 @@ tcc_serial(int port)
      
      if(status == 0) {
 	strcpy(command_buffer_in, command_buffer);
-	answer_buffer = cmd_handler(1, command_buffer);	/* allow all cmds */
+	answer_buffer = cmd_handler(1, command_buffer, &cmd_type);
+	/*
+	 * write logfile of murmurable commands
+	 */
+	if(cmd_type != -1 && (cmd_type & CMD_TYPE_MURMUR)) {
+	   log_mcp_command(command_buffer_in);
+	}
+
 	status = sdss_transmit(stream, command_buffer_in, answer_buffer);
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);

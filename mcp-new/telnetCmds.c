@@ -126,7 +126,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 switch (sscanf(cmd, "USER.ID %s %d", buff, &pid)) {
 	  case -1:
 	  case 0:
-	    sprintf(buff, "User %s", uname);
+	    sprintf(buff, "User %s, TID 0x%x", uname, taskIdSelf());
 	    reply = buff;
 	    break;
 	  case 2:
@@ -225,8 +225,20 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "restarted the tTelnetd";
 	 }
       } else {
+	 char cmd_in[MSG_SIZE];		/* input command
+					   (cmd[]'s modified by cmd_handler) */
+	 int cmd_type;			/* type of command */
+	 strcpy(cmd_in, cmd);
+
 	 reply =
-	   cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),cmd);
+	   cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
+		       cmd, &cmd_type);
+	 /*
+	  * write logfile of murmurable commands
+	  */
+	 if(cmd_type != -1 && (cmd_type & CMD_TYPE_MURMUR)) {
+	    log_mcp_command(cmd_in);
+	 }
       }
 
       if(reply == NULL) {

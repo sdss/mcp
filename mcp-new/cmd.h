@@ -11,9 +11,10 @@ extern char semCmdPortOwner[];		/* semCmdPort's owner */
 #define CMD_TYPE_MURMUR 0x40		/* send to murmur by default */
 
 int cmdInit(const char *msg);
-char *cmd_handler(int have_semPortCmd, char *cmd);
+char *cmd_handler(int have_semPortCmd, char *cmd, int *cmd_type);
 void define_cmd(char *name, char *(*addr)(char *),
 		int narg, int locked, int murmur);
+void log_mcp_command(const char *cmd);
 
 extern int client_pid;			/* Process ID of cmdPort telnet proc */
 
