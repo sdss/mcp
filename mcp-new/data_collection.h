@@ -161,28 +161,28 @@ typedef struct {
 } B3_L0;
 
 typedef struct {
-   unsigned img_cam_in_place : 1;            
-   unsigned undefined_2 : 1;                 
-   unsigned undefined_1 : 1;                 
-   unsigned undefined_3 : 1;                 
-   unsigned eng_cam_in_place : 1;            
-   unsigned cartridge_9 : 1;                 
-   unsigned cartridge_8 : 1;                 
-   unsigned cartridge_7 : 1;                 
-   unsigned cartridge_6 : 1;                 
-   unsigned cartridge_5 : 1;                 
-   unsigned cartridge_4 : 1;                 
-   unsigned cartridge_3 : 1;                 
-   unsigned cartridge_2 : 1;                 
-   unsigned cartridge_1 : 1;                 
-   unsigned no_inst_in_place : 1;            
-   unsigned disc_cable : 1;                  
-   unsigned version_id : 16;                  /* Version 14  $Name$ */
+   unsigned img_cam_in_place : 1;             /* Imaging Camera on the telescope */
+   unsigned undefined_2 : 1;                  /* Undefined instrument on the telescope */
+   unsigned undefined_1 : 1;                  /* Undefined instrument on the telescope */
+   unsigned undefined_3 : 1;                  /* Undefined instrument on the telescope */
+   unsigned eng_cam_in_place : 1;             /* Engineering Camera on the telescope */
+   unsigned cartridge_9 : 1;                  /* Cartridge 9 on the telescope */
+   unsigned cartridge_8 : 1;                  /* Cartridge 8 on the telescope */
+   unsigned cartridge_7 : 1;                  /* Cartridge 7 on the telescope */
+   unsigned cartridge_6 : 1;                  /* Cartridge 6 on the telescope */
+   unsigned cartridge_5 : 1;                  /* Cartridge 5 on the telescope */
+   unsigned cartridge_4 : 1;                  /* Cartridge 4 on the telescope */
+   unsigned cartridge_3 : 1;                  /* Cartridge 3 on the telescope */
+   unsigned cartridge_2 : 1;                  /* Cartridge 2 on the telescope */
+   unsigned cartridge_1 : 1;                  /* Cartridge 1 on the telescope */
+   unsigned no_inst_in_place : 1;             /* No Instrument on the telescope */
+   unsigned disc_cable : 1;                   /* Instrument ID Cable Disconnected */
+   unsigned version_id : 16;                  /* Version 15  $Name$ */
 } B3_L1;
 
 typedef struct {
-   unsigned sad_not_in_place : 1;            
-   unsigned sad_in_place : 1;                
+   unsigned sad_not_in_place : 1;             /* Saddle not in place on the telescope */
+   unsigned sad_in_place : 1;                 /* Saddle in place on the telescope */
    unsigned plc_cont_slit_dr_cls : 1;        
    unsigned plc_cont_slit_dr_opn : 1;        
    unsigned mcp_cont_slit_dr_os4 : 1;        
@@ -197,16 +197,16 @@ typedef struct {
    unsigned : 1;                             
    unsigned plc_cont_slit_dr_osr : 1;        
    unsigned : 1;                             
-   unsigned lift_empty : 1;                  
-   unsigned sad_latch_cls : 1;               
-   unsigned sad_latch_opn : 1;               
-   unsigned sec_latch_cls : 1;               
-   unsigned sec_latch_opn : 1;               
-   unsigned pri_latch_cls : 1;               
-   unsigned pri_latch_opn : 1;               
-   unsigned cartg_in_place : 1;              
-   unsigned cor_not_in_place : 1;            
-   unsigned cor_in_place : 1;                
+   unsigned lift_empty : 1;                   /* Instrument lift empty */
+   unsigned sad_latch_cls : 1;                /* Saddle latches closed */
+   unsigned sad_latch_opn : 1;                /* Saddle latches open */
+   unsigned sec_latch_cls : 1;                /* Secondary latches closed */
+   unsigned sec_latch_opn : 1;                /* Secondary latches open */
+   unsigned pri_latch_cls : 1;                /* Primary latches closed */
+   unsigned pri_latch_opn : 1;                /* Primary latches open */
+   unsigned cartg_in_place : 1;               /* Cartridge in place on the telescope */
+   unsigned cor_not_in_place : 1;             /* Corrector lens not in place */
+   unsigned cor_in_place : 1;                 /* Corrector lens in place */
    unsigned plc_cont_slit_hd_lth : 1;        
    unsigned plc_cont_slit_hd_unl : 1;        
    unsigned mcp_cont_slit_hd_os4 : 1;        
@@ -220,130 +220,130 @@ typedef struct {
    unsigned speed_3 : 1;                      /* Lift Speed bit */
    unsigned speed_2 : 1;                      /* Lift Speed bit */
    unsigned speed_1 : 1;                      /* Lift Speed bit */
-   unsigned lift_down_enable : 1;            
-   unsigned lift_up_enable : 1;              
-   unsigned lift_force_dn_enable : 1;        
-   unsigned lift_force_up_enable : 1;        
-   unsigned eng_cam_on_lift_comp : 1;        
-   unsigned eng_cam_on_lift : 1;             
-   unsigned cartg_on_lift_comp : 1;          
-   unsigned cartg_on_lift : 1;               
-   unsigned cam_on_lift_w_j_hok : 1;         
-   unsigned cam_on_lift_wo_j_hok : 1;        
-   unsigned cor_on_lift : 1;                 
-   unsigned auto_mode_enable : 1;            
+   unsigned lift_down_enable : 1;             /* Instrument lift down enable */
+   unsigned lift_up_enable : 1;               /* Instrument lift up enable */
+   unsigned lift_force_dn_enable : 1;         /* Instrument lift down force enable */
+   unsigned lift_force_up_enable : 1;         /* Instrument lift up force enable */
+   unsigned eng_cam_on_lift_comp : 1;         /* Engineering camera on lift and compressed to telescope */
+   unsigned eng_cam_on_lift : 1;              /* Engineering camera on lift */
+   unsigned cartg_on_lift_comp : 1;           /* Cartridge on lift and compressed to telescope */
+   unsigned cartg_on_lift : 1;                /* Cartridge on lift */
+   unsigned cam_on_lift_w_j_hok : 1;          /* Camera on lift with umbilical on j hook */
+   unsigned cam_on_lift_wo_j_hok : 1;         /* Camera on lift without umbilical on j hook */
+   unsigned cor_on_lift : 1;                  /* Corrector lens on lift */
+   unsigned auto_mode_enable : 1;             /* Instrument change auto mode enabled */
    unsigned : 10;                            
-   unsigned flex_io_fault : 1;               
-   unsigned empty_plate_on_lift : 1;         
-   unsigned eng_cam_up_in_place : 1;         
-   unsigned cor_up_in_place : 1;             
-   unsigned cartg_up_in_place : 1;           
-   unsigned img_cam_up_in_place : 1;         
+   unsigned flex_io_fault : 1;                /* Flex I/O read/write fault */
+   unsigned empty_plate_on_lift : 1;          /* Empty plate on lift */
+   unsigned eng_cam_up_in_place : 1;          /* Engineering camera up in place on the telescope */
+   unsigned cor_up_in_place : 1;              /* Corrector lens up in place on the telescope */
+   unsigned cartg_up_in_place : 1;            /* Cartridge up in place on the telescope */
+   unsigned img_cam_up_in_place : 1;          /* Imaging camera up in place on the telescope */
 } B3_L3;
 
 typedef struct {
-   unsigned lh_grt_17d5 : 1;                 
-   unsigned lh_lim_1d95_18d0 : 1;            
-   unsigned lh_les_2d0 : 1;                  
-   unsigned lh_lim_18d0_22d2 : 1;            
-   unsigned lh_lim_18d0_22d0 : 1;            
-   unsigned lh_lim_18d0_20d99 : 1;           
-   unsigned lh_lim_2d5_18d5 : 1;             
-   unsigned lh_lim_18d0_22d75 : 1;           
-   unsigned lh_lim_18d0_22d5 : 1;            
-   unsigned lh_lim_18d0_21d74 : 1;           
-   unsigned lh_lim_2d2_18d5 : 1;             
-   unsigned lh_lim_18d0_23d0 : 1;            
-   unsigned lh_lim_18d0_22d8 : 1;            
-   unsigned lh_lim_18d0_21d89 : 1;           
-   unsigned lh_les_18d5 : 1;                 
-   unsigned altitude_at_inst_chg : 1;        
-   unsigned lh_lim_20d0_21d89 : 1;           
-   unsigned lf_les_350_3 : 1;                
-   unsigned lf_les_150 : 1;                  
-   unsigned lf_les_200 : 1;                  
-   unsigned lf_les_450 : 1;                  
-   unsigned lf_les_350_2 : 1;                
-   unsigned lf_les_1400 : 1;                 
-   unsigned lf_les_350 : 1;                  
-   unsigned lh_lim_2d0_20d0 : 1;             
-   unsigned lh_lim_0d75_2d0 : 1;             
-   unsigned lf_les_500 : 1;                  
-   unsigned lh_les_0d75 : 1;                 
-   unsigned lh_les_18d5_2 : 1;               
-   unsigned lh_lim_18d0_22d3 : 1;            
-   unsigned lh_lim_22d3_23d1 : 1;            
-   unsigned lh_grt_23d1 : 1;                 
+   unsigned lh_grt_17d5 : 1;                  /* Lift height greater than 17.5 inches */
+   unsigned lh_lim_1d95_18d0 : 1;             /* Lift height between 1.95 and 18.0 inches */
+   unsigned lh_les_2d0 : 1;                   /* Lift height less than 2.0 inches */
+   unsigned lh_lim_18d0_22d2 : 1;             /* Lift height between 18.0 and 22.2 inches */
+   unsigned lh_lim_18d0_22d0 : 1;             /* Lift height between 18.0 and 22.0 inches */
+   unsigned lh_lim_18d0_20d99 : 1;            /* Lift height between 18.0 and 20.99 inches */
+   unsigned lh_lim_2d5_18d5 : 1;              /* Lift height between 2.5 and 18.5 inches */
+   unsigned lh_lim_18d0_22d75 : 1;            /* Lift height between 18.0 and 22.75 inches */
+   unsigned lh_lim_18d0_22d5 : 1;             /* Lift height between 18.0 and 22.5 inches */
+   unsigned lh_lim_18d0_21d74 : 1;            /* Lift height between 18.0 and 21.74 inches */
+   unsigned lh_lim_2d2_18d5 : 1;              /* Lift height between 2.2 and 18.5 inches */
+   unsigned lh_lim_18d0_23d0 : 1;             /* Lift height between 18.0 and 23.0 inches */
+   unsigned lh_lim_18d0_22d8 : 1;             /* Lift height between 18.0 and 22.8 inches */
+   unsigned lh_lim_18d0_21d89 : 1;            /* Lift height between 18.0 and 21.89 inches */
+   unsigned lh_les_18d5 : 1;                  /* Lift height less than 18.5 inches */
+   unsigned altitude_at_inst_chg : 1;         /* Altitude at instrument change position */
+   unsigned lh_lim_20d0_21d89 : 1;            /* Lift height between 20.0 and 21.89 inches */
+   unsigned lf_les_350_3 : 1;                 /* Lift force less than 350 lbs */
+   unsigned lf_les_150 : 1;                   /* Lift force less than 150 lbs */
+   unsigned lf_les_200 : 1;                   /* Lift force less than 200 lbs */
+   unsigned lf_les_450 : 1;                   /* Lift force less than 450 lbs */
+   unsigned lf_les_350_2 : 1;                 /* Lift force less than 350 lbs */
+   unsigned lf_les_1400 : 1;                  /* Lift force less than 1400 lbs */
+   unsigned lf_les_350 : 1;                   /* Lift force less than 350 lbs */
+   unsigned lh_lim_2d0_20d0 : 1;              /* Lift height between 2.0 and 20.0 inches */
+   unsigned lh_lim_0d75_2d0 : 1;              /* Lift height between 0.75 and 2.0 inches */
+   unsigned lf_les_500 : 1;                   /* Lift force less than 500 lbs. */
+   unsigned lh_les_0d75 : 1;                  /* Lift height less than 0.75 inches */
+   unsigned lh_les_18d5_2 : 1;                /* Lift height less than 18.5 inches */
+   unsigned lh_lim_18d0_22d3 : 1;             /* Lift height between 18.0 and 22.3 inches */
+   unsigned lh_lim_22d3_23d1 : 1;             /* Lift height between 22.3 and 23.1 inches */
+   unsigned lh_grt_23d1 : 1;                  /* Lift height greater than 23.1 inches */
 } B3_L4;
 
 typedef struct {
-   unsigned lh_lim_23d1_23d3 : 1;            
-   unsigned lf_les_1100 : 1;                 
-   unsigned lh_lim_22d3_23d1_2 : 1;          
-   unsigned lf_les_400_2 : 1;                
-   unsigned lf_les_150_3 : 1;                
-   unsigned lf_les_200_3 : 1;                
-   unsigned lf_les_500_3 : 1;                
-   unsigned lf_les_400 : 1;                  
-   unsigned lf_les_1700 : 1;                 
-   unsigned lh_lim_21d89_22d3 : 1;           
-   unsigned lf_les_350_5 : 1;                
-   unsigned lf_les_150_2 : 1;                
-   unsigned lf_les_200_2 : 1;                
-   unsigned lf_les_500_2 : 1;                
-   unsigned lf_les_350_4 : 1;                
-   unsigned lf_les_1650 : 1;                 
-   unsigned lf_grt_310_2 : 1;                
-   unsigned lf_grt_220_2 : 1;                
-   unsigned lf_grt_150_2 : 1;                
-   unsigned lh_lim_20d0_21d89_2 : 1;         
-   unsigned lf_grt_125 : 1;                  
-   unsigned lf_grt_0d0_2 : 1;                
-   unsigned lf_grt_0d0 : 1;                  
-   unsigned lf_grt_310 : 1;                  
-   unsigned lf_grt_220 : 1;                  
-   unsigned lf_grt_1100 : 1;                 
-   unsigned lf_grt_150 : 1;                  
-   unsigned lh_lim_2d0_20d0_2 : 1;           
-   unsigned lh_lim_0d75_3d0 : 1;             
-   unsigned lf_grt_neg_125 : 1;              
-   unsigned lh_les_0d75_2 : 1;               
-   unsigned lf_les_800 : 1;                  
+   unsigned lh_lim_23d1_23d3 : 1;             /* Lift height between 23.1 and 23.3 inches */
+   unsigned lf_les_1100 : 1;                  /* Lift force less than 1100 lbs */
+   unsigned lh_lim_22d3_23d1_2 : 1;           /* Lift height between 22.3 and 23.1 inches */
+   unsigned lf_les_400_2 : 1;                 /* Lift force less than 400 lbs */
+   unsigned lf_les_150_3 : 1;                 /* Lift force less than 150 lbs */
+   unsigned lf_les_200_3 : 1;                 /* Lift force less than 200 lbs */
+   unsigned lf_les_500_3 : 1;                 /* Lift force less than 500 lbs */
+   unsigned lf_les_400 : 1;                   /* Lift force less than 400 lbs */
+   unsigned lf_les_1700 : 1;                  /* Lift force less than 1700 lbs */
+   unsigned lh_lim_21d89_22d3 : 1;            /* Lift height between 21.89 and 22.3 inches */
+   unsigned lf_les_350_5 : 1;                 /* Lift force less than 350 lbs */
+   unsigned lf_les_150_2 : 1;                 /* Lift force less than 150 lbs */
+   unsigned lf_les_200_2 : 1;                 /* Lift force less than 200 lbs */
+   unsigned lf_les_500_2 : 1;                 /* Lift force less than 500 lbs */
+   unsigned lf_les_350_4 : 1;                 /* Lift force less than 350 lbs */
+   unsigned lf_les_1650 : 1;                  /* Lift force less than 1650 lbs */
+   unsigned lf_grt_310_2 : 1;                 /* Lift force greater than 310 lbs */
+   unsigned lf_grt_220_2 : 1;                 /* Lift force greater than 220 lbs */
+   unsigned lf_grt_150_2 : 1;                 /* Lift force greater than 150 lbs */
+   unsigned lh_lim_20d0_21d89_2 : 1;          /* Lift height between 20.0 and 21.89 inches */
+   unsigned lf_grt_125 : 1;                   /* Lift force greater than 125 lbs */
+   unsigned lf_grt_0d0_2 : 1;                 /* Lift force greater than 0.0 lbs */
+   unsigned lf_grt_0d0 : 1;                   /* Lift force greater than 0.0 lbs */
+   unsigned lf_grt_310 : 1;                   /* Lift force greater than 310 lbs */
+   unsigned lf_grt_220 : 1;                   /* Lift force greater than 220 lbs */
+   unsigned lf_grt_1100 : 1;                  /* Lift force greater than 1100 lbs */
+   unsigned lf_grt_150 : 1;                   /* Lift force greater than 150 lbs */
+   unsigned lh_lim_2d0_20d0_2 : 1;            /* Lift height between 2.0 and 20.0 inches */
+   unsigned lh_lim_0d75_3d0 : 1;              /* Lift height between 0.75 and 3.0 inches */
+   unsigned lf_grt_neg_125 : 1;               /* Lift force greater than negative 125 lbs */
+   unsigned lh_les_0d75_2 : 1;                /* Lift height less than 0.75 inches */
+   unsigned lf_les_800 : 1;                   /* Lift force less than 800 lbs */
 } B3_L5;
 
 typedef struct {
-   unsigned lh_lim_22d89_23d09 : 1;          
-   unsigned lf_grt_950 : 1;                  
-   unsigned lh_lim_22d85_23d05 : 1;          
-   unsigned lf_grt_1400 : 1;                 
-   unsigned lh_lim_21d8_22d15 : 1;           
-   unsigned lh_lim_22d3_24d0 : 1;            
-   unsigned lf_grt_125_3 : 1;                
-   unsigned lf_grt_0d0_6 : 1;                
-   unsigned lf_grt_0d0_5 : 1;                
-   unsigned lf_grt_310_3 : 1;                
-   unsigned lf_grt_220_3 : 1;                
-   unsigned lf_grt_150_3 : 1;                
-   unsigned lh_lim_21d89_22d3_2 : 1;         
-   unsigned lf_grt_125_2 : 1;                
-   unsigned lf_grt_0d0_4 : 1;                
-   unsigned lf_grt_0d0_3 : 1;                
+   unsigned lh_lim_22d89_23d09 : 1;           /* Lift height between 22.89 and 23.09 inches */
+   unsigned lf_grt_950 : 1;                   /* Lift force greater than 950 lbs */
+   unsigned lh_lim_22d85_23d05 : 1;           /* Lift height between 22.85 and 23.05 inches */
+   unsigned lf_grt_1400 : 1;                  /* Lift force greater than 1400 lbs */
+   unsigned lh_lim_21d8_22d15 : 1;            /* Lift height between 21.8 and 22.15 inches */
+   unsigned lh_lim_22d3_24d0 : 1;             /* Lift height between 22.3 and 24.0 inches */
+   unsigned lf_grt_125_3 : 1;                 /* Lift force greater than 125 lbs */
+   unsigned lf_grt_0d0_6 : 1;                 /* Lift force greater than 0.0 lbs */
+   unsigned lf_grt_0d0_5 : 1;                 /* Lift force greater than 0.0 lbs */
+   unsigned lf_grt_310_3 : 1;                 /* Lift force greater than 310 lbs */
+   unsigned lf_grt_220_3 : 1;                 /* Lift force greater than 220 lbs */
+   unsigned lf_grt_150_3 : 1;                 /* Lift force greater than 150 lbs */
+   unsigned lh_lim_21d89_22d3_2 : 1;          /* Lift height between 21.89 and 22.3 inches */
+   unsigned lf_grt_125_2 : 1;                 /* Lift force greater than 125 lbs */
+   unsigned lf_grt_0d0_4 : 1;                 /* Lift force greater than 0.0 lbs */
+   unsigned lf_grt_0d0_3 : 1;                 /* Lift force greater than 0.0 lbs */
    unsigned spare_b3_13_15 : 1;              
-   unsigned spare_b3_13_14 : 1;              
-   unsigned spare_b3_13_13 : 1;              
-   unsigned alt_bump_dn_delay : 1;           
-   unsigned alt_bump_up_delay : 1;           
-   unsigned az_bump_ccw_delay : 1;           
-   unsigned az_bump_cw_delay : 1;            
-   unsigned lh_les_6d0_5 : 1;                
-   unsigned lh_les_6d0_4 : 1;                
-   unsigned lh_les_6d0_3 : 1;                
-   unsigned lh_les_6d0_2 : 1;                
-   unsigned lh_les_6d0_1 : 1;                
-   unsigned lh_les_6d0 : 1;                  
-   unsigned lf_grt_750 : 1;                  
-   unsigned lh_lim_23d04_23d24 : 1;          
-   unsigned lf_grt_950_1 : 1;                
+   unsigned im_ff_uv_on_req : 1;             
+   unsigned im_ff_wht_on_req : 1;            
+   unsigned alt_bump_dn_delay : 1;            /* Alt Down bump signal */
+   unsigned alt_bump_up_delay : 1;            /* Alt Up Bump signal */
+   unsigned az_bump_ccw_delay : 1;            /* Az CCW Bump signal */
+   unsigned az_bump_cw_delay : 1;             /* Az CW Bump signal */
+   unsigned lh_les_6d0_5 : 1;                 /* Lift height less than 6.0 */
+   unsigned lh_les_6d0_4 : 1;                 /* Lift height less than 6.0 */
+   unsigned lh_les_6d0_3 : 1;                 /* Lift height less than 6.0 */
+   unsigned lh_les_6d0_2 : 1;                 /* Lift height less than 6.0 */
+   unsigned lh_les_6d0_1 : 1;                 /* Lift height less than 6.0 */
+   unsigned lh_les_6d0 : 1;                   /* Lift height less than 6.0 */
+   unsigned lf_grt_750 : 1;                   /* Lift force greater then 750 lbs */
+   unsigned lh_lim_23d04_23d24 : 1;           /* Lift height between 23.04 and 23.24 inches */
+   unsigned lf_grt_950_1 : 1;                 /* Lift force greater than 950 lbs */
 } B3_L6;
 
 typedef struct {
@@ -487,10 +487,11 @@ typedef struct {
 } B10_L0;
 
 typedef struct {
-   unsigned : 2;                             
-   unsigned mcp_umbilical_fast : 1;          
-   unsigned mcp_ff_screen2_enabl : 1;        
-   unsigned mcp_ff_scrn2_opn_cmd : 1;        
+   unsigned mcp_im_ff_uv_req : 1;            
+   unsigned mcp_im_ff_wht_req : 1;           
+   unsigned mcp_umbilical_fast : 1;           /* MCP umbilical fast speed command */
+   unsigned mcp_ff_screen2_enabl : 1;         /* MCP command to enable flat field screen 2 */
+   unsigned mcp_ff_scrn2_opn_cmd : 1;         /* MCP command to open flat field screen 2 */
    unsigned mcp_inst_chg_alert : 1;           /* MCP command to alert the observers for an instrument change malfunction. */
    unsigned mcp_inst_chg_prompt : 1;          /* MCP command to alert the observers for an instrument change prompt. */
    unsigned mcp_sad_latch_opn_cm : 1;         /* MCP command to open the saddle latches. */
@@ -751,8 +752,8 @@ typedef struct {
    unsigned rack_3_grp_4_bit_10 : 1;          /* Spare PLC input bit. */
    unsigned rack_3_grp_4_bit_9 : 1;           /* Spare PLC input bit. */
    unsigned rack_3_grp_4_bit_8 : 1;           /* Spare PLC input bit. */
-   unsigned rack_3_grp_4_bit_7 : 1;           /* Spare PLC input bit. */
-   unsigned rack_3_grp_4_bit_6 : 1;           /* Spare PLC input bit. */
+   unsigned man_im_ff_uv_req : 1;             /* Manual input to turn on the imager ff UV lamps */
+   unsigned man_im_ff_wht_req : 1;            /* Manual input to turn on the imager ff white lamps */
    unsigned ff_man_cont_enable : 1;           /* Manual flatfield control module connected to telescope.  Alt and Az motion disabled. */
    unsigned man_hgcd_lamp_on_cmd : 1;         /* Manual mercury cadmium lamps on command */
    unsigned man_ne_lamp_on_cmd : 1;           /* Manual Neon lamps on command */
@@ -1216,8 +1217,8 @@ typedef struct {
    unsigned rack_4_grp_5_bit_11 : 1;          /* Spare PLC output bit. */
    unsigned rack_4_grp_5_bit_10 : 1;          /* Spare PLC output bit. */
    unsigned rack_4_grp_5_bit_9 : 1;           /* Spare PLC output bit. */
-   unsigned rack_4_grp_5_bit_8 : 1;           /* Spare PLC output bit. */
-   unsigned rack_4_grp_5_bit_7 : 1;           /* Spare PLC output bit. */
+   unsigned im_ff_uv_on_pmt : 1;              /* Imager flat field uv lamp on permit */
+   unsigned im_ff_wht_on_pmt : 1;             /* Imager flat field white lamp on permit */
    unsigned ff_screen2_enable_pm : 1;         /* Spare PLC output bit. */
    unsigned ff_screen2_open_pmt : 1;          /* Spare PLC output bit. */
    unsigned hgcd_lamps_on_pmt : 1;            /* Mercury cadmium lamps on permit */
@@ -1377,7 +1378,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 14  $Name$";
+   static char plcVersion[] = "Version 15  $Name$";
 #endif
 /*
  * End of machine generated code
@@ -1451,20 +1452,25 @@ struct I5 {
 	short i_5_analog_6_spare;
 	short i_5_analog_7_spare;
 };
+
 struct I6 {
-	I6_L0	il0;
+   I6_L0 il0;
 };
+
 struct I7 {
-	I7_L0	il0;
+   I7_L0 il0;
 };
+
 struct I8 {
-	I8_L0	il0;
+   I8_L0 il0;
 };
+
 struct I9 {
-	I9_L0	il0;
+   I9_L0 il0;
 };
+
 struct I10 {
-	I10_L0	il0;
+   I10_L0 il0;
 };
 
 struct O1 {
@@ -1504,11 +1510,13 @@ struct O2 {
 	unsigned long undefined14;
 	unsigned long undefined15;
 };
+
 struct O11 {
-	O11_L0	ol0;
+   O11_L0 ol0;
 };
+
 struct O12 {
-	O12_L0	ol0;
+   O12_L0 ol0;
 };
 
 struct B3 {
@@ -1518,6 +1526,10 @@ struct B3 {
    B3_L3 w3;
    B3_L4 w4;
    B3_L5 w5;
+   B3_L6 w6;
+   B3_L7 w7;
+   B3_L8 w8;
+   B3_L9 w9;
 };
 
 struct B10 {
