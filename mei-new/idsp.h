@@ -671,7 +671,7 @@ int16 FNTYPE pcdsp_set_last(PDSP pdsp, int16 axis, int16 last, PFIXED lastvalue)
 int16 FNTYPE pcdsp_interrupt_enable(PDSP pdsp, int16 enable);
 int16 FNTYPE pcdsp_arm_latch(PDSP pdsp, int16 enable);
 int16 FNTYPE pcdsp_latch_status(PDSP pdsp);
-int16 FNTYPE pcdsp_jog_axis(PDSP pdsp, int16 axis, int16 jog_channel, DSP_DM c, DSP_DM d, DSP_DM m1, DSP_DM m2);
+int16 FNTYPE pcdsp_jog_axis(PDSP pdsp, int16 axis, int16 jog_channel, DSP_DM c, DSP_DM _d, DSP_DM m1, DSP_DM m2);
 int16 FNTYPE pcdsp_jog_enable(PDSP pdsp, int16 axis);
 int16 FNTYPE pcdsp_jog_disable(PDSP pdsp, int16 axis);
 int16 FNTYPE pcdsp_set_integrator(PDSP pdsp, int16 axis, int16 value);
@@ -716,7 +716,7 @@ extern int16 DATATYPE __frames_allocated, __frames_downloaded;
 void FNTYPE frame_clear(PFRAME dst) ; /* zero all fields in a frame. */
 int16 FNTYPE frame_allocate(PFRAME dst, PDSP dsp, int16 axis); /* reserve DSP memory for a frame. */
 int16 FNTYPE buffer_allocate(PFRAME dst, PDSP dsp, int16 axis); /* reserve DSP memory for a frame. */
-int16 FNTYPE _frame_download(PFRAME src, int16 connect); /* copy a frame int16o allocated DSP memory. */
+int16 FNTYPE _frame_download(PFRAME src, int16 _connect); /* copy a frame int16o allocated DSP memory. */
 int16 FNTYPE frame_download(PFRAME src); 
 int16 FNTYPE buffer_download(PFRAME src); 
 int16 FNTYPE frame_download_and_detach(PFRAME src); 
@@ -730,7 +730,7 @@ DSP_DM * FNTYPE __frame_compress(PFRAME pframe) ;
 
 /* imemory.c: */
 extern unsigned DATATYPE _pcdsp_timeout ; /* number of iterations to wait for transfer block */
-int16 FNTYPE pcdsp_transfer_block(PDSP dsp, int16 read, int16 program, P_DSP_DM addr, unsigned length, PDSP_DM buffer);
+int16 FNTYPE pcdsp_transfer_block(PDSP dsp, int16 _read, int16 program, P_DSP_DM addr, unsigned length, PDSP_DM buffer);
 int16 FNTYPE pcdsp_read_dm(PDSP dsp, P_DSP_DM addr, unsigned len, PDSP_DM dest);
 int16 FNTYPE pcdsp_write_dm(PDSP dsp, P_DSP_DM addr, unsigned len, PDSP_DM src);
 int16 FNTYPE pcdsp_read_pm(PDSP dsp, P_DSP_DM addr, unsigned len, PDSP_DM dest);
@@ -886,10 +886,10 @@ int16 FNTYPE ipcdsp_fixed_accel(PDSP pdsp, int16 axis, double src, PFIXED dst);
 int16 FNTYPE ipcdsp_fixed_vel(PDSP pdsp, int16 axis, double src, PFIXED dst);
 int16 FNTYPE ipcdsp_fixed_pos(PDSP pdsp, int16 axis, double src, PFIXED dst);
 int16 FNTYPE ipcdsp_fixed_time(PDSP pdsp, int16 axis, double src, PFIXED dst);
-int16 FNTYPE pcdsp_init_conversion(PDSP dsp, int16 axis);
-int16 FNTYPE pcdsp_set_aconversion(PDSP dsp, int16 axis, double cpd, double spp, double app);
+int16 FNTYPE pcdsp_init_conversion(PDSP _dsp, int16 axis);
+int16 FNTYPE pcdsp_set_aconversion(PDSP _dsp, int16 axis, double cpd, double spp, double app);
 int16 FNTYPE pcdsp_get_aconversion(PDSP pdsp, int16 axis, P_DOUBLE cpd, P_DOUBLE spp, P_DOUBLE app);
-int16 FNTYPE pcdsp_set_conversion(PDSP dsp, int16 axis, double cpd, double spp);
+int16 FNTYPE pcdsp_set_conversion(PDSP _dsp, int16 axis, double cpd, double spp);
 int16 FNTYPE ipcdsp_double_flat(PDSP pdsp, int16 axis, PFIXED src, P_DOUBLE dst) ;
 int16 FNTYPE ipcdsp_double_jerk(PDSP pdsp, int16 axis, PFIXED src, P_DOUBLE dst);
 int16 FNTYPE ipcdsp_double_accel(PDSP pdsp, int16 axis, PFIXED src, P_DOUBLE dst);
@@ -899,10 +899,10 @@ int16 FNTYPE ipcdsp_double_time(PDSP pdsp, int16 axis, PFIXED src, P_DOUBLE dst)
 
 /* mlmove.c */
 int16 FNTYPE dsp_load_move(PDSP pdsp, int16 axis, double final, double v, double a);
-int16 LOCAL_FN ipcdsp_last_frame(PDSP dsp, int16 axis, double x) ;
+int16 LOCAL_FN ipcdsp_last_frame(PDSP _dsp, int16 axis, double x) ;
 
 /* llink.c */
-int16 FNTYPE pcdsp_set_link(PDSP dsp, int16 axis, P_DSP_DM master_addr, PFIXED ratio) ;
+int16 FNTYPE pcdsp_set_link(PDSP _dsp, int16 axis, P_DSP_DM master_addr, PFIXED ratio) ;
 int16 FNTYPE pcdsp_endlink(PDSP pdsp, int16 slave);
 
 
@@ -925,16 +925,16 @@ int16 FNTYPE pcdsp_dump_frame(PFRAME pframe) ;
 int16 FNTYPE dsp_setup(unsigned16 addr);
 
 /* mlef.c */
-int16 FNTYPE pcdsp_config_ef(PDSP dsp, int16 axis, int16 ef, int16 set_int);
+int16 FNTYPE pcdsp_config_ef(PDSP _dsp, int16 axis, int16 ef, int16 set_int);
 
 
 /* mlconfig.c */
 extern int16 idsp_filter_map[] ;
 extern int16 idsp_aux_filter_map[] ;
 
-int16 FNTYPE pcdsp_stepper(PDSP dsp, int16 axis);
-int16 FNTYPE pcdsp_set_unipolar(DSP * dsp, int16 axis, int16 state);
-int16 FNTYPE pcdsp_set_stepper(PDSP dsp, int16 axis, int16 stepper);
+int16 FNTYPE pcdsp_stepper(PDSP _dsp, int16 axis);
+int16 FNTYPE pcdsp_set_unipolar(DSP * _dsp, int16 axis, int16 state);
+int16 FNTYPE pcdsp_set_stepper(PDSP _dsp, int16 axis, int16 stepper);
 
 
 /* mldspf.c */

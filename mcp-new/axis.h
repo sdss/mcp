@@ -74,7 +74,7 @@ const char *axis_name(int axis);
 float axis_ticks_deg(int axis);
 void enable_pvt(int axis);
 void tm_TCC(int axis);
-int mcp_drift(int axis, double *arcdeg, double *veldeg, double *time);
+int mcp_drift(int axis, double *arcdeg, double *veldeg, double *t);
 int mcp_move(int axis, double *params, int nparam);
 int mcp_plus_move(int axis, double *params, int nparam);
 

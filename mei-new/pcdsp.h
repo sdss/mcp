@@ -562,7 +562,7 @@ int16 FNTYPE set_gates(int16 length, P_INT axes);
 int16 FNTYPE reset_gates(int16 length, P_INT axes);
 int16 FNTYPE set_gate(int16 axis) ;
 int16 FNTYPE reset_gate(int16 axis) ;
-int16 FNTYPE jog_axis(int16 axis, int16 jog_channel, int16 c, int16 d, double m1, double m2, int16 enable);
+int16 FNTYPE jog_axis(int16 axis, int16 jog_channel, int16 c, int16 _d, double m1, double m2, int16 enable);
 int16 FNTYPE reset_integrator(int16 axis);
 unsigned long FNTYPE get_frame_time(int16 axis);
 unsigned16 FNTYPE get_dsp_time(void);
