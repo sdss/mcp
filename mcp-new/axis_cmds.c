@@ -14,8 +14,6 @@
 ** ----------------------------------------------------------------------
 **	tm_TCC		task	tmAz, tmAlt, tmRot
 **	tm_latch	task	tmLatch
-**	DIO316_interrupt int	reference crossing interrupts
-**	DID48_interrupt	int	1 Hz Timer for SDSStime
 **
 ** ENVIRONMENT:
 **      ANSI C.
@@ -79,9 +77,6 @@
 #include "idsp.h"
 #include "pcdsp.h"
 #include "gendefs.h"
-#include "dio316dr.h"
-#include "dio316lb.h"
-#include "did48lb.h"
 #include "mv162IndPackInit.h"
 #include "logLib.h"
 #include "data_collection.h"
@@ -95,6 +90,8 @@
 #include "dscTrace.h"
 #include "mcpMsgQ.h"
 #include "abdh.h"
+#include "mcpTimers.h"
+
 /*========================================================================
 **========================================================================
 **
@@ -103,12 +100,7 @@
 **========================================================================
 */
 #define	DSP_IO_BASE		(0x300)			/* in A16/D16 space. */
-/* below is a place for DIAGNOStic flag for turning off the feature
-#define DIAGNOS 0
-*/
-#define NULLFP (void(*)()) 0
-#define NULLPTR ((void *) 0)
-#define ONE_DAY	86400
+
 /*------------------------------------------------------------------------
 **
 ** LOCAL DEFINITIONS
@@ -142,23 +134,24 @@ int errmsg_max[3]={400,200,100}; /* axis fiducial max error to post msg */
 SEM_ID semMEI=NULL;
 SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
-MSG_Q_ID msgDIO316ClearISR = NULL;	/* notify the tm_ClrInt task */
-int tm_DIO316,tm_DID48;
+#if USE_MSG_Q
+   MSG_Q_ID msgDIO316ClearISR = NULL;	/* control the tm_ClrInt task */
+   MSG_Q_ID msgMoveCW = NULL;		/* control the moveCW task */
+   MSG_Q_ID msgMoveCWAbort = NULL;	/* control the moveCW task */
+   SEM_ID semMoveCWBusy = NULL;		/*  "   "   "   "  "   " " */
+#endif
 int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 int MEI_interrupt=FALSE;
-int DIO316_Init=FALSE;
-int DID48_Init=FALSE;
 int sdss_was_init=FALSE;
 struct FRAME_QUEUE axis_queue[3]={
-   {0,NULLPTR,NULLPTR},
-   {0,NULLPTR,NULLPTR},
-   {0,NULLPTR,NULLPTR}
+   {0, NULL, NULL},
+   {0, NULL, NULL},
+   {0, NULL, NULL}
 };
 double max_velocity[]={2.25,1.75,2.25,0,0,0};
 double max_acceleration[]={4.,4.,6.0,0,0,0};
 double max_position[]={360.,92.,320.0,0,0,0};
 double min_position[]={-360.,0.,-180.0,0,0,0};
-float time1[3],time2[3];
 int CALC_verbose=FALSE;
 int CALCOFF_verbose=FALSE;
 int CALCADDOFF_verbose=FALSE;
@@ -197,12 +190,6 @@ double ticks_per_degree[3]={AZ_TICKS_DEG, ALT_TICKS_DEG, ROT_TICKS_DEG};
 /*------------*/
 /* Prototypes */
 /*------------*/
-void axis_DIO316_shutdown(int type);
-void DIO316_interrupt(int type);
-int DIO316_initialize(unsigned char *addr, unsigned short vecnum);
-void axis_DID48_shutdown(int type);
-void DID48_interrupt(int type);
-int DID48_initialize(unsigned char *addr, unsigned short vecnum);
 void save_firmware();
 void restore_firmware();
 int sdss_init();
@@ -224,7 +211,6 @@ void restore_fiducials (int axis);
 void restore_fiducials_all ();
 void print_max ();
 double sdss_delta_time(double t2, double t1);
-#define USE_MSG_Q 1
 #if USE_MSG_Q
    void DIO316ClearISR_delay(void);
 #else
@@ -1333,101 +1319,7 @@ set_limits_cmd(char *cmd)
 
    return "";
 }
-
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: set_time_cmd
-**	    print_time_changes - diagnostic
-**
-** DESCRIPTION:
-**	SET.TIME date - sets time to WWVB.
-**	Date can be specified as either "month day year hour minute second" or
-**	"month day year seconds-in-day".
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	SDSStime
-**	time1, time2
-**
-**=========================================================================
-*/
-long SDSStime=-1;
-char *set_time_cmd(char *cmd)
-{
-  float t1,t2,t3;
-  int cnt;
-  struct timespec tp;
-  struct tm t;
-  int extrasec;
 
-/*  printf (" SET.TIME command fired\r\n");*/
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  cnt=sscanf (cmd,"%d %d %d %f %f %f",&t.tm_mon,&t.tm_mday,&t.tm_year,&t1,&t2,&t3);
-  switch (cnt)
-  {
-/* date -> m d y h m s */
-    case 6:
-      t.tm_hour=(int)t1;
-      t.tm_min=(int)t2;
-      t.tm_sec=(int)t3;
-      if ((t3-(int)t3)>.75)
-      {
-        taskDelay(20);	/* 1/3 sec */
-        extrasec=1;
-      }
-      else 
-        extrasec=0;
-      break;		
-
-/* date -> m d y s  where s is in floating pt precision*/
-    case 4:
-      t.tm_hour = (int)(t1/3600);
-      t.tm_min = (int)((t1-(t.tm_hour*3600))/60);
-      t3 = (float)(t1-(t.tm_hour*3600)-(t.tm_min*60));
-      t.tm_sec = (int)t3;
-      if ((t3-(int)t3)>.75)
-      {
-        taskDelay(20);	/* 1/3 sec */
-        extrasec=1;
-      }
-      else 
-        extrasec=0;
-      break;		
-
-      default:
-	return "ERR: wrong number of args";
-  }
-  t.tm_year -= 1900;
-  t.tm_mon -= 1;
-  tp.tv_sec=mktime(&t)+extrasec;
-  tp.tv_nsec=0;
-  time1[axis_select]=sdss_get_time();	/* before and after for diagnostic */
-  SDSStime=tp.tv_sec%ONE_DAY;
-  time2[axis_select]=sdss_get_time();
-  clock_settime(CLOCK_REALTIME,&tp);
-/*
-  printf("\r\nt3=%f (extrasec=%d)",t3,extrasec);
-  printf (" mon=%d day=%d, year=%d %d:%d:%d\r\n",
-	t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
-  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
-*/
-  return "";
-}
-void print_time_changes()
-{
-  int i;
-
-  for (i=0;i<3;i++)
-    printf ("\r\nSDSS axis %d:  time1=%f time2=%f",i,time1[i],time2[i]);
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -3391,6 +3283,8 @@ void start_tm_TCC()
   taskSpawn("tmRot",47,VX_FP_TASK,20000,(FUNCPTR)tm_TCC,
 		2,0,0,0,0,0,0,0,0,0);
 }
+
+#if 0
 /*=========================================================================
 **=========================================================================
 **
@@ -3454,6 +3348,8 @@ void start_tm_TCC_test()
   taskSpawn("tmRottest",62,VX_FP_TASK,20000,(FUNCPTR)tm_TCC_test,
 		2,0,0,0,0,0,0,0,0,0);
 }
+#endif
+
 /*=========================================================================
 **=========================================================================
 **
@@ -3500,89 +3396,6 @@ int print_axis_queue(int axis)
     frame = frame->nxt;
   }
   return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: axis_DIO316_shutdown
-**
-** DESCRIPTION:
-**	Software reboot shutdown of DIO316 hardware.  Disables interrupts.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	tm_DIO316
-**
-**=========================================================================
-*/
-void axis_DIO316_shutdown(int type)
-{
-    printf("AXIS DIO316 Shutdown:  4 interrupts %d\r\n",tm_DIO316);
-    if (tm_DIO316!=-1)
-    {
-      DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
-      DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
-      DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
-      DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
-    }
-    taskDelay(30);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: DIO316_interrupt
-**
-** DESCRIPTION:
-**	Interrupt handler.  Used to handle function generator driven 1 Hz
-**	pulse for testing.  Used for monitoring a crossing of a fiducial
-**	and triggers a task via a semaphore.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	tm_DIO316
-**	semLATCH
-**
-**=========================================================================
-*/
-unsigned long int_count=0;
-float latchpos4,latchpos5;
-int lpos4,lpos5;
-int illegal_NIST=0;
-unsigned char dio316int_bit=0;
-
-void
-DIO316_interrupt(int type)
-{
-   TRACE0(16, "DIO316_interrupt", 0, 0);	 
-
-   int_count++;
-   DIO316ReadISR (tm_DIO316,&dio316int_bit);
-
-   if(dio316int_bit & NIST_INT) {
-      illegal_NIST++;
-      DIO316ClearISR (tm_DIO316);
-   } else {
-      if(dio316int_bit&AZIMUTH_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_DIS);
-      }
-      if(dio316int_bit & ALTITUDE_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_DIS);
-      }
-      if(dio316int_bit & INSTRUMENT_INT) {
-	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_DIS);
-      }
-
-      semGive (semLATCH);
-      TRACE0(8, "Gave semLATCH", 0, 0);
-   }
 }
 /*=========================================================================
 **=========================================================================
@@ -3762,9 +3575,11 @@ static char const* bldFileName(char const* newName)
 **
 **=========================================================================
 */
-void fiducial_shutdown(int type)
+void
+fiducial_shutdown(int type)
 {
   printf("fiducial file shutdown: FP=%p\r\n",fidfp);
+  
   fclose (fidfp);
 #if defined(CALL_NSF)
   destroyNfsConnection();
@@ -4663,31 +4478,6 @@ print_fiducials(int axis,		/* which axis */
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: axis_DID48_shutdown
-**
-** DESCRIPTION:
-**	Shutdown the DID48 hardware which is used to field the 1 Hz interrupt.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	tm_DID48
-**
-**=========================================================================
-*/
-void axis_DID48_shutdown(int type)
-{
-    printf("AXIS DID48 shutdown: TOD interrupt %d\r\n",tm_DID48);
-    if (tm_DID48!=-1)
-      DID48_Interrupt_Enable_Control (tm_DID48,5,DID48_INT_DIS);
-    taskDelay(30);
-}
-/*=========================================================================
-**=========================================================================
-**
 ** ROUTINE: ip_shutdown
 **
 ** DESCRIPTION:
@@ -4723,184 +4513,6 @@ void ip_shutdown(int type)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: DID48_interrupt
-**
-** DESCRIPTION:
-**	Interrupt handler for the 1 Hz tick interrupt.  Monitors timeliness
-**	of interrupt and restarts 1us timer for interval between interrupts.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	NIST_sec
-**	NIST_cnt
-**	SDSS_cnt
-**	SDSStime
-**	axis_stat
-**	persistent_axis_stat
-**
-**=========================================================================
-*/
-unsigned long NIST_sec;
-unsigned char did48int_bit;
-unsigned long NIST_cnt=0;
-unsigned long SDSS_cnt=0;
-#define DAYINSECS	86400
-void DID48_interrupt(int type)
-{
-  TRACE0(16, "DID48_interrupt", 0, 0);
-	 
-  DID48_Read_Port (tm_DID48,5,&did48int_bit);
-  NIST_cnt++;
-  if (did48int_bit&NIST_INT)
-  {
-    SDSS_cnt++;
-    if (SDSStime>=0)
-      SDSStime=(SDSStime+1)%DAYINSECS;
-    NIST_sec=timer_read(1);
-    if (NIST_sec>1000100) 
-    {
-      axis_stat[0].clock_loss_signal=1;
-      persistent_axis_stat[0].clock_loss_signal=1;
-    }
-    else axis_stat[0].clock_loss_signal=0;
-    axis_stat[2].clock_loss_signal=axis_stat[1].clock_loss_signal=
-      axis_stat[0].clock_loss_signal;
-    timer_start (1);
-  }
-  DID48_Write_Reg (tm_DID48,4,0x20);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: DIO316_initialize
-**
-** DESCRIPTION:
-**	Setup the DIO316 for axis motion.
-**
-** RETURN VALUES:
-**	return 0 or ERROR
-**
-** CALLS TO:
-**	Industry_Pack
-**
-** GLOBALS REFERENCED:
-**	tm_DIO316
-**
-**=========================================================================
-*/
-int DIO316_initialize(unsigned char *addr, unsigned short vecnum)
-{
-  STATUS stat;
-  int i;
-  struct IPACK ip;
-
-  Industry_Pack (addr,SYSTRAN_DIO316,&ip);
-  for (i=0;i<MAX_SLOTS;i++) 
-    if (ip.adr[i]!=NULL)
-    {
-      printf ("\r\nFound at %d, %p",i,ip.adr[i]);
-      tm_DIO316=DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
-      break;
-    }
-  if (i>=MAX_SLOTS) 
-  {
-    printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
-    return ERROR;
-  }
-  DIO316_Init=TRUE;
-  DIO316_Read_Reg(tm_DIO316,0xA,&vecnum);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
-/*
-  if (vecnum==0) vecnum = DIO316_VECTOR;
-*/
-  stat = intConnect (INUM_TO_IVEC(vecnum),
-                                (VOIDFUNCPTR)DIO316_interrupt,
-                                DIO316_TYPE);
-  printf ("DIO316 vector = %d, interrupt address = %p, result = %8x\r\n",
-              vecnum,DIO316_interrupt,stat);
-  rebootHookAdd((FUNCPTR)axis_DIO316_shutdown);
-
-/*
-  DIO316_Interrupt_Configuration (tm_DIO316,0,DIO316_INT_HIGH_LVL);           
-  DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_ENA);
-*/
-  DIO316_Interrupt_Configuration (tm_DIO316,1,DIO316_INT_FALL_EDGE/*ON_CHANGE*/);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_ENA);
-  DIO316_Interrupt_Configuration (tm_DIO316,2,DIO316_INT_FALL_EDGE);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_ENA);
-  DIO316_Interrupt_Configuration (tm_DIO316,3,DIO316_INT_FALL_EDGE);
-  DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_ENA);
-  DIO316_OE_Control (tm_DIO316,3,DIO316_OE_ENA);
-  DIO316_OE_Control (tm_DIO316,2,DIO316_OE_ENA);
-
-  IP_Interrupt_Enable(&ip,DIO316_IRQ);
-  sysIntEnable(DIO316_IRQ);                                
-  return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: DID48_initialize
-**
-** DESCRIPTION:
-**	Setup the DID48 for 1 Hz diffential interrupt (approximately +-8 volts)
-**
-** RETURN VALUES:
-**	return 0 or ERROR
-**
-** CALLS TO:
-**	Industry_Pack
-**
-** GLOBALS REFERENCED:
-**	tm_DID48
-**
-**=========================================================================
-*/
-int DID48_initialize(unsigned char *addr, unsigned short vecnum)
-{
-  STATUS stat;
-  int i;
-  struct IPACK ip;
-
-  Industry_Pack (addr,SYSTRAN_DID48,&ip);
-  for (i=0;i<MAX_SLOTS;i++) 
-    if (ip.adr[i]!=NULL)
-    {
-      printf ("\r\nFound at %d, %p",i,ip.adr[i]);
-      tm_DID48=DID48Init((struct DID48 *)ip.adr[i], vecnum);
-      break;
-    }
-  if (i>=MAX_SLOTS) 
-  {
-    printf ("\r\n****Missing DID48 at %p****\r\n",addr);
-    return ERROR;
-  }
-  DID48_Init=TRUE;
-/*    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
-    if (vecnum==0) vecnum = DID48_VECTOR;*/
-  stat = intConnect (INUM_TO_IVEC(vecnum),
-                                (VOIDFUNCPTR)DID48_interrupt,
-                                DID48_TYPE);
-  printf ("DID48 vector = %d, interrupt address = %p, result = %8x\r\n",
-                vecnum,DID48_interrupt,stat);
-  rebootHookAdd((FUNCPTR)axis_DID48_shutdown);
-
-  IP_Interrupt_Enable(&ip,DID48_IRQ);
-  sysIntEnable(DID48_IRQ);                                
-  DID48_Write_Reg (tm_DID48,3,0x3); /* disable debounce for all byte lanes */
-  DID48_Interrupt_Enable_Control (tm_DID48,5,DID48_INT_ENA);
-  return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
 ** ROUTINE: amp_reset
 **
 ** DESCRIPTION:
@@ -4921,9 +4533,9 @@ void amp_reset(int axis)
 {
    TRACE(1, "Resetting amp for axis %s: %d", axis_name(axis/2), axis);
    
-   DIO316_Write_Port (cw_DIO316,AMP_RESET,1<<axis);
+   DIO316_Write_Port(cw_DIO316, AMP_RESET, 1<<axis);
    taskDelay (2);
-   DIO316_Write_Port (cw_DIO316,AMP_RESET,0);
+   DIO316_Write_Port(cw_DIO316, AMP_RESET, 0);
 }
 /*=========================================================================
 **=========================================================================
@@ -5053,119 +4665,6 @@ void restore_firmware()
 {
   download_firmware_file ("vx_mei_firmware.bin");
 }
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: sdss_get_time
-**	    get_time - prints time as well; used as a diagnostic.
-**
-** DESCRIPTION:
-**	Get SDSS time based on seconds-in-a-day plus us since last 1 Hz
-**	interrupt.
-**	The timer is scaled due to an incorrect setting in the BSP for
-**	VME162.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**	timer_read
-**
-** GLOBALS REFERENCED:
-**	SDSStime
-**
-**=========================================================================
-*/
-#define CLOCK_INT 1
-/* turn on 1 Hz interrupt time returns else use local clock
-*/
-#ifdef CLOCK_INT
-double
-sdss_get_time()
-{
-  	  unsigned long micro_sec;
-
-/*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
-          micro_sec = timer_read (1);
-	  if (micro_sec>1000000) micro_sec=999999;
-          return (double)(SDSStime+((micro_sec%1000000)/1000000.));
-}
-
-double
-get_time()
-{
-  	  unsigned long micro_sec;
-
-/*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
-          micro_sec = timer_read (1);
-	  if (micro_sec>1000000) micro_sec=999999;
-	  printf ("\r\nSDSS time=%f",
-		(double)(SDSStime+((micro_sec%1000000)/1000000.)));
-          return (double)(SDSStime+((micro_sec%1000000)/1000000.));
-}
-#else
-double
-sdss_get_time()
-{
-  	  struct timespec tp;
-  	  unsigned long micro_sec;
-
-  	  clock_gettime(CLOCK_REALTIME,&tp);
-          micro_sec = timer_read (1);
-          return ((double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
-}
-
-double
-get_time()
-{
-  	  struct timespec tp;
-  	  unsigned long micro_sec;
-
-  	  clock_gettime(CLOCK_REALTIME,&tp);
-          micro_sec = timer_read (1);
-	  printf ("\r\nsec=%d, day_sec=%d, micro_sec=%d, time=%f",
-		tp.tv_sec,tp.tv_sec%ONE_DAY,micro_sec,
-		(double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
-          return ((double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
-}
-#endif
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: sdss_delta_time
-**	    test_dt - diagnostic test
-**
-** DESCRIPTION:
-**	Determine the delta time.  This routine takes into consideration
-**	the window when the time wraps from a full day to the beginning
-**	of the new day.  The logic has a limit of 400 seconds to the end
-**	of the day to work across the boundary.
-**
-** RETURN VALUES:
-**	void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-double sdss_delta_time(double t2, double t1)
-{
-  if ((t2>=0.0)&&(t2<400.)&&(t1>86000.)&&(t1<86400.))
-    return ((86400.-t1)+t2);
-  if ((t1>=0.0)&&(t1<400.)&&(t2>86000.)&&(t2<86400.))
-    return ((t2-86400.)-t1);
-  return (t2-t1);
-}
-int test_dt(int t2,int t1)
-{
-  printf ("\r\ndt=%f",sdss_delta_time((double)t2,(double)t1));
-  return (int)sdss_delta_time((double)t2,(double)t1);
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -5625,78 +5124,6 @@ mcp_amp_reset(int axis)
    } else {
       amp_reset(2*axis);
       amp_reset(2*axis + 1);
-   }
-
-   return(0);
-}
-
-/*****************************************************************************/
-/*
- * Abort counter weight motion
- */
-int
-mcp_cw_abort(void)
-{
-   taskDelete(taskIdFigure("moveCW"));
-   cw_abort();
-
-   return(0);
-}
-
-/*****************************************************************************/
-/*
- * Set or balance the counter weights
- */
-int
-mcp_set_cw(int inst,			/* instrument to balance for */
-	   int cw,			/* CW to move, or ALL_CW */
-	   int cwpos,			/* desired position, or 0 to balance */
-	   const char **errstr)		/* &error_string, or NULL  */
-{
-   if(inst < 0 || inst >= NUMBER_INST) {
-      if(errstr != NULL) {
-	 *errstr = "illegal choice of instrument";
-      }
-   }
-
-   if(cw != ALL_CW && (cw < 0 || cw > NUMBER_CW)) {
-      if(errstr != NULL) {
-	 *errstr = "illegal choice of CW";
-      }
-
-      return(-1);
-   }
-
-   if(cwpos != 0 && (cwpos < 10 || cwpos > 800)) {
-      if(errstr != NULL) {
-	 *errstr = "ERR: Position out of Range (10-800)";
-      }
-
-      return(-1);
-   }
-
-   if(taskIdFigure("moveCW") != ERROR) {
-      if(errstr != NULL) {
-	 *errstr = "ERR: CW or CWP task still active...be patient";
-      }
-      
-      return(-1);			/* CW or CWP task still active */
-   }
-
-   if(sdssdc.status.i9.il0.alt_brake_en_stat == 0) {
-      if(errstr != NULL) {
-	 *errstr = "ERR: Altitude Brake NOT Engaged";
-      }
-      
-      return(-1);
-   } else {
-      taskSpawn("moveCW",60,VX_FP_TASK,10000,(FUNCPTR)set_counterweight,
-		inst, cw, cwpos,
-		0,0,0,0,0,0,0);
-   }
-
-   if(errstr != NULL) {
-      *errstr = "";
    }
 
    return(0);
