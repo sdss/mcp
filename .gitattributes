@@ -90,6 +90,7 @@ mcp-new/Makefile -text
 mcp-new/abdh.h -text
 mcp-new/axis.h -text
 mcp-new/axis_cmds.c -text
+mcp-new/brakes.c -text
 mcp-new/cmd.c -text
 mcp-new/cmd.h -text
 mcp-new/copyright.h -text
