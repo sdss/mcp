@@ -616,6 +616,7 @@ tLatch(const char *name)
    int pos_is_mark;			/* is this a "real" mark on
 					   the rotator, not one of the dithered
 					   ones? */
+   int relatch = 0;			/* re-enable latches? */
    int ret;				/* a return code */
    long rot_latch = 0;			/* position of last rotary latch seen*/
    int status;
@@ -628,17 +629,19 @@ tLatch(const char *name)
       if(latchidx < 0) {
 	 latchidx = 0;
 	 dio316int_bit = 0;
-      } else if(dio316int_bit != 0) {
+	 relatch = 0;
+      } else if(relatch) {
 /*
  * send message requesting the latches to rearm, reenabling interrupts
  */
 	 msg.type = latchReenable_type;
-	 msg.u.latchReenable.timeout = 120;	
+	 msg.u.latchReenable.timeout = 0;	
 	 msg.u.latchReenable.dio316int_bit = dio316int_bit;
  
 	 ret = msgQSend(msgLatchReenable, (char *)&msg, sizeof(msg),
 			NO_WAIT, MSG_PRI_NORMAL);
 	 assert(ret == OK);
+	 TRACE(2, "RHL Sending latch reenable: 0x%x", dio316int_bit, 0);
 
 	 dio316int_bit = 0;
       }
@@ -654,9 +657,13 @@ tLatch(const char *name)
  *   alignClamp_type        A request from the outside world to move clamp
  *   alignClampCheck_type   A request from us to check that the clamp moved
  */
+      relatch = 0;			/* re-enable latches? */
       switch (msg.type) {
        case latchCrossed_type:
 	 dio316int_bit = msg.u.latchCrossed.dio316int_bit;
+	 relatch = 1;
+	 TRACE(2, "RHL Saw latch crossing: 0x%x", dio316int_bit, 0);
+	 
 	 TRACE(8, "read latchCrossed on msgLatched, delay = %dus 0x%x",
 	       timer_read(2) - msg.u.latchCrossed.time, dio316int_bit);
 	 break;
@@ -726,6 +733,8 @@ tLatch(const char *name)
 	 
 	 taskDelay(1);
       }
+      
+      TRACE(2, "RHL read latch status: 0x%x", dio316int_bit, 0);
       
       if(status == FALSE) {		/* we didn't see anything */
 	 latchpos[latchidx].axis = -(dio316int_bit & 0xe);
@@ -1089,6 +1098,8 @@ DIO316ClearISR_delay(void)
       
       status = semTake(semMEI,WAIT_FOREVER);
       assert(status == OK);
+
+      TRACE(2, "RHL Reenabling latches: 0x%x", dio316int_bit, 0);
 
       TRACE(5, "arming latches", 0, 0);
       while((status = arm_latch(TRUE)) != DSP_OK) {
