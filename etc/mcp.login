@@ -5,13 +5,15 @@ tyBackspaceSet(0x7F)
 #
 memOptionsSet 0x1ff
 #
-hostAdd ("sdsshost.apo.nmsu.edu", "192.41.211.171")
+hostAdd "sdsshost.apo.nmsu.edu", "192.41.211.171"
+hostAdd "tcc25m.apo.nmsu.edu",   "192.41.211.162"
 #
 routeAdd("0", "192.41.211.1")
 #
 nfsMount("sdsshost.apo.nmsu.edu", "/p", "/p")
 nfsMount("sdsshost.apo.nmsu.edu", "/home", "/home")
 nfsMount("sdsshost.apo.nmsu.edu", "/usrdevel", "/usrdevel")
+nfsMount("sdsshost.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
 # Add user vxboot (pid 5036, gid 5530) to group products
 #
@@ -59,13 +61,15 @@ clk2Start ()			/* VMEchip2 tick timer 2 */
 # A further suggestion is to use an even trace level for subroutine entry
 # and that level, plus one, for trace entries within the subroutine.
 #
-traceInit(40000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
+traceInit(30000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
 traceTtyOn 0, 3
 traceMode 5			/* Entry -> queue -> user-defined fn */
 
-taskSwitchHookAdd(trc_tskSwHk)	/* prepare to trace task switches */
+taskSwitchHookAdd trc_tskSwHk	/* prepare to trace task switches */
+excHookAdd trc_excHook		/* prepare to trace exceptions */
+
 repeat 1, taskDelay, 0		/* need a task switch to create pSwHook */
 traceOn 1, 31,31		/* trace task switches */
 
@@ -94,8 +98,11 @@ traceOn 3, 31,31		/* trace task deletion */
 # Spawn idle and timer tasks
 #
 taskSpawn "tIdleTask", 255, 0, 500, idle
-timerStart 0, 0, 60
-
+# RHL
+#ld < util/timerTask.o
+# n.b. timerStart has too small a stack
+#timerStart
+taskSpawn "tTimerTask", 5, 0, 7000, timerTask, 0,0
 #
 # IndustryPack serial drivers
 #
@@ -150,9 +157,11 @@ ld < mcp-new/mcpnew.out
 # Initialise message queues and semaphores
 #
 cmdInit
+axisMotionInit
 tMoveCWInit 0xFFFF4000, 0xC0
 tLatchInit
 spectroInit
+tBarsInit
 
 #BCAST_Enable=0
 #SM_COPY=0
@@ -163,17 +172,23 @@ cmd_handler("init")
 taskSpawn "TCC",46,8,10000,tcc_serial,1
 taskSpawn "cmdPortServer",100,0,2000,cmdPortServer,31011
 taskPrioritySet (taskIdFigure("tExcTask"),1)
-iptimeSet("sdsshost",0)
-axisMotionInit
+#
+# Get the current time from the NTP server
+#
+ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
+ld < util/ntp.o
+
+setTimeFromNTP "tcc25m.apo.nmsu.edu", 0, 1, 0
+
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
 taskSpawn "SLC_DC",70,8,10000,slc500_data_collection,100
 TimerStart (100,5,serverDCStart)
-ipsdss_ini()
+ipsdss_ini
 serverSetSym
-set_rot_state (-1)
-tm_ffs_enable 1		/* enable the Flat Field Screen */
+set_rot_state -1
+ffs_enable 1		/* enable the Flat Field Screen */
 tm_set_coeffs 0,0,160
 tm_set_coeffs 0,1,6
 tm_set_coeffs 0,2,1500
@@ -201,7 +216,6 @@ date
 DIO316_initialize(0xFFF58000,0xB0)
 tm_setup_wd()
 taskSpawn "ampMgt",45,0,2000,tm_amp_mgt
-start_tm_TCC()
 taskSpawn "taskTrg",100,8,10000,taskTrg
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 taskSpawn "barcodcan",85,8,1500,cancel_read
@@ -215,3 +229,4 @@ barcode_open (3)
 #
 traceOff barcodcan, 16,16
 traceTtyOn 0, 4
+
