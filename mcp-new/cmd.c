@@ -482,16 +482,14 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
  */
 	 if(!have_sem && (type & CMD_TYPE_MAY_TAKE)) {
 	    char name[100];			/* name of taker */
-	    if(1 || taskIdSelf() == taskNameToId("TCC")) {
-	       sprintf(name, "%s:%d", ublock->uname, ublock->pid);
-	       
-	       if(take_semCmdPort(60, name) != OK) {
-		  semGive(semCMD);
-		  return("ERR: failed to take semCmdPort semaphore");
-	       }
+	    sprintf(name, "%s:%d", ublock->uname, ublock->pid);
 	    
-	       have_sem = (getSemTaskId(semCmdPort) == taskIdSelf()) ? 1 : 0;
+	    if(take_semCmdPort(60, name) != OK) {
+	       semGive(semCMD);
+	       return("ERR: failed to take semCmdPort semaphore");
 	    }
+	    
+	    have_sem = (getSemTaskId(semCmdPort) == taskIdSelf()) ? 1 : 0;
 	 }
 /*
  * Do we need the semaphore?
