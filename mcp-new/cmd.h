@@ -6,6 +6,7 @@
 #define CMD_TYPE_LOCKED 0x20		/* cmd is locked; needs semCmdPort */
 #define CMD_TYPE_MURMUR 0x40		/* send to murmur by default */
 
+extern const char *rebootedMsg;		/* the message to send until iacked */
 
 int cmdInit(void);
 char *cmd_handler(int have_semPortCmd, char *cmd);
