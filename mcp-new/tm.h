@@ -69,6 +69,7 @@ int tm_axis_state(int mei_axis);
 const char *axis_source_str(int mei_axis);
 const char *axis_state_str(int mei_axis);
 void tm_print_axis_source(int mei_axis);
+void clear_sticky_bumps(int axis);
 /*
  * Global variables
  */
