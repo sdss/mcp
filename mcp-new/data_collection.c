@@ -132,31 +132,14 @@ int mei_axis_collection(int axis, int secs)
 	state = (short *)calloc(buffer_length, sizeof(state[0]));
 	voltage = (short *)calloc(buffer_length, sizeof(voltage[0]));
 
-
-	if( (apos==NULL) || (cpos==NULL) || (time==NULL) || (state==NULL) 
-	    || (voltage==NULL)) {
-	  
-	  if(apos==NULL) {
-	    free(apos);
-	  }
-	  if(cpos==NULL) {
-	    free(cpos);
-	  }
-	  if(time==NULL) {
-	    free(time);
-	  }
-	  if(state==NULL) {
-	    free(state);
-	  }
-	  if(voltage==NULL) {
-	    free(voltage);
-	  }
-	  fprintf(stderr, "Not enough memory.\n");
-	  return 1;
+	if ((apos==NULL)||(cpos==NULL)||(state==NULL)||(voltage==NULL))
+	{	fprintf(stderr, "Not enough memory.\n");
+	  if (apos!=NULL) free(apos);
+	  if (cpos!=NULL) free(cpos);
+	  if (state!=NULL) free(state);
+	  if (voltage!=NULL) free(voltage);
+	  return -1;
 	}
-
-	if(cpos==NULL
-
 	fprintf(stderr, "Sampling...");
 
 	/*  ****************************************************  **
@@ -243,8 +226,8 @@ void mei_data_collection(unsigned long freq)
 	axis4accel=&tmaxis[2]->acceleration;
 	axis4tim=&tmaxis[2]->time;
 	axis5pos=&tmaxis[2]->actual_position2;
-	set_analog_channel (5,0,TRUE,TRUE);
-	set_axis_analog (5,TRUE);
+/*	set_analog_channel (5,0,TRUE,TRUE);
+	set_axis_analog (5,TRUE);*/
 	
 /*	init_analog (0,TRUE,TRUE);*/
 	
@@ -255,11 +238,11 @@ void mei_data_collection(unsigned long freq)
   	  if (semTake (semMEI,NO_WAIT)!=ERROR)
           {
 	    timer_start (2);
-/*            meitime = dsp_read_dm(0x11E);*/
-/*            meichan0 = get_analog (0,&meichan0);*/
-/*          meichan2 =get_analog (2,&meichan2);
-	    meichan4=get_analog(4,&meichan4);*/
-	    read_axis_analog(5,&meichan0);
+/*          meitime = dsp_read_dm(0x11E);*/
+/*          meichan0 = get_analog (0,&meichan0);*/
+/*          meichan2 =get_analog (2,&meichan2);*/
+/*	    meichan4=get_analog(4,&meichan4);*/
+/*	    read_axis_analog(5,&meichan0);*/
 /*	    get_position (4,&meipos4);*/
     	    for(i = 0; i < 3; i++)
             {

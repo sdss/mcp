@@ -381,24 +381,28 @@ int negative;
 			{
 			  pos=fiducial_position[Axis/2];
 /* use optical encoder for axis 4 */
-			  if (Axis/2==2) 
-			  {
-		            pos += ((*tmaxis[Axis/2]).actual_position2-
+    			  if (semTake (semMEI,60)!=ERROR)
+     			  {
+			    if (Axis/2==2) 
+	  		    { 
+		              pos += ((*tmaxis[Axis/2]).actual_position2-
 				fiducial[Axis/2].mark);
-			    tm_set_pos(Axis+1,pos);
-  			    tm_set_pos(Axis-1,pos);
-	                    pos = (pos*OPT_TICK)/ROT_TICK;
-  			    tm_set_pos(Axis,pos);
-		          }
-			  else
-			  {
-		            pos += ((*tmaxis[Axis/2]).actual_position-
+			      tm_set_pos(Axis+1,pos);
+  			      tm_set_pos(Axis-1,pos);
+	                      pos = (pos*OPT_TICK)/ROT_TICK;
+  			      tm_set_pos(Axis,pos);
+		            }
+			    else
+			    {
+		              pos += ((*tmaxis[Axis/2]).actual_position-
 				fiducial[Axis/2].mark);
-			    tm_set_pos(Axis&0x6,pos);
+			      tm_set_pos(Axis&0x6,pos);
+			    }
+     			    semGive (semMEI);
 			  }
+			  else
+                            printf("ERR: can't take MEI semaphore          ");
 			  fiducial[Axis/2].mark=fiducial_position[Axis/2];
-/*			  if (Axis==0)
-			    tm_set_pos(Axis+1,pos);*/
 			}
 			else
                           printf("ERR: fiducial for axis not crossed      ");
@@ -408,6 +412,9 @@ int negative;
 	  		printf("Dest.  Position xxx:xx:xx:xxx           ");
 			if (GetString(&MenuInput[0],20))
 			{
+			  min=0;
+			  arcsec=0;
+			  marcsec=0;
 				memcpy(&buf[0],&MenuInput[0],21);
 				memset(&MenuInput[0],' ',20);
 				/*sscanf (buf,"%d",&pos);*/

@@ -266,73 +266,71 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   STATUS stat;                               
   struct IPACK *ip;
 
-    ip = (struct IPACK *)malloc (sizeof(struct IPACK));
-
-    Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
-    for (i=0;i<MAX_SLOTS;i++)
-      if (ip->adr[i]!=NULL)
-      {
-        cw_ADC128F1 = ADC128F1Init(ip->adr[i]);               
-        break;
-      }
-    if (i>=MAX_SLOTS)
+  ip = (struct IPACK *)malloc (sizeof(struct IPACK));
+  if (ip==NULL) return ERROR;
+  Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
+  for (i=0;i<MAX_SLOTS;i++)
+    if (ip->adr[i]!=NULL)
     {
-      printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
-      free(ip);
-      return;
+      cw_ADC128F1 = ADC128F1Init(ip->adr[i]);               
+      break;
     }
-    ADC128F1_CVT_Update_Control(cw_ADC128F1,ENABLE);
+  if (i>=MAX_SLOTS)
+  {
+    printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+    free (ip);
+    return ERROR;
+  }
+  ADC128F1_CVT_Update_Control(cw_ADC128F1,ENABLE);
 
-    Industry_Pack (addr,SYSTRAN_DAC128V,ip);
-    for (i=0;i<MAX_SLOTS;i++)
-      if (ip->adr[i]!=NULL)
-      {
-        cw_DAC128V = DAC128VInit(ip->adr[i]);
-        break;
-      }
-    if (i>=MAX_SLOTS)
+  Industry_Pack (addr,SYSTRAN_DAC128V,ip);
+  for (i=0;i<MAX_SLOTS;i++)
+    if (ip->adr[i]!=NULL)
     {
-      printf ("\r\n****Missing DAC128V at %p****\r\n",addr);
-      free(ip);
-      return;
+      cw_DAC128V = DAC128VInit(ip->adr[i]);
+      break;
     }
+  if (i>=MAX_SLOTS)
+  {
+    printf ("\r\n****Missing DAC128V at %p****\r\n",addr);
+    free (ip);
+    return ERROR;
+  }
 
-    for (i=0;i<DAC128V_CHANS;i++) 
-    {
-      DAC128V_Read_Reg(cw_DAC128V,i,&val);
-      if ((val&0xFFF) != 0x800) 
+  for (i=0;i<DAC128V_CHANS;i++) 
+  {
+    DAC128V_Read_Reg(cw_DAC128V,i,&val);
+    if ((val&0xFFF) != 0x800) 
 		printf ("\r\nDAC128V Chan %d Init error %x",
 			i,val);
-    }
+  }
 
-    Industry_Pack (addr,SYSTRAN_DIO316,ip);
-    for (i=0;i<MAX_SLOTS;i++)
-      if (ip->adr[i]!=NULL)
-      {
-        cw_DIO316 = DIO316Init(ip->adr[i], vecnum);               
-        break;
-      }
-    if (i>=MAX_SLOTS)
+  Industry_Pack (addr,SYSTRAN_DIO316,ip);
+  for (i=0;i<MAX_SLOTS;i++)
+    if (ip->adr[i]!=NULL)
     {
-      printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
-      free(ip);
-      return;
+      cw_DIO316 = DIO316Init(ip->adr[i], vecnum);               
+      break;
     }
-    stat = intConnect (INUM_TO_IVEC(vecnum),
+  if (i>=MAX_SLOTS)
+  {
+    printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+    free (ip);
+    return ERROR;
+  }
+  stat = intConnect (INUM_TO_IVEC(vecnum),
                                 (VOIDFUNCPTR)cw_DIO316_interrupt,
                                 DIO316_TYPE);
-    printf ("CW vector = %d, interrupt address = %p, result = %8x\r\n",
+  printf ("CW vector = %d, interrupt address = %p, result = %8x\r\n",
                 vecnum,cw_DIO316_interrupt,stat);
-    rebootHookAdd(cw_DIO316_shutdown);
+  rebootHookAdd(cw_DIO316_shutdown);
 
-    IP_Interrupt_Enable(ip,DIO316_IRQ);
-    DIO316_OE_Control (cw_DIO316,3,DIO316_OE_ENA);
-    DIO316_Interrupt_Configuration (cw_DIO316,0,DIO316_INT_FALL_EDGE);
-    sysIntEnable(DIO316_IRQ);
-    DIO316_Write_Reg(cw_DIO316,6,0xF);
-    DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);
-
-  free (ip);
+  IP_Interrupt_Enable(ip,DIO316_IRQ);
+  DIO316_OE_Control (cw_DIO316,3,DIO316_OE_ENA);
+  DIO316_Interrupt_Configuration (cw_DIO316,0,DIO316_INT_FALL_EDGE);
+  sysIntEnable(DIO316_IRQ);
+  DIO316_Write_Reg(cw_DIO316,6,0xF);
+  DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);
   cw_power_off();
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
 
@@ -350,8 +348,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
     cw_inst[i].stop_count=6;		/* stop polarity swing counts allowed */
     cw_calc (&cw_inst[i]);
   }
-
-
+  free (ip);
   return 0;
 }
 int balance (int cw, int inst)

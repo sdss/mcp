@@ -653,7 +653,7 @@ int serverMATLABFile(char *name, char *text)
   fclose (fp);
   return 0;
 }
-
+#ifdef NOTDEFINED
 int sym_ini ()
 {
     int optval;
@@ -712,6 +712,7 @@ void symbol_scope()
     }
   }
 }
+#endif
 void clrSym()
 {
   sf.sym_hdr.cnt=0;

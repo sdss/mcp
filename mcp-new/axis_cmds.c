@@ -51,10 +51,10 @@
 /* Prototypes */
 void axis_DIO316_shutdown(int type);
 void DIO316_interrupt(int type);
-void DIO316_initialize(unsigned char *addr, unsigned short vecnum);
+int DIO316_initialize(unsigned char *addr, unsigned short vecnum);
 void axis_DID48_shutdown(int type);
 void DID48_interrupt(int type);
-void DID48_initialize(unsigned char *addr, unsigned short vecnum);
+int DID48_initialize(unsigned char *addr, unsigned short vecnum);
 void AZ();
 void AL();
 void IR();
@@ -65,15 +65,20 @@ void save_firmware();
 void restore_firmware();
 int sdss_init();
 int sdss_home(int axis);
-int sdss_move_time (int axis, int vel, int accel, int time);
-int sdss_move_pos (int axis, int vel, int accel, int pos);
-int set_coeffs(int axis, int index, int val);
 int init_coeffs(int axis);
-int print_coeffs(int axis);
-int sdss_remap(int axis);
 int sdss_error(int error_code);
 float sdss_get_time();
 float get_time();
+void start_tm_TCC();
+void start_tm_TCC_test();
+void test_rotfiducials_idx (int axis, double pos, int fididx);
+void amp_reset(int axis);
+void test_latch (int ticks);
+void latch_it ();
+void latchstart ();
+void latchprint (char *description);
+void latchexcel (int axis);
+void print_max ();
 
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
@@ -109,6 +114,7 @@ struct FRAME_QUEUE axis_queue[]={
 };
 double max_velocity[]={1.0,1.0,1.5,0,0,0};
 double max_acceleration[]={.4,.4,.8,0,0,0};
+float time1[3],time2[3];
 int ms_azimuth_region=0;
 int ms_altitude_region=0;
 int ms_instrument_region=0;
@@ -230,15 +236,14 @@ double sec_per_tick[3]={AZ_TICK,ALT_TICK,ROT_TICK};
 double ticks_per_degree[]={AZ_TICKS_DEG,
 				ALT_TICKS_DEG,
 				ROT_TICKS_DEG};
-
-/* note, this will return junk if semTake returns an error */
+static char *drift_ans={"360.00000 0.500000 5040.00000               "};
 char *drift_cmd(char *cmd)
 {
-  static char *time_ans={"360.00000 0.500000 5040.00000               "};
   long ap,vel;
   double position,velocity;
   double arcdeg, veldeg;
-  /*  extern struct TM_M68K *tmaxis[]; */
+  static struct tm *t;
+/*  extern struct TM_M68K *tmaxis[];*/
 
 /*  printf (" DRIFT command fired\r\n");*/
   if (semTake (semMEI,60)!=ERROR)
@@ -252,9 +257,10 @@ char *drift_cmd(char *cmd)
     vel=(long)velocity;
     veldeg=(sec_per_tick[axis_select]*vel)/3600.;
     arcdeg=(sec_per_tick[axis_select]*ap)/3600.;
+    sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,sdss_get_time());
+    return drift_ans;
   }
-  sprintf (time_ans,"%lf %lf %f",arcdeg,veldeg,sdss_get_time());
-  return time_ans;
+  return 0;
 }
 
 char *gp1_cmd(char *cmd)
@@ -284,16 +290,46 @@ char *id_cmd(char *cmd)
 
 char *init_cmd(char *cmd)
 {
-#ifdef NOTDEFINED
   int e ;
   char buffer[MAX_ERROR_LEN] ;
-#endif
+  int state;
+  extern struct SDSS_FRAME sdssdc;
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
-  tm_controller_idle (axis_select<<1);
-  tm_controller_idle (axis_select<<1);
-  tm_controller_idle (axis_select<<1);
-  taskDelay (30);
+  state=tm_axis_state(axis_select<<1);
+  if (state>2)		/* normal...NOEVENT,running, or NEW_FRAME */
+  {
+    printf ("\r\n  INIT axis %d: not running, state=%x",axis_select<<1,state);
+    tm_controller_idle (axis_select<<1);
+    tm_controller_idle (axis_select<<1);
+    tm_controller_idle (axis_select<<1);
+    taskDelay(1);
+  }
+  if (axis_select==2)
+    amp_reset(axis_select<<1);
+  else
+  {
+    amp_reset(axis_select<<1);
+    amp_reset((axis_select<<1)+1);
+  }
+/*
+  if (axis_select==0)
+  {
+    if (sdssdc.status.i78.il0.az_brake_engaged)
+    {
+      printf("Azimuth Brake Turned Off                ");
+      tm_az_brake_off();
+    }
+  }
+  if (axis_select==1)
+  {
+    if (sdssdc.status.i78.il0.alt_brake_engaged)
+    {
+      printf("Altitude Brake Turned Off               ");
+      tm_alt_brake_off();           
+    }
+  }
+*/
   tm_controller_run (axis_select<<1);
   tm_controller_run (axis_select<<1);
   tm_controller_run (axis_select<<1);
@@ -361,16 +397,14 @@ char *move_cmd(char *cmd)
 
   double position,velocity,pos;
   struct FRAME *frame,*nxtque;
-
-  /*
-  struct FRAME *nframe;
-  */
+/*  struct FRAME *nframe;*/
   struct FRAME_QUEUE *queue;
   int cnt;
 
 /*  printf (" MOVE command fired\r\n");*/
   queue = &axis_queue[axis_select];
   frame = (struct FRAME *)malloc (sizeof(struct FRAME));
+  if (frame==NULL) return 0;
   cnt=sscanf (cmd,"%12lf %12lf %12lf",&position,&velocity,&frame->end_time);
   switch (cnt)
   {
@@ -388,7 +422,6 @@ char *move_cmd(char *cmd)
 /*	frame->end_time = ((queue->active)->nxt)->end_time+4.;*/
 /*	printf("\r\n %lf %lf %lf",position,velocity,frame->end_time);*/
         frame_break[axis_select]=TRUE;
-        queue->active=NULL;
 /*
 	while (tm_frames_to_execute(axis_select)>1)taskDelay (1);
 	printf("\r\n frames to execute=%d",tm_frames_to_execute(axis_select));
@@ -401,7 +434,7 @@ char *move_cmd(char *cmd)
 		position,velocity,
 		(ticks_per_degree[axis_select]*max_acceleration[axis_select])/2);
 */
-	free (frame);
+	if (frame!=NULL) free (frame);
         return 0;
 /*        break;*/
     case 1:
@@ -461,7 +494,6 @@ char *move_cmd(char *cmd)
   }
   return 0;
 }
-
 int calc_frames (int axis, struct FRAME *iframe, int start)
 {
   double dx,dv,dt,vdot;
@@ -478,16 +510,13 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   vdot=dx/dt;
   ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
   j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
-
-  /* moved above the verbose bit as it was used uninitialized otherwise */
+/* neccessary if for loop not executed; calc of t*/
   t=(start+1)/FLTFRMHZ+time_off[axis];	/* for end condition */
-
   if (CALC_verbose)
   {
     printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
     printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, time_off=%f",ai,j,t,start,time_off[axis]);
   }
-
   for (i=0;i<(int)min(MAX_CALC-1,
 		(int)((dt-time_off[axis])*FRMHZ)-start);i++)
   {
@@ -502,7 +531,11 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
       printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
  	i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
   }
-  if ( ((int)(i+start)==(int)((dt-time_off[axis])*FRMHZ)) &&
+/* last one with a portion remaining */
+/*  printf ("\r\nCheck for FINAL: time_off=%f, i=%d, start=%d, t=%f, dt=%f",
+		time_off[axis],i,start,t,dt);*/
+
+  if ( ((int)(i+start)==(int)((dt-time_off[axis])*FLTFRMHZ)) &&
 	(t!=(dt-time_off[axis])) )
   {
     ldt=(((dt-time_off[axis])*FLTFRMHZ)-(int)((dt-time_off[axis])*FLTFRMHZ))/FLTFRMHZ;
@@ -510,12 +543,12 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
 /*    t = (1/FLTFRMHZ)-lt;*/
     t = (1/FLTFRMHZ)-ldt;
     lt = dt;
-    time_off[axis]=t;
 /*    tim[axis][i]=((dt*FRMHZ)-(int)(dt*FRMHZ))/FLTFRMHZ;*/
     tim[axis][i]=1/FLTFRMHZ;
     lframe=fframe;
     if (lframe->nxt==NULL) return i;
     fframe=lframe->nxt;
+    time_off[axis]=t;
     lai=ai; 
     lj=j;
     dx=fframe->position-lframe->position;
@@ -569,8 +602,13 @@ int get_frame_cnt(int axis, struct FRAME *iframe)
 
   fframe=iframe->nxt;
   dt=fframe->end_time-iframe->end_time;
-  cnt=(int)((dt-time_off[axis]+(1/(FLTFRMHZ+1.)))*FLTFRMHZ);
-
+  cnt=(int)((dt-time_off[axis])*FLTFRMHZ);
+/*  printf("\r\nfirst cnt=%d",cnt);*/
+  if ( ((dt-time_off[axis])*FLTFRMHZ)>(int)((dt-time_off[axis])*FLTFRMHZ) )
+  {
+    cnt++;
+/*    printf(" final cnt=%d",cnt);*/
+  }
   return cnt;
 }
 
@@ -779,8 +817,6 @@ void end_frame(int axis,int index,double sf)
 	tim[axis][index]);    
   }
 }
-
-/* note: returns junk if semTake returns an error */
 int tm_frames_to_execute(int axis)
 {
   int cnt;
@@ -789,10 +825,10 @@ int tm_frames_to_execute(int axis)
   {
     cnt=frames_to_execute(axis<<1);
     semGive (semMEI);
+    return cnt;    
   }
-  return cnt;    
+  return ERROR;    
 }
-
 #define LOAD_MAX        50
 void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 {
@@ -828,16 +864,13 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
   CALC_verbose=FALSE;
 }
 
-
-
-/* cnt and lcnt can be used unitialized */
 void tm_TCC(int axis)
 {
   int cnt, lcnt;
   struct FRAME *frame;
   int i;
   int frame_cnt, frame_idx;
-  extern struct TM_M68K *tmaxis[];
+/*  extern struct TM_M68K *tmaxis[];*/
   double position;
   long pos;
   
@@ -849,14 +882,12 @@ void tm_TCC(int axis)
     while (axis_queue[axis].active==NULL)taskDelay (10);
     frame=axis_queue[axis].active;
 /* reposition if neccessary */
-    if (semTake (semMEI,60)!=ERROR)
+    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
     {
       get_position(axis<<1,&position);
       semGive (semMEI);
       pos=(long)position;
     }
-    else
-      pos=(*tmaxis[axis]).actual_position;
     if (abs((frame->position*ticks_per_degree[axis])-pos)>
 		(.001*ticks_per_degree[axis]))
     {
@@ -869,14 +900,12 @@ void tm_TCC(int axis)
     while (abs((frame->position*ticks_per_degree[axis])-pos)>
 		(.0005*ticks_per_degree[axis]))
     {
-      if (semTake (semMEI,60)!=ERROR)
+      if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
       {
         get_position(axis<<1,&position);
         semGive (semMEI);
         pos=(long)position;
       }
-      else
-        pos=(*tmaxis[axis]).actual_position;
       taskDelay (1);
     }
 /* check for time */
@@ -903,20 +932,32 @@ void tm_TCC(int axis)
 /*      printf ("\r\n frames_cnt=%d",frame_cnt);*/
         frame_idx=0;
 	frame_break[axis]=FALSE;
-        for (i=0;i<((frame_cnt-1)/(LOAD_MAX-1))+1;i++)
+/*        for (i=0;i<((frame_cnt-1)/(LOAD_MAX-1))+1;i++)*/
+	while (frame_cnt>0)
         {
           cnt=calc_frames(axis,frame,frame_idx);
+
           frame_idx += cnt;
+          frame_cnt -= cnt;
 /*          printf ("\r\n cnt=%d, i=%d",cnt,i);*/
 	  if (frame_break[axis]) 
 	  {
+            axis_queue[axis].active=NULL;
 	    cnt=1;
             break;
 	  }
 	  if (cnt>0)
             load_frames(axis,cnt,(double)ticks_per_degree[axis]);
+	  else
+	    taskDelay(4);
           while ((lcnt=tm_frames_to_execute(axis))>100) taskDelay (30);
-          if (lcnt<10) printf ("\r\n frames left=%d, i=%d",lcnt,i);
+          if (lcnt<10) 
+	  {
+	    printf ("\r\n frames left=%d, frame cnt=%d, cnt=%d",
+		lcnt,frame_cnt,cnt);
+            printf ("\r\n no new frames calc axis=%d; end_time=%lf, time=%lf",
+		axis,frame->end_time,sdss_get_time());
+	  }
         }
 	frame_break[axis]=FALSE;
         if (axis_queue[axis].active==NULL) 
@@ -939,95 +980,24 @@ void tm_TCC(int axis)
       printf ("\r\nRestart no frames to process");
   }
 }
-void tm_test(int axis, int sf)
-{
-  int cnt, lcnt;
-  struct FRAME *frame;
-  int i;
-  int frame_cnt, frame_idx;
-  extern struct TM_M68K *tmaxis[];
-  
-  tm_controller_run (axis<<1);
-  printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
-	(float)sf);
-  FOREVER
-  {
-    while (axis_queue[axis].active==NULL)taskDelay (10);
-    frame=axis_queue[axis].active;
-/* reposition if neccessary */
-    if (abs((frame->position*sf)-(*tmaxis[axis]).actual_position)>(1*sf))
-    {
-      tm_controller_run (axis<<1);
-      tm_start_move (axis<<1,2*sf,2*sf,frame->position*sf);
-      printf ("\r\n Repositioning");
-    }
-    while (abs((frame->position*sf)-(*tmaxis[axis]).actual_position)>(.5*sf))
-      taskDelay (1);
-/* check for time */
-    while ((frame!=NULL)&&((frame->end_time-sdss_get_time())<.0))
-    {
-      frame = frame->nxt;
-      axis_queue[axis].active=frame;
-      printf ("\r\n Frames deleted due to time");
-    }
-    if (frame!=NULL)
-    {
-      while ((frame->end_time-sdss_get_time())>4.0)taskDelay (2*60);
-      start_frame (axis,frame->end_time-sdss_get_time());
-      while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>0.02))
-        taskDelay (1);
-      while (frame->nxt!=NULL)
-      {
-        while ((lcnt=tm_frames_to_execute(axis))>100)
-        {
-/*         printf ("\r\n frames left=%d",lcnt);*/
-          taskDelay(1*30);
-        }
-        frame_cnt=get_frame_cnt(axis,frame);
-/*      printf ("\r\n frames_cnt=%d",frame_cnt);*/
-        frame_idx=0;
-        for (i=0;i<((frame_cnt-1)/(LOAD_MAX-1))+1;i++)
-        {
-          cnt=calc_frames(axis,frame,frame_idx);
-          frame_idx += cnt;
-/*          printf ("\r\n cnt=%d, i=%d",cnt,i);*/
-	  if (cnt>0)
-            load_frames(axis,cnt,(double)sf);
-          while ((lcnt=tm_frames_to_execute(axis))>100) taskDelay (1*30);
-          printf ("\r\n frames left=%d, i=%d",lcnt,i);
-        }
-        frame = frame->nxt;
-        axis_queue[axis].active=frame;    
-        while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>.02))
-          taskDelay (1);
-        while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1));
-      }
-      printf ("\r\n Ran out: frames left=%d",lcnt);
-      axis_queue[axis].active=NULL;    
-      end_frame(axis,cnt-1,(double)sf);
-    }
-    else
-      printf ("\r\nRestart no frames to process");
-  }
-}
-
 void start_tm_TCC()
 {
-  taskSpawn("tmAz",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,0,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmAlt",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,1,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmRot",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,2,0,0,0,0,0,0,0,0,0);
+  taskSpawn("tmAz",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
+		0,0,0,0,0,0,0,0,0,0);
+  taskSpawn("tmAlt",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
+		1,0,0,0,0,0,0,0,0,0);
+  taskSpawn("tmRot",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
+		2,0,0,0,0,0,0,0,0,0);
 }
-
 void start_tm_TCC_test()
 {
   taskSpawn("tmAztest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,
-	    0,0,0,0,0,0,0,0,0,0);
+		0,0,0,0,0,0,0,0,0,0);
   taskSpawn("tmAlttest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,
-	    1,0,0,0,0,0,0,0,0,0);
+		1,0,0,0,0,0,0,0,0,0);
   taskSpawn("tmRottest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,
-	    2,0,0,0,0,0,0,0,0,0);
+		2,0,0,0,0,0,0,0,0,0);
 }
-
 void tm_pos_vel(int axis,int vel, int accel)
 {
   int e;
@@ -1181,6 +1151,7 @@ char *set_time_cmd(char *cmd)
   float t1,t2,t3;
   int cnt;
   struct timespec tp;
+  int extrasec;
 
 /*  printf (" SET.TIME command fired\r\n");*/
   cnt=sscanf (cmd,"%d %d %d %f %f %f",&t.tm_mon,&t.tm_mday,&t.tm_year,&t1,&t2,&t3);
@@ -1190,37 +1161,50 @@ char *set_time_cmd(char *cmd)
     t.tm_hour=(int)t1;
     t.tm_min=(int)t2;
     t.tm_sec=(int)t3;
-    if ((t3-(int)t3)>.984)
+    if ((t3-(int)t3)>.75)
     {
-      taskDelay(2);
-      t.tm_sec++;
+      taskDelay(20);	/* 1/3 sec */
+      extrasec=1;
     }
+    else 
+      extrasec=0;
   }
   else
   {
     t.tm_hour = (int)(t1/3600);
     t.tm_min = (int)((t1-(t.tm_hour*3600))/60);
-    t.tm_sec = (int)(t1-(t.tm_hour*3600)-(t.tm_min*60));
+    t3 = (float)(t1-(t.tm_hour*3600)-(t.tm_min*60));
+    t.tm_sec = (int)t3;
+    if ((t3-(int)t3)>.75)
+    {
+      taskDelay(20);	/* 1/3 sec */
+      extrasec=1;
+    }
+    else 
+      extrasec=0;
   }
   t.tm_year -= 1900;
   t.tm_mon -= 1;
 /*  printf (" mon=%d day=%d, year=%d %d:%d:%d\r\n",
 	t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);*/
-  tp.tv_sec=mktime(&t);
+  tp.tv_sec=mktime(&t)+extrasec;
   tp.tv_nsec=0;
+  time1[axis_select]=sdss_get_time();
   SDSStime=tp.tv_sec%ONE_DAY;
   timer_start (1);
+  time2[axis_select]=sdss_get_time();
 /*  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);*/
-/*  get_time();*/
   clock_settime(CLOCK_REALTIME,&tp);
-/*  get_time();*/
-/*  if (!DIO316_Init) 
-    DIO316_initialize((unsigned char *)0xFFF58000,0xB0);
-  if (!DID48_Init) 
-    DID48_initialize((unsigned char *)0xFFF58000,0xB8);*/
   return 0;
 }
 
+print_time_changes()
+{
+  int i;
+
+  for (i=0;i<3;i++)
+    printf ("\r\nSDSS axis %d:  time1=%lf time2=%lf",i,time1[i],time2[i]);
+}
 char *stats_cmd(char *cmd)
 {
   printf (" STATS command fired\r\n");
@@ -1229,10 +1213,10 @@ char *stats_cmd(char *cmd)
 
 /* returns: "%position %velocity %time %status_word %index_position" */
 static long status=0x40000000;
+static char *status_ans=
+  {"1073741824                                                                   "};	/* 0x40000000 */
 char *status_cmd(char *cmd)
 {
-  static char *status_ans=
-  {"1073741824                                                                   "};	/* 0x40000000 */
   extern struct TM_M68K *tmaxis[];
   extern struct FIDUCIARY fiducial[3];
 
@@ -1246,8 +1230,9 @@ char *status_cmd(char *cmd)
 	status,
 	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
     semGive (semMEI);
+    return status_ans;
   }
-  return status_ans;
+  return 0;
 }
 
 /* returns:    "%date %time
@@ -1289,10 +1274,9 @@ char *ticklost_cmd(char *cmd)
   printf (" TICKLOST @ . command fired\r\n");
   return 0;
 }
-
+static char *time_ans={"01 31 1996 86400.000"};	/* */
 char *time_cmd(char *cmd)
 {
-  static char *time_ans={"01 31 1996 86400.000"};	/* */
   static struct tm *t;
   struct timespec tp;
   unsigned long micro_sec;
@@ -1337,8 +1321,6 @@ int print_axis_queue(int axis)
     }
     frame = frame->nxt;
   }
-
-return 0;
 }
 
 /**********************************************************************
@@ -1379,147 +1361,22 @@ unsigned long NIST_sec;
 unsigned long int_count=0;
 float latchpos4,latchpos5;
 int lpos4,lpos5;
+int illegal_NIST=0;
 unsigned char int_bit=0;
 void DIO316_interrupt(int type)
 {
-  /*
-    int i;
-    static unsigned char int_bit=0;
-    int direction, region;                        
-    double position;
-    float pos,lpos;
-    */
-
-/*	  latch();*/
 
 	  int_count++;
           DIO316ReadISR (tm_DIO316,&int_bit);
           if (int_bit&NIST_INT)
           {
-            SDSStime++;
-            DIO316_Write_Port (tm_DIO316,3,0);
-            NIST_sec=timer_read (1);
-            timer_start (1);
+	    illegal_NIST++;
 /*            logMsg ("NIST_INTERRUPT,%d %d, int_bit=%2x\r\n",
 		type,NIST_sec,(short)int_bit,0,0,0);*/
+            DIO316ClearISR (tm_DIO316);
           }
 	  else
 	    semGive (semLATCH);
-	  
-/*
-          if (int_bit&AZIMUTH_INT)
-          {
-            DIO316_Write_Port (tm_DIO316,3,0);
-	    i=0x1000;
-	    while ((!latch_status())&&(i>0))i--;
-            logMsg ("%d:latch_status TRUE after %d tries\r\n",0x1000-i,0,0,0,0,0);
-	    get_latched_position(0,&position);
-	    lpos=(float)position;
-	    get_position(0,&position);
-	    pos=(float)position;
-	    if (negative_direction(0))
-            {
-	      ms_azimuth_region--;
-	      if (ms_azimuth_region<0)ms_azimuth_region=0;
-	      region = ms_azimuth_region;
-	      direction=ms_azimuth[region].direction=NEGATIVE_DIRECTION;
-            }
-	    else
-            {
-	      region = ms_azimuth_region;
-	      direction=ms_azimuth[region].direction=POSITIVE_DIRECTION;
-	      ms_azimuth_region++;
-	      if (ms_azimuth_region>
-                max_ms_azimuth) ms_azimuth_region=max_ms_azimuth;
-            }
-	    if (ms_azimuth[region].position[direction]==0.0)
-	      ms_azimuth[region].position[direction]=position;
-	    else
-	      ms_azimuth[region].error[direction]=
-		ms_azimuth[region].position[direction]-position;
-            ms_azimuth[region].time[direction]=get_time();
-
-            logMsg ("\r\nAZIMUTH_INTERRUPT,%d %d, int_bit=%hx, position=%f latched=%f\r\n",
-		type,i,int_bit,pos,lpos,0);
-          }
-          if (int_bit&ALTITUDE_INT)
-          {
-            DIO316_Write_Port (tm_DIO316,3,0);
-	    i=0x1000;
-	    while ((!latch_status())&&(i>0))i--;
-	    get_latched_position(2,&position);
-	    lpos=(float)position;
-	    get_position(2,&position);
-	    pos=(float)position;
-	    if (negative_direction(2))
-            {
-	      ms_altitude_region--;
-	      if (ms_altitude_region<0)ms_altitude_region=0;
-	      region = ms_altitude_region;
-	      direction=ms_altitude[region].direction=NEGATIVE_DIRECTION;
-            }
-	    else
-            {
-	      region = ms_altitude_region;
-	      direction=ms_altitude[region].direction=POSITIVE_DIRECTION;
-	      ms_altitude_region++;
-	      if (ms_altitude_region>
-                max_ms_altitude) ms_altitude_region=max_ms_altitude;
-            }
-	    if (ms_altitude[region].position[direction]==0.0)
-	      ms_altitude[region].position[direction]=position;
-	    else
-	      ms_altitude[region].error[direction]=
-		ms_altitude[region].position[direction]-position;
-            ms_altitude[region].time[direction]=get_time();
-
-            logMsg ("ALTITUDE_INTERRUPT,%d %d, int_bit=%hx, position=%f, latched=%f\r\n",
-		type,i,int_bit,pos,lpos,0);
-          }
-          if (int_bit&INSTRUMENT_INT)
-          {
-            DIO316_Write_Port (tm_DIO316,3,0);
-	    i=0x10000;
-	    while ((!latch_status())&&(i>0))i--;
-	    if (latchidx<MAX_LATCHED)
-	    {
-	      get_latched_position(4,&latchpos[latchidx].pos1);
-	      get_latched_position(5,&latchpos[latchidx].pos2);
-              logMsg("\r\nlatched pos4=%f,pos5=%f",latchpos[latchidx].pos1,
-		latchpos[latchidx].pos2,0,0,0,0);
-	      latchidx++;
-	    }
-	    get_position(4,&position);
-	    pos=(float)position;
-	    if (negative_direction(4))
-            {
-	      ms_instrument_region--;
-	      if (ms_instrument_region<0)ms_instrument_region=0;
-	      region = ms_instrument_region;
-	      direction=ms_instrument[region].direction=NEGATIVE_DIRECTION;
-            }
-	    else
-            {
-	      region = ms_instrument_region;
-	      direction=ms_instrument[region].direction=POSITIVE_DIRECTION;
-	      ms_instrument_region++;
-	      if (ms_instrument_region>
-                max_ms_instrument) ms_instrument_region=max_ms_instrument;
-            }
-	    if (ms_instrument[region].position[direction]==0.0)
-	      ms_instrument[region].position[direction]=position;
-	    else
-	      ms_instrument[region].error[direction]=
-		ms_instrument[region].position[direction]-position;
-            ms_instrument[region].time[direction]=get_time();
-            logMsg ("INSTRUMENT_INTERRUPT,%d %d, int_bit=%hx, position=%f latched=%f\r\n",
-		type,i,int_bit,pos,lpos,0);
-          }
-          if (int_bit&(AZIMUTH_INT|ALTITUDE_INT|INSTRUMENT_INT))
-            arm_latch(TRUE);
-
-          DIO316ClearISR (tm_DIO316);
-*/
 }
 struct FIDUCIARY fiducial[3]=
 /*	NotValid, mark, index */
@@ -1583,14 +1440,13 @@ void init_fiducial()
    	/* 001:13:35:373 */
   rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
 }
-
 void tm_latch()
 {
   int i;
-  /*  double pos; */
   extern int barcode_serial();
   int fididx;
-  /*  unsigned char int_bit; */
+/*  unsigned char int_bit;
+*/
   init_fiducial();
   if (semLATCH==NULL) semLATCH = semBCreate(0,SEM_Q_FIFO);
   for (;;)
@@ -1784,18 +1640,6 @@ void tm_latch()
     }
   }
 }
-
-void test_azfiducials_idx (int axis, double pos, int fididx)
-{
-/*	    if (latchpos[latchidx].pos1>24)
-		fididx += 24;*/
-	    if ((pos<-24000000.)&&(fididx>5)) fididx -= 24;
-	    else
-	      if ((pos<24000000.)&&(fididx<12)) fididx += 24;
-	    fididx += 18;
-	printf ("\r\n pos=%f, fididx=%d",pos,fididx);
-}
-
 void test_rotfiducials_idx (int axis, double pos, int fididx)
 {
 	    if ((fididx<0)&&(fididx>-80))
@@ -1980,6 +1824,8 @@ void axis_DID48_shutdown(int type)
 unsigned long NIST_sec;
 unsigned char int_bit;
 unsigned long NIST_cnt=0;
+unsigned long SDSS_cnt=0;
+#define DAYINSECS	86400
 void DID48_interrupt(int type)
 {
 
@@ -1987,7 +1833,9 @@ void DID48_interrupt(int type)
 	  NIST_cnt++;
           if (int_bit&NIST_INT)
           {
-            SDSStime++;
+	    SDSS_cnt++;
+            SDSStime=(SDSStime+1)%DAYINSECS;
+
             NIST_sec=timer_read (1);
             timer_start (1);
 /*            logMsg ("NIST_INTERRUPT,%d %d, int_bit=%x, cnt=%d\r\n",
@@ -2040,50 +1888,45 @@ int trigger_int(int bit)
   return 0;
 }
 #endif
-
-
-void DIO316_initialize(unsigned char *addr, unsigned short vecnum)
+int DIO316_initialize(unsigned char *addr, unsigned short vecnum)
 {
   STATUS stat;
   int i;
-  struct IPACK *ip;
+  struct IPACK ip;
 
-  ip=(struct IPACK*)malloc(sizeof(struct IPACK));
-
-  Industry_Pack (addr,SYSTRAN_DIO316,ip);
+  Industry_Pack (addr,SYSTRAN_DIO316,&ip);
   for (i=0;i<MAX_SLOTS;i++) 
-    if (ip->adr[i]!=NULL)
-      {
-	printf ("\r\nFound at %d, %p",i,ip->adr[i]);
-        tm_DIO316=DIO316Init(ip->adr[i], vecnum);
-	break;
-      }
-  if (i>=MAX_SLOTS) 
+    if (ip.adr[i]!=NULL)
     {
-      printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
-      free(ip);
-      return;
+      printf ("\r\nFound at %d, %p",i,ip.adr[i]);
+      tm_DIO316=DIO316Init(ip.adr[i], vecnum);
+      break;
     }
-
+  if (i>=MAX_SLOTS) 
+  {
+    printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+    return ERROR;
+  }
   DIO316_Init=TRUE;
-  /*    DIO316_Read_Reg(tm_DIO316,0xA,&vecnum);
-	DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
-	DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
-	DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
-	DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
-	if (vecnum==0) vecnum = DIO316_VECTOR;
-   */
+  DIO316_Read_Reg(tm_DIO316,0xA,&vecnum);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
+/*
+  if (vecnum==0) vecnum = DIO316_VECTOR;
+*/
   stat = intConnect (INUM_TO_IVEC(vecnum),
-		     (VOIDFUNCPTR)DIO316_interrupt,
-		     DIO316_TYPE);
+                                (VOIDFUNCPTR)DIO316_interrupt,
+                                DIO316_TYPE);
   printf ("DIO316 vector = %d, interrupt address = %p, result = %8x\r\n",
-	  vecnum,DIO316_interrupt,stat);
+              vecnum,DIO316_interrupt,stat);
   rebootHookAdd(axis_DIO316_shutdown);
-  
-  /*
-    DIO316_Interrupt_Configuration (tm_DIO316,0,DIO316_INT_HIGH_LVL);           
-    DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_ENA);
-    */
+
+/*
+  DIO316_Interrupt_Configuration (tm_DIO316,0,DIO316_INT_HIGH_LVL);           
+  DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_ENA);
+*/
   DIO316_Interrupt_Configuration (tm_DIO316,1,DIO316_INT_FALL_EDGE/*ON_CHANGE*/);
   DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_ENA);
   DIO316_Interrupt_Configuration (tm_DIO316,2,DIO316_INT_FALL_EDGE);
@@ -2092,84 +1935,54 @@ void DIO316_initialize(unsigned char *addr, unsigned short vecnum)
   DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_ENA);
   DIO316_OE_Control (tm_DIO316,3,DIO316_OE_ENA);
   DIO316_OE_Control (tm_DIO316,2,DIO316_OE_ENA);
-  
-  IP_Interrupt_Enable(ip,DIO316_IRQ);
-  sysIntEnable(DIO316_IRQ);                               
-  free(ip);
-}
 
-void DID48_initialize(unsigned char *addr, unsigned short vecnum)
+  IP_Interrupt_Enable(&ip,DIO316_IRQ);
+  sysIntEnable(DIO316_IRQ);                                
+  return 0;
+}
+int DID48_initialize(unsigned char *addr, unsigned short vecnum)
 {
   STATUS stat;
   int i;
-  struct IPACK *ip;
+  struct IPACK ip;
 
-  ip=(struct IPACK*)malloc(sizeof(struct IPACK));
-
-  Industry_Pack (addr,SYSTRAN_DID48,ip);
+  Industry_Pack (addr,SYSTRAN_DID48,&ip);
   for (i=0;i<MAX_SLOTS;i++) 
-    if (ip->adr[i]!=NULL)
-      {
-	printf ("\r\nFound at %d, %p",i,ip->adr[i]);
-        tm_DID48=DID48Init(ip->adr[i], vecnum);
-	break;
-      }
-  if (i>=MAX_SLOTS) 
+    if (ip.adr[i]!=NULL)
     {
-      printf ("\r\n****Missing DID48 at %p****\r\n",addr);
-      free(ip);
-      return;
+      printf ("\r\nFound at %d, %p",i,ip.adr[i]);
+      tm_DID48=DID48Init(ip.adr[i], vecnum);
+      break;
     }
+  if (i>=MAX_SLOTS) 
+  {
+    printf ("\r\n****Missing DID48 at %p****\r\n",addr);
+    return ERROR;
+  }
   DID48_Init=TRUE;
-  /*
-    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
-    if (vecnum==0) vecnum = DID48_VECTOR;
-    */
+/*    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
+    if (vecnum==0) vecnum = DID48_VECTOR;*/
   stat = intConnect (INUM_TO_IVEC(vecnum),
-		     (VOIDFUNCPTR)DID48_interrupt,
-		     DID48_TYPE);
+                                (VOIDFUNCPTR)DID48_interrupt,
+                                DID48_TYPE);
   printf ("DID48 vector = %d, interrupt address = %p, result = %8x\r\n",
-	  vecnum,DID48_interrupt,stat);
+                vecnum,DID48_interrupt,stat);
   rebootHookAdd(axis_DID48_shutdown);
-  
-  IP_Interrupt_Enable(ip,DID48_IRQ);
+
+  IP_Interrupt_Enable(&ip,DID48_IRQ);
   sysIntEnable(DID48_IRQ);                                
   DID48_Write_Reg (tm_DID48,3,0x3); /* disable debounce for all byte lanes */
   DID48_Interrupt_Enable_Control (tm_DID48,5,DID48_INT_ENA);
-  free(ip);
+  return 0;
 }
-
-void AZ()
-{
-    latch();
-    DIO316_Write_Port (tm_DIO316,3,2);
-}
-void AL()
-{
-    latch();
-    DIO316_Write_Port (tm_DIO316,3,4);
-}
-void IR()
-{
-    latch();
-    DIO316_Write_Port (tm_DIO316,3,8);
-}
-void NBS()
-{
-    DIO316_Write_Port (tm_DIO316,3,1);
-}
-
-int amp_reset(int axis)
+void amp_reset(int axis)
 {
   extern int cw_DIO316;
 
 	DIO316_Write_Port (cw_DIO316,AMP_RESET,1<<axis);
         taskDelay (2);
 	DIO316_Write_Port (cw_DIO316,AMP_RESET,0);
-	
-	return 0;
 }
-
 int sdss_init()
 {
   int i;
@@ -2183,6 +1996,11 @@ int sdss_init()
   for (i=0;i<3;i++)
   {
     axis_queue[i].top=(struct FRAME *)malloc (sizeof(struct FRAME));
+    if (axis_queue[i].top==NULL)
+    {
+      printf("\r\nSDSS_INIT: no memory for queue");
+      return ERROR;
+    }	
     axis_queue[i].end=axis_queue[i].top;
     axis_queue[i].active=NULL;
     axis_queue[i].cnt=1;
@@ -2244,10 +2062,9 @@ int sdss_init()
   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   taskSpawn ("tmLatch",0,VX_FP_TASK,10000,(FUNCPTR)tm_latch,0,0,0,0,0,0,0,0,0,0);
-
   return 0;
 }
-
+
 /* extracted from home2.c 21 Feb 96 */
 /* HOME2.C
 
@@ -2278,6 +2095,7 @@ Written for Version 2.4E
 
 int sdss_home(int axis)
 {
+	int error_code;
 	double distance;
 
 /* initialize if not done */
@@ -2315,96 +2133,6 @@ int sdss_home(int axis)
 	return 0;
 }
 
-int sdss_move_time (int axis, int vel, int accel, int time)
-{
-	print_coeffs(axis);
-	v_move(axis,vel,accel);
-	taskDelay (time);
-	v_move(axis,0,accel);
-	
-	return 0;
-}
-
-int sdss_move_offset (int axis, int off)
-{
-	short coeff[COEFFICIENTS];
-
-	print_coeffs(axis);
-	get_filter (axis,(P_INT)coeff);
-	if (off==0)
-	{
-	  get_boot_filter (axis,(P_INT)coeff);
-	}
-	else
-	{
-	  coeff[DF_P]=0;
-	  coeff[DF_I]=0;
-	  coeff[DF_D]=0;
-	}
-	coeff[DF_OFFSET]=off;
-	set_filter (axis,(P_INT)coeff);
-
-	print_coeffs(axis);
-
-	return 0;
-}
-
-int sdss_move_pos (int axis, int vel, int accel, int pos)
-{
-	double position,last_pos,final_pos;
-
-	print_coeffs(axis);
-	get_position(axis,&position);
-	last_pos=position;
-	final_pos=position+pos;
-	start_move(axis,final_pos,(double)vel,(double)accel);
-	taskDelay(1);
-	get_position(axis,&position);
-	while (last_pos!=position) 
-	{
-	  last_pos=position;
-	  taskDelay(1);
-	  get_position(axis,&position);
-	  printf("\r\npos=%f",(float)position);
-	}
-	printf("\r\n  Stop pos=%f",(float)position);
-	set_stop (axis);
-	while (!motion_done(axis));
-	clear_status(axis);
-        get_position(axis,&position);
-        printf("\r\n  Final pos=%f",(float)position);
-	if ((final_pos>position+10)||(final_pos<position-10))
-	  printf ("\r\n ERROR: did not close in on position");
-
-	return 0;
-}
-
-int print_coeffs(int axis)
-{
-	short coeff[COEFFICIENTS];
-
-	get_filter (axis,(P_INT)coeff);
-	printf ("\r\n AXIS %d: P=%d, I=%d, D=%d",axis,
-		coeff[0],coeff[1],coeff[2]);
-	printf ("\r\n          AFF=%d, VFF=%d, FFF=%d",
-		coeff[3],coeff[4],coeff[9]);
-	printf ("\r\n          ILIMIT=%d, OFFSET=%d, OLIMIT=%d",
-		coeff[5],coeff[6],coeff[7]);
-	
-	return 0;
-}
-
-int set_coeffs(int axis, int index, int val)
-{
-	short coeff[COEFFICIENTS];
-
-	get_filter (axis,(P_INT)coeff);
-	coeff[index]=val;
-	set_filter (axis,(P_INT)coeff);
-	
-	return 0;
-}
-
 int init_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -2420,57 +2148,6 @@ int init_coeffs(int axis)
 	coeff[DF_OFFSET]=0;
 	set_filter (axis,(P_INT)coeff);
 	set_integration (axis,IM_ALWAYS);
-	print_coeffs (axis);
-
-	return 0;
-}
-
-int sdss_remap(int axis)
-{
-	int i;
-
-/* initialize if not done */
-        if (!sdss_was_init) sdss_init();
-/* home the axis */
-	sdss_home(axis);
-/* initialize the sensors */
-	switch (axis) {
-	case AZIMUTH:
-	  max_ms_azimuth = sizeof(ms_azimuth)/sizeof(struct MAG_SENSOR);
-          for (i=0;i<max_ms_azimuth;i++)
-          {
-            ms_azimuth[i].encoder[0]=ms_azimuth[i].encoder[1]=0.0;
-            ms_azimuth[i].error[0]=ms_azimuth[i].error[1]=0.0;
-            ms_azimuth[i].status[0]=ms_azimuth[i].status[1]=0;
-            ms_azimuth[i].time[0]=ms_azimuth[i].time[1]=0.0;
-          }
-	  ms_azimuth_region=0;
-	  break;	  
-	case ALTITUDE:
-	  max_ms_altitude = sizeof(ms_altitude)/sizeof(struct MAG_SENSOR);
-          for (i=0;i<max_ms_altitude;i++)
-          {
-            ms_altitude[i].encoder[0]=ms_altitude[i].encoder[1]=0.0;
-            ms_altitude[i].error[0]=ms_altitude[i].error[1]=0.0;
-            ms_altitude[i].status[0]=ms_altitude[i].status[1]=0;
-            ms_altitude[i].time[0]=ms_altitude[i].time[1]=0.0;
-          }
-	  ms_altitude_region=0;
-	  break;	  
-	case INSTRUMENT:
-	  max_ms_instrument = sizeof(ms_instrument)/sizeof(struct MAG_SENSOR);
-          for (i=0;i<max_ms_instrument;i++)
-          {
-            ms_instrument[i].encoder[0]=ms_instrument[i].encoder[1]=0.0;
-            ms_instrument[i].error[0]=ms_instrument[i].error[1]=0.0;
-            ms_instrument[i].status[0]=ms_instrument[i].status[1]=0;
-            ms_instrument[i].time[0]=ms_instrument[i].time[1]=0.0;
-          }
-	  ms_instrument_region=0;
-	  break;	  
-	}
-/* start the movement and let the interrupt handler set the position */
-	v_move(axis,MAP_VEL,MAP_ACCEL);
 	return 0;
 }
 void save_firmware()
@@ -2500,25 +2177,26 @@ int sdss_error(int error_code)
 			break;
 	}
 }
-
+
 #define CLOCK_INT
 #ifdef CLOCK_INT
 float sdss_get_time()
 {
+  	  struct timespec tp;
   	  unsigned long micro_sec;
 
           micro_sec = timer_read (1);
           return (float)(SDSStime+((micro_sec%1000000)/1000000.));
 }
-
 float get_time()
 {
+  	  struct timespec tp;
   	  unsigned long micro_sec;
 
           micro_sec = timer_read (1);
-	  printf ("time=%f\r\n",
-		(float)(SDSStime+((micro_sec%1000000)/10000000.)));
-          return (float)(SDSStime+((micro_sec%1000000)/10000000.));
+	  printf ("\r\nSDSS time=%f",
+		(float)(SDSStime+((micro_sec%1000000)/1000000.)));
+          return (float)(SDSStime+((micro_sec%1000000)/1000000.));
 }
 #else
 float sdss_get_time()
@@ -2537,14 +2215,13 @@ float get_time()
 
   	  clock_gettime(CLOCK_REALTIME,&tp);
           micro_sec = timer_read (1);
-	  printf ("sec=%d, day_sec=%d, micro_sec=%d, time=%f\r\n",
+	  printf ("\r\nsec=%d, day_sec=%d, micro_sec=%d, time=%f",
 		tp.tv_sec,tp.tv_sec%ONE_DAY,micro_sec,
 		(float)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
           return ((float)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
 }
 #endif
 int latch_done=FALSE;
-
 void test_latch (int ticks)
 {
   int i;
@@ -2597,9 +2274,7 @@ void test_latch (int ticks)
 
     taskDelay(ticks);
   }
-
 }
-
 void latch_it ()
 {
   int i;
@@ -2624,23 +2299,18 @@ void latch_it ()
     printf(" position=%12.0lf\n\r",p);
     arm_latch(TRUE);
 }
-
-int latchstart ()
+void latchstart ()
 {
   latchidx=0;
-  return 0;
 }
-
 void latchverbose ()
 {
   LATCH_verbose=TRUE;
 }
-
 void latchquiet ()
 {
   LATCH_verbose=FALSE;
 }
-
 void latchprint (char *description)
 {
   int i;
@@ -2661,7 +2331,6 @@ void latchprint (char *description)
   }
   printf ("\r\n");
 }
-
 void latchexcel (int axis)
 {
   int i;
@@ -2676,7 +2345,6 @@ void latchexcel (int axis)
   }
   printf ("\r\n");
 }
-
 void print_max ()
 {
   int i;
@@ -2687,5 +2355,4 @@ void print_max ()
   for (i=0;i<3;i++)
     printf ("\r\nAXIS %d: MAX VEL limit %lf deg/sec current max %lf",
 	  i,max_velocity[i],max_velocity[i+3]);
-
 }

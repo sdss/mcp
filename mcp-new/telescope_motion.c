@@ -66,27 +66,23 @@ short rot1vlt,rot1cur;
 #define TM_ALT2VLT	6
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
-
-
-int tm_move_time (int axis, int vel, int accel, int time)
+
+void tm_move_time (int axis, int vel, int accel, int time)
 {
 	extern SEM_ID semMEI;
 	extern void manTrg();
 
 	manTrg();
+	tm_print_coeffs(axis);
 	semTake(semMEI,WAIT_FOREVER);
-	print_coeffs(axis);
 	v_move(axis,(double)vel,(double)accel);
 	semGive (semMEI);
 	taskDelay (time);
 	semTake(semMEI,WAIT_FOREVER);
 	v_move(axis,(double)0,(double)accel);
 	semGive (semMEI);
-
-	return 0;
 }
-
-int tm_move_offset (int axis, int off)
+void tm_move_offset (int axis, int off)
 {
 	short coeff[COEFFICIENTS];
 	extern init_coeffs(int axis);
@@ -94,8 +90,8 @@ int tm_move_offset (int axis, int off)
 	extern void manTrg();
 
 	manTrg();
+	tm_print_coeffs(axis);
 	semTake(semMEI,WAIT_FOREVER);
-	print_coeffs(axis);
 	get_filter (axis,(P_INT)coeff);
 	if (off==0)
 	{
@@ -112,18 +108,15 @@ int tm_move_offset (int axis, int off)
 	set_filter (axis,(P_INT)coeff);
 
 	semGive (semMEI);
-	print_coeffs(axis);
-	return 0;
-
+	tm_print_coeffs(axis);
 }
-
-int tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
+void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
 {
   int i;
   int status;
   extern SEM_ID semMEI;
   int mvel;
-extern struct TM_M68K *tmaxis[];
+  extern struct TM_M68K *tmaxis[];
 
   for (i=0;i<times;i++)
   {
@@ -150,10 +143,8 @@ extern struct TM_M68K *tmaxis[];
       tm_controller_idle(axis);    
     printf(" Done");
   }
-return 0;
 }
-
-int tm_start_move (int axis, int vel, int accel, int pos)
+void tm_start_move (int axis, int vel, int accel, int pos)
 {
 	extern SEM_ID semMEI;
 	extern void manTrg();
@@ -163,18 +154,16 @@ int tm_start_move (int axis, int vel, int accel, int pos)
 /*	print_coeffs(axis);*/
 	start_move(axis,(double)pos,(double)vel,(double)accel);
 	semGive (semMEI);
-	return 0;
 }
-
-int tm_move_pos (int axis, int vel, int accel, int pos)
+void tm_move_pos (int axis, int vel, int accel, int pos)
 {
 	double position,last_pos,final_pos;
 	extern SEM_ID semMEI;
 	extern void manTrg();
 
 	manTrg();
+	tm_print_coeffs(axis);
 	semTake(semMEI,WAIT_FOREVER);
-	print_coeffs(axis);
 	get_position(axis,&position);
 	last_pos=position;
 	final_pos=position+(double)pos;
@@ -205,10 +194,7 @@ int tm_move_pos (int axis, int vel, int accel, int pos)
         printf("\r\n  Final pos=%f",(float)position);
 	if ((final_pos>position+10)||(final_pos<position-10))
 	  printf ("\r\n ERROR: did not close in on position");
-
-return 0;
 }
-
 void tm_print_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -229,9 +215,7 @@ void tm_print_coeffs(int axis)
 		coeff[5],coeff[6],coeff[7],coeff[8]);
 	printf ("\r\n integration mode is %d",mode);
 	printf ("\r\n and sample is %d Hz",rate);
-	return 0;
 }
-
 void tm_set_coeffs(int axis, int index, int val)
 {
 	short coeff[COEFFICIENTS];
@@ -242,29 +226,23 @@ void tm_set_coeffs(int axis, int index, int val)
 	coeff[index]=val;
 	set_filter (axis,(P_INT)coeff);
 	semGive (semMEI);
-	return 0;
 }
-
 void tm_display_axis(int axis)
 {
   display_enable[axis]=TRUE;
 }
-
 void tm_nodisplay_axis(int axis)
 {
   display_enable[axis]=FALSE;
 }
-
 void tm_display_continuous()
 {
   continuous_enable=TRUE;
 }
-
 void tm_display_once()
 {
   continuous_enable=FALSE;
 }
-
 void tm_display (int delay)
 {
 	int i;
@@ -293,7 +271,6 @@ void tm_display (int delay)
 	}
       }
 }
-
 void tm_clear_pos (int axis)
 {
 	extern SEM_ID semMEI;
@@ -302,7 +279,6 @@ void tm_clear_pos (int axis)
 	set_position (axis,0.0);
 	semGive(semMEI);
 }
-
 void tm_get_pos (int axis,double *position)
 {
 	extern SEM_ID semMEI;
@@ -311,7 +287,6 @@ void tm_get_pos (int axis,double *position)
         get_position(axis,position);
 	semGive(semMEI);
 }
-
 void tm_get_vel (int axis,double *velocity)
 {
 	extern SEM_ID semMEI;
@@ -320,7 +295,6 @@ void tm_get_vel (int axis,double *velocity)
         get_velocity(axis,velocity);
 	semGive(semMEI);
 }
-
 void tm_set_sample_rate (unsigned short rate)
 {
 	extern SEM_ID semMEI;
@@ -330,7 +304,6 @@ void tm_set_sample_rate (unsigned short rate)
 	printf("\r\n Sample Rate=%d",(unsigned short)dsp_sample_rate());
 	semGive(semMEI);
 }
-
 void tm_set_pos (int axis,int pos)
 {
 	extern SEM_ID semMEI;
@@ -339,7 +312,6 @@ void tm_set_pos (int axis,int pos)
 	set_position (axis,(double)pos);
 	semGive(semMEI);
 }
-
 void tm_set_analog_encoder(int axis, int channel)
 {
 	extern SEM_ID semMEI;
@@ -350,7 +322,6 @@ void tm_set_analog_encoder(int axis, int channel)
 	set_feedback(axis,FB_ANALOG);
 	semGive(semMEI);
 }
-
 void tm_set_encoder(int axis)
 {
 	extern SEM_ID semMEI;
@@ -359,7 +330,6 @@ void tm_set_encoder(int axis)
 	set_feedback(axis,FB_ENCODER);
 	semGive(semMEI);
 }
-
 void tm_set_analog_channel(int axis, int channel)
 {
 	extern SEM_ID semMEI;
@@ -369,7 +339,6 @@ void tm_set_analog_channel(int axis, int channel)
 	set_axis_analog (axis,TRUE);
 	semGive(semMEI);
 }
-
 void tm_controller_run (int axis)
 {
 	extern SEM_ID semMEI;
@@ -380,7 +349,6 @@ void tm_controller_run (int axis)
 	controller_run (axis);
 	semGive(semMEI);
 }
-
 void tm_controller_idle (int axis)
 {
 	extern SEM_ID semMEI;
@@ -389,7 +357,6 @@ void tm_controller_idle (int axis)
 	controller_idle (axis);
 	semGive(semMEI);
 }
-
 void tm_dual_loop (int axis, int dual)
 {
 	extern SEM_ID semMEI;
@@ -409,12 +376,10 @@ void tm_set_boot_filter (int axis)
 	set_boot_filter(axis,(P_INT)coeff);
 	semGive(semMEI);
 }
-
 void tmDisplay (int delay)
 {
 	taskSpawn("tmDisp",90,0,1000,tm_display,delay,0,0,0,0,0,0,0,0,0);
 }
-
 char *help_TM[]={
         "TM_help;  axis 0,1=ALT, axis 2,3=AL, axis 4,5=ROT",
 	"TM_Verbose, TM_Quiet",
@@ -437,7 +402,6 @@ char *help_TM[]={
 	"tm_set_fiducial(int axis); tm_get_fiducial_all()",
 ""
 };                                                         
-
 void TM_help()
 {
   int i;
@@ -445,49 +409,40 @@ void TM_help()
   for (i=0;i<sizeof(help_TM)/sizeof(char *);i++)
     printf ("%s\r\n",help_TM[i]);
 }
-
 void TM_Verbose()
 {
 	TM_verbose=TRUE;
 }
-
 void TM_Quiet()
 {
 	TM_verbose=FALSE;
 }
-
-
-void ADC128F1_initialize(unsigned char *addr, int occur)
+int ADC128F1_initialize(unsigned char *addr, int occur)
 {
   STATUS stat;
   int i;
-  struct IPACK *ip;
+  struct IPACK ip;
 
-  ip=(struct IPACK*)malloc(sizeof(struct IPACK));
-  Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
-  for (i=0;i<MAX_SLOTS;i++) {
-    if (ip->adr[i]!=NULL)
-      {
-        if (occur==0)
-	  {
-	    printf ("\r\nFound one at %d, %p",i,ip->adr[i]);
-	    tm_ADC128F1=ADC128F1Init(ip->adr[i]);
-	    printf ("\r\n tm_ADC128F1=%d",tm_ADC128F1);
-	    ADC128F1_CVT_Update_Control(tm_ADC128F1,ENABLE);
-	    break;
-	  }
-	else occur--;;
-      }
-  }
-  if (i>=MAX_SLOTS)
+  Industry_Pack (addr,SYSTRAN_ADC128F1,&ip);
+  for (i=0;i<MAX_SLOTS;i++) 
+    if (ip.adr[i]!=NULL)
     {
-      printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
-      free(ip);
-      return;
+      if (occur==0)
+      {	
+        printf ("\r\nFound one at %d, %p",i,ip.adr[i]);
+        tm_ADC128F1=ADC128F1Init(ip.adr[i]);
+	printf ("\r\n tm_ADC128F1=%d",tm_ADC128F1);
+        ADC128F1_CVT_Update_Control(tm_ADC128F1,ENABLE);
+	break;
+      }
+      else occur--;;
     }
-  free(ip);
+  if (i>=MAX_SLOTS)
+  {
+    printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+    return ERROR;
+  }
 }
-
 void tm_data_collection()
 {
   extern struct SDSS_FRAME sdssdc;
@@ -496,43 +451,43 @@ void tm_data_collection()
 
   if (cw_ADC128F1!=-1)
   {
-      ADC128F1_Read_Reg(cw_ADC128F1,TM_ROT1VLT,&adc);
-      if ((adc&0x800)==0x800) rot1vlt=adc|0xF000;
-      else rot1vlt = adc&0xFFF;
-      ADC128F1_Read_Reg(cw_ADC128F1,TM_ROT1CUR,&adc);
-      if ((adc&0x800)==0x800) rot1cur=adc|0xF000;
-      else rot1cur = adc&0xFFF;
+    ADC128F1_Read_Reg(cw_ADC128F1,TM_ROT1VLT,&adc);
+    if ((adc&0x800)==0x800) rot1vlt=adc|0xF000;
+    else rot1vlt = adc&0xFFF;
+    ADC128F1_Read_Reg(cw_ADC128F1,TM_ROT1CUR,&adc);
+    if ((adc&0x800)==0x800) rot1cur=adc|0xF000;
+    else rot1cur = adc&0xFFF;
   }
   if (tm_ADC128F1!=-1)
   {
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ1VLT,&adc);
-      if ((adc&0x800)==0x800) az1vlt=adc|0xF000;
-      else az1vlt = adc&0xFFF;
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ1CUR,&adc);
-      if ((adc&0x800)==0x800) az1cur=adc|0xF000;
-      else az1cur = adc&0xFFF;
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ2VLT,&adc);
-      if ((adc&0x800)==0x800) az2vlt=adc|0xF000;
-      else az2vlt = adc&0xFFF;
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ2CUR,&adc);
-      if ((adc&0x800)==0x800) az2cur=adc|0xF000;
-      else az2cur = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ1VLT,&adc);
+    if ((adc&0x800)==0x800) az1vlt=adc|0xF000;
+    else az1vlt = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ1CUR,&adc);
+    if ((adc&0x800)==0x800) az1cur=adc|0xF000;
+    else az1cur = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ2VLT,&adc);
+    if ((adc&0x800)==0x800) az2vlt=adc|0xF000;
+    else az2vlt = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_AZ2CUR,&adc);
+    if ((adc&0x800)==0x800) az2cur=adc|0xF000;
+    else az2cur = adc&0xFFF;
       
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT1VLT,&adc);
-      if ((adc&0x800)==0x800) alt1vlt=adc|0xF000;
-      else alt1vlt = adc&0xFFF;
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT1CUR,&adc);
-      if ((adc&0x800)==0x800) alt1cur=adc|0xF000;
-      else alt1cur = adc&0xFFF;
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT2VLT,&adc);
-      if ((adc&0x800)==0x800) alt2vlt=adc|0xF000;
-      else alt2vlt = adc&0xFFF;
-      ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT2CUR,&adc);
-      if ((adc&0x800)==0x800) alt2cur=adc|0xF000;
-      else alt2cur = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT1VLT,&adc);
+    if ((adc&0x800)==0x800) alt1vlt=adc|0xF000;
+    else alt1vlt = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT1CUR,&adc);
+    if ((adc&0x800)==0x800) alt1cur=adc|0xF000;
+    else alt1cur = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT2VLT,&adc);
+    if ((adc&0x800)==0x800) alt2vlt=adc|0xF000;
+    else alt2vlt = adc&0xFFF;
+    ADC128F1_Read_Reg(tm_ADC128F1,TM_ALT2CUR,&adc);
+    if ((adc&0x800)==0x800) alt2cur=adc|0xF000;
+    else alt2cur = adc&0xFFF;
   }
 }
-tm_read_all_adc(int cnt)
+void tm_read_all_adc(int cnt)
 {
   int i,ii;
   extern int cw_ADC128F1;
@@ -733,6 +688,7 @@ int tm_alt_brake(short val)
 /*   printf ("\r\n cnt=%d",cnt);
    tm_brake_status();*/
    alt_cnt=cnt;
+   return 0;
 }
 void tm_alt_brake_on()
 {
@@ -768,6 +724,7 @@ int tm_brake_status()
   }
   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
   printf (" read ctrl = 0x%04x\r\n",ctrl);
+  return 0;
 }
 
 int clamp_cnt;
@@ -859,6 +816,7 @@ int tm_clamp(short val)
 /*   printf ("\r\n cnt=%d",cnt);
    tm_clamp_status();*/
    clamp_cnt=cnt;
+   return 0;
 }
 void tm_clamp_on()
 {
@@ -891,6 +849,7 @@ int tm_clamp_status()
   }
   swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
   printf (" read ctrl = 0x%04x 0x%4x\r\n",ctrl[0],ctrl[1]);
+  return 0;
 }
 
 
@@ -926,7 +885,7 @@ int rot_amp_ok()
 	return FALSE;
 }
 #define TM_WD		4		/* WD channel    15 */
-int tm_amp_mgt()
+void tm_amp_mgt()
 {
   int i;
 
@@ -954,7 +913,7 @@ int tm_amp_mgt()
     }
   }
 }
-int tm_print_amp_status()
+void tm_print_amp_status()
 {
   extern struct SDSS_FRAME sdssdc;
   int i;
@@ -979,20 +938,20 @@ int tm_print_amp_status()
     else
       printf ("\r\nROT Amp OK");
 }
-int tm_amp_disengage()
+void tm_amp_disengage()
 {
-extern struct conf_blk sbrd;
+  extern struct conf_blk sbrd;
 
     StopCounter (&sbrd,TM_WD);
 }
-int tm_amp_engage()
+void tm_amp_engage()
 {
 extern struct conf_blk sbrd;
 
     WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
     StartCounter (&sbrd,TM_WD);
 }
-int tm_setup_wd ()
+void tm_setup_wd ()
 {
 extern struct conf_blk sbrd;
 
@@ -1007,7 +966,7 @@ extern struct conf_blk sbrd;
   SetOutputPolarity (&sbrd,TM_WD,OutPolLow);
   ConfigureCounterTimer(&sbrd,TM_WD);
 }
-tm_set_fiducial(int axis)
+void tm_set_fiducial(int axis)
 {
   extern long fiducial_position[3];
   int negative;
@@ -1043,7 +1002,7 @@ tm_set_fiducial(int axis)
   fiducial_position[axis]=pos;
   tm_get_fiducial(axis<<1);
 }
-tm_get_fiducial_all()
+void tm_get_fiducial_all()
 {
   int i;
 
@@ -1051,7 +1010,7 @@ tm_get_fiducial_all()
     tm_get_fiducial(i<<1);
   printf ("\r\n");
 }
-tm_get_fiducial(int axis)
+void tm_get_fiducial(int axis)
 {
 	extern struct FIDUCIARY fiducial[3];
 	extern long fiducial_position[3];
@@ -1103,7 +1062,7 @@ tm_get_fiducial(int axis)
 	    else
 	      printf("     NOT Valid");
 }
-tm_set_fiducials(int axis)
+void tm_set_fiducials(int axis)
 {
   extern long fiducial_position[3];
   extern struct FIDUCIARY fiducial[3];
@@ -1134,6 +1093,16 @@ char *msg_axis_status[]=
 	 "IN_MOTION",
 	 "DIRECTION positive",
 	 "FRAMES_LEFT"};
+int  tm_axis_status(int axis)
+{
+  int value;
+  extern SEM_ID semMEI;
+
+  semTake(semMEI,WAIT_FOREVER);
+  value=axis_status(axis);
+  semGive(semMEI);
+  return value;
+}
 void tm_print_axis_status(int axis)
 {
   int i,value;
@@ -1155,6 +1124,16 @@ char *msg_axis_state[]=
 	 "ABORT_EVENT",
 	 "Running???",
 	 "Undocumented Value"};
+int tm_axis_state(int axis)
+{
+  int value;
+  extern SEM_ID semMEI;
+
+  semTake(semMEI,WAIT_FOREVER);
+  value=axis_state(axis);
+  semGive(semMEI);
+  return value;
+}
 void tm_print_axis_state(int axis)
 {
   int i,value;
