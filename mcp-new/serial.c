@@ -49,6 +49,7 @@
 #include "ipOctalSerial.h"
 #include "serial.h"
 #include "cmd.h"
+#include "dscTrace.h"
 
 /*========================================================================
 **========================================================================
@@ -61,15 +62,7 @@
 **
 ** LOCAL DEFINITIONS
 */
-/* Define non-printing (control) characters */
-#ifndef __ASCII_MACROS__
-#define SOH '\001'
-#define STX '\002'
-#define ACK '\006'
-#define NAK '\025'
-#define CR  '\015'
-#define DLE '\020'
-#endif
+
 struct SERIAL_CAN {
 	int cancel;
 	int active;
@@ -91,26 +84,18 @@ struct BARCODE {
 ** GLOBAL VARIABLES
 */
 struct SERIAL_CAN cancel[NPORT]= {
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0},
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0}
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL},
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL},
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL},
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL}
 };
 struct BARCODE barcode[256];
 short barcodeidx=0;
 int BARCODE_verbose=FALSE;
 /*
-	prototypes
-*/
-int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
-		unsigned char * const buffer );
-int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer);
-void tcc_serial(int port);
-FILE *barcode_open(int port);
+ * prototypes
+ */
 void barcode_shutdown(int type);
-void barcode_init(unsigned char *ip_base, unsigned short model, 
-		unsigned int vec, short ch);
-void print_barcode();
 
 /*=========================================================================
 **=========================================================================
@@ -129,8 +114,10 @@ void print_barcode();
 **
 **=========================================================================
 */
-int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
-		unsigned char * const buffer )
+int
+sdss_transmit(FILE *output_stream,
+	      unsigned char *const cmd,
+	      unsigned char *const buffer)
 {
    int status;
 
@@ -144,8 +131,8 @@ int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
 
    fflush ( output_stream);
    return 0;
-                          
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -155,7 +142,7 @@ int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
 **      Receives string from TCC with appropriate termination.
 **
 ** RETURN VALUES:
-**      int 	status always zero
+**      int
 **
 ** CALLS TO:
 **
@@ -163,7 +150,11 @@ int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
 **
 **=========================================================================
 */
-int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
+static int
+sdss_receive(FILE *input_stream,
+	     int port,
+	     unsigned char *buffer,
+	     int size)			/* size of buffer */
 {
    int c;
    int status;
@@ -176,45 +167,30 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
    /* Receive data from the TCC */
 /*#define __USE_GETC__	1*/
 #ifndef __USE_GETC__
-   fgets (buffer,40,input_stream);
+   fgets(buffer, size, input_stream);
 #else
-/*
-   taskLock();
-   cancel[port].cancel=FALSE;
-   cancel[port].active=TRUE;
-   cancel[port].tmo=cancel[port].init_tmo;
-   taskUnlock();
-   cancel[port].fd=fileno(input_stream);
-*/
    ptr    = buffer;
    charcnt=0;
-   while ( ((c = getc(input_stream)) != EOF)&&(charcnt<256))
+   while ( ((c = getc(input_stream)) != EOF)&&(charcnt<size))
    {
       *ptr=c;
-/*      if (cancel[port].cancel) */
-/*        printf ( "\n\tIn receive() -  character is %c\t%02x %02x",
-		 *ptr, *ptr, c);*/
       if ( *ptr == '\015' )                 /* All done */
          break;
       ptr++;
       charcnt++;
    }
-   if (charcnt>=256) return -1;
+   if (charcnt>=size) return -1;
    while (*(--ptr)==0x20);
    ptr++;
    *ptr = '\0';
-/*
-   if (cancel[port].tmo<cancel[port].min_tmo) 
-		cancel[port].min_tmo=cancel[port].tmo;
-   cancel[port].tmo=0;
-   cancel[port].active=FALSE;
-   if (cancel[port].cancel) printf ("\r\n receive got canceled");
-*/
 #endif          /* End __USE_GETC__ */
 
    /* Check the length */
-/*   if ( strlen(buffer) < 1 )
-      return -1;*/
+#if 0
+   if(strlen(buffer) < 1) {
+      return -1;
+   }
+#endif
 
    return status;        
 }
@@ -242,7 +218,7 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
 void
 tcc_serial(int port)
 {
-  char *serial_port={"/tyCo/x"};
+  char serial_port[] = "/tyCo/x";
   FILE *stream;  
   int status;
   char command_buffer[256];
@@ -250,34 +226,37 @@ tcc_serial(int port)
 
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
-  if (stream==NULL)
-  {
-    printf ("tcc_serial: Could **NOT** open port\r\n");
-    exit (-1);
+  if(stream == NULL) {
+     TRACE(0, "Could **NOT** open port", 0, 0);
+     exit (-1);
   }
-  else
-    printf ("tcc_serial:  OPEN port %s, stream=%p\r\n",serial_port,stream);
+  
+  TRACE(1, "OPEN port %s, stream=%p", serial_port, stream);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
-  FOREVER
-  {
-   command_buffer[0]=NULL;
-   status = sdss_receive ( stream, port, &command_buffer[0]);
-   if ( status==0 )
-   {
-     answer_buffer=cmd_handler(&command_buffer[0]);
-     status = sdss_transmit (stream,&command_buffer[0],answer_buffer);
-     if ( status != 0 )
-       printf (" TCC **NOT** accepting response (status=%d)\r\n",status);
-   }
-   else
-   {
-     printf (" TCC **BAD** command %s (status=%d)\r\n",&command_buffer[0],status);
-     status = sdss_transmit (stream,&command_buffer[0],"ERR: Bad Command");
-     if ( status != 0 )
-       printf (" TCC **NOT** accepting response (status=%d)\r\n",status);
-   }
-  }                                             
+  for(;;) {
+     TRACE(16, "port %d", port, 0);
+
+     command_buffer[0] = '\0';
+     status = sdss_receive(stream, port, command_buffer, 256);
+     TRACE(1,  "command from TCC: %s", command_buffer, 0);
+     TRACE(16, "        cccccccc: 0x%08x%08x",
+	   ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
+     
+     if(status == 0) {
+	answer_buffer = cmd_handler(command_buffer);
+	status = sdss_transmit(stream, command_buffer, answer_buffer);
+	if(status != 0) {
+	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	}
+     } else {
+	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
+	status = sdss_transmit (stream,&command_buffer[0],"ERR: Bad Command");
+	if(status != 0) {
+	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	}
+     }
+  }
 }                                             
 /*=========================================================================
 **=========================================================================
@@ -360,24 +339,26 @@ void barcode_init(unsigned char *ip_base, unsigned short model,
 **
 **=========================================================================
 */
-FILE *barcode_open(int port)
+FILE *
+barcode_open(int port)
 {
-  char *serial_port={"/tyCo/x"};
+  char serial_port[] = "/tyCo/x";
   FILE *stream;
 
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
   if (stream==NULL)
   {
-    printf ("barcode_serial: Could **NOT** open port\r\n");
+    printf ("barcode_open: Could **NOT** open port\r\n");
     return NULL;
   }
   else
-    printf ("barcode_serial:  OPEN port %s, stream=%p\r\n",serial_port,stream);
+    printf ("barcode_open:  OPEN port %s, stream=%p\r\n",serial_port,stream);
   ioctl (fileno(stream),FIOBAUDRATE,2400);
   cancel[port].fd=fileno(stream);
   cancel[port].stream=stream;
   rebootHookAdd((FUNCPTR)barcode_shutdown);
+  
   return stream;
 }
 /*=========================================================================
@@ -402,13 +383,14 @@ void barcode_shutdown(int type)
   int i;
 
     printf("BARCODE OCTAL232 shutdown:\r\n");
-    for (i=0;i<NPORT;i++)
-      if (cancel[i].fd!=NULL) 
-      {
-	close(cancel[i].fd);
-        cancel[i].fd=0;
-	printf ("\r\n close fd=%x",cancel[i].fd);
-      }
+    for (i=0;i<NPORT;i++) {
+       if (cancel[i].fd!=NULL) {
+	  close(cancel[i].fd);
+	  cancel[i].fd=0;
+	  printf ("\r\n close fd=%x",cancel[i].fd);
+       }
+    }
+  
     taskDelay (30);
 }
 /*=========================================================================
@@ -531,7 +513,8 @@ barcode_serial(int port)
 **
 **=========================================================================
 */
-void print_barcode()
+void
+print_barcode(void)
 {
   int i;
 
@@ -540,14 +523,11 @@ void print_barcode()
     printf ("\r\n  %d: axis=%d, fiducial=%d",i,barcode[i].axis,
 		barcode[i].fiducial);
 }
+
 /*=========================================================================
 **=========================================================================
 **
 ** ROUTINE: cancel_read
-**	    set_cancel_tmo
-**	    set_all_cancel_tmo
-**	    print_cancel_tmo
-**	
 **
 ** DESCRIPTION:
 **      If getc is used for serial communicaitons, then use a global timeout
@@ -563,64 +543,48 @@ void print_barcode()
 **=========================================================================
 */
 #ifdef __USE_GETC__
-void cancel_read ()
+void
+cancel_read(void)
 {
   int status;
   int i;
 
-  for (i=0;i<NPORT;i++)
-  {
-    cancel[i].cancel=FALSE;
-    cancel[i].active=FALSE;
-    cancel[i].min_tmo=cancel[i].init_tmo;
-    cancel[i].tmo=0;
-    cancel[i].fd=0;
+  for(i = 0; i < NPORT; i++) {
+     cancel[i].cancel = FALSE;
+     cancel[i].active = FALSE;
+     cancel[i].min_tmo = cancel[i].init_tmo;
+     cancel[i].tmo = 0;
+     cancel[i].fd = 0;
   }
-  FOREVER
-  {
+
+  for(;;) {
     taskDelay (1);
-    for (i=0;i<NPORT;i++)
-    {
-      taskLock();
-      if ((cancel[i].tmo>0) && (cancel[i].active)) cancel[i].tmo--;
-      if ((cancel[i].tmo>0) && (!cancel[i].active)) 
-      {
-        taskUnlock();
-        printf ("\r\n Cancel_read not active port=%d (tmo=%d)",i,cancel[i].tmo);
-        cancel[i].tmo=0;
-      }
-      else
-        taskUnlock();
-      if (cancel[i].tmo == 1)
-      {
-        status = ioctl (cancel[i].fd,FIOCANCEL,0);
-        cancel[i].cancel=TRUE;
-        cancel[i].count++;
-        printf ("\r\n Cancel_read canceled port=%d (status=0x%x)",i, status);
-      }
+
+    for(i = 0; i < NPORT; i++) {
+       TRACE(16, "port %d", i, 0);
+       
+       taskLock();
+       TRACE(16, "task is locked", 0, 0);
+       if(cancel[i].tmo > 0 && cancel[i].active) cancel[i].tmo--;
+       
+       if (cancel[i].tmo > 0 && !cancel[i].active) {
+	  taskUnlock();
+	  TRACE(4, "not active; port %d (tmo=%d)", i, cancel[i].tmo);
+	  cancel[i].tmo = 0;
+       } else {
+	  taskUnlock();
+       }
+       TRACE(16, "task is unlocked", 0, 0);
+       
+       if(cancel[i].tmo == 1) {
+	  status = ioctl(cancel[i].fd, FIOCANCEL, 0);
+	  cancel[i].cancel = TRUE;
+	  cancel[i].count++;
+	  TRACE(4, "canceled port %d (status=0x%x)", i, status);
+       } else {
+	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo);
+       }
     }
   }
-}
-void set_cancel_tmo (int port, unsigned short tmo)
-{
-  cancel[port].init_tmo=tmo;
-  cancel[port].min_tmo=cancel[port].init_tmo;
-  cancel[port].count=0;
-}
-void set_all_cancel_tmo (unsigned short tmo)
-{
-  int i;
-
-  for (i=0;i<NPORT;i++)
-	set_cancel_tmo (i, tmo);
-}
-void print_cancel_tmo ()
-{
-  int i;
-
-  for (i=0;i<NPORT;i++)
-    printf ("\r\nCANCEL port %d:\r\n  cancel=%d, active=%d, count=%d, tmo=%d, init_tmo=%d, min_tmo=%d, fd=%d",
-	i,cancel[i].cancel,cancel[i].active,cancel[i].count,cancel[i].tmo,
-	cancel[i].init_tmo,cancel[i].min_tmo,cancel[i].fd);
 }
 #endif          /* End __USE_GETC__ */
