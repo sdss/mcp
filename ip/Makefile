@@ -10,31 +10,15 @@ H3 = $(VWH)rpc/
 H4 = $(VWH)68k/
 H5 = $(VWH)private/
 
-INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5)
+INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) \
+	-I$(VX_TOOLS_DIR)/include -I$(ASTRODA_DIR)/include \
+	-I$(MURMUR_CLIENT_VX_DIR)/include
+
 CC = cc68k
 CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
 -DMEI_MC680X0_CPU -D__USE_GETC__
-#CFLAGS = -g -ansi -mc68040
-#CFLAGS = -S -O -traditional -mc68040
-
-CPP = cpp68k
-#CPP = gcc-cpp  
-CPPFLAGS = -P
-#CPPFLAGS = -P -Caa
-
-ASM = as68k
-AFLAGS = -mc68040
-
-LINK = ld68k                       
-LFLAGS = -r -M
-AR = ar68k
-ARFLAGS = crsv
-
-ASRCS =
 
 DIRS = acromag systran
-
-SRCS =mv162IndPackInit.c ipOctalSerial.c
 
 OBJS =mv162IndPackInit.o ipOctalSerial.o
 
@@ -44,13 +28,7 @@ OBJS =mv162IndPackInit.o ipOctalSerial.o
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $*.c
 
-.asm.s:
-	$(CPP) $(CPPFLAGS) $*.asm $*.s
-
-.s.o:
-	$(ASM) $(AFLAGS) -o $*.o $*.s
-
-all dg: $(ASRCS) $(OBJS) 
+all dg: $(OBJS) 
 	@for d in $(DIRS); do \
 		echo $$d; \
 		(cd $$d; $(MAKE) $(MFLAGS) all ); \
