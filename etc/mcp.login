@@ -219,7 +219,7 @@ barcode_open (3)
 # Start the task that controls the umbilical tower; argument is
 # interval between checks (in seconds)
 #
-#tUmbilicalInit 1
+tUmbilicalInit 1
 #
 # Load fiducials tables
 #
