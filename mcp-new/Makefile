@@ -30,7 +30,8 @@ LFLAGS = -r
 
 OBJS =cmd.o axis_cmds.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
-display.o umbilical.o telnetCmds.o timers.o fiducials.o spectro.o tagname.o
+display.o umbilical.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
+tagname.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
@@ -78,11 +79,15 @@ axis_cmds.o : mcpUtils.h
 axis_cmds.o : mcpMsgQ.h
 axis_cmds.o : abdh.h
 axis_cmds.o : mcpTimers.h
+axis_cmds.o : mcpFiducials.h
+axis_cmds.o : cmd.h
 cmd.o : copyright.h
 cmd.o : frame.h
 cmd.o : ms.h
 cmd.o : axis.h
 cmd.o : cmd.h
+cmd.o : mcpFiducials.h
+cmd.o : mcpUtils.h
 counter_weight.o : cw.h
 counter_weight.o : copyright.h
 counter_weight.o : data_collection.h
@@ -91,6 +96,8 @@ counter_weight.o : io.h
 counter_weight.o : mcpUtils.h
 counter_weight.o : mcpMsgQ.h
 counter_weight.o : mcpTimers.h
+counter_weight.o : axis.h
+counter_weight.o : cmd.h
 data_collection.o : copyright.h
 data_collection.o : data_collection.h
 data_collection.o : tm.h
@@ -100,6 +107,7 @@ data_collection.o : ipcast.h
 data_collection.o : axis.h
 data_collection.o : cw.h
 data_collection.o : instruments.h
+data_collection.o : mcpFiducials.h
 display.o : copyright.h
 display.o : display.h
 display.o : frame.h
@@ -111,6 +119,16 @@ display.o : io.h
 display.o : data_collection.h
 display.o : instruments.h
 display.o : mcpUtils.h
+display.o : mcpFiducials.h
+fiducials.o : tm.h
+fiducials.o : mcpMsgQ.h
+fiducials.o : mcpFiducials.h
+fiducials.o : mcpTimers.h
+fiducials.o : mcpUtils.h
+fiducials.o : axis.h
+fiducials.o : data_collection.h
+fiducials.o : serial.h
+fiducials.o : cmd.h
 instrument_lift.o : cw.h
 instrument_lift.o : copyright.h
 instrument_lift.o : tm.h
@@ -126,10 +144,17 @@ ipsym.o : mcpUtils.h
 serial.o : copyright.h
 serial.o : serial.h
 serial.o : cmd.h
+spectro.o : abdh.h
+spectro.o : frame.h
+spectro.o : copyright.h
+spectro.o : data_collection.h
+spectro.o : tm.h
+spectro.o : axis.h
+spectro.o : cmd.h
+spectro.o : mcpMsgQ.h
 tagname.o : axis.h
-tagname.o : copyright.h
-telescope_motion.o : copyright.h
 telescope_motion.o : ms.h
+telescope_motion.o : copyright.h
 telescope_motion.o : abdh.h
 telescope_motion.o : axis.h
 telescope_motion.o : frame.h
@@ -137,14 +162,14 @@ telescope_motion.o : data_collection.h
 telescope_motion.o : tm.h
 telescope_motion.o : cw.h
 telescope_motion.o : instruments.h
+telescope_motion.o : mcpFiducials.h
 telnetCmds.o : axis.h
-telnetCmds.o : copyright.h
 telnetCmds.o : cmd.h
 timers.o : mcpTimers.h
 timers.o : mcpUtils.h
 timers.o : data_collection.h
 timers.o : axis.h
-timers.o : copyright.h
+timers.o : mcpMsgQ.h
 umbilical.o : copyright.h
 umbilical.o : instruments.h
 util.o : mv162.h
