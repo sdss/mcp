@@ -301,7 +301,7 @@ static void PrintMenuBanner()
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie and Robert     \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
-  printf("      //   //   //       //       //      Tag: %-20s            \n", "$Name$");
+  printf("      //   //   //       //       //      Tag: %-20s            \n", getCvsTagname());
   printf("     //   //   //       //       //                                            \n");
   printf("//////  ///////    //////   //////                                             \n");  
   printf("Time Since Boot:       Days               Date:     \n");
@@ -1711,7 +1711,7 @@ static void PrintInstBanner()
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie and Robert     \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
-  printf("      //   //   //       //       //      Tag: %-20s            \n", "$Name$");
+  printf("      //   //   //       //       //      Tag: %-20s            \n", getCvsTagname());
   printf("     //   //   //       //       //                                            \n");
   printf("//////  ///////    //////   //////                                             \n");  
   printf("Time Since Boot:       Days               Date:     \n");
