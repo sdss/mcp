@@ -423,20 +423,18 @@ init_cmd(char *cmd)
 	 correction[0] = 0;		/* unused */
 	 correction[1] = get_axis_encoder_error(i, 1);
 	 correction[2] = get_axis_encoder_error(i, 2);
-	 if(correction[1] > 0) {
-	    TRACE(3,"Adjusting position of %s by %d",
+	 if(abs(correction[1]) > 0) {
+	    TRACE(3,"Adjusting %s's encoder 1 by %d",
 		  axis_name(i), correction[1]);
+	 }
+	 if(abs(correction[2]) > 0) {
+	    TRACE(3,"Adjusting %s's encoder 2 by %d",
+		  axis_name(i), correction[2]);
+	 }
 	    
-	    if(abs(correction[1]) >= fiducial[i].max_correction) {
-	       TRACE(0, "    correction %ld is too large (max %ld)",
-		     correction[1], fiducial[i].max_correction);
-	       continue;
-	    }
-	    
-	    if(tm_adjust_position(i, correction) < 0) {
-	       TRACE(0 ,"Failed to adjust position for axis %s",
-		     axis_name(i), 0);
-	    }
+	 if(tm_adjust_position(i, correction) < 0) {
+	    TRACE(0 ,"Failed to adjust encoder for axis %s",
+		  axis_name(i), 0);
 	 }
       }
 

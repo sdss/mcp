@@ -744,7 +744,7 @@ tLatch(const char *name)
 	       sprintf(axis_str, "(0x%x)", dio316int_bit);
 	    }
 
-	    TRACE(2, "%s: took %d attempts to read MEI latch status",
+	    TRACE(3, "%s: took %d attempts to read MEI latch status",
 								  axis_str, i);
 
 	    nlatch_allowed = -1;	/* allow any number */
@@ -811,7 +811,8 @@ tLatch(const char *name)
 		     fididx = i;
 		  }
 	       }
-	       TRACE(3, "az fiducial %d, delta = %d", fididx, best_dist);
+	       TRACE(5, "Identified az fiducial %d, delta = %d",
+		     fididx, best_dist);
 	    }
 	    
 	    write_fiducial_log("AZ_FIDUCIAL", AZIMUTH, fididx,

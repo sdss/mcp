@@ -266,12 +266,12 @@ mei_data_collection(unsigned long freq)
 	    if(fiducial[i].scale_ratio_12 > 0 &&
 				       fiducial[i].min_encoder_mismatch >= 0) {
 	       const long canon = fiducial[i].canonical_position;
-	       long predict_2 = canon + fiducial[i].scale_ratio_12*
-					 (tmaxis[i]->actual_position2 - canon);
+	       long predict_2 = canon +
+				(tmaxis[i]->actual_position2 - canon)/fiducial[i].scale_ratio_12;
 	       long diff = predict_2 - tmaxis[i]->actual_position;
 	       
 	       if(abs(diff) > fiducial[i].min_encoder_mismatch) {
-		  TRACE(2, "Encoders for axis %s differ by %d",
+		  TRACE(3, "Encoders for axis %s differ by %d",
 			axis_name(i), diff);
 	       }
 	    }

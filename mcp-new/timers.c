@@ -462,6 +462,9 @@ unsigned long SDSS_cnt=0;
 void
 DID48_interrupt(int type)
 {
+   int dt = 200;			/* maximum allowed fuzz in arrival
+					   of GPS pulse; microseconds */
+
    TRACE0(16, "DID48_interrupt", 0, 0);
    
    DID48_Read_Port(tm_DID48,5,&did48int_bit);
@@ -473,7 +476,11 @@ DID48_interrupt(int type)
       }
       
       NIST_sec = timer_read(1);
-      if(NIST_sec > 1000200) {
+      if(NIST_sec < 1000000 - dt) {
+	 if(SDSStime >= 0) {		/* we've set our time */
+	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
+	 }
+      } else if(NIST_sec > 1000000 + dt) {
 	 if(SDSStime >= 0) {		/* we've set our time */
 	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
 	 }
