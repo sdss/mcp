@@ -112,7 +112,7 @@ axis_ticks_deg(int axis)
     case AZIMUTH:
     case ALTITUDE:
     case INSTRUMENT:
-      return(sec_per_tick[axis]);
+      return(ticks_per_degree[axis]);
     default:
       fprintf(stderr,"axis_ticks_deg: unknown axis %d\n", axis);
       return(1);
