@@ -1,0 +1,16 @@
+#
+# altitude fiducials
+#
+# JEG's values from message 1152 in the sdss-obs archive
+#
+# Fiducial Mark +- error  npoint
+# Encoder 2
+1 	3825222 +- 0 1
+2	7431524 +- 0 1
+3	11767227 +- 0 1
+4	15425645 +- 0 1
+5	19312791 +- 0 1
+#
+# Disabled:
+#
+6	       0 +- -9999 0

@@ -28,6 +28,7 @@ doc/www/ms.html -text
 etc/Makefile -text
 etc/mcp.login -text
 etc/trace.el -text
+fiducial-tables/alt.dat -text
 ip/Makefile -text
 ip/acromag/.cvsignore -text
 ip/acromag/Makefile -text
