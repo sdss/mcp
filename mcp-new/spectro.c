@@ -450,8 +450,27 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    B10_W0 tm_ctrl;   
    int err;
              
-   TRACE(1, "Setting FFS: %d %d", val, enab); /* XXX */
+   TRACE(3, "Setting FFS: %d %d", val, enab); /* XXX */
+/*
+ * If we're currently enabled and the requested motion is in the opposite
+ * direction, disable the FFS for a moment before complying with the request.
+ * (Why? French doesn't want us to blow relays)
+ */
+   if(enab && val >= 0 &&
+      sdssdc.status.b10.w0.mcp_ff_screen_enable &&
+      sdssdc.status.b10.w0.mcp_ff_scrn_opn_cmd != val) {
+      int ntick = 60;			/* 1 second */
 
+      TRACE(3, "Disabling FFS for %d ticks: %d", ntick, val);
+      set_mcp_ffs_bits(val, 0);
+
+      taskDelay(ntick);
+
+      return(set_mcp_ffs_bits(val, enab));
+   }
+/*
+ * Do what is asked of us
+ */
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       return(-1);
@@ -559,10 +578,14 @@ tFFS(void)
 	    if(!ffs_close_status()) {
 	       TRACE(0, "FFS did NOT all close", 0, 0);
 	    }
+#if 0
 	    (void)set_mcp_ffs_bits(0, 0); /* disable motors */
+#endif
 	 } else if(msg.type == FFSCheckOpen_type) {
 	    if(ffs_open_status()) {
+#if 0
 	       (void)set_mcp_ffs_bits(1, 0); /* disable motors */
+#endif
 	    } else {
 	       TRACE(0, "FFS did NOT all open; closing", 0, 0);
 	       ffsclose_cmd(NULL);
