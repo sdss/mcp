@@ -1,20 +1,5 @@
-#include "copyright.h"
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		AXIS control						*/
-/*   File:	axis.h							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
-/************************************************************************/
-
-#ifndef __AXIS_H__
+#if !defined(AXIS_H)
+#define AXIS_H
 
 #define NAXIS			3
 #define NOT_SPECIFIED		-1
@@ -46,9 +31,9 @@
 #define SWITCH_PID_COEFFS 0
 
 /* function prototypes */
+const char *axis_name(int axis);
 char *reboot_cmd(char *cmd);
 char *axis_status_cmd(char *cmd);
-char *correct_cmd(char *cmd);
 char *drift_cmd(char *cmd);
 char *id_cmd(char *cmd);
 char *version_cmd(char *cmd);
@@ -105,18 +90,6 @@ char *hgcdoff_cmd(char *cmd);
 char *ffstatus_cmd(char *cmd);
 char *abstatus_cmd(char *cmd);
 
-struct FIDUCIARY {
-	int markvalid;
-	long mark;
-	int index;
-};	
-struct FIDUCIALS {
-	int markvalid;
-	long mark;
-	long last;
-	long poserr;
-	long err;
-};
 #if defined(COEFFICIENTS)
    struct SW_COEFFS {
       short coeffs[COEFFICIENTS];
@@ -175,12 +148,6 @@ extern SEM_ID semSLC;
 extern int axis_select;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 extern double sec_per_tick[3];
 extern double ticks_per_degree[3];
-extern long fiducial_position[3];
-extern struct FIDUCIARY fiducial[3];
-extern int fiducialidx[3];
-extern struct FIDUCIALS az_fiducial[48];
-extern struct FIDUCIALS alt_fiducial[7];
-extern struct FIDUCIALS rot_fiducial[156];
 extern struct FRAME_QUEUE axis_queue[3];
 extern struct AXIS_STAT axis_stat[3];
 extern struct AXIS_STAT persistent_axis_stat[3];
@@ -188,6 +155,4 @@ extern int axis_alive;
 extern int altclino_off;
 extern float altclino_sf;
 
-#define __AXIS_H__             /* do only once */
-
-#endif	/* End __AXIS_H__ */
+#endif
