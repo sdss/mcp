@@ -20,6 +20,7 @@
 #include "time.h"
 #include "timerint.h"
 #include "mcpUtils.h"
+#include "dscTrace.h"
 
 SEM_ID semsym_1Hz=0;
 struct sockaddr_in sym_sockaddr;
@@ -287,6 +288,8 @@ SEM_ID semDC=NULL;
 SEM_ID semTRG=NULL;
 void serverDCStart()
 {
+   TRACE0(16, "serverDCStart", 0, 0);
+
   freqtick++;
   if ((dh.frequency==0) || ((freqtick%dh.frequency)==0))
     if (semDC!=NULL) semGive (semDC);
