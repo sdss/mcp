@@ -40,7 +40,7 @@
  * New AZ_TICK 0.014016677905631868 2002-Mar-30 SAS from MJD 52363 data
  * New ROT_TICK 0.021315787229917133 2002-Mar-30 SAS from MJD 52363 data
  */
-#define AZ_TICK	0.014016677905631868
+#define AZ_TICK	0.014016690731950178
 #if 1
 #  define ALT_TICK	0.01400002855	/* encoder 1 */
 #else
@@ -51,7 +51,7 @@
 #  define ROT_ROTARY_ENCODER 1
 #  define ROT_TICK	0.0127597662202 /* rotary encoder */
 #else
-#  define ROT_TICK      0.021315787229917133 /* optical encoder */
+#  define ROT_TICK      0.021315787526207226 /* optical encoder */
 #endif
 #define AZ_TICKS_DEG	(3600/AZ_TICK)
 #define ALT_TICKS_DEG	(3600/ALT_TICK)
