@@ -19,27 +19,19 @@ CC = cc68k
 
 CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS $(INCLUDES)
 
-CPP = cpp68k
-CPPFLAGS = -P
-
-#VXCCFLAGS=-Wall -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) \
-#	-DVXWORKS
-
-#VXCC=cc68k $(VXCCFLAGS) $(INCLUDES)
-
 LINK = ld68k
 LFLAGS = -r -M
-AR = ar68k
-ARFLAGS = crsv
 
 DHP_OBJS = std_dhp.o dhpd.o diag.o sbslc.o rdslc.o vmeinst.o
 
-.SUFFIXES: .o .c .asm .s
+.SUFFIXES: .o .c
 
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $*.c
 
-all dg: $(DHP_OBJS)
+all : dhp.out
+
+dhp.out : $(DHP_OBJS)
 	$(LINK) $(LFLAGS) -o  dhp.out $(DHP_OBJS) > $(DESTDIR)dhp.map
 
 install :
