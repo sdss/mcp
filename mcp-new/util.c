@@ -262,13 +262,19 @@ fopen_logfile(const char *file,		/* desired file */
    int fd;				/* file's file descriptor */
    FILE *fil;				/* the returned FILE */
    char filename[100];
+   int mjd;				/* current MJD */
    int mode;				/* mode for open() */
    int trace_open_lvl = 5;		/* level for TRACE on successful open*/
    struct stat status;			/* information about the directory */
 /*
  * Create directory if it doesn't exist
  */
-   sprintf(filename, "/mcptpm/%d", mjd()); /* directory */
+   mjd = get_mjd();
+   if(mjd < 0) {
+      TRACE(1, "Cannot determine MJD for %s; assuming MJD == 0", file, 0);
+      mjd = 0;
+   }
+   sprintf(filename, "/mcptpm/%d", mjd); /* directory */
    assert(strlen(filename) < FILESIZE);
 
    if(stat(filename, &status) == ERROR) { /* doesn't exist */
@@ -333,7 +339,7 @@ fopen_logfile(const char *file,		/* desired file */
 extern void slaCldj(int, int, int, double*, int*);
 
 int
-mjd(void)
+get_mjd(void)
 {
    int status;
    double ldj;
@@ -348,11 +354,19 @@ mjd(void)
 	   &ldj, &status);
 
    if(status) {
-      fprintf(stderr,"slaCldj returns %d (Y m d == %d %d %d)\n",
-	      status, Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
+      char buff[100];
+      sprintf(buff, "%d %d %d",
+	      Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
+      TRACE(2, "MJD: %d (%s)", status, buff);
    
       return(-1);
    } else {
+      char buff[100];
+      sprintf(buff, "%d %d %d %d:%d:%d",
+	      Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday,
+	      Time->tm_hour, Time->tm_min, Time->tm_sec);
+      TRACE(3, "MJD: %s", buff, 0);
+
       ldj += (Time->tm_hour + (Time->tm_min + Time->tm_sec/60.0)/60.0)/24.0;
 	      
       return((int)(ldj + 0.3));

@@ -188,7 +188,7 @@ tCmdLog(void)
 	 if(mcp_log_fd == NULL) {
 	    char filename[100];
 	    
-	    sprintf(filename, "mcpCmdLog-%d.dat", mjd());
+	    sprintf(filename, "mcpCmdLog-%d.dat", get_mjd());
 	    if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
 	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
 	       

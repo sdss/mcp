@@ -73,7 +73,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    char version[100];			/* buffer for MCP version */
    
    fprintf(fd, "version       %s  # MCP version\n", mcpVersion(version, 100));
-   fprintf(fd, "mjd           %d\n", mjd());
+   fprintf(fd, "mjd           %d\n", get_mjd());
    fprintf(fd, "\n");
    fprintf(fd, "initialTime   %d\n", time(NULL));
    fprintf(fd, "\n");
@@ -204,7 +204,7 @@ write_fiducial_log(const char *type,	/* type of entry */
    char filename[100];
    struct stat status;			/* information about the directory */
 
-   sprintf(filename, "mcpFiducials-%d.dat", mjd());
+   sprintf(filename, "mcpFiducials-%d.dat", get_mjd());
    if((fd = fopen_logfile(filename, "a")) == NULL) {
       TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
       return;

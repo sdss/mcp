@@ -7,7 +7,7 @@
 void sysReset(int);			/* really in vx_dsc */
 
 char *get_date(void);
-int mjd(void);
+int get_mjd(void);
 FILE *fopen_logfile(const char *file, const char *mode);
 unsigned long timer_read(int timer);
 unsigned long timer_start(int timer);
