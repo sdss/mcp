@@ -1254,6 +1254,7 @@ char *plus_move_cmd(char *cmd)
 	  }
 	}
 */
+	if (position==0.0) break;
         offset[axis_select][0].nxt=&offset[axis_select][1];
         offset[axis_select][0].position=0;
         offset[axis_select][1].position=position;
@@ -1282,6 +1283,7 @@ char *plus_move_cmd(char *cmd)
           }
         }
 */
+	if ((position==0.0)&&(velocity==0.0)) break;
         offset[axis_select][0].nxt=&offset[axis_select][1];
         offset[axis_select][0].position=0;
         offset[axis_select][1].position=position;
@@ -1311,6 +1313,7 @@ char *plus_move_cmd(char *cmd)
           }
         }
 */
+	if ((position==0.0)&&(velocity==0.0)) break;
         offset[axis_select][0].nxt=&offset[axis_select][1];
         offset[axis_select][0].position=0;
         offset[axis_select][1].position=position;
@@ -1674,7 +1677,9 @@ void init_fiducial()
     az_fiducial[i].err=0;
     az_fiducial[i].poserr=0;
     az_fiducial[i].mark=0;
+    az_fiducial_position[i]=0;
   }
+  restore_fiducials (0);
   az_fiducial_position[fiducial[0].index]=fiducial_position[0];	/* 120:49:20:00 */
   for (i=0;i<sizeof(alt_fiducial)/sizeof(struct FIDUCIALS);i++)
   {
@@ -1683,7 +1688,9 @@ void init_fiducial()
     alt_fiducial[i].err=0;
     alt_fiducial[i].poserr=0;
     alt_fiducial[i].mark=0;
+    alt_fiducial_position[i]=0;
   }
+  restore_fiducials (1);
 	/* 14:39:23:286 */
   alt_fiducial_position[fiducial[1].index]=fiducial_position[1];
   alt_fiducial_position[0]=0x0;	/* 00:00:00:00 */
@@ -1695,7 +1702,9 @@ void init_fiducial()
     rot_fiducial[i].err=0;
     rot_fiducial[i].poserr=0;
     rot_fiducial[i].mark=0;
+    rot_fiducial_position[i]=0;
   }
+  restore_fiducials (2);
    	/* 001:13:35:373 */
   rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
 }
@@ -1747,11 +1756,11 @@ void tm_latch()
 	    (float)latchpos[latchidx].pos2);
           fididx = barcode_serial(3);	/* backwards from what you would think */
 	  fididx = barcode_serial(3);
-	  if ((fididx>=0)&&(fididx<24))
+	  if ((fididx>0)&&(fididx<=24))
 	  {
-	    if (latchpos[latchidx].pos1>24)
+	    if (latchpos[latchidx].pos1>0)
 		fididx += 24;
-            if ((fididx<48)&&(fididx>=0))
+            if ((fididx<48)&&(fididx>0))
             {
               az_fiducial[fididx].last=az_fiducial[fididx].mark;
               az_fiducial[fididx].mark=latchpos[latchidx].pos1;
@@ -1760,13 +1769,20 @@ void tm_latch()
 	      az_fiducial[fididx].poserr=az_fiducial[fididx].mark-
 		az_fiducial_position[fididx];
 	      az_fiducial[fididx].markvalid=TRUE;
+	      if ((abs(az_fiducial[fididx].poserr)>200)&&
+		      (az_fiducial_position[fididx]!=0))
+                printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+		  latchpos[latchidx].axis,
+	          (long)az_fiducial[fididx].poserr,
+	          (float)latchpos[latchidx].pos1,
+	          (float)latchpos[latchidx].pos2);
+              if (fididx==fiducial[0].index)
+              {
+                fiducial[0].mark=az_fiducial[fididx].mark;
+	        fiducial[0].markvalid=TRUE;
+              }
+	      fiducialidx[0]=fididx;
 	    }
-            if (fididx==fiducial[0].index)
-            {
-              fiducial[0].mark=az_fiducial[fididx].mark;
-	      fiducial[0].markvalid=TRUE;
-            }
-	    fiducialidx[0]=fididx;
 	  }
 	}
         if (dio316int_bit&ALTITUDE_INT)
@@ -1804,6 +1820,13 @@ void tm_latch()
 	      alt_fiducial[fididx].poserr=alt_fiducial[fididx].mark-
 		alt_fiducial_position[fididx];
 	      alt_fiducial[fididx].markvalid=TRUE;
+	      if ((abs(alt_fiducial[fididx].poserr)>200)&&
+		      (alt_fiducial_position[fididx]!=0))
+                printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+		  latchpos[latchidx].axis,
+	          (long)alt_fiducial[fididx].poserr,
+	          (float)latchpos[latchidx].pos1,
+	          (float)latchpos[latchidx].pos2);
               if (fididx==fiducial[1].index)
               {
                 fiducial[1].mark=alt_fiducial[fididx].mark;
@@ -1867,6 +1890,13 @@ void tm_latch()
 		  rot_fiducial_position[fididx];
       	        rot_fiducial[fididx].markvalid=TRUE;
                 fiducialidx[2]=fididx;
+	        if ((abs(rot_fiducial[fididx].poserr)>200)&&
+		      (rot_fiducial_position[fididx]!=0))
+                  printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+	  	    latchpos[latchidx].axis,
+	            (long)rot_fiducial[fididx].poserr,
+	            (float)latchpos[latchidx].pos1,
+	            (float)latchpos[latchidx].pos2);
 	      }
 	    }
 	    else
@@ -1892,6 +1922,13 @@ void tm_latch()
 	 	    rot_fiducial_position[fididx];
                   rot_fiducial[fididx].markvalid=TRUE;
                   fiducialidx[2]=fididx;
+	          if ((abs(rot_fiducial[fididx].poserr)>200)&&
+		      (rot_fiducial_position[fididx]!=0))
+                    printf ("\r\nAXIS %d: ERR=%d, latched pos0=%f,pos1=%f",
+	  	      latchpos[latchidx].axis,
+	              (long)rot_fiducial[fididx].poserr,
+	              (float)latchpos[latchidx].pos1,
+	              (float)latchpos[latchidx].pos2);
                 }
               }
             }
@@ -2031,6 +2068,57 @@ void set_fiducials (int axis)
         break;
     }
 }
+#define SM_AZ_FIDUCIALS	0x02810000
+#define SM_ALT_FIDUCIALS	0x02811000
+#define SM_ROT_FIDUCIALS	0x02812000
+void save_fiducials (int axis)
+{
+  int i;
+  long *sm;
+
+  switch (axis)
+  {
+    case 0:
+	sm = (long *)SM_AZ_FIDUCIALS;
+        for (i=0;i<48;i++)
+          sm[i]=az_fiducial_position[i];
+        break;
+    case 1:
+	sm = (long *)SM_ALT_FIDUCIALS;
+        for (i=0;i<7;i++)
+          sm[i]=alt_fiducial_position[i];
+        break;
+    case 2:
+	sm = (long *)SM_ROT_FIDUCIALS;
+        for (i=0;i<156;i++)
+          sm[i]=rot_fiducial_position[i];
+        break;
+    }
+}
+void restore_fiducials (int axis)
+{
+  int i;
+  long *sm;
+
+  switch (axis)
+  {
+    case 0:
+	sm = (long *)SM_AZ_FIDUCIALS;
+        for (i=0;i<48;i++)
+          az_fiducial_position[i]=sm[i];
+        break;
+    case 1:
+	sm = (long *)SM_ALT_FIDUCIALS;
+        for (i=0;i<7;i++)
+          alt_fiducial_position[i]=sm[i];
+        break;
+    case 2:
+	sm = (long *)SM_ROT_FIDUCIALS;
+        for (i=0;i<156;i++)
+          rot_fiducial_position[i]=sm[i];
+        break;
+    }
+}
 void print_fiducials (int axis)
 {
   int i;
@@ -2081,7 +2169,7 @@ void print_fiducials (int axis)
           }
 	  else
 	  {
-	    printf ("\r\nALT FIDUCIAL %d:  pos=%d",i,
+	    printf ("ALT FIDUCIAL %d:  pos=%d",i,
 		alt_fiducial_position[i]);
 	  }     
 	}
@@ -2106,7 +2194,7 @@ void print_fiducials (int axis)
           }
 	  else
 	  {
-	    printf ("\r\nROT FIDUCIAL %d:  pos=%d",i,
+	    printf ("ROT FIDUCIAL %d:  pos=%d",i,
 		rot_fiducial_position[i]);
 	  }     
 	}
