@@ -166,6 +166,13 @@ get_position_corr(int mei_axis,		/* 2*(desired axis) */
 		  double *position)	/* position to get */
 {
    int ret = get_position(mei_axis, position); /* read encoder */
+
+   if(ret != DSP_OK) {
+      TRACE(0, "get_position_corr: %s %s",
+	    axis_name(mei_axis/2), _error_msg(ret));
+      return(ret);
+   }
+   
    *position += axis_encoder_error[mei_axis]; /* undo correction */
 
    return(ret);
@@ -176,8 +183,14 @@ get_latched_position_corr(int mei_axis,	/* 2*(desired axis) */
 			  double *position) /* position of latch */
 {
    int ret = get_latched_position(mei_axis, position);
-   *position += axis_encoder_error[mei_axis];
    
+   if(ret != DSP_OK) {
+      TRACE(0, "%s get_latched_position failed: %s",
+	    axis_name(mei_axis/2), _error_msg(dsp_error));
+   } else {
+      *position += axis_encoder_error[mei_axis];
+   }
+
    return(ret);
 }
 
@@ -185,8 +198,16 @@ int
 set_position_corr(int mei_axis,		/* 2*(desired axis) */
 		  double position)	/* position to set */
 {
+   int ret;
+
    position -= axis_encoder_error[mei_axis]; /* apply correction */
-   return(set_position(mei_axis, position)); /* set position */
+   ret = set_position(mei_axis, position); /* set position */
+   if(ret != DSP_OK) {
+      TRACE(0, "%s set_position failed: %s",
+	    axis_name(mei_axis/2), _error_msg(dsp_error));
+   }
+
+   return(ret);
 }
 
 int
@@ -195,8 +216,16 @@ start_move_corr(int mei_axis,
 		double vel,
 		double acc)
 {
+   int ret;
+
    pos -= axis_encoder_error[mei_axis]; /* apply correction */
-   return(start_move(mei_axis, pos, vel, acc)); /* do move */
+   ret = start_move(mei_axis, pos, vel, acc); /* do move */
+   if(ret != DSP_OK) {
+      TRACE(0, "%s start_move failed: %s",
+	    axis_name(mei_axis/2), _error_msg(dsp_error));
+   }
+
+   return(ret);
 }
 
 int
@@ -208,12 +237,20 @@ frame_m_xvajt_corr(PFRAME frame,	/* frame for MEI */
 		   double a,		/* desired acceleration */
 		   double j,		/* desired jerk */
 		   double t,		/* at time t */
-		   long flags,		/* describe what we have */
 		   int new_frame)	/* new frame? */
 {
+   int ret;
+   
    x -= axis_encoder_error[mei_axis];	/* apply correction */
    
-   return(frame_m(frame, cmd_str, mei_axis, x, v, a, j, t, flags, new_frame));
+   ret = frame_m(frame, cmd_str, mei_axis, x, v, a, j, t,
+		 FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,
+		 new_frame);
+   if(ret != DSP_OK) {
+      TRACE(0, "frame_m: %s", _error_msg(ret), 0);
+   }
+
+   return(ret);
 }
 
 int
@@ -303,21 +340,22 @@ init_cmd(char *cmd)
  */
    state = tm_axis_state(2*axis_select);
 
-   if(state > 2) {			/* normal...NOEVENT,running, or
-					   NEW_FRAME */
-      printf("INIT axis %d: not running, state=0x%x\n", 2*axis_select, state);
+   if(state > NEW_FRAME) {		/* not NOEVENT, running, or NEW_FRAME*/ 
+      TRACE(1, "INIT axis %s: not running: %s",
+	    axis_name(axis_select), axis_state_str(2*axis_select));
       tm_sem_controller_idle(2*axis_select);
    }
    
    tm_reset_integrator(2*axis_select);
    enable_pvt(axis_select);
    
-   if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
+   while(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
       TRACE(0, "couldn't take semSLCDC semaphore.", 0, 0);
-   } else {
-      memset(&axis_stat[axis_select], '\0', sizeof(struct AXIS_STAT *));
-      semGive(semSLCDC);
+      taskSuspend(NULL);
    }
+   
+   memset(&axis_stat[axis_select], '\0', sizeof(struct AXIS_STAT *));
+   semGive(semSLCDC);
 
    switch(axis_select) {
     case AZIMUTH:
@@ -362,6 +400,7 @@ init_cmd(char *cmd)
 
       semGive(semMEI);
    }
+   tm_show_axis(axis_select);		/* XXX */
 /*
  * tm_axis_state retries as well...so this is really redundant, but then the
  * brakes don't come off really quickly so this will assure closed loop for
@@ -392,7 +431,7 @@ init_cmd(char *cmd)
 
 	 correction = get_axis_encoder_error(i);
 	 if(correction > 0) {
-	    TRACE(3 ,"Adjusting position of %s by %d", axis_name(i), correction);
+	    TRACE(3 ,"Adjusting position of %s by %d", axis_name(i),correction);
 	    
 	    if(abs(correction) >= fiducial[i].max_correction) {
 	       TRACE(0, "    correction %ld is too large (max %ld)",
@@ -1227,7 +1266,9 @@ mcp_move_va(int axis,			/* the axis to move */
 #endif
    
    if((ret = start_move_corr(2*axis, pos, vel, acc)) != DSP_OK) {
-      TRACE(0, "start_move failed for %s : %d", axis_name(axis), ret);
+      char *err = _error_msg(ret);
+      if(err == NULL) { err = "unknown DSP error"; }
+      TRACE(0, "start_move failed for %s : %s", axis_name(axis), err);
       if(ret == DSP_NO_DISTANCE) {
 	 double mei_pos;
 	 get_position_corr(2*axis, &mei_pos);
@@ -1539,6 +1580,8 @@ move_cmd(char *cmd)
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
+   printf("%s MOVE %s  %f\n", axis_name(axis_select), cmd, sdss_get_time());
+
    cnt = sscanf(cmd,"%lf %lf %lf", &params[0], &params[1], &params[2]);
    if(mcp_move(axis_select, params, cnt) < 0) {
       return("ERR: MOVE");
@@ -1711,8 +1754,10 @@ axisMotionInit(void)
  * We don't really need to take semMEI here as we're the only process
  * running, but it's clearer if we do
  */
-   err = semTake(semMEI, WAIT_FOREVER);
-   assert(err != ERROR);
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "Cannot take semMEI in axisMotionInit: %s", strerror(errno), 0);
+      taskSuspend(NULL);
+   }
 
    for(i = 0; i < 3; i++) {
       axis_queue[i].top = (struct FRAME *)malloc(sizeof(struct FRAME));
@@ -1773,7 +1818,7 @@ axisMotionInit(void)
       
       get_error_limit(mei_axis, &limit, &action);
       TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
-#if 0
+#if 1
       set_error_limit(mei_axis, 24000, NO_EVENT);
 #else 
       set_error_limit(mei_axis, 24000, ABORT_EVENT);
@@ -1794,7 +1839,10 @@ axisMotionInit(void)
  * Set filter coefficients for the axes.  Note that it is essential that we
  * provide values for all of the coefficients.
  */
-   semTake(semMEI,WAIT_FOREVER);
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "Failed to take semMEI: %s", strerror(errno), 0);
+      taskSuspend(NULL);
+   }
 
    coeff[DF_P] = 160;
    coeff[DF_I] = 6;
