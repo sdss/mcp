@@ -45,7 +45,6 @@ static int tm_frames_to_execute(int axis);
 
 int CALC_verbose = FALSE;
 int CALCOFF_verbose = FALSE;
-int CALCADDOFF_verbose = FALSE;
 int CALCFINAL_verbose = FALSE;
 int DRIFT_verbose = FALSE;
 int FRAME_verbose = FALSE;
@@ -189,6 +188,7 @@ print_diagq(void)
 int
 calc_frames(int axis, struct FRAME *iframe, int start)
 {
+   int bad_pvt = 0;			/* was a bad PVT detected? */
    double dx,dv,dt,vdot;
    double ai,j,t,lai,lj,lt,ldt;
    struct FRAME *fframe;
@@ -232,14 +232,73 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       v[axis][i] = iframe->velocity + ai*t + (1/2.)*j*(t*t);
       a[axis][i] = ai + j*t;
       ji[axis][i] = j;
+
       
       if(CALC_verbose) {
 	 printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
 		 i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
       }
+/*
+ * Check if velocity/acceleration is out of bounds
+ */
+      if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
+	 max_acceleration_requested[axis] = a[axis][i];
+      }
+      
+      if(fabs(a[axis][i]) > max_acceleration[axis]) {
+	 long acc = 1e3*a[axis][i];	/* TRACE macro has a variable "a" */
+	 TRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
+	       axis_name(axis), acc);
+	 
+	 bad_pvt++;
+      }
+
+      if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
+	 max_velocity_requested[axis] = v[axis][i];
+      }
+      
+      if(fabs(v[axis][i]) > max_velocity[axis]) {
+	 TRACE(2, "calc_frames: Max vel. for %s exceeded: %ld/1000",
+	       axis_name(axis), (long)(1e3*v[axis][i]));
+
+	 bad_pvt++;
+      }
    }
 /*
- * last one with a portion remaining; needs portion of next one
+ * Do we need to fixup those velocities/accelerations and write debugging info?
+ */
+   if(bad_pvt) {
+      int ii;
+      
+      TRACE(3, "Bad PVT: dt = %g", dt, 0);
+      TRACE(3, "Bad PVT: dx = %g", dx, 0);
+      TRACE(3, "Bad PVT: dv = %g", dv, 0);
+      TRACE(3, "Bad PVT: ai = %g", ai, 0);
+      TRACE(3, "Bad PVT: j = %g", j, 0);
+      
+      for(ii = 0; ii <= i; ii++) {
+	 TRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
+	 TRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
+	 {
+	    double acc = a[axis][ii];	/* TRACE has a variable `a' */
+	    TRACE(3, "Bad PVT: a = %g", acc, 0);
+	 }
+	 
+	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
+	    v[axis][ii] = (v[axis][ii] > 0) ?
+	      max_velocity[axis] : -max_velocity[axis];
+	 }
+	 
+	 if(fabs(a[axis][ii]) > max_acceleration[axis]) {
+	    a[axis][ii] = (a[axis][ii] > 0) ?
+	      max_acceleration[axis] : -max_acceleration[axis];
+	 }
+      }
+
+      bad_pvt = 0;
+   }
+/*
+ * last one (frame?) with a portion remaining; needs portion of next one
  */
 #if 0
    printf("Check for FINAL: time_off=%f, i=%d, start=%d, t=%f, dt=%f\n",
@@ -251,6 +310,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       if(i > MAX_CALC - 1) {
 	 TRACE(0, "calc_frames has problems (A) %d\n",i, 0);
       }
+      
       return i;
    }
 
@@ -293,9 +353,65 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       printf("Final %d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f\n",
 	     i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
    }
+/*
+ * Check if velocity/acceleration is out of bounds
+ */
+   if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
+      max_acceleration_requested[axis] = a[axis][i];
+   }
    
+   if(fabs(a[axis][i]) > max_acceleration[axis]) {
+      long acc = 1e3*a[axis][i];	/* TRACE macro has a variable "a" */
+      TRACE(2, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
+	    axis_name(axis), acc);
+      
+      bad_pvt++;
+   }
+   
+   if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
+      max_velocity_requested[axis] = v[axis][i];
+   }
+   
+   if(fabs(v[axis][i]) > max_velocity[axis]) {
+      TRACE(2, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
+	    axis_name(axis), (long)(1e3*v[axis][i]));
+      
+      bad_pvt++;
+   }
+
    if(i + 1 > MAX_CALC) {
       TRACE(0, "calc_frames has problems (B) %d\n",i + 1, 0);
+   }
+/*
+ * Do we need to fixup those velocities/accelerations and write debugging info?
+ */
+   if(bad_pvt) {
+      int ii;
+      
+      TRACE(3, "Bad PVT: dt = %g", dt, 0);
+      TRACE(3, "Bad PVT: dx = %g", dx, 0);
+      TRACE(3, "Bad PVT: dv = %g", dv, 0);
+      TRACE(3, "Bad PVT: ai = %g", ai, 0);
+      TRACE(3, "Bad PVT: j = %g", j, 0);
+
+      for(ii = 0; ii <= i; ii++) {
+	 TRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
+	 TRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
+	 {
+	    double acc = a[axis][ii];	/* TRACE has a variable `a' */
+	    TRACE(3, "Bad PVT: a = %g", acc, 0);
+	 }
+
+	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
+	    v[axis][ii] = (v[axis][ii] > 0) ?
+	      max_velocity[axis] : -max_velocity[axis];
+	 }
+	 
+	 if(fabs(a[axis][ii]) > max_acceleration[axis]) {
+	    a[axis][ii] = (a[axis][ii] > 0) ?
+	      max_acceleration[axis] : -max_acceleration[axis];
+	 }
+      }
    }
 
    return(i + 1);
@@ -420,6 +536,7 @@ clroffset(int axis,int cnt)
 int
 addoffset(int axis,int cnt)
 {
+   int bad_pvt = 0;			/* was a bad PVT detected? */
    int i;
 
    for(i=0;i<cnt;i++) {
@@ -427,10 +544,59 @@ addoffset(int axis,int cnt)
       v[axis][i] += voff[axis][i];
       a[axis][i] += aoff[axis][i];
       ji[axis][i] += jioff[axis][i];
+/*
+ * Check if velocity/acceleration is out of bounds
+ */
+      if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
+	 max_acceleration_requested[axis] = a[axis][i];
+      }
+      
+      if(fabs(a[axis][i]) > max_acceleration[axis]) {
+	 long acc = 1e3*a[axis][i];	/* TRACE macro has a variable "a" */
+	 TRACE(2, "addoffset: Max accl. for %s exceeded: %ld/1000",
+	       axis_name(axis), acc);
+	 
+	 bad_pvt++;
+      }
+      
+      if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
+	 max_velocity_requested[axis] = v[axis][i];
+      }
+      
+      if(fabs(v[axis][i]) > max_velocity[axis]) {
+	 TRACE(2, "addoffset: Max vel. for %s exceeded: %ld/1000",
+	       axis_name(axis), (long)(1e3*v[axis][i]));
+	 
+	 bad_pvt++;
+      }
+   }
+/*
+ * Do we need to fixup those velocities/accelerations and write debugging info?
+ */
+   if(bad_pvt) {
+      int ii;
+      
+      TRACE(3, "Bad PVT: jioff = %g", jioff[axis][0], 0);
+      for(ii = 0; ii < cnt; ii++) {
+	 TRACE(3, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii], 0);
+	 TRACE(3, "Bad PVT:         poff = %g", poff[axis][ii], 0);
+	 TRACE(3, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii], 0);
+	 TRACE(3, "Bad PVT:         voff = %g", voff[axis][ii], 0);
+	 {
+	    double acc = a[axis][ii];	/* TRACE has a variable `a' */
+	    TRACE(3, "Bad PVT: a = %g", acc - aoff[axis][ii], 0);
+	 }
+	 TRACE(3, "Bad PVT:         aoff = %g", aoff[axis][ii], 0);
 
-      if(CALCADDOFF_verbose) {
-	 printf("%d:  p=%12.8f, v=%12.8f, a=%12.8f\n",
-		i,p[axis][i],v[axis][i],a[axis][i]);
+	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
+	    v[axis][ii] = (v[axis][ii] > 0) ?
+	      max_velocity[axis] : -max_velocity[axis];
+	 }
+	 
+	 if(fabs(a[axis][ii]) > max_acceleration[axis]) {
+	    a[axis][ii] = (a[axis][ii] > 0) ?
+	      max_acceleration[axis] : -max_acceleration[axis];
+	 }
       }
    }
 
@@ -553,6 +719,7 @@ load_frames(int axis,			/* which axis */
    }
 
    for(i = idx; i < idx + cnt; i++) {
+#if 1					/* we check when we _generate_ frames*/
       if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
 	 max_acceleration_requested[axis] = a[axis][i];
       }
@@ -577,12 +744,13 @@ load_frames(int axis,			/* which axis */
       if(fabs(v[axis][i]) > max_velocity[axis]) {
 	 printf ("AXIS %d: MAX VEL %f exceeded; limit %f\n",
 		 axis,v[axis][i], max_velocity[axis]);
-	 TRACE(2, "Max vel. for %s exceeded: %ld/1000",
+	 TRACE(2, "load_frames: Max vel. for %s exceeded: %ld/1000",
 	       axis_name(axis), (long)(1e3*v[axis][i]));
 
 	 v[axis][i] = (v[axis][i] > 0) ?
 				       max_velocity[axis] : -max_velocity[axis];
       }
+#endif
       
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
 	 TRACE(0, "load_frames: failed to get semMEI: %s (%d)",
@@ -1530,8 +1698,8 @@ mcp_move(int axis,			/* the axis to move */
    frame->position = position;
 
    if(fabs(velocity) > max_velocity[axis]) {
-      TRACE(2, "Max vel. for %s exceeded: %ld",
-	    axis_name(axis), (long)velocity);
+      TRACE(2, "Move: Max vel. for %s exceeded: %ld/1000",
+	    axis_name(axis), (long)(1e3*velocity));
       velocity = (velocity > 0) ? max_velocity[axis] : -max_velocity[axis];
    }
    
