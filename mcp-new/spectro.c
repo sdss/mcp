@@ -19,6 +19,9 @@
 #include "axis.h"
 #include "cmd.h"
 #include "dscTrace.h"
+#include "mcpMsgQ.h"
+
+MSG_Q_ID msgLamps = NULL;		/* control lamps */
 
 /*=========================================================================
 **
@@ -292,6 +295,7 @@ tm_sp_slit_close(int door)
 		0,0,0,0,0,0,0,0,0);
    }
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -670,230 +674,63 @@ tm_ffs_close_status(void)
   else 
     return FALSE;
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_ffl
-**	    tm_ffl_on
-**	    tm_ffl_off
-**	    tm_sp_ffl_on
-**	    tm_sp_ffl_off
-**
-** DESCRIPTION:
-**      Turn on/off the incandescent lamps for the flat field.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_ffl(short val)
+
+/*****************************************************************************/
+/*
+ * A task to control the lamps
+ */
+void
+tLamps(void)
 {
    int err;
    unsigned short ctrl[1];
+   MCP_MSG msg;				/* message to pass around */
+   int ret;				/* return code */
    struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
 
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
+   for(;;) {
+      ret = msgQReceive(msgLamps, (char *)&msg, sizeof(msg), WAIT_FOREVER);
+      assert(ret != ERROR);
+
+      TRACE(8, "read msg on msgLamps", 0, 0);
+      assert(msg.type == lamp_type);
+      
+      if(semTake(semSLC,60) == ERROR) {
+	 printf("Unable to take semaphore: %s", strerror(errno));
+	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
+      }
+
+      err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+      if(err) {
+	 semGive(semSLC);
+	 printf("R Err=%04x\r\n",err);
+      }
+
+      swab((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+      
+      switch (msg.u.lamps.type) {
+       case FF_LAMP:
+	 tm_ctrl1.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
+	 break;
+       case NE_LAMP:
+	 tm_ctrl1.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
+	 break;
+       case HGCD_LAMP:
+	 tm_ctrl1.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
+	 break;
+       default:
+	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
+	 break;
+      }
+      
+      swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+      err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
       semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_ff_lamp_on_cmd = val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_ffl_on()
-{
-   tm_ffl(1);
-}
-void tm_ffl_off()
-{
-   tm_ffl(0);
-}
-void tm_sp_ffl_on()
-{
-  if (taskIdFigure("tmFFL")==ERROR)
-    taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_ffl_off()
-{
-  if (taskIdFigure("tmFFL")==ERROR)
-    taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,0,0,0,0,0,0,0,0,0,0);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_neon
-**	    tm_neon_on
-**	    tm_neon_off
-**	    tm_sp_neon_on
-**	    tm_sp_neon_off
-**
-** DESCRIPTION:
-**      Turn on/off the Neon lamps for the flat field.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_neon(short val)
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_ne_lamp_on_cmd = val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-   
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_neon_on()
-{
-    tm_neon (1);
-}
-void tm_neon_off()
-{
-    tm_neon (0);
-}
-void tm_sp_neon_on()
-{
-  if (taskIdFigure("tmNeon")==ERROR)
-    taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_neon_off()
-{
-  if (taskIdFigure("tmNeon")==ERROR)
-    taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,0,0,0,0,0,0,0,0,0,0);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_hgcd
-**	    tm_hgcd_on
-**	    tm_hgcd_off
-**	    tm_sp_hgcd_on
-**	    tm_sp_hgcd_off
-**
-** DESCRIPTION:
-**      Turn on/off the Mercury Cadmium lamps for the flat field.
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int
-tm_hgcd(short val)
-{
-   int err;
-   unsigned short ctrl[1];
-   struct B10_1 tm_ctrl1;   
-             
-   if(semTake(semSLC,60) == ERROR) {
-      printf("Unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
-      return(-1);
-   }
-
-   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   if(err) {
-      semGive (semSLC);
-      printf ("R Err=%04x\r\n",err);
-      return err;
-   }
-   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
-
-   tm_ctrl1.mcp_hgcd_lamp_on_cmd = val;
-
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-   semGive (semSLC);
-
-   if(err) {
-      printf ("W Err=%04x\r\n",err);
-      return err;
-   }
-
-   return 0;
-}
-void tm_hgcd_on()
-{
-    tm_hgcd (1);
-}
-void tm_hgcd_off()
-{
-    tm_hgcd (0);
-}
-void tm_sp_hgcd_on()
-{
-  if (taskIdFigure("tmHgCd")==ERROR)
-    taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,1,0,0,0,0,0,0,0,0,0);
-}
-void tm_sp_hgcd_off()
-{
-  if (taskIdFigure("tmHgCd")==ERROR)
-    taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,0,0,0,0,0,0,0,0,0,0);
+      
+      if(err) {
+	 printf("W Err=%04x\r\n",err);
+      }
+   }      
 }
 
 /*****************************************************************************/
@@ -1022,45 +859,103 @@ ffsclose_cmd(char *cmd)			/* NOTUSED */
    return "";
 }
 
+/*****************************************************************************/
+/*
+ * Turn the flatfield/calibration lamps on/off
+ */
 char *
 fflon_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_ffl_on();
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamp_type;
+   msg.u.lamps.type = FF_LAMP;
+   msg.u.lamps.on_off = ON;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
 char *
 ffloff_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_ffl_off();
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamp_type;
+   msg.u.lamps.type = FF_LAMP;
+   msg.u.lamps.on_off = OFF;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
 char *
 neon_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_neon_on();
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamp_type;
+   msg.u.lamps.type = NE_LAMP;
+   msg.u.lamps.on_off = ON;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
 char *
 neoff_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_neon_off();
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamp_type;
+   msg.u.lamps.type = NE_LAMP;
+   msg.u.lamps.on_off = OFF;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
 char *
 hgcdon_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_hgcd_on();
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamp_type;
+   msg.u.lamps.type = HGCD_LAMP;
+   msg.u.lamps.on_off = ON;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
 char *
 hgcdoff_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_hgcd_off();
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = lamp_type;
+   msg.u.lamps.type = HGCD_LAMP;
+   msg.u.lamps.on_off = OFF;
+
+   ret = msgQSend(msgLamps, (char *)&msg, sizeof(msg), NO_WAIT,MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
@@ -1180,6 +1075,18 @@ slithead_latch_open_cmd(char *cmd)		/* NOTUSED */
 void
 spectroInit(void)
 {
+   int ret;				/* return code */
+/*
+ * Create the message queue to control the lamps, and spawn the task
+ * that actually turns lamps on/off
+ */
+   if(msgLamps == NULL) {
+      msgLamps = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+      assert(msgLamps != NULL);
+
+      ret = taskSpawn("tLamps",90,0,2000,(FUNCPTR)tLamps,0,0,0,0,0,0,0,0,0,0);
+      assert(ret != ERROR);
+   }
 /*
  * define spectro commands to the command interpreter
  */
