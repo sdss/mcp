@@ -150,6 +150,7 @@ ld < mcp-new/mcpnew.out
 # Initialise message queues and semaphores
 #
 tMoveCWInit
+tLatchInit
 
 #BCAST_Enable=0
 #SM_COPY=0
