@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 
-DIRS = ab bin etc ip mei-new mcp-new util
+DIRS = ab bin etc ip mei-new mcp-new ups util
 
 all :
 	@for d in $(DIRS); do \
@@ -53,7 +53,7 @@ install :
 tags :
 	@rm -f TAGS
 	@for d in $(DIRS); do \
-		if [ $$d != "etc" -a $$d != "bin" ]; then \
+		if [ $$d != "bin" -a $$d != "etc" -a $$d != "ups" ]; then \
 			echo $$d; \
 			etags --append -a -t -o TAGS $$d/*.[ch]; \
 		fi; \
