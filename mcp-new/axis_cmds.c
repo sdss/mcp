@@ -74,8 +74,8 @@ struct FRAME_QUEUE axis_queue[3] = {
  * Maximum allowed velocity/acceleration and arrays to keep account of
  * the maximum |values| actually requested
  */
-double max_velocity[NAXIS] = {2.25, 1.65, 2.25};
-double max_acceleration[NAXIS] = {4.0, 0.11, 6.0};
+double max_velocity[NAXIS] = {2.4, 1.8, 2.4};
+double max_acceleration[NAXIS] = {0.24, 0.12, 0.275};
 double max_velocity_requested[NAXIS] = {0, 0, 0};
 double max_acceleration_requested[NAXIS]={0, 0, 0};
 
