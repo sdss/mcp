@@ -922,16 +922,12 @@ int leave (short *v1,short *v2)
 }
 int clear_msg ()
 {
-  extern char *inst_display;
-  
   inst_display=NULL;
   return 0;
 	
 }
 int leave_msg ()
 {
-  extern char *inst_display;
-  
   inst_display="Done....                                                            ";
   taskDelay(60);	
   return 0;
@@ -989,9 +985,6 @@ struct IL_STATES fiberfsm[]={
 	{"",NULL,NULL,
 	  {{NULL},{NULL},{NULL},{NULL}}}
 };
-
-extern char *inst_display;
-extern int inst_answer;
 
 int
 instchange_status_msg()

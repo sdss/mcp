@@ -1899,28 +1899,40 @@ char *sp2_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *slitclear_cmd(char *cmd)
+char *
+slitclear_cmd(char *cmd)
 {
   printf (" SLIT.CLEAR command fired\r\n");
-  if ((spectograph_select<SPECTOGRAPH1) ||
-    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_slit_clear(spectograph_select-SPECTOGRAPH1);
+  if(spectograph_select != SPECTOGRAPH1 && spectograph_select != SPECTOGRAPH2){
+     return "ERR: ILLEGAL DEVICE SELECTION";
+  }
+  
+  tm_slit_clear(spectograph_select - SPECTOGRAPH1);
+  
   return "";
 }
-char *slitopen_cmd(char *cmd)
+
+char *
+slitopen_cmd(char *cmd)
 {
   printf (" SLIT.OPEN command fired\r\n");
-  if ((spectograph_select<SPECTOGRAPH1) ||
-    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_slit_open(spectograph_select-SPECTOGRAPH1);
+  if(spectograph_select != SPECTOGRAPH1 && spectograph_select != SPECTOGRAPH2){
+     return "ERR: ILLEGAL DEVICE SELECTION";
+  }
+
+  tm_slit_open(spectograph_select - SPECTOGRAPH1);
+  
   return "";
 }
 char *slitclose_cmd(char *cmd)
 {
   printf (" SLIT.CLOSE command fired\r\n");
-  if ((spectograph_select<SPECTOGRAPH1) ||
-    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  if(spectograph_select != SPECTOGRAPH1 && spectograph_select != SPECTOGRAPH2){
+     return "ERR: ILLEGAL DEVICE SELECTION";
+  }
+
   tm_slit_close(spectograph_select-SPECTOGRAPH1);
+  
   return "";
 }
 
