@@ -56,7 +56,7 @@ double convert_mei_to_mcp(int axis, double pos);
    int dsp_set_last_command_corr(PDSP pdsp, int16 mei_axis, double final);
    int frame_m_xvajt_corr(PFRAME frame, char *cmd_str, int mei_axis,
 			  double x, double v, double a, double j, double t,
-			  long flags, int new_frame);
+			  int new_frame);
 #endif
 
 const char *axis_name(int axis);
