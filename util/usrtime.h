@@ -9,8 +9,11 @@
 /************************************************************************/
 /* Modification History:						
  * $Log$
+ * Revision 1.4  2000/02/01 15:42:33  briegel
+ *  define to VX_DSC_DIR for pathe in make
+ *
  * Revision 1.3  2000/01/29 10:27:28  briegel
- * get rid of imbedded /*
+ * get rid of imbedded
  *
  * Revision 1.2  2000/01/26 08:31:07  ekinney
  * Charlie's edits 25 Jan 2000
