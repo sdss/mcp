@@ -53,12 +53,13 @@ SEM_ID semCMD = NULL;
 */
 
 SYMTAB_ID cmdSymTbl = NULL;		/* our symbol table */
+SYMTAB_ID docSymTbl = NULL;		/* symbol table for documentation */
 
 /*****************************************************************************/
 /*
  * A command to notify us that They know we rebooted
  */
-static int iacked = 0;			/* set to 0 on reboot */
+int iacked = 0;				/* set to 0 on reboot */
 
 char *
 iack_cmd(char *cmd)			/* NOTUSED */
@@ -203,6 +204,10 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
       cmdSymTbl = symTblCreate(256, FALSE, memSysPartId);
       assert(cmdSymTbl != NULL);
    }
+   if(docSymTbl == NULL) {
+      docSymTbl = symTblCreate(256, FALSE, memSysPartId);
+      assert(docSymTbl != NULL);
+   }
 /*
  * Create semaphore that controls access to logfile
  */
@@ -218,11 +223,12 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
 /*
  * Define some misc commands that don't belong in any init function
  */
-   define_cmd("IACK",         iack_cmd,      0, 0, 1);
-   define_cmd("LOG.BUFSIZE",  log_bufsize_cmd, 1, 0, 1);
-   define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0);
-   define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0);
-   define_cmd("VERSION",      version_cmd,   0, 0, 0);
+   define_cmd("IACK",         iack_cmd,      0, 0, 0, 1,
+	      "Acknowledge an MCP reboot");
+   define_cmd("LOG.BUFSIZE",  log_bufsize_cmd, 1, 0, 0, 1, "");
+   define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0, 0, "");
+   define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0, 0, "");
+   define_cmd("VERSION",      version_cmd,   0, 0, 0, 0, "");
 
    return 0;
 }
@@ -235,8 +241,10 @@ void
 define_cmd(char *name,			/* name of command */
 	   char *(*addr)(char *),	/* function to call */
 	   int narg,			/* number of arguments */
-	   int locked,			/* does this cmd require semCmdPort? */
-	   int murmur)			/* should cmd be echoed to murmur? */
+	   int need_sem,		/* does this cmd require semCmdPort? */
+	   int may_take,		/* may this cmd take semCmdPort? */
+	   int murmur,			/* should cmd be echoed to murmur? */
+	   const char *doc)		/* documentation for command */
 {
    int i, j;
    int status;
@@ -249,7 +257,8 @@ define_cmd(char *name,			/* name of command */
       assert(narg == (narg & CMD_TYPE_NARG)); /*there are enough bits in mask*/
       type = narg;
    }
-   if(locked) type |= CMD_TYPE_LOCKED;
+   if(need_sem) type |= CMD_TYPE_PRIV;
+   if(may_take) type |= CMD_TYPE_MAY_TAKE;
    if(murmur) type |= CMD_TYPE_MURMUR;
 
    for(j = 0; j < 2; j++) {
@@ -268,6 +277,7 @@ define_cmd(char *name,			/* name of command */
       }
 
       status = symAdd(cmdSymTbl, name, (char *)addr, type, 0);
+      status = symAdd(docSymTbl, name, doc, 0, 0);
       
       if(status != OK) {
 	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg);
@@ -357,8 +367,26 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 }
 	 
 	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
-	 
-	 if((type & CMD_TYPE_LOCKED) && !have_sem) {
+/*
+ * If we are so requested, try to take the semCmdPort semaphore
+ */
+	 if(!have_sem && (type & CMD_TYPE_MAY_TAKE)) {
+	    char name[100];			/* name of taker */
+	    if(1 || taskIdSelf() == taskNameToId("TCC")) {
+	       sprintf(name, "%s:%d", ublock->uname, ublock->pid);
+	       
+	       if(take_semCmdPort(60, name) != OK) {
+		  semGive(semCMD);
+		  return("ERR: failed to take semCmdPort semaphore");
+	       }
+	    
+	       have_sem = (getSemTaskId(semCmdPort) == taskIdSelf()) ? 1 : 0;
+	    }
+	 }
+/*
+ * Do we need the semaphore?
+ */
+	 if((type & CMD_TYPE_PRIV) && !have_sem) {
 	    semGive(semCMD);
 	    return("ERR: I don't have the semCmdPort semaphore");
 	 }
@@ -390,53 +418,100 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 
 /*****************************************************************************/
 /*
- * List all available commands
+ * Get an alphabetical list of commands
  */
+static char **commands = NULL;		/* list of all commands */
+static int ncommand = 0;		/* number of commands */
+
 BOOL
-print_a_cmd(char *name,			/* name of command */
-	    int val,			/* value of entry */
-	    SYM_TYPE type,		/* type of entry */
-	    int ipattern,		/* pattern to match commands, or 0 */
-	    UINT16 group)		/* NOTUSED */
+get_command_names(char *name,		/* name of command */
+		  int val,		/* NOTUSED */
+		  SYM_TYPE type,	/* NOTUSED */
+		  int ipattern,		/* NOTUSED */
+		  UINT16 group)		/* NOTUSED */
 {
-   char s_funcname[50] = "";		/* space for funcname */
-   char *funcname = s_funcname;		/* name of function called */
-   int funcval = 0;			/* value of funcname */
-   SYM_TYPE functype = 0;		/* type of function called */
-   char *pattern = (ipattern == 0) ? NULL : (char *)ipattern;
-   
    if(!isupper(name[1])) {		/* lower case only; +move starts '+' */
       return(TRUE);
    }
 
-   if(pattern != NULL && strstr(name, pattern) == NULL) {
-      return(TRUE);			/* pattern doesn't match */
-   }
-
-   symFindByValue(sysSymTbl, val, funcname, &funcval, &functype);
-   if(val == funcval) {			/* found it */
-      if(*funcname == '_') {
-	 funcname++;			/* skip leading _ */
-      }
-   } else {
-      funcname = "(static)";
-   }
-   
-   printf("%-20s %-25s  %-4d %-6d %-10d %d\n", name, funcname,
-	  (type & CMD_TYPE_NARG),
-	  (type & CMD_TYPE_VARARG ? 1 : 0),
-	  (type & CMD_TYPE_LOCKED ? 1 : 0),
-	  (type & CMD_TYPE_MURMUR ? 1 : 0));
-
+   commands[ncommand++] = name;
 
    return(TRUE);
 }
 
-void
-cmdShow(char *pattern)
+static int
+compar(const void *a, const void *b)
 {
-   printf("%-20s %-25s %-4s %-6s %-10s %s\n\n",
-	  "Name", "Function", "Narg", "Vararg", "Restricted", "Murmur");
+   return(strcmp(*(char **)a, *(char **)b));
+}
 
-   symEach(cmdSymTbl, (FUNCPTR)print_a_cmd, (int)pattern);
+/*
+ * User-level command
+ */
+void
+cmdShow(char *pattern,			/* pattern to match, or NULL */
+	int verbose)			/* if > 0, include doc strings */
+{
+   int i;
+   char *name;				/* name of command */
+   int funcval;				/* value of symbol in sysSymTbl */
+   char *funcname = NULL;		/* name of function called */
+   SYM_TYPE functype = 0;		/* type of function in sysSymTbl
+					   (not used) */
+   SYM_TYPE type = 0;			/* type of function called */
+   int val;				/* value of symbol in cmdSymTbl */
+/*
+ * Find and sort all commands
+ */
+   if(commands == NULL) {
+      int size = cmdSymTbl->nsymbols/2;	/* there are upper and lower case names
+					   but we only want lower */
+      commands = malloc(size*sizeof(char *));
+
+      ncommand = 0;
+      symEach(cmdSymTbl, (FUNCPTR)get_command_names, (int)0);
+      assert(size == ncommand);
+
+      qsort(commands, ncommand, sizeof(char *), compar);
+   }
+/*
+ * List desired commands
+ */
+   printf("%-20s %-25s %-4s %-6s %-8s %-5s %s\n\n",
+	  "Name", "Function", "Narg", "Vararg", "Restrict", "Take?",
+	  "Murmur");
+
+   for(i = 0; i < ncommand; i++) {
+      name = commands[i];
+
+      if(pattern != NULL && strstr(name, pattern) == NULL) {
+	 continue;			/* pattern doesn't match */
+      }
+
+      symFindByName(cmdSymTbl, name, (char **)&val, &type);
+      symFindByValue(sysSymTbl, val, funcname, &funcval, &functype);
+
+      if(val == funcval) {		/* found it */
+	 if(*funcname == '_') {
+	    funcname++;			/* skip leading _ */
+	 }
+      } else {
+	 funcname = "(static)";
+      }
+   
+      printf("%-20s %-25s  %-4d %-6d %-8d %-5d %d\n", name, funcname,
+	     (type & CMD_TYPE_NARG),
+	     (type & CMD_TYPE_VARARG ? 1 : 0),
+	     (type & CMD_TYPE_PRIV ? 1 : 0),
+	     (type & CMD_TYPE_MAY_TAKE ? 1 : 0),
+	     (type & CMD_TYPE_MURMUR ? 1 : 0));
+
+      if(verbose > 0) {
+	 char *doc;
+	 if(symFindByName(docSymTbl, name, (char **)&doc, &type) == OK &&
+								*doc != '\0') {
+	    printf("\t%s\n", doc);
+	 }
+      }
+   }
 }
