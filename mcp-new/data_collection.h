@@ -289,11 +289,11 @@ typedef struct {
 	unsigned rack_2_grp_2_bit_15 : 1;
 	unsigned rack_2_grp_2_bit_14 : 1;
 	unsigned slit_head_2_in_place : 1;
-	unsigned slit_head_latch2_opn : 1;
+	unsigned slit_head_latch2_ext : 1;
 	unsigned slit_head_door2_cls : 1;
 	unsigned slit_head_door2_opn : 1;
 	unsigned slit_head_1_in_place : 1;
-	unsigned slit_head_latch1_opn : 1;
+	unsigned slit_head_latch1_ext : 1;
 	unsigned slit_head_door1_cls : 1;
 	unsigned slit_head_door1_opn : 1;
 	unsigned sad_mount2 : 1;
