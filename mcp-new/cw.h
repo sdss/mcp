@@ -21,13 +21,19 @@
 #define DIO316_TYPE		2
 
 #define DAC128V_CHANS		8
+
 #define INST_DEFAULT		16
+#define NUMBER_INST (INST_DEFAULT + 1)
+
+#define ALL_CW -999			/* move all counter weights */
+#define NUMBER_CW 4			/* number of counter weights */
+
 
 char *balance_weight(int inst);
 char *balance_cmd(char *cmd);
 void balance (int cw, int inst);
 int cw_abort(void);
-void cw_set_positionv(int inst, short p1, short p2, short p3, short p4);
+void cw_set_positionv(int inst, const short[4]);
 void cw_set_posv(int inst, short *p1, short *p2, short *p3, short *p4);
 void cw_pos(int cw, float *pos);
 void cw_posv(int cw, short *pos);
@@ -39,6 +45,7 @@ int cw_rdselect();
 int cw_status();
 void cw_data_collection(void);
 
+void set_counterweight(int inst, int cw, short pos);
 /*
  * global variables
  */
