@@ -21,3 +21,9 @@ Thu Jan 11 18:15:43 MST 2001
 	For shakedown
 	cvs rtag v4_4_0 mcp
 	cvs rtag -r v4_4_0 -b v4_4 mcp
+
+Thu Jan 25 13:10:08 MST 2001
+	cvs update -j v4_4_0 -j v4_4_5
+	cvs update -p -r v4_4_5 fiducial-tables/rot.dat > \
+							fiducial-tables/rot.dat
+	cvs ci -m "merged from v4_4 branch: v4_4_0--v4_4_5"

@@ -77,7 +77,7 @@ typedef enum {
 		UM_OK=2, UM_IP, UM_BP, UM_ME, UM_CF, UM_CE, UM_MN, UM_BE
 		}umType;
 
-static char identification[] =
+static const char identification[] =
 		"\nVMEINST Version %s\n"
 		"5136-SD-VME Module installer for MVME-162 Processor Module\n"
 		"Copyright (C) 1988-1993, S-S Technologies, Inc.\n"

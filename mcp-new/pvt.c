@@ -1312,7 +1312,6 @@ enable_pvt(int axis)
 **	sdss_get_time
 **
 ** GLOBALS REFERENCED:
-**	axis_select
 **	drift_velocity
 **	drift_break
 **
@@ -1394,7 +1393,6 @@ mcp_drift(int axis,			/* the axis in question */
 **	free
 **
 ** GLOBALS REFERENCED:
-**	axis_select
 **	drift_break
 **	frame_break
 **	axis_queue
@@ -1634,7 +1632,7 @@ mcp_plus_move(int axis,			/* the axis to move */
    int i;
 
    for(i = 0; i < OFF_MAX; i++) {
-      if(offset_queue_end[axis_select][i] == NULL) break;
+      if(offset_queue_end[axis][i] == NULL) break;
    }
    
    if(i >= OFF_MAX) {

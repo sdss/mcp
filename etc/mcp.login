@@ -182,9 +182,10 @@ tBrakesInit
 #rebootHookAdd ip_shutdown
 DID48_initialize(0xFFF58000,0xB8)
 lift_initialize(0xFFFF4000)
-cmd_handler("init")
+# What is this doing?? RHL
+#cmd_handler("init")
 taskSpawn "TCC",46,8,10000,tcc_serial,1
-taskSpawn "cmdPortServer",100,0,2000,cmdPortServer,31011
+taskSpawn "tCPS",100,0,2000,cmdPortServer,31011
 taskPrioritySet (taskIdFigure("tExcTask"),1)
 #
 # Get the current time from the NTP server
@@ -217,7 +218,7 @@ barcode_open (3)
 # Start the task that controls the umbilical tower; argument is
 # interval between checks (in seconds)
 #
-tUmbilicalInit 1
+#tUmbilicalInit 1
 #
 # Load fiducials tables
 #

@@ -28,6 +28,7 @@
 #include "instruments.h"
 #include "dscTrace.h"
 #include "mcpFiducials.h"
+#include "cmd.h"
 
 int tm_ADC128F1 = -1;
 
@@ -248,7 +249,7 @@ tm_adjust_position(int axis,			/* desired axis */
 
    if(semTake(semMEI,60) != OK) {
       TRACE(0, "adjusting axis %s position: unable to take semaphore: %s",
-	    axis_name(axis_select), strerror(errno));
+	    axis_name(axis), strerror(errno));
       return(-1);
    }
    
@@ -260,7 +261,7 @@ tm_adjust_position(int axis,			/* desired axis */
       taskUnlock();
       semGive(semMEI);
       TRACE(0, "adjusting position for axis %s: unable to read position",
-	    axis_name(axis_select), 0);
+	    axis_name(axis), 0);
       return(-1);
    }
    
@@ -874,7 +875,6 @@ tm_axis_state(int mei_axis)
 const char *
 axis_state_str(int mei_axis)
 {
-   static char buff[] = "Undocumented Value 0x1234";
    int value = axis_state(mei_axis);
    
    switch (value) {
@@ -898,8 +898,8 @@ axis_state_str(int mei_axis)
       break;
     default:
       value &= 0xffff;			/* don't overrun string */
-      sprintf(buff, "Undocumented Value 0x%x", value);
-      return(buff);
+      sprintf(ublock->buff, "Undocumented Value 0x%x", value);
+      return(ublock->buff);
    }
 }
 
@@ -936,7 +936,6 @@ char const* const msg_axis_source[] = {
 const char *
 axis_source_str(int mei_axis)
 {
-   static char buff[] = "ID_MCP_UNKNOWN 0x1234";
    int value;
 
    value = axis_source(mei_axis);
@@ -944,8 +943,8 @@ axis_source_str(int mei_axis)
    if(value < 0 ||
       value >= sizeof(msg_axis_source)/sizeof(msg_axis_source[0])) {
             value &= 0xffff;		/* don't overrun string */
-      sprintf(buff, "ID_MCP_UNKNOWN 0x%x", value);
-      return(buff);
+      sprintf(ublock->buff, "ID_MCP_UNKNOWN 0x%x", value);
+      return(ublock->buff);
    } else {
       return(msg_axis_source[value]);
    }

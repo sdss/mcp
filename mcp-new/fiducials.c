@@ -266,7 +266,7 @@ write_fiducial_log(const char *type,	/* type of entry */
       }
    }
 /*
- * Find the angular position of the axis
+ * Find the angular position of the axis from the encoder
  */
    switch (axis) {
     case AZIMUTH:    deg = pos1/AZ_TICKS_DEG; break;
@@ -283,6 +283,7 @@ write_fiducial_log(const char *type,	/* type of entry */
    if(strcmp(type, "ALT_FIDUCIAL") == 0) {
       float vel = arg0;
       int alt_pos = arg1 + (arg1 > 0 ? 0.5 : -0.5);
+      deg = convert_clinometer(arg1);
 
       fprintf(fd, "%s %d %4d %9d  %9d %9d %9.3f  %9d %9.0f\n", type,time(NULL),
 	      fididx, true, pos1, pos2, deg, alt_pos, vel);
@@ -614,7 +615,7 @@ remap_fiducials(int axis,		/* the axis in question */
       }
       break;
     case INSTRUMENT:
-      fididx = rawidx;
+      fididx = rawidx - 5;
       break;
    }
 
@@ -935,6 +936,7 @@ tLatch(const char *name)
 	 fididx = barcode_serial(2);
 #endif
 	 fididx = (read_clinometer() + 7.5)/15;
+	 fididx = remap_fiducials(ALTITUDE, fididx);
 			
 	 if(fididx < 0 || fididx >= N_ALT_FIDUCIALS) {
 	    TRACE(0, "Invalid altitude fiducial %d, clino = %d",
@@ -1022,6 +1024,7 @@ tLatch(const char *name)
 	 }
 	 
 	 fididx = get_rot_fididx(&latchpos[latchidx], rot_latch, &big);
+	 fididx = remap_fiducials(INSTRUMENT, fididx);
 
 	 if(fididx < 0) {
 	    TRACE(0, "Failed to identify rotator fiducial at %.2f",
@@ -1377,7 +1380,7 @@ ms_map_load_cmd(char *cmd)		/* NOTUSED */
 char *
 ms_define_cmd(char *cmd)		/* NOTUSED */
 {
-   if(define_fiducials(axis_select) < 0) {
+   if(define_fiducials(ublock->axis_select) < 0) {
       return("ERR: invalid axis");
    }
    
@@ -1387,7 +1390,7 @@ ms_define_cmd(char *cmd)		/* NOTUSED */
 char *
 ms_save_cmd(char *cmd)			/* NOTUSED */
 {
-   if(save_fiducials(axis_select) < 0) {
+   if(save_fiducials(ublock->axis_select) < 0) {
       return("ERR: invalid axis");
    }
    
@@ -1401,7 +1404,7 @@ ms_save_cmd(char *cmd)			/* NOTUSED */
 char *
 ms_get_cmd(char *cmd)			/* NOTUSED */
 {
-   int axis = axis_select;
+   const int axis = ublock->axis_select;
    int i;
    
    switch (axis) {
@@ -1450,7 +1453,7 @@ ms_read_cmd(char *cmd)
       return("ERR: no filename supplied");
    }
 
-   return(read_fiducials(filename, axis_select));
+   return(read_fiducials(filename, ublock->axis_select));
 }
 
 char *
@@ -1462,7 +1465,7 @@ ms_write_cmd(char *cmd)
       return("ERR: no filename supplied");
    }
 
-   return(write_fiducials(filename, axis_select));
+   return(write_fiducials(filename, ublock->axis_select));
 }
 
 /*****************************************************************************/
@@ -1472,7 +1475,7 @@ ms_write_cmd(char *cmd)
 char *
 ms_set_axis_pos_cmd(char *cmd)		/* NOTUSED */
 {
-   mcp_set_fiducial(axis_select);
+   mcp_set_fiducial(ublock->axis_select);
 
    return("");
 }
@@ -1500,7 +1503,7 @@ set_ms_on(int axis)			/* the axis in question */
 /*
  * Abort any pending MS.OFFs and request the MS.ON
  */
-   switch (axis_select) {
+   switch (axis) {
     case AZIMUTH:
       (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
       msg.type = ms_on_az_type;
@@ -1516,8 +1519,8 @@ set_ms_on(int axis)			/* the axis in question */
    }
 
 #if 0
-   fprintf(stderr,"RHL: %s MS.ON\n", axis_name(axis_select));
-   TRACE(6, "RHL: %s MS.ON\n", axis_name(axis_select), 0);
+   fprintf(stderr,"RHL: %s MS.ON\n", axis_name(axis));
+   TRACE(6, "RHL: %s MS.ON\n", axis_name(axis), 0);
 #endif
    ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
@@ -1536,7 +1539,7 @@ set_ms_off(int axis,			/* the desired axis */
    MCP_MSG msg;				/* message to send */
    int ret;				/* a return code */
 
-   switch (axis_select) {
+   switch (axis) {
     case AZIMUTH:    msg.type = ms_off_az_type; break;
     case ALTITUDE:   msg.type = ms_off_alt_type; break;
     case INSTRUMENT: msg.type = ms_off_inst_type; break;
@@ -1552,8 +1555,8 @@ set_ms_off(int axis,			/* the desired axis */
  * actually set (or schedule) MS.OFF
  */
 #if 1
-   fprintf(stderr,"RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
-   TRACE(3, "RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
+   fprintf(stderr,"RHL: %s MS.OFF %f\n", axis_name(axis), delay);
+   TRACE(3, "RHL: %s MS.OFF %f\n", axis_name(axis), delay);
 #endif
       
    if(delay == 0) {			/* no time specified */
@@ -1585,12 +1588,13 @@ set_ms_off(int axis,			/* the desired axis */
 char *
 ms_on_cmd(char *cmd)			/* NOTUSED */
 {
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   const int axis = ublock->axis_select;
+   
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   if(set_ms_on(axis_select) < 0) {
+   if(set_ms_on(axis) < 0) {
       return("ERR: failed to set MS.ON");
    }
 
@@ -1603,11 +1607,11 @@ ms_on_cmd(char *cmd)			/* NOTUSED */
 char *
 ms_off_cmd(char *cmd)			/* NOTUSED */
 {
+   const int axis = ublock->axis_select;
    float delay;				/* delay until MS.OFF takes effect, s*/
    float time_off;			/* when MS.OFF should take effect */
    
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
@@ -1621,7 +1625,7 @@ ms_off_cmd(char *cmd)			/* NOTUSED */
       }
    }
 
-   if(set_ms_off(axis_select, delay) < 0) {
+   if(set_ms_off(axis, delay) < 0) {
       return("ERR: failed to set MS.OFF");
    }
 
@@ -1634,10 +1638,10 @@ ms_off_cmd(char *cmd)			/* NOTUSED */
 char *
 ms_max_cmd(char *cmd)			/* NOTUSED */
 {
+   const int axis = ublock->axis_select;
    long ms_max;				/* maximum change due to MS.ON */
 
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 			
@@ -1645,7 +1649,7 @@ ms_max_cmd(char *cmd)			/* NOTUSED */
       return("ERR: maximum offset supplied");
    }
 			
-   set_max_fiducial_correction(axis_select, ms_max);
+   set_max_fiducial_correction(axis, ms_max);
 
    return "";
 }
@@ -1657,8 +1661,9 @@ ms_max_cmd(char *cmd)			/* NOTUSED */
 char *
 correct_cmd(char *cmd)			/* NOTUSED */
 {
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   const int axis = ublock->axis_select;
+   
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1666,13 +1671,13 @@ correct_cmd(char *cmd)			/* NOTUSED */
       return("ERR: correct_cmd cannot take semLatch");
    }
 
-   if(!fiducial[axis_select].seen_fiducial) {
+   if(!fiducial[axis].seen_fiducial) {
       semGive(semLatch);
 
       return("ERR: no fiducials have been crossed");
    }
 
-   maybe_reset_axis_pos(axis_select, 0, 0, 1);
+   maybe_reset_axis_pos(axis, 0, 0, 1);
 
    semGive(semLatch);
 

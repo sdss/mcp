@@ -555,19 +555,27 @@ instrument_id(void)
 
 /*****************************************************************************/
 /*
- * Is the imager saddle on the telescope?
+ * Is the imager saddle on the telescope? Note that switch 1 is deliberately
+ * wired backwards
  */
 int
 saddle_is_mounted(void)
 {
    int saddle_is_on;			/* is the saddle mounted? */
-   
-   if(semTake(semSDSSDC, NO_WAIT) == ERROR) {
+   int sad_mount1, sad_mount2;
+  
+   if(semTake(semSDSSDC, 10) == ERROR) {
       return(-1);			/* unknown */
    }
    
-   saddle_is_on = (sdssdc.status.i1.il9.sad_mount1 == 1 &&
-		   sdssdc.status.i1.il9.sad_mount2 == 1) ? 1 : 0;
+   sad_mount1 = (sdssdc.status.i1.il9.sad_mount1 == 0) ? 1 : 0; 
+   sad_mount2 = (sdssdc.status.i1.il9.sad_mount2 == 0) ? 0 : 1;
+
+   if(sad_mount1 == sad_mount2) {
+      saddle_is_on = sad_mount1;
+   } else {
+      saddle_is_on = -1;		/* inconsistent */
+   }
    
    semGive(semSDSSDC);
 

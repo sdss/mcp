@@ -63,7 +63,6 @@
 SEM_ID semMEI = NULL;
 SEM_ID semSLC = NULL;
 
-int axis_select = -1;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 int MEI_interrupt = FALSE;
 int sdss_was_init = FALSE;
 struct FRAME_QUEUE axis_queue[3] = {
@@ -283,19 +282,19 @@ dsp_set_last_command_corr(PDSP pdsp,
 char *
 id_cmd(char *cmd)
 {
-   static char id_ans[] = "0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x";
-
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   const int axis = ublock->axis_select;
+   
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-
-  sprintf(id_ans,"%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
-		axis_select,axis_name(axis_select),__DATE__, getCvsTagname(),
-		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
-		dsp_option()&0xFFF,dsp_axes());
    
-  return id_ans;
+   sprintf(ublock->buff,
+	   "%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
+	   axis, axis_name(axis),__DATE__, getCvsTagname(),
+	   dsp_version()/1600., dsp_version()&0xF, (dsp_option()>>12)&0x7,
+	   (dsp_option() & 0xFFF), dsp_axes());
+   
+   return(ublock->buff);
 }
 
 /*=========================================================================
@@ -308,17 +307,17 @@ id_cmd(char *cmd)
 char *
 init_cmd(char *cmd)
 {
+   const int axis = ublock->axis_select;
    int i;
    int state;
    
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   if(set_ms_off(axis_select, 0) < 0) {
+   if(set_ms_off(axis, 0) < 0) {
       TRACE(0, "init_cmd: failed to set MS.OFF", 0, 0);
       return("ERR: failed to set MS.OFF");
    }
@@ -326,16 +325,16 @@ init_cmd(char *cmd)
  * I (Charlie) don't really agree with this, JEG directed...
  * I think the axis should remain in closed loop if in close loop
  */
-   state = tm_axis_state(2*axis_select);
+   state = tm_axis_state(2*axis);
 
    if(state > NEW_FRAME) {		/* not NOEVENT, running, or NEW_FRAME*/ 
       TRACE(1, "INIT axis %s: not running: %s",
-	    axis_name(axis_select), axis_state_str(2*axis_select));
-      tm_sem_controller_idle(2*axis_select);
+	    axis_name(axis), axis_state_str(2*axis));
+      tm_sem_controller_idle(2*axis);
    }
    
-   tm_reset_integrator(2*axis_select);
-   enable_pvt(axis_select);
+   tm_reset_integrator(2*axis);
+   enable_pvt(axis);
 /*
  * Clear the axis status; well, don't actually _clear_ it, set it to
  * the last non-sticky value. That way the TCC will see the current
@@ -346,51 +345,51 @@ init_cmd(char *cmd)
       taskSuspend(NULL);
    }
  
-   axis_stat[axis_select][0] = axis_stat[axis_select][1];
+   axis_stat[axis][0] = axis_stat[axis][1];
 
    semGive(semMEIUPD);
 /*
  * OK, the axis status is updated
  */
-   switch(axis_select) {
+   switch(axis) {
     case AZIMUTH:
-      amp_reset(2*axis_select);		/* two amplifiers, */
-      amp_reset(2*axis_select + 1);	/* param is index to bit field */
+      amp_reset(2*axis);		/* two amplifiers, */
+      amp_reset(2*axis + 1);		/* param is index to bit field */
       if(sdssdc.status.i9.il0.az_brake_en_stat) {
-	 mcp_unset_brake(axis_select);
+	 mcp_unset_brake(axis);
       }
       break;
     case ALTITUDE:
-      amp_reset(2*axis_select);		/* two amplifiers */
-      amp_reset(2*axis_select + 1);	/* param is index to bit field */
+      amp_reset(2*axis);		/* two amplifiers */
+      amp_reset(2*axis + 1);		/* param is index to bit field */
       if(sdssdc.status.i9.il0.alt_brake_en_stat) {
-	 mcp_unset_brake(axis_select);
+	 mcp_unset_brake(axis);
       }
       break;
     case INSTRUMENT:
-      amp_reset(2*axis_select);		/* one amplifier */
+      amp_reset(2*axis);		/* one amplifier */
       break;				/* param is index to bit field */
    }
 /*
  * reinitialize the queue of pvts to none
  */
-   axis_queue[axis_select].active = axis_queue[axis_select].end;
-   axis_queue[axis_select].active = NULL;
+   axis_queue[axis].active = axis_queue[axis].end;
+   axis_queue[axis].active = NULL;
 /*
  * zero the velocity
  */
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "Failed to take semMEI to zero velocity for axis %s",
-	    axis_name(axis_select), 0);
+	    axis_name(axis), 0);
    } else {
       taskLock();
-      set_stop(2*axis_select);
-      while(!motion_done(2*axis_select)) ;
-      clear_status(2*axis_select);
+      set_stop(2*axis);
+      while(!motion_done(2*axis)) ;
+      clear_status(2*axis);
       taskUnlock();
 
       if(dsp_error != DSP_OK) {
-	 TRACE(0, "failed to stop %s : %d", axis_name(axis_select), dsp_error);
+	 TRACE(0, "failed to stop %s : %d", axis_name(axis), dsp_error);
       }
 
       semGive(semMEI);
@@ -401,9 +400,9 @@ init_cmd(char *cmd)
  * at least sometime before continuing
  */
    for(i = 0; i < 4; i++) {
-      tm_sem_controller_run(2*axis_select);
+      tm_sem_controller_run(2*axis);
 
-      if(tm_axis_state(2*axis_select) <= NEW_FRAME) { /* axis is OK */
+      if(tm_axis_state(2*axis) <= NEW_FRAME) { /* axis is OK */
 	 break;
       }
 
@@ -425,7 +424,7 @@ init_cmd(char *cmd)
 
 	 correction = get_axis_encoder_error(i);
 	 if(correction > 0) {
-	    TRACE(3 ,"Adjusting position of %s by %d", axis_name(i),correction);
+	    TRACE(3,"Adjusting position of %s by %d", axis_name(i),correction);
 	    
 	    if(abs(correction) >= fiducial[i].max_correction) {
 	       TRACE(0, "    correction %ld is too large (max %ld)",
@@ -445,8 +444,8 @@ init_cmd(char *cmd)
 /*
  * Clear the status of the bump switches
  */
-   clear_sticky_bumps(axis_select, 0);
-   clear_sticky_bumps(axis_select, 1);
+   clear_sticky_bumps(axis, 0);
+   clear_sticky_bumps(axis, 1);
 /*
  * If we are the TCC, try to take the semCmdPort semaphore; if the
  * axis init fails we'll still have it (but it can be stolen).
@@ -463,7 +462,7 @@ init_cmd(char *cmd)
 /*
  * flush the MCP command logfile
  */
-   log_mcp_command(NULL);
+   log_mcp_command(0, NULL);
 
    return "";
 }
@@ -475,21 +474,18 @@ init_cmd(char *cmd)
 ** RETURN VALUES:
 **      "F@ F. acc" or "ERR:..."
 */
-static char max_ans[] = "F@ F.             ";
-
 char *
 mc_maxacc_cmd(char *cmd)
 {
-   printf (" MC.MAX.ACC command fired\n");
-   
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   const int axis = ublock->axis_select;
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   sprintf(max_ans,"F@ F. %12f", max_acceleration[axis_select]);
+   sprintf(ublock->buff ,"F@ F. %12f", max_acceleration[axis]);
 
-   return max_ans;
+   return(ublock->buff);
 }
 
 /*=========================================================================
@@ -499,16 +495,15 @@ mc_maxacc_cmd(char *cmd)
 char *
 mc_maxvel_cmd(char *cmd)		/* NOTUSED */
 {
-   printf (" MC.MAX.VEL command fired\n");
-   
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   const int axis = ublock->axis_select;
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   sprintf(max_ans,"F@ F. %12f", max_velocity[axis_select]);
+   sprintf(ublock->buff,"F@ F. %12f", max_velocity[axis]);
    
-   return max_ans;
+   return(ublock->buff);
 }
 
 /*=========================================================================
@@ -525,32 +520,26 @@ mc_maxvel_cmd(char *cmd)		/* NOTUSED */
 **
 ** RETURN VALUES:
 **	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	axis_select
-**
-**=========================================================================
+
 */
 char *
 rot_cmd(char *cmd)			/* NOTUSED */
 {
-   axis_select = INSTRUMENT;
+   ublock->axis_select = INSTRUMENT;
    return "";
 }
 
 char *
 tel1_cmd(char *cmd)			/* NOTUSED */
 {
-   axis_select = AZIMUTH;
+   ublock->axis_select = AZIMUTH;
    return "";
 }
 
 char *
 tel2_cmd(char *cmd)			/* NOTUSED */
 {
-   axis_select = ALTITUDE;
+   ublock->axis_select = ALTITUDE;
    return "";
 }
 
@@ -580,38 +569,19 @@ stats_cmd(char *cmd)			/* NOTUSED */
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: status_cmd
-**
-** DESCRIPTION:
 **	STATUS - Returns status of the axis.
 **
 ** RETURN VALUES:
 **	return "pos vel time status index" or "ERR:..."
-**
-** CALLS TO:
-**	sdss_get_time
-**
-** GLOBALS REFERENCED:
-**	axis_select
-**	semMEIUPD
-**	tmaxis
-**	fiducial
-**	axis_stat
-**
-**=========================================================================
 */
-/* returns: "%position %velocity %time %status_word %index_position" */
-
 char *
 status_cmd(char *cmd)
 {
+   const int axis = ublock->axis_select;
    double sdss_time;			/* time from sdss_get_time() */
-   static char status_ans[200];		/* reply */
 
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
 
@@ -623,21 +593,22 @@ status_cmd(char *cmd)
    if(semTake(semMEIUPD,60) == ERROR) {
       TRACE(0, "status_cmd: failed to get semMEIUPD: %d %s",
 	    errno, strerror(errno));
-      sprintf(status_ans, "ERR: semMEIUPD : %s", strerror(errno));
+      sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
    }
 
-   sprintf(status_ans,"%f %f %f %ld %f",
-	  (*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
-	   (*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
-	   sdss_time, (*(long *)&axis_stat[axis_select][0] & ~STATUS_MASK),
-	   fiducial[axis_select].mark/ticks_per_degree[axis_select]);
-
-   axis_stat[axis_select][0] = axis_stat[axis_select][1];
-   *(long *)&axis_stat[axis_select][1] &= STATUS_MASK;
+   sprintf(ublock->buff, "%f %f %f %ld %f",
+	   (*tmaxis[axis]).actual_position/ticks_per_degree[axis],
+	   (*tmaxis[axis]).velocity/ticks_per_degree[axis],
+	   sdss_time,
+	   (*(long *)&axis_stat[axis][0] & ~STATUS_MASK),
+	   fiducial[axis].mark/ticks_per_degree[axis]);
+   
+   axis_stat[axis][0] = axis_stat[axis][1];
+   *(long *)&axis_stat[axis][1] &= STATUS_MASK;
 
    semGive(semMEIUPD);
 
-   return status_ans;
+   return(ublock->buff);
 }
 
 /*=========================================================================
@@ -657,7 +628,6 @@ status_cmd(char *cmd)
 **	sdss_get_time
 **
 ** GLOBALS REFERENCED:
-**	axis_select
 **	semMEIUPD
 **	tmaxis
 **	fiducial
@@ -665,27 +635,20 @@ status_cmd(char *cmd)
 **
 **=========================================================================
 */
-/* returns:    "%date %time
-		%f position 
-		%f velocity 
-		%b status 
-		%f last index" */
 char *
 status_long_cmd(char *cmd)		/* NOTUSED */
 {
-   static char status_long_ans[33];
    int i;
-   long status = *(long *)&axis_stat[axis_select][0];
+   long status = *(long *)&axis_stat[ublock->axis_select][0];
    
    printf (" STATUS.LONG command fired\r\n");
    for(i = 0;i < 32; i++) {
-      status_long_ans[i]= (status & (1 << (31 - i))) ? '1' : '0';
+      ublock->buff[i]= (status & (1 << (31 - i))) ? '1' : '0';
    }
-   status_long_ans[i] = '\0';
+   ublock->buff[i] = '\0';
 
-   return status_long_ans;
+   return(ublock->buff);
 }
-
 
 /*****************************************************************************/
 /*
@@ -714,10 +677,10 @@ check_stop_in(void)
 
 /*****************************************************************************/
 /*
- * Return the clinometer reading
+ * convert a clinometer reading to degrees
  */
 float
-read_clinometer(void)
+convert_clinometer(float val)
 {
 /*
  * 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98
@@ -725,7 +688,16 @@ read_clinometer(void)
    const float altclino_sf = 0.0048683116163; /* scale factor */
    const int altclino_off = 8937;	/* offset */
 
-   return((altclino_off - sdssdc.status.i4.alt_position)*altclino_sf);
+   return((altclino_off - val)*altclino_sf);
+}
+
+/*
+ * Return the clinometer reading
+ */
+float
+read_clinometer(void)
+{
+   return(convert_clinometer(sdssdc.status.i4.alt_position));
 }
 
 /*****************************************************************************/
@@ -736,23 +708,21 @@ read_clinometer(void)
 char *
 axis_status_cmd(char *cmd)
 {
-   const int axis = axis_select;	/* in case it changes */
+   const int axis = ublock->axis_select;	/* in case it changes */
    int brake_is_on = -1;		/* is the brake on for current axis? */
    long fid_mark = 0;			/* position of fiducial mark */
-   static char reply_str[200 + 1];	/* desired values */
 
-   TRACE(8, "Setting reply_str[200] axis == %d", axis, 0);
-   reply_str[200] = '\a';
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   TRACE(8, "Setting ublock->buff[200] axis == %d", axis, 0);
+   ublock->buff[UBLOCK_SIZE] = '\a';
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
 
    TRACE(8, "taking semMEIUPD", 0, 0);
    if (semTake(semMEIUPD, 60) == ERROR) { 
       TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
-      sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
-      return(reply_str);
+      sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
+      return(ublock->buff);
    }
 
    switch (axis) {
@@ -776,8 +746,8 @@ axis_status_cmd(char *cmd)
       break;				/* NOTREACHED */
    }
 
-   TRACE(8, "setting reply_str", 0, 0);
-   sprintf(reply_str,
+   TRACE(8, "setting ublock->buff", 0, 0);
+   sprintf(ublock->buff,
 	   "%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d %d 0x%lx  %.4f",
 	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
 	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
@@ -789,10 +759,10 @@ axis_status_cmd(char *cmd)
    TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
 
-   TRACE(8, "Checking reply_str[200]: %d", reply_str[200], 0);
-   assert(reply_str[200] == '\a');	/* check for overflow */
+   TRACE(8, "Checking ublock->buff[end]: %d", ublock->buff[UBLOCK_SIZE], 0);
+   assert(ublock->buff[200] == '\a');	/* check for overflow */
 
-   return(reply_str);
+   return(ublock->buff);
 }
 
 /*****************************************************************************/
@@ -825,31 +795,29 @@ char *
 system_status_cmd(char *cmd)
 {
    int i;
-   static char reply_str[200 + 1];	/* desired values */
-   const int size = sizeof(reply_str) - 1;
 
-   reply_str[size] = '\a';
+   ublock->buff[UBLOCK_SIZE] = '\a';
 
    TRACE(8, "taking semMEIUPD", 0, 0);
    if (semTake(semMEIUPD, 60) == ERROR) { 
       TRACE(5, "system_status_cmd: semMEIUPD : %d", errno, 0);
-      sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
-      return(reply_str);
+      sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
+      return(ublock->buff);
    }
 
    i = 0;
-   i += get_cwstatus(&reply_str[i], size - i);
-   i += get_ffstatus(&reply_str[i], size - i);
-   i += get_slitstatus(&reply_str[i], size - i);
-   i += get_miscstatus(&reply_str[i], size - i);
+   i += get_cwstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+   i += get_ffstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+   i += get_slitstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+   i += get_miscstatus(&ublock->buff[i], UBLOCK_SIZE - i);
 
    TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
 
-   TRACE(8, "Checking reply_str[end]: %d", reply_str[size], 0);
-   assert(reply_str[size] == '\a');	/* check for overflow */
+   TRACE(8, "Checking ublock->buff[end]: %d", ublock->buff[UBLOCK_SIZE], 0);
+   assert(ublock->buff[UBLOCK_SIZE] == '\a');	/* check for overflow */
 
-   return(reply_str);
+   return(ublock->buff);
 }
 
 /*=========================================================================
@@ -863,11 +831,15 @@ system_status_cmd(char *cmd)
 char *
 abstatus_cmd(char *cmd)
 {
-   static char abstatus_ans[7*20];
    int i,idx;
    short *dt;
    int off,len;
-   
+
+   {
+      volatile int tmp = 7*20;		/* avoid gcc warning */
+      assert(UBLOCK_SIZE >= tmp);
+   }
+
    if(sscanf(cmd,"%d %d",&off,&len) != 2) {
       TRACE(0, "Need offset and len for AB.STATUS: %s", cmd, 0);
       return("ERR: missing arguments");
@@ -882,10 +854,10 @@ abstatus_cmd(char *cmd)
    dt += off;
 
    for(i = idx = 0;i < len; i++, dt++) {
-      idx += sprintf(&abstatus_ans[idx],"%s0x%04x", (idx==0 ? "" : " "), *dt);
+      idx += sprintf(&ublock->buff[idx],"%s0x%04x", (idx==0 ? "" : " "), *dt);
    }
    
-   return(abstatus_ans);
+   return(ublock->buff);
 }
 
 /*=========================================================================
@@ -1382,7 +1354,7 @@ mcp_hold(int axis)			/* desired axis */
    clear_status(2*axis);
    
    if(dsp_error != DSP_OK) {
-      TRACE(0, "failed to stop %s : %d", axis_name(axis_select), dsp_error);
+      TRACE(0, "failed to stop %s : %d", axis_name(axis), dsp_error);
    }
 
    TRACE(5, "Holding axis %s: back into closed loop", axis_name(axis), 0);
@@ -1489,39 +1461,37 @@ mcp_stop_axis(int axis)
 char *
 drift_cmd(char *cmd)			/* NOTUSED */
 {
-   static char drift_ans[] =
-     "360.00000 0.500000 5040.00000                                ";
+   const int axis = ublock->axis_select;
    double arcdeg, veldeg, t;		/* as returned by mcp_drift */
 
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   if(mcp_drift(axis_select, &arcdeg, &veldeg, &t) < 0) {
+   if(mcp_drift(axis, &arcdeg, &veldeg, &t) < 0) {
       return("ERR: DRIFT");
    }
 
-   sprintf(drift_ans, "%f %f %f", arcdeg, veldeg, t);
-   TRACE(3, "DRIFT %s: %s", axis_name(axis_select), drift_ans);
-   printf("at end DRIFT %s: %s\n", axis_name(axis_select), drift_ans);
+   sprintf(ublock->buff, "%f %f %f", arcdeg, veldeg, t);
+   TRACE(3, "DRIFT %s: %s", axis_name(axis), ublock->buff);
+   printf("at end DRIFT %s: %s\n", axis_name(axis), ublock->buff);
 
-   return(drift_ans);
+   return(ublock->buff);
 }
 
 char *
 move_cmd(char *cmd)
 {
+   const int axis = ublock->axis_select;
    double params[3];
    int cnt;
    
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
    cnt = sscanf(cmd,"%lf %lf %lf", &params[0], &params[1], &params[2]);
-   if(mcp_move(axis_select, params, cnt) < 0) {
+   if(mcp_move(axis, params, cnt) < 0) {
       return("ERR: MOVE");
    }
 
@@ -1531,16 +1501,16 @@ move_cmd(char *cmd)
 char *
 plus_move_cmd(char *cmd)
 {
+   const int axis = ublock->axis_select;
    double params[3];
    int cnt;
    
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
    cnt = sscanf(cmd,"%lf %lf %lf", &params[0], &params[1], &params[2]);
-   if(mcp_plus_move(axis_select, params, cnt) < 0) {
+   if(mcp_plus_move(axis, params, cnt) < 0) {
       return("ERR: +MOVE");
    }
 
@@ -1552,7 +1522,7 @@ plus_move_cmd(char *cmd)
 char *
 amp_reset_cmd(char *cmd)		/* NOTUSED */
 {
-   mcp_amp_reset(axis_select);
+   mcp_amp_reset(ublock->axis_select);
 
    return("");
 }
@@ -1561,7 +1531,7 @@ char *
 hold_cmd(char *cmd)			/* NOTUSED */
 
 {
-   mcp_hold(axis_select);
+   mcp_hold(ublock->axis_select);
 
    return("");
 }
@@ -1569,7 +1539,7 @@ hold_cmd(char *cmd)			/* NOTUSED */
 char *
 stop_cmd(char *cmd)			/* NOTUSED */
 {
-   mcp_stop_axis(axis_select);
+   mcp_stop_axis(ublock->axis_select);
 
    return("");
 }
@@ -1583,7 +1553,7 @@ set_monitor_cmd(char *cmd)			/* NOTUSED */
       return("ERR: malformed command argument");
    }
 
-   mcp_set_monitor(axis_select, on_off);
+   mcp_set_monitor(ublock->axis_select, on_off);
 
    return("");
 }
@@ -1597,7 +1567,7 @@ set_pos_cmd(char *cmd)
       return("ERR: malformed command argument");
    }
 
-   mcp_set_pos(axis_select, pos);
+   mcp_set_pos(ublock->axis_select, pos);
 
    return("");
 }
@@ -1611,7 +1581,7 @@ goto_pos_va_cmd(char *cmd)
       return("ERR: malformed command argument");
    }
    
-   mcp_move_va(axis_select, pos, vel, acc);
+   mcp_move_va(ublock->axis_select, pos, vel, acc);
 
    return("");
 }
@@ -1625,7 +1595,7 @@ set_vel_cmd(char *cmd)
       return("ERR: malformed command argument");
    }
 
-   mcp_set_vel(axis_select, pos);
+   mcp_set_vel(ublock->axis_select, pos);
 
    return("");
 }
@@ -1633,8 +1603,8 @@ set_vel_cmd(char *cmd)
 char *
 bump_clear_cmd(char *cmd)		/* NOTUSED */
 {
-   clear_sticky_bumps(axis_select, 0);
-   clear_sticky_bumps(axis_select, 1);
+   clear_sticky_bumps(ublock->axis_select, 0);
+   clear_sticky_bumps(ublock->axis_select, 1);
 
    return("");
 }

@@ -6,7 +6,7 @@
 #endif
 
 #define NAXIS			3
-#define NOT_SPECIFIED		-1
+#define NOINST			-1
 #define AZIMUTH			0
 #define ALTITUDE		1
 #define	INSTRUMENT		2
@@ -103,6 +103,7 @@ double get_time(void);
 void amp_reset(int mei_axis);
 const char *getCvsTagname(void);
 double sdss_get_time(void);
+float convert_clinometer(float val);
 float read_clinometer(void);
 
 int get_ffstatus(char *ffstatus_ans, int size);
@@ -139,7 +140,6 @@ extern SEM_ID semSDSSDC;
 /*
  * extern declarations for globals
  */
-extern int axis_select;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 extern double sec_per_tick[NAXIS];
 extern double ticks_per_degree[NAXIS];
 extern struct FRAME_QUEUE axis_queue[NAXIS];

@@ -196,14 +196,14 @@ mcp_unset_brake(int axis)		/* axis to set */
  */
 char *brakeon_cmd(char *cmd)
 {
-  mcp_set_brake(axis_select);
+  mcp_set_brake(ublock->axis_select);
   
   return "";
 }
 
 char *brakeoff_cmd(char *cmd)
 {
-   mcp_unset_brake(axis_select);
+   mcp_unset_brake(ublock->axis_select);
    
    return "";
 }

@@ -27,7 +27,13 @@ is explicitly reset.
 an interrupt for the MCP, telling it which axes were crossed.  This
 interrupt is then disabled for <EM>all</EM> axes. A message is then
 sent to the tLatch MCP task telling it which axes have seen a
-fiducial crossing.
+fiducial crossing.  tLatch then decides which fiducial is crossed;
+for the rotator this is easy as the distance between any two consecutive
+marks on the optical tape identifies the fiducial.  For the azimuth
+the MCP reads a barcode; for altitude it uses the clinometer.  Note
+that this identification in azimuth and altitude is carried out
+when the interrupt is <EMPH>recieved</EMPH>, not when the fiducial
+is crossed.
 </NL>
 
 When the tLatch task receives the message it reads the position of

@@ -195,11 +195,14 @@ tcc_serial(int port)
   stream = fopen (serial_port,"r+");
   if(stream == NULL) {
      TRACE(0, "Could **NOT** open port", 0, 0);
-     exit (-1);
+     taskSuspend(0);
   }
   
   TRACE(1, "OPEN port %s", serial_port, 0);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
+
+  new_ublock(0, "TCC");			/* task-specific UBLOCK */
+  log_mcp_command(CMD_TYPE_MURMUR, "TCC connected");
 
   for(;;) {
      TRACE(16, "port %d", port, 0);
@@ -223,9 +226,7 @@ tcc_serial(int port)
 	/*
 	 * write logfile of murmurable commands
 	 */
-	if(cmd_type != -1 && (cmd_type & CMD_TYPE_MURMUR)) {
-	   log_mcp_command(command_buffer_in);
-	}
+	log_mcp_command(cmd_type, command_buffer_in);
 
 	status = sdss_transmit(stream, command_buffer_in, answer_buffer);
 	if(status != 0) {

@@ -12,6 +12,7 @@
 	5.  Echoed command is in upper case
 	6.  Data and Error output starts on a newline from the echoed command.
 --*/
+#include <stdlib.h>
 #include <vxWorks.h>
 #include <assert.h>
 #include <stdio.h>
@@ -20,6 +21,8 @@
 #include <time.h>
 #include <semLib.h>
 #include <sigLib.h>
+#include <taskLib.h>
+#include <taskVarLib.h>
 #include <tickLib.h>
 #include <inetLib.h>
 #include <symLib.h>
@@ -71,18 +74,32 @@ iack_cmd(char *cmd)			/* NOTUSED */
  * vxWorks fflush doesn't seem to work, at least on NFS filesystems,
  * so we reopen the file every so many lines
  */
+SEM_ID semLogfile = NULL;
+static int log_command_bufsize = 5;	/* max. no. of lines before flushing */
+static int log_all_commands = 0;	/* should I log everything? */
+
 void
-log_mcp_command(const char *cmd)	/* command, or NULL to flush file */
+log_mcp_command(int type,		/* type of command */
+		const char *cmd)	/* command, or NULL to flush file */
 {
    static FILE *mcp_log_fd = NULL;	/* fd for logfile */
    static int nline = 0;		/* number of lines written */
-   int nline_max = 20;			/* max. no. of lines before flushing */
+
+   return;				/* XXX */
+
+   if(semTake(semLogfile, WAIT_FOREVER) != OK) {
+      TRACE(0, "Cannot take semLogfile %d: %s", errno, strerror(errno));
+      taskSuspend(0);
+   }
 
    if(cmd == NULL) {			/* flush log file */
       if(mcp_log_fd != NULL) {
 	 fclose(mcp_log_fd); mcp_log_fd = NULL;
 	 nline = 0;
       }
+
+      semGive(semLogfile);
+
       return;
    }
 
@@ -95,27 +112,79 @@ log_mcp_command(const char *cmd)	/* command, or NULL to flush file */
       sprintf(filename, "mcpCmdLog-%d.dat", mjd());
       if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
 	 TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
+	 semGive(semLogfile);
+	 
 	 return;
       }
    }
 
-   if(cmd != NULL) {
-      fprintf(mcp_log_fd, "%d:%d:%s\n", time(NULL), client_pid, cmd);
+   if(cmd != NULL &&
+      (log_all_commands || (type != -1 && (type & CMD_TYPE_MURMUR)))) {
+      fprintf(mcp_log_fd, "%d:%d:%s\n", time(NULL), ublock->pid, cmd);
       nline++;
    }
 
-   if(nline == nline_max) {
+   if(nline >= log_command_bufsize) {
       fclose(mcp_log_fd); mcp_log_fd = NULL;
       nline = 0;
    }
+
+   semGive(semLogfile);
 }
 
 char *
-flush_log_cmd(char *cmd)		/* NOTUSED */
+log_flush_cmd(char *cmd)		/* NOTUSED */
 {
-   log_mcp_command(NULL);		/* flush the logfile to disk */
+   log_mcp_command(0, NULL);		/* flush the logfile to disk */
    
    return("");
+}
+
+char *
+log_bufsize_cmd(char *cmd)
+{
+   sprintf(ublock->buff, "%d", log_command_bufsize);
+
+   if(*cmd != '\0') {			/* not just a query */
+      log_command_bufsize = atoi(cmd);
+   }
+   
+   return(ublock->buff);
+}
+
+char *
+log_all_cmd(char *cmd)
+{
+   sprintf(ublock->buff, "%d", log_all_commands);
+
+   log_all_commands = atoi(cmd);
+   
+   return(ublock->buff);
+}
+
+/*****************************************************************************/
+/*
+ * Allocate a UBLOCK for this task
+ */
+static UBLOCK ublock_default = {
+   -1, "default", NOINST, NOINST
+};
+UBLOCK *ublock = &ublock_default;	/* this task's user block; made a task
+					   variable after initialisation */
+
+void
+new_ublock(int pid,
+	   const char *uname)
+{
+   if((ublock = malloc(sizeof(UBLOCK))) == NULL ||
+					 taskVarAdd(0, (int *)&ublock) != OK) {
+      TRACE(0, "Failed to allocate ublock private to cpsWorkTask: %s %s",
+	    errno, strerror(errno));
+      taskSuspend(0);
+   }
+   ublock->pid = pid;
+   strncpy(ublock->uname, uname, UNAME_SIZE);
+   ublock->axis_select = ublock->spectrograph_select = NOINST;
 }
 
 /*****************************************************************************/
@@ -128,7 +197,8 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
    rebootedMsg = rebootStr;
 
    if(semCMD == NULL) {
-      semCMD = semMCreate (SEM_Q_FIFO);
+      semCMD = semMCreate(SEM_Q_FIFO);
+      assert(semCMD != NULL);
    }
 
    if(cmdSymTbl == NULL) {
@@ -136,16 +206,25 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
       assert(cmdSymTbl != NULL);
    }
 /*
+ * Create semaphore that controls access to logfile
+ */
+   if(semLogfile == NULL) {
+      semLogfile = semMCreate(SEM_Q_FIFO);
+      assert(semLogfile != NULL);
+   }
+/*
  * log this reboot
  */
-   log_mcp_command("rebooted");
-   log_mcp_command(mcpVersion(NULL, 0));
+   log_mcp_command(CMD_TYPE_MURMUR, "rebooted");
+   log_mcp_command(CMD_TYPE_MURMUR, mcpVersion(NULL, 0));
 /*
  * Define some misc commands that don't belong in any init function
  */
    define_cmd("IACK",         iack_cmd,      0, 0, 1);
-   define_cmd("VERSION",      version_cmd,   0, 0, 1);
-   define_cmd("FLUSH.LOG",    flush_log_cmd, 0, 0, 1);
+   define_cmd("LOG.BUFSIZE",  log_bufsize_cmd, 1, 0, 1);
+   define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0);
+   define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0);
+   define_cmd("VERSION",      version_cmd,   0, 0, 0);
 
    return 0;
 }
@@ -272,11 +351,11 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 if(!(type & CMD_TYPE_MURMUR)) {
 	    lvl += 2;
 	 }
-	 if(client_pid <= 0) {
+	 if(ublock->pid <= 0) {
 	    lvl += 2;
 	 }
 	 
-	 TRACE((lvl + 2), "PID %d: command %s", client_pid, tok);
+	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
 	 
 	 if((type & CMD_TYPE_LOCKED) && !have_sem) {
 	    semGive(semCMD);

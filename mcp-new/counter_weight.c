@@ -1693,7 +1693,7 @@ get_cwstatus(char *cwstatus_ans,
    int i;
    int idx;
    int limidx;
-   static char *limitstatus[]={"LU", "L.", ".U", ".."};
+   static const char *limitstatus[]={"LU", "L.", ".U", ".."};
 
    idx = sprintf(cwstatus_ans,"CW   ");
    for(i = 0; i < 4; i++) {
@@ -1793,19 +1793,17 @@ cwabort_cmd(char *cmd)
 char *
 cwstatus_cmd(char *cmd)
 {
-   static char cwstatus_ans[80];
-   
    if(semTake(semMEIUPD,60) == ERROR) {
       TRACE(6, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)",
 	    strerror(errno), errno);
       return "ERR: semMEIUPD";
    }
 
-   (void)get_cwstatus(cwstatus_ans, 80);
+   (void)get_cwstatus(ublock->buff, 80);
 
    semGive(semMEIUPD);
 
-   return cwstatus_ans;
+   return(ublock->buff);
 }
 
 /*****************************************************************************/

@@ -4,7 +4,7 @@
 *
 * Copyright (c) 1994 The Svedberg Laboratory.
 */
-static char scm[] = "@(#)mv162IndPackInit.c	1.5 12/21/98 %TUT%";  
+static const char scm[] = "@(#)mv162IndPackInit.c	1.5 12/21/98 %TUT%";  
 
 /* old identifier stuff. */
 /* #pragma ident "@(#)mv162IndPackInit.c	1.1    23 May 1994 TSL"*/
@@ -157,7 +157,7 @@ int Industry_Pack(unsigned char *ip_base, unsigned short model,
 		GreenSpring_VIPC610,
 		Systran_VMESC5
 };
-	static char *carrier_name[]={
+	static const char *carrier_name[]={
 		"VME162",
 		"GreenSpring_VIPC610",
 		"Systran_VMEC5",
@@ -190,7 +190,7 @@ int Industry_Pack(unsigned char *ip_base, unsigned short model,
 		MODEL_IP_480_2,
 		MODEL_IP_502
 };
-	static char *module_name[]={
+	static const char *module_name[]={
 		"Green Spring IP_Ethernet Lance",
 		"Green Spring IP-488",
 		"Green Spring IP Watchdog",

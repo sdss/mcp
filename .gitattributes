@@ -24,6 +24,7 @@ bin/showMCP -text
 bin/switchMCP -text
 /branches -text
 doc/Makefile -text
+doc/www/cmds.html -text
 doc/www/index.html -text
 doc/www/ms.html -text
 doc/www/semaphores.html -text

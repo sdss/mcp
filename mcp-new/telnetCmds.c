@@ -23,8 +23,6 @@
 #include "dscTrace.h"
 #include "mcpUtils.h"
 
-#define STATIC static			/*  */
-
 #define MAX_QUEUED_CONNECTIONS 3	/* max. number of queued connections
 					   to allow */
 #define MSG_SIZE 200			/* maximum size of message to read */
@@ -73,8 +71,6 @@ give_semCmdPort(int force)		/* force the giving? */
 /*
  * The task that does the work of reading commands and executing them
  */
-int client_pid = -1;			/* Process ID of connected process */
-
 void
 cpsWorkTask(int fd,			/* as returned by accept() */
 	    struct sockaddr_in *client) /* the client's socket address */
@@ -86,7 +82,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    const int port = ntohs(client->sin_port); /* the port they connected on */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
-   char uname[41] = "(telnet)";		/* user name of connected process */
 
    sprintf(buff, "connected\n");
    if(write(fd, buff, strlen(buff)) == -1) {
@@ -95,8 +90,8 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       close(fd);
       return;
    }
-   
-   taskVarAdd(0, &client_pid);
+
+   new_ublock(-1, "(telnet)");		/* task-specific UBLOCK */
 
    for(;;) {
       errno = 0;
@@ -126,20 +121,19 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 switch (sscanf(cmd, "USER.ID %s %d", buff, &pid)) {
 	  case -1:
 	  case 0:
-	    sprintf(buff, "User %s, TID 0x%x", uname, taskIdSelf());
+	    sprintf(buff, "User %s:%d, TID 0x%x", ublock->uname, ublock->pid,
+		    taskIdSelf());
 	    reply = buff;
 	    break;
 	  case 2:
-	    client_pid = pid;
+	    ublock->pid = pid;
 	    for(ptr = buff; *ptr != '\0'; ptr++) {
 	       if(isupper(*ptr)) { *ptr = tolower(*ptr); }
 	    }
-	    sprintf(uname, "%s:%d", buff, client_pid);
+	    strncpy(ublock->uname, buff, UNAME_SIZE);
 
-	    if(strlen(uname) >= sizeof(uname)) {
-	       TRACE(0, "User name is too long: %s (max %d)",
-		     uname, sizeof(uname));
-	    }
+	    sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
+	    log_mcp_command(CMD_TYPE_MURMUR, buff);
 	    
 	    reply = "Read userid/pid";
 	    break;
@@ -148,9 +142,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    break;
 	 }
       } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
-	 TRACE(5, "PID %d: command SEM.TAKE", client_pid, 0);
+	 TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
 
-	 (void)take_semCmdPort(60, uname);
+	 sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
+	 (void)take_semCmdPort(60, buff);
 
 	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
 	    reply = "took semaphore";
@@ -160,12 +155,14 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = buff;
 	 }
       } else if(strncmp(cmd, "SEM.STEAL", 8) == 0) {
-	 TRACE(5, "PID %d: command SEM.STEAL", client_pid, 0);
+	 TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0);
 	 reply = NULL;
 	 
 	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
 	    (void)give_semCmdPort(1);
-	    (void)take_semCmdPort(60, uname);
+
+	    sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
+	    (void)take_semCmdPort(60, buff);
 	 }
 
 	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
@@ -180,7 +177,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       } else if(strncmp(cmd, "SEM.GIVE", 8) == 0) {
 	 int force = 0;
 
-	 TRACE(5, "PID %d: command SEM.GIVE", client_pid, 0);
+	 TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0);
 
 	 (void)sscanf(cmd, "SEM.GIVE %d", &force);
 
@@ -215,7 +212,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
 	 reply = buff;
       } else if(strncmp(cmd, "TELNET.RESTART", 11) == 0) {
-	 TRACE(5, "PID %d: command TELNET.RESTART", client_pid, 0);
+	 TRACE(5, "PID %d: command TELNET.RESTART", ublock->pid, 0);
 	 if(taskDelete(taskIdFigure("tTelnetd")) != OK) {
 	    TRACE(0, "Failed to kill tTelnetd task: %s (%d)",
 		  strerror(errno), errno);
@@ -236,16 +233,14 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 /*
 	  * write logfile of murmurable commands
 	  */
-	 if(cmd_type != -1 && (cmd_type & CMD_TYPE_MURMUR)) {
-	    log_mcp_command(cmd_in);
-	 }
+	 log_mcp_command(cmd_type, cmd_in);
       }
 
       if(reply == NULL) {
 	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0);
 	 reply = "";
       }
-      TRACE(16, "PID %d: reply = %s", client_pid, reply)
+      TRACE(16, "PID %d: reply = %s", ublock->pid, reply)
 
       ptr = reply + strlen(reply) - 1;	/* strip trailing white space */
       while(ptr >= reply && isspace(*ptr)) {

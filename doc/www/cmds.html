@@ -1,0 +1,117 @@
+<HTML>
+<TITLE>The MCP's Commands</TITLE>
+<H1>The MCP's Commands</H1>
+
+The following is a listing of the commands that the the MCP understands;
+it's the result of connecting to the MCP and saying <CODE>cmdShow</CODE>
+(and then sorting the result). The columns are:
+<DL>
+<DT> Name
+<DD> The command, as sent to the MCP by the TCC, mcpPut, or the
+<CODE>&gt;</CODE> prompt from the MCP menu.
+
+<DT> Function
+<DD> The name of the MCP's C function.
+
+<DT> Narg
+<DD> The number of arguments that the command expects
+
+<DT> Vararg
+<DD> The command expects a variable number of arguments (the corresponding
+Narg is 0)
+
+<DT> Restricted
+<DD> You need the <CODE>semCmdPort</CODE> semaphore to issue this command.
+
+<DT> Murmur
+<DD> This command is echoed to murmur and to the
+<CODE>mcpCmd-&lt;mjd&gt;.dat</CODE> file. You can force all commands to be
+logged with the <CODE>LOG.ALL 1</CODE>.
+</DL>
+
+<PRE>
+Name                 Function                  Narg Vararg Restricted Murmur
+
++MOVE                plus_move_cmd              0    1      1          1
+AB.STATUS            abstatus_cmd               2    0      0          1
+ALT                  tel2_cmd                   0    0      0          0
+AMP.RESET            amp_reset_cmd              0    0      1          1
+AXIS.STATUS          axis_status_cmd            0    0      0          0
+AZ                   tel1_cmd                   0    0      0          0
+BRAKE.OFF            brakeoff_cmd               0    0      1          1
+BRAKE.ON             brakeon_cmd                0    0      1          1
+BUMP.CLEAR           bump_clear_cmd             0    0      1          1
+CLAMP.OFF            clampoff_cmd               0    0      1          1
+CLAMP.ON             clampon_cmd                0    0      1          1
+CORRECT              correct_cmd                0    0      1          1
+CW.STATUS            cwstatus_cmd               0    0      0          1
+CWABORT              cwabort_cmd                0    0      1          1
+CWINST               cwinst_cmd                 1    0      1          1
+CWMOV                cwmov_cmd                  2    0      1          1
+DRIFT                drift_cmd                  0    0      1          1
+FF.OFF               ffloff_cmd                 0    0      0          1
+FF.ON                fflon_cmd                  0    0      0          1
+FF.STATUS            ffstatus_cmd               0    0      0          1
+FFL.OFF              ffloff_cmd                 0    0      0          1
+FFL.ON               fflon_cmd                  0    0      0          1
+FFS.CLOSE            ffsclose_cmd               0    0      0          1
+FFS.OPEN             ffsopen_cmd                0    0      0          1
+GOTO.POS.VA          goto_pos_va_cmd            3    0      1          1
+HALT                 hold_cmd                   0    0      1          1
+HGCD.OFF             hgcdoff_cmd                0    0      0          1
+HGCD.ON              hgcdon_cmd                 0    0      0          1
+HOLD                 hold_cmd                   0    0      1          1
+IACK                 iack_cmd                   0    0      0          1
+ID                   id_cmd                     0    0      0          1
+INIT                 init_cmd                   0    0      1          1
+IR                   rot_cmd                    0    0      0          0
+LOG.ALL              log_all_cmd                1    0      0          0
+LOG.BUFSIZE          log_bufsize_cmd            1    0      0          1
+LOG.FLUSH            log_flush_cmd              0    0      0          0
+MC.MAXACC            mc_maxacc_cmd              0    0      0          1
+MC.MAXVEL            mc_maxvel_cmd              0    0      0          1
+MOVE                 move_cmd                   0    1      1          1
+MS.DEFINE            ms_define_cmd              0    0      1          1
+MS.GET               ms_get_cmd                 0    0      1          1
+MS.MAP.DUMP          ms_map_dump_cmd            0    0      0          1
+MS.MAP.LOAD          ms_map_load_cmd            0    0      1          1
+MS.MAX               ms_max_cmd                 1    0      1          1
+MS.OFF               ms_off_cmd                 0    1      1          1
+MS.ON                ms_on_cmd                  0    0      1          1
+MS.READ              ms_read_cmd                1    0      1          1
+MS.SAVE              ms_save_cmd                0    0      1          1
+MS.SET               ms_set_axis_pos_cmd        0    0      1          1
+MS.WRITE             ms_write_cmd               1    0      1          1
+NE.OFF               neoff_cmd                  0    0      0          1
+NE.ON                neon_cmd                   0    0      0          1
+ROT                  rot_cmd                    0    0      0          0
+SET.FIDUCIAL         ms_set_axis_pos_cmd        0    0      1          1
+SET.MONITOR          set_monitor_cmd            1    0      1          1
+SET.POS.VA           goto_pos_va_cmd            3    0      1          1
+SET.POSITION         set_pos_cmd                1    0      1          1
+SET.TIME             set_time_cmd               0    1      1          1
+SET.VELOCITY         set_vel_cmd                1    0      1          1
+SLIT.STATUS          slitstatus_cmd             0    0      0          1
+SLITDOOR.CLEAR       slitdoor_clear_cmd         0    0      1          1
+SLITDOOR.CLOSE       slitdoor_close_cmd         0    0      1          1
+SLITDOOR.OPEN        slitdoor_open_cmd          0    0      1          1
+SLITHEADLATCH.CLOSE  slithead_latch_close_cmd   0    0      1          1
+SLITHEADLATCH.EXT    slithead_latch_open_cmd    0    0      1          1
+SLITHEADLATCH.OPEN   slithead_latch_open_cmd    0    0      1          1
+SLITHEADLATCH.RET    slithead_latch_close_cmd   0    0      1          1
+SP1                  sp1_cmd                    0    0      0          0
+SP2                  sp2_cmd                    0    0      0          0
+STATS                stats_cmd                  0    0      0          1
+STATUS               status_cmd                 0    0      0          1
+STATUS.LONG          status_long_cmd            0    0      0          1
+STOP                 stop_cmd                   0    0      1          1
+SYSTEM.STATUS        system_status_cmd          0    0      0          0
+TBAR.LATCH           tbar_latch_cmd             1    0      1          1
+TEL1                 tel1_cmd                   0    0      0          0
+TEL2                 tel2_cmd                   0    0      0          0
+TICKLOST @ .         ticklost_cmd               0    0      0          1
+TIME?                time_cmd                   0    0      0          1
+UMBILICAL            umbilical_cmd              1    0      0          1
+VERSION              version_cmd                0    0      0          0
+</PRE>
+</HTML>

@@ -40,7 +40,7 @@ static int last_door2;
 static int last_azbrake;
 static int last_altbrake;
 static int refreshing=FALSE;
-static char *limitstatus[]={"LU", "L.", ".U", ".."};
+static const char *limitstatus[]={"LU", "L.", ".U", ".."};
 
 static int mei_axis=4;
 static long adjpos[6]={0,0,0,0,0,0};

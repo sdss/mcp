@@ -254,21 +254,20 @@ ticklost_cmd(char *cmd)			/* NOTUSED */
 **
 **=========================================================================
 */
-static char *time_ans={"01 31 1996 86400.000                "};	/* */
-char *time_cmd(char *cmd)
+char *
+time_cmd(char *cmd)
 {
   static struct tm *t;
   struct timespec tp;
 
-/*  printf (" TIME? command fired\r\n");*/
   clock_gettime(CLOCK_REALTIME,&tp);
   printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
+
   t = localtime(&tp.tv_sec);
-/*  printf ("t=%p, mon=%d day=%d, year=%d %d:%d:%d\r\n",
-	t,t->tm_mon,t->tm_mday,t->tm_year,t->tm_hour,t->tm_min,t->tm_sec);*/
-  sprintf (time_ans,"%d %d %d %f",t->tm_mon+1,t->tm_mday,t->tm_year+1900,
-	sdss_get_time());
-  return time_ans;
+  sprintf(ublock->buff,"%d %d %d %f",
+	  t->tm_mon+1, t->tm_mday, t->tm_year+1900, sdss_get_time());
+
+  return(ublock->buff);
 }
 
 /*=========================================================================

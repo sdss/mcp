@@ -764,11 +764,9 @@ clampoff_cmd(char *cmd)			/* NOTUSED */
 char *
 ffstatus_cmd(char *cmd)			/* NOTUSED */
 {
-   static char ffstatus_ans[250];
+   (void)get_ffstatus(ublock->buff, UBLOCK_SIZE);
    
-   (void)get_ffstatus(ffstatus_ans, 250);
-   
-   return(ffstatus_ans);
+   return(ublock->buff);
 }
 
 char *
@@ -903,12 +901,6 @@ hgcdoff_cmd(char *cmd)			/* NOTUSED */
 
 /*****************************************************************************/
 /*
- * Which spectrograph are we commanding?
- */
-static int spectograph_select = -1;	/* -1 == ERROR  */
-
-/*****************************************************************************/
-/*
  * Commands for the selected spectrograph.
  *
  * These could all be static, except that I want them to show up in cmdList
@@ -916,15 +908,15 @@ static int spectograph_select = -1;	/* -1 == ERROR  */
 char *
 sp1_cmd(char *cmd)
 {
-  spectograph_select = SPECTROGRAPH1;
+   ublock->spectrograph_select = SPECTROGRAPH1;
   
-  return("");
+   return("");
 }
 
 char *
 sp2_cmd(char *cmd)
 {
-  spectograph_select = SPECTROGRAPH2;
+  ublock->spectrograph_select = SPECTROGRAPH2;
 
   return("");
 }
@@ -935,11 +927,9 @@ sp2_cmd(char *cmd)
 char *
 slitstatus_cmd(char *cmd)		/* NOTUSED */
 {
-   static char slitstatus_ans[50];
+   (void)get_slitstatus(ublock->buff, UBLOCK_SIZE);
 
-   (void)get_slitstatus(slitstatus_ans, 50);
-
-   return(slitstatus_ans);
+   return(ublock->buff);
 }
 
 /*
@@ -948,7 +938,7 @@ slitstatus_cmd(char *cmd)		/* NOTUSED */
 char *
 slitdoor_clear_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_specdoor_clear(spectograph_select) < 0) {
+   if(mcp_specdoor_clear(ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -961,7 +951,7 @@ slitdoor_clear_cmd(char *cmd)		/* NOTUSED */
 char *
 slitdoor_open_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_specdoor_open(spectograph_select) < 0) {
+   if(mcp_specdoor_open(ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -974,7 +964,7 @@ slitdoor_open_cmd(char *cmd)		/* NOTUSED */
 char *
 slitdoor_close_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_specdoor_close(spectograph_select) < 0) {
+   if(mcp_specdoor_close(ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -987,7 +977,7 @@ slitdoor_close_cmd(char *cmd)		/* NOTUSED */
 char *
 slithead_latch_close_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_slithead_latch_close(spectograph_select) < 0) {
+   if(mcp_slithead_latch_close(ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1000,7 +990,7 @@ slithead_latch_close_cmd(char *cmd)		/* NOTUSED */
 char *
 slithead_latch_open_cmd(char *cmd)		/* NOTUSED */
 {
-   if(mcp_slithead_latch_open(spectograph_select) < 0) {
+   if(mcp_slithead_latch_open(ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
