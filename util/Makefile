@@ -19,7 +19,7 @@ VWSYSINCLUDES	= $(CONFIG)mv162.h $(VWINC)drv/multi/mcchip.h
 INCLUDES	= $(PROGINCLUDES) $(VWINCLUDES) $(VWSYSINCLUDES)
 
 OBJECTS		= iptime.o usrtime.o rtc.o microtime.o
-EXTRA_OBJS      = dscTrace.o loadtime.o timer.o tasks.o
+EXTRA_OBJS      = dscTrace.o timer.o tasks.o
 
 ## tools
 CC		= cc68k
