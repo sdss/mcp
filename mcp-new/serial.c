@@ -63,40 +63,30 @@ int BARCODE_verbose=FALSE;
  */
 void barcode_shutdown(int type);
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: sdss_transmit
-**
-** DESCRIPTION:
-**      Responds with original query plus any answer and terminated with OK.
-**
-** RETURN VALUES:
-**      int 	always zero
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
+/*
+ * Send a string, possibly followed by a second string, then a \n\r to
+ * the output stream.  Flushes output.
+ */
 int
 sdss_transmit(FILE *output_stream,
-	      char *const cmd,
-	      char *const buffer)
+	      char *const str,		/* string */
+	      char *const str2)		/* second string to write too */
 {
-   int status;
+   int nchar;
 
    /* Initialize if necessary */                 
 
    /* Transmit to the TCC */
-   if (buffer==NULL)	/* if string is null, "\r\n%s" outputs "\r(null)" */
-     status=fprintf ( output_stream, "%s  OK\n\r",  cmd );
-   else
-     status=fprintf ( output_stream, "%s\n\r%s  OK\n\r",  cmd,buffer );
+   if(str == NULL) {
+      fprintf(stderr,"sdss_transmit saw NULL string\n");
+      str = "";			/* shouldn't ever happen */
+   }
 
-   fflush ( output_stream);
-   return 0;
+   nchar = fprintf(output_stream, "%s%s\n\r", str, str2);
+
+   fflush(output_stream);
+   
+   return((nchar < 0) ? -1 : 0);
 }
 
 /*=========================================================================
@@ -187,10 +177,9 @@ tcc_serial(int port)
   char serial_port[] = "/tyCo/x";
   FILE *stream;  
   int status;
-  char command_buffer_in[256];
-  char command_buffer[256];
+  char command_buffer[256];		/* input command */
   int cmd_type;				/* type of command from symb. table */
-  char *answer_buffer;
+  char *answer_buffer;			/* reply from command parser */
 
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
@@ -222,22 +211,26 @@ tcc_serial(int port)
      }
      
      if(status == 0) {
-	strcpy(command_buffer_in, command_buffer);
+	status = sdss_transmit(stream, command_buffer, "");
+	if(status != 0) {
+	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+	}
+
 	answer_buffer =
 	  cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
 		      command_buffer, &cmd_type);
 	/*
 	 * write logfile of murmurable commands
 	 */
-	log_mcp_command(cmd_type, command_buffer_in);
+	log_mcp_command(cmd_type, command_buffer);
 
-	status = sdss_transmit(stream, command_buffer_in, answer_buffer);
+	status = sdss_transmit(stream, answer_buffer, "  OK");
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
 	}
      } else {
 	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
-	status = sdss_transmit(stream, command_buffer, "ERR: Bad Command");
+	status = sdss_transmit(stream, "ERR: Bad Command", "  OK");
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
 	}
