@@ -218,10 +218,10 @@ typedef struct {
   	unsigned inst_id1_2 : 1;
   	unsigned inst_id1_1 : 1;
 
-    	unsigned prot_bolt2_cls : 1;
-    	unsigned prot_bolt2_opn : 1;
-    	unsigned prot_bolt1_cls : 1;
-    	unsigned prot_bolt1_opn : 1;
+    	unsigned safety_latch2_cls : 1;
+    	unsigned safety_latch2_opn : 1;
+    	unsigned safety_latch1_cls : 1;
+    	unsigned safety_latch1_opn : 1;
     	unsigned sec_latch3_cls : 1;
     	unsigned sec_latch3_opn : 1;
     	unsigned sec_latch2_cls : 1;
@@ -635,10 +635,10 @@ typedef struct {
 	unsigned ilcb_pres_led : 1;
 } OF1_L4;
 typedef struct {
-	unsigned prot_bolt2_cls_led : 1;
-	unsigned prot_bolt2_opn_led : 1;
-	unsigned prot_bolt1_cls_led : 1;
-	unsigned prot_bolt1_opn_led : 1;
+	unsigned safety_latch2_cls_led : 1;
+	unsigned safety_latch2_opn_led : 1;
+	unsigned safety_latch1_cls_led : 1;
+	unsigned safety_latch1_opn_led : 1;
 	unsigned sec_latch3_cls_led : 1;
 	unsigned sec_latch3_opn_led : 1;
 	unsigned sec_latch2_cls_led : 1;
