@@ -232,6 +232,26 @@ typedef struct {
 	unsigned : 16;
 }IF1_L4;
 typedef struct {
+	unsigned rack_1_grp_4_bit_15 : 1;
+	unsigned rack_1_grp_4_bit_14 : 1;
+	unsigned rack_1_grp_4_bit_13 : 1;
+	unsigned rack_1_grp_4_bit_12 : 1;
+	unsigned rack_1_grp_4_bit_11 : 1;
+	unsigned rack_1_grp_4_bit_10 : 1;
+	unsigned rack_1_grp_4_bit_9 : 1;
+	unsigned rack_1_grp_4_bit_8 : 1;
+	unsigned rack_1_grp_4_bit_7 : 1;
+	unsigned rack_1_grp_4_bit_6 : 1;
+	unsigned rack_1_grp_4_bit_5 : 1;
+	unsigned rack_1_grp_4_bit_4 : 1;
+	unsigned sec_mir_force_limits : 1;
+	unsigned alt_bump_dn : 1;
+	unsigned alt_bump_up : 1;
+	unsigned purge_air_pressur_sw : 1;
+
+	unsigned : 16;
+}IF1_L6;
+typedef struct {
 	unsigned rack_2_grp_0_bit_15 : 1;
 	unsigned rack_2_grp_0_bit_14 : 1;
   	unsigned spec_lens2 : 1;
@@ -362,7 +382,7 @@ struct I1 {
 	unsigned long undefined3;
 	IF1_L4 il4;
 	unsigned long undefined5;
-	unsigned long undefined6;
+	IF1_L6 il6;
 	unsigned long undefined7;
 	IF1_L8 il8;
 	IF1_L9 il9;
