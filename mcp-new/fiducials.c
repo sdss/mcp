@@ -155,6 +155,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "   int encoder;\n");
    fprintf(fd, "   int pos1;\n");
    fprintf(fd, "   int error;\n");
+   fprintf(fd, "   float velocity;\n");
    fprintf(fd, "} UPDATE_ENCODER;\n");
    fprintf(fd, "\n");
 
