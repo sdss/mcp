@@ -17,8 +17,10 @@ install :
 tags :
 	@rm -f TAGS
 	@for d in $(DIRS); do \
-		echo $$d; \
-		etags --append -a -t -o TAGS $$d/*.[ch]; \
+		if [ $$d != "etc" ]; then \
+			echo $$d; \
+			etags --append -a -t -o TAGS $$d/*.[ch]; \
+		fi; \
 	done
 
 clean :
