@@ -25,6 +25,7 @@ bin/switchMCP -text
 /branches -text
 etc/Makefile -text
 etc/mcp.login -text
+etc/trace.el -text
 ip/Makefile -text
 ip/acromag/.cvsignore -text
 ip/acromag/Makefile -text
