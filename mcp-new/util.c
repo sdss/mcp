@@ -423,3 +423,17 @@ mcpVersion(char *version,		/* string to fill out, or NULL */
 
    return(version);
 }
+
+/*****************************************************************************/
+/*
+ * Return the task ID of the process holding a semaphore
+ */
+long
+getSemTaskId(SEM_ID sem)
+{
+   if(sem == NULL) {
+      return(0);
+   } else {
+      return((long)sem->state.owner);
+   }
+}
