@@ -157,12 +157,9 @@ static SEM_ID semCMD=0;
 /* below is a place for DIAGNOStic flag for turning off the feature
 #define DIAGNOS 0
 */
-#define NULLFP (void(*)()) 0
-#define NULLPTR ((void *) 0)
-#define ONCE if (YES)
 
 /* test message buffer  */
-char *sdss_version = {"SDSS AXIS Version 1.0 - Charlie Briegel - 4 Jan 1996"};
+char sdss_version[100];
 int CMD_verbose=FALSE;
 
 /*=========================================================================
@@ -186,8 +183,9 @@ int
 cmd_init()
 {
   printf ("\r\n%s\r\n",sdss_version);
-  if (semCMD==0)
-    semCMD = semMCreate (SEM_Q_FIFO);
+  if(semCMD == 0) {
+     semCMD = semMCreate (SEM_Q_FIFO);
+  }
 
   return 0;
 }
