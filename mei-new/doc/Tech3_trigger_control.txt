@@ -1,0 +1,248 @@
+Technical Note:
+Trigger Control
+(Rev. 2.3)
+
+Motion control sequencing in DSP controllers depends heavily on
+triggers to control the timing of the sequence.  The most common type
+of trigger is the time trigger which caused an event when the axis
+timer reaches a certain value.  There are many other triggers
+including acceleration, velocity, position, and input state.  This
+Tech. Note explains how triggers are generated and handled in DSP
+controllers.
+
+A trigger is a condition which when met in the DSP controller causes
+an event. Events are changes in controller’s state and are
+explained in detail in the Tech. Note on States and Events.  New
+Frame, Stop, E-Stop, and Abort are common examples of events.  These
+events are named for the Controller State that is the outcome of the
+event.
+
+Triggers are controlled in DSP controllers through data contained in a
+5 word Trigger Control Block.  Each axis has a separate Trigger
+Control Block in its Data Structure. There are two basic forms of
+triggers: Bit Triggers (type 0) and Long Word (32-bit) Triggers (types
+1 and 2).  Bit Triggers are primarily used to control motion
+sequencing through hardware inputs.  Long Word Triggers cause events
+based on 32 bit values in the controller.  Time, Accel., Velocity, and
+Position Triggers are Long Word Triggers.
+
+Bit Triggers (Type 0):
+For Bit Triggers the Trigger Control Block has the following structure:
+Word	Value
+0	Not Used
+1	Trigger Type
+2	Trigger Action
+3	Input Address
+4	Input Mask
+
+Each sample the a 16 bit word is read from the Input Address and
+AND’ed with the Input Mask.  This value is then compared with the
+Input Mask itself.  The event specified in the Trigger Action word is
+triggered according to the following table:
+
+Comparison Sense (Bit 15 of Trigger Action)	Action
+0	Trigger if input bits corresponding to mask are all true.
+1	Trigger if any input bit corresponding to a mask bit is false
+
+Long Word Triggers (Types 1 and 2):
+
+Both Type 1 and Type 2 triggers are Long Word triggers.  Type 1
+triggers are Time Triggers and Type 2 Triggers are all other Long Word
+Triggers.  The only difference is in the way that the trajectory is
+adjusted to account for overruns in Time Triggers for cam or non-unity
+Feed Rate Motion. For both trigger types the Trigger Control Block has
+the following structure:
+
+Word	Value
+0	Trigger Offset
+1	Trigger Type
+2	Trigger Action
+3	Trigger Value (Low)
+4	Trigger Value (High)
+
+The address of the value to be used for trigger comparison is
+calculated as follows:
+
+Address = (Address of ACTUAL_POS_1 word in Data structure) + Offset
+
+For example for Position Triggers the Trigger Offset is POSITION_2
+(18) - ACTUAL_POS_1 (3) = 15 (0x0F).
+
+Each sample the 2 word value at the address computed using the offset
+is compared to the Trigger Value and the event specified by the
+Trigger Action word is triggered according to the following table:
+
+Comparison Sense (Bit 15 of Trigger Action)	Action
+0	Trigger if (Comparison Value) >= (Trigger Value)
+1	Trigger if (Comparison Value) < (Trigger Value)
+
+Loading the Trigger Control Block
+
+The values in the Trigger Control Block should only be loaded using
+frames.  Normally this happens automatically using the FTRG_XXX
+definitions to load the Trigger/Update Mask word of the frame.  The
+Trigger Offset and Type are loaded directly from the fields of the
+Trigger Update Mask.  The Trigger Action word is copied from the
+Action word of the Frame.  The Trigger Values are loaded from the
+frame at the location relative to the beginning of the frame specified
+by the Trigger Offset.
+
+For example the first frame of a start_move is loads the Trigger
+Control Block with a Time Trigger. The frame holds the following values:
+
+
+Trigger/Update Mask	0x1202
+Trigger Action	0x0002
+Frame Word 2	100
+Frame Word 3	0
+
+After the frame is loaded the Trigger Control Block would have the
+following values:
+
+Trigger Offset 2 Trigger Type 1 Trigger Action 2 Trigger Value (low)
+100 Trigger Value (high) 0 A NEW_FRAME (2) event would occur 100
+samples after the frame is loaded.
+
+While the Trigger Control Block is normally loaded through Standard
+Frames, special trigger conditions can be created by loading the
+Trigger Control Block directly using a Move Frame.  The following
+example show how this is done.
+
+Example:
+
+In this example a trigger is desired based on Actual Position rather
+than Command Position.  The Actual Position of Axis 0 will be used to
+trigger a new frame event in axis 1.  The following sample code shows
+this example:
+
+#include <stdio.h>
+#include "idsp.h"
+
+void             main (void)
+{
+    int err,t_block[5],dest;
+    FRAME f;
+    long p;
+    err = do_dsp();
+    if(err)
+    {
+        printf("initialization error (%d) -- %s\n",err,_error_msg(err));
+        return;
+    }
+
+    p = 100000L;
+    t_block[0] = DS(0) + DS_ACTUAL_POSITION - (DS(1) + DS_ACTUAL_POSITION + 1);
+    t_block[1] = 2;
+    t_block[2] = NEW_FRAME;
+    t_block[3] = p & 0xFFFFL;
+    t_block[4] = p >> 16;
+    dest = dspPtr->data_struct + DS(1) + DS_TRIGGER;
+    dsp_move_frame(&f,1,MF_MOVE,dest,MF_DATA_AREA,0,5,t_block);
+    start_move(1,100000.0,500000.0,5000000.0);
+    
+}
+
+Program Details:
+
+t_block[0] = DS(0) + DS_ACTUAL_POSITION - (DS(1) + DS_ACTUAL_POSITION + 1);
+
+The first word of the Trigger Control Block contains the offset used
+to calculate the address of the longword which is compared to the
+Trigger Value contained in words 3 and 4 of the Control Block.  This
+offset is the position relative to ACTUAL_POS_1 for the current axis.
+The easiest way to calcualate these offsets is to understand the Data
+Structure and the #defines in IDSP.H which relate to that structure.
+The following is a listing of the Data Structure offsets from the
+firmware header (PC-DSP.H) and the corresponding #defined values in
+IDSP.H:
+
+
+Firmware #define
+ (PC-DSP.H)	Value	#define in IDSP.H
+OLD_ENCODER_READING	0x0000	DS_PREV_ENCODER
+CURRENT_VEL	0x0001	DS_CURRENT_VEL
+ACTUAL_POS_0	0x0002	DS_ACTUAL_POSITION
+ACTUAL_POS_1	0x0003	DS_ACTUAL_POSITION + 1
+TIME_0	0x0004	DS_TIME
+TIME_1	0x0005	DS_TIME + 1
+TIME_2	0x0006	DS_TIME + 2
+JERK_0	0x0007	DS_JERK
+JERK_1	0x0008	DS_JERK + 1
+JERK_2	0x0009	DS_JERK + 2
+ACCEL_0	0x000A	DS_ACCELERATION
+ACCEL_1	0x000B	DS_ACCELERATION + 1
+ACCEL_2	0x000C	DS_ACCELERATION + 2
+VELOCITY_0	0x000D	DS_VELOCITY
+VELOCITY_1	0x000E	DS_VELOCITY + 1
+VELOCITY_2	0x000F	DS_VELOCITY + 2
+POSITION_0	0x0010	DS_POSITION
+POSITION_1	0x0011	DS_POSITION + 1
+POSITION_2	0x0012	DS_POSITION + 2
+POSITION_3	0x0013	DS_POSITION + 3
+MASTER_POS	0x0014	DS_MASTER_POS
+RATIO_0	0x0015	DS_RATIO
+RATIO_1	0x0016	DS_RATIO + 1
+CP_0	0x0017	DS_CV_1 - 4
+CP_1	0x0018	DS_CV_1 - 3
+CP_2	0x0019	DS_CV_1 - 2
+CV_0	0x001A	DS_CV_1 - 1
+CV_1	0x001B	DS_CV_1
+CURRENT_ERROR	0x001C	DS_ERROR
+TRIGGER_OFFSET	0x001D	DS_TRIGGER
+TRIGGER_TYPE	0x001E	DS_TRIGGER + 1
+TRIGGER_ACTION	0x001F	DS_TRIGGER + 2
+TRIGGER_0	0x0020	DS_TRIGGER + 3
+TRIGGER_1	0x0021	DS_TRIGGER + 4
+LATCHED_POS_0	0x0022	DS_LATCH
+LATCHED_POS_1	0x0023	DS_LATCH + 1
+D_0	0x0024	DS_D(0)
+D_1	0x0025	DS_D(1)
+D_2	0x0026	DS_D(2)
+D_3	0x0027	DS_D(3)
+D_4	0x0028	DS_D(4)
+D_5	0x0029	DS_D(5)
+D_6	0x002A	DS_D(6)
+D_7	0x002B	DS_D(7)
+D_8	0x002C	DS_D(8)
+D_9	0x002D	DS_D(9)
+
+DATA_STRUCT_SIZE	0x002E	DS_SIZE
+
+There is also a #define in IDSP.H used for calculating the base
+address of the Data Structure for each axis:
+
+#define	DS(n)	 (DS_SIZE * (n))
+
+In this case the offset is calculated by subtracting ACTUAL_POS_1 for
+axis 1 (DS(1) + DS_ACTUAL_POSITION + 1) from the ACTUAL_POS_0 for axis
+0 (DS(0) + DS_ACTUAL_POSITION).
+
+t_block[1] = 2; Trigger Type is 2 for all 32-bit triggers except Time
+Triggers.  Since Time Triggers would normally be loaded using Standard
+Frames with FTRG_TIME the Trigger Type field would normally be 2 for
+any trigger defined using a Move Frame.
+
+t_block[2] = NEW_FRAME; The action to be taken is a NEW_FRAME event.
+If the desired trigger point were being approached from above this
+field would be or’ed with TRIGGER_NEGATIVE.
+
+t_block[3] = p & 0xFFFFL;
+t_block[4] = p >> 16;
+
+These two words hold the 32-bit (signed) Trigger Value.
+
+dest = dspPtr->data_struct + DS(1) + DS_TRIGGER;
+
+The address of the Trigger Block for axis 1.
+
+dsp_move_frame(&f,1,MF_MOVE,dest,MF_DATA_AREA,0,5,t_block);
+
+Finally the loading of the Move Frame itself.  The opcode parameter
+(MF_MOVE) tells the function to move the data (instead of add).  The
+MF_DATA_AREA parameter indicates the source 1 is in the frame itself.
+This frame when loaded will move t_block (5 words long) into the
+Trigger Block for axis 1.  The start_move function for axis 1 will
+initiate when axis 0 position reaches 100,000 encoder counts.
+
+
+Motion Engineering, Inc. -- Company Confidential

@@ -1,0 +1,85 @@
+Technical Note:
+Motion Controller States and Events
+
+Each axis on DSP Controllers has 16 internal states that are used to
+control motion sequences.  The following table the state values:
+
+0	Poser-Up/ Reset/ Controller Run
+1	Normal Operation
+2	New Frame
+3	User Defined
+4	User Defined
+5	User Defined
+6	Out-of Frames
+7	Reserved
+8	Stop
+9	Reserved
+10	E-Stop
+11	Reserved
+12	Reserved
+13	Reserved
+14	Abort/Idle
+15	Reserved
+
+Transitions between states are caused by events.  Events can come from
+three sources: Internal Checks, Host Generated events, and Frame
+Generated events.  When an event occurs a value is loaded into the
+Axis Source register which indicates the cause of the event. The
+following list shows all of the Internal Checks which produce events:
+
+Hardware Limits:
+Limit		    Factory Default Event  Axis Source Value   Conditions
+Amp Fault	    Abort		   4	       None
+Positive Overtravel E-Stop		   3	       IN_MOTION & !DIRECTION
+Negative Overtravel E-Stop		   2	       IN_MOTION & DIRECTION
+Home		    Stop		   1	       None
+
+Software Limits:
+Limit		    Factory Default Event  Axis Source Value   Conditions
+Positive SW Limit   E-Stop		   8	       IN_MOTION & !DIRECTION
+Negative SW Limit   E-Stop		   7	       IN_MOTION & DIRECTION
+Error		    Abort		   9	       None
+
+Misc.:
+Event		    Factory Default Event  Axis Source Value   Conditions
+Out of Frames	    E-Stop		   11	       None
+Temposonics Probe Fault	Abort (Fixed)	   12	       None
+
+Internal Check events can only increase the controller state value.
+For example a Stop event will not affect the controller if the
+controller is in the E-Stop state.  An Abort event will, however,
+preempt an E-Stop event in progress.
+
+Host Generated events are set by loading the new event value into the
+PC-Event register for the axis in question.  If the PC_STATUS_OVERRIDE
+bit is set in the Event register the event will take place
+unconditionally.  If the PC_STATUS_OVERRIDE bit is clear the event can
+only increase the controller state value in the same way that Internal
+Checks change the state value.  Host Generated events are processed in
+the first sample interval which follows the setting of the event
+register.
+
+Frame Generated Events are of two types.  The Trigger Control Block is
+loaded using information in the Trigger/Update Mask word.  This sets
+up a Trigger Event which happens at a later time.  See the Tech Note
+on Trigger Events for a description of the Trigger Control Block and
+Trigger Event generation. The second Frame Generated Event occurs when
+a Frame is loaded and the operating state is set to the value of the
+New Priority field in the Frame Control Word unless the New Priority
+is zero.  This is not strictly an event since only the operating state
+is changed and no action (Stop, E-Stop, etc.) is taken.
+
+If several events occur in the same axis only the highest state value
+will be loaded.  If several events for the same final state occur the
+Source Value will be set in the following priority
+
+Temposonics Probe
+Amp Fault
+Home
+Hardware Position Limits
+Software Position Limits
+Error Limit
+Trigger Events
+Host Generated Events
+
+Motion Engineering, Inc. -- Company Confidential

@@ -1,0 +1,271 @@
+Technical Note:
+Frame Internals
+(Rev 2.3)
+
+The fundamental element of motion sequence control is a twenty word
+data block which is loaded into the controller called a frame. .
+Frames generally fall into two categories Standard frames and Move/Add
+frames.  Standard frames are used to change the trajectory control
+parameters (Command Jerk, Acceleration, Velocity, and Position) at
+pre-determined times in the motion sequence.  Standard Frames can also
+be used to set hardware output states.  Move/Add frames are used to
+change tuning parameters, add or move data in DSP memory and provide
+special functions such as the control of other axes.
+
+Standard Frames:
+
+The following block shows the structure of a Standard Frame:
+
+Frame Offset	Data Description
+           0	Next Frame Pointer
+           1	Control Word
+           2	Time (low)
+           3	Time (high)
+           4	Jerk (low)
+           5	Jerk (mid)
+           6	Jerk (high)
+           7	Acceleration (low)
+           8	Acceleration (mid)
+           9	Acceleration (high)
+         10	Velocity (low)
+         11	Velocity (mid)
+         12	Velocity (high)
+         13	Position (low)
+         14	Position (mid-low)
+         15	Position (mid-high)
+         16	Position(high)
+         17	Trigger/Update Mask
+         18	Action Mask
+         19	Output offset
+Detailed Frame Structure Description
+
+Word 0 -  Next Frame Pointer (16 bits)
+Contains the address in DSP memory of the frame which should be loaded after the current frame.  This usually occurs after trigger conditions specified in the Trigger/Update Mask (word 17) have been met.
+
+Word 1 - Control Bits (16 bits)
+Contains bit fields which control the loading and releasing of frames
+by the DSP controller.  The following are defined:
+
+Bit	Definition
+0-3	Frame Priority.		This 4-bit field determines if the new frame
+				will be loaded or skipped
+
+4-7	New Priority.		This 4-bit field sets the new operating state
+				when (if) the frame is loaded.
+
+8-11	Op Code.		Bit 8 is set for Add frames and bit 9 is set
+				for Move frames.
+12	Reserved
+
+13	Hold Bit.		If this bit is set the frame will not be loaded
+				while the axis has the Frame Hold Control bit
+				set.
+
+14	Interrupt.		If this bit is a 1 the PC will be interrupted
+				when the frame is loaded.
+
+15	Release.		If this bit is a 1 the frame will be released
+				after it is loaded.  Normally all frames
+				downloaded  by the PC should have this bit set.
+				See the section on downloading frames for more
+				information.
+
+Words 2 & 3 - Time Trigger (32 bits)
+
+These two words word contain the 32-bit Time Trigger value.  This
+value is loaded into the Value section of the Trigger Control Block if
+the Trigger field in the Trigger/Update Mask is set to FTRG_TIME.  See
+the Tech. Note on Trigger Control for a description of the Trigger
+Control Block.
+
+Words 4, 5 & 6 - Command Jerk (48 bits)
+
+If the FUPD_JERK bit is set in the Trigger/Update Mask a new Command
+Jerk value will be loaded when the frame is loaded.
+
+Words 7, 8 & 9 - Command Acceleration (48 bits)
+
+If the FUPD_ACCEL bit is set in the Trigger/Update Mask a new Command
+Acceleration value will be loaded when the frame is loaded.  If the
+Trigger Field of the Trigger/Update mask is set to FTRG_ACCEL the
+upper two words of this field will be loaded into the Trigger Control
+block.
+
+Words 10, 11 & 12 - Command Velocity (48 bits)
+
+If the FUPD_VELOCITY bit is set in the Trigger/Update Mask a new
+Command Velocity value will be loaded when the frame is loaded.  If
+the Trigger Field of the Trigger/Update mask is set to FTRG_VELOCITY
+the upper two words of this field will be loaded into the Trigger
+Control block.
+
+Words 13, 14, 15 & 16 - Command Position (64 bits)
+
+If the FUPD_POSITION bit is set in the Trigger/Update Mask a new
+Command Position value will be loaded when the frame is loaded. If the
+FUPD_ACTUAL bit is set in the Trigger/Update Mask a new Actual
+Position value will be loaded when the frame is loaded.  If the
+Trigger Field of the Trigger/Update mask is set to FTRG_POSITION the
+upper two words of this field will be loaded into the Trigger Control
+block.
+
+Word 17 - Trigger/Update Mask (16 bits)
+
+This 16 bit word contain the bit fields which determine how the frame
+data is loaded by the PC/DSP.  The following bit definitions are
+contained in the Trigger/Update Mask:
+
+Bit	Definition
+0-7	Update Field
+8-11	Trigger Offset
+12-15	Trigger Type
+
+The UPDATE control bits determine which variables are modified when
+the frame is loaded.  For example if the FUPD_ACCEL bit is a 1 the
+Command Acceleration will be copied from the frame when the frame is
+loaded.  IF the FUPD_OUTPUT bit is set the OUTPUT OFFSET word will be
+used to determine the location within the frame of the output data.
+
+The TRIGGER control bits determine the conditions for initiation of
+the event specified in the Action Mask.  The TRIGGER OFFSET is used to
+determine the location of the trigger data within the frame.  The
+TRIGGER TYPE is used to determine the type of trigger:
+
+Trigger	Offset	Type
+Time	2	1
+Acceleration	8	2
+Velocity	11	2
+Position	15	2
+Input (data is in TIME field)	2	0
+Input (data is in JERK field)	4	0
+Input (data is in ACCEL field)	7	0
+Input (data is in VEL field)	10	0
+Input (data is in POS field)	13	0
+
+Word 18 - Action Mask (16 bits)
+
+This 16 bit word determines what action is taken when a trigger
+condition has been met.  The following bit definitions exist for the
+Action Mask:
+
+Bit	Definition
+0-3	Action Request
+4-14	Unused
+15	Comparison Sense
+
+The ACTION REQUEST field determines the next state of the PC/DSP when
+the trigger conditions have been met. See the Tech Note on States and
+Events for a description of the action values.  The Comparison sense
+bit is used to determine if the direction for comparison of in trigger
+generation.  See the Tech Note on Trigger Control for details.
+
+Bit 15 (Comparison Sense)	Trigger occurs when
+                0	Control Value > Trigger Value
+                1	Control Value <= Trigger Value
+
+Word 19 - Output Offset (16 bits)
+
+This word contains the Offset within the frame for the 3 word output
+control data.  When the FUPD_OUTPUT bit is set in the Trigger/Update
+Mask the controller uses the output control block to change the output
+data. The three word block has the structure,
+
+Word	Value
+0	Output Address
+1	OR Mask
+2	AND Mask
+
+The 16 bit word at the specified Output Address is first ORed with
+the OR Mask then ANDed with the AND Mask.
+
+Move and Add Frames:
+Move and Add Frames have the following Format
+
+Frame Offset	Data Description
+           0	Next Frame Pointer
+           1	Control Word
+           2	Length
+           3	Destination Address
+           4	Source 1 Address
+           5	Source 2 Address
+           6	Unused
+           7	Unused
+           8	Unused
+           9	Unused
+         10	Unused
+         11	Unused
+         12	Unused
+         13	Unused
+         14	Unused
+         15	Unused
+         16	Unused
+         17	Unused
+         18	Unused
+         19	Unused
+
+The first two words of a Move or Add frame are used in exactly the
+same way as for standard frames.  For a Move Frame (FCTL_MOVE set in
+the control word) the data is copied from Source 1 to Destination for
+the specified length.  For Add Frames the data from Source 1 and
+Source 2 are added and the sum is copied to Destination.  The Trigger
+Control Block is cleared when a Move or Add Frame is loaded.
+
+Frame Loading Control.
+
+There are two types of lists that are used to track the location of
+frames in the DSP controller.  The Free List keeps track of frames
+which are currently not in use.  The Axis Lists (one per axis) keeps
+track of the frames waiting to be loaded during motion sequences.  The
+Host removes frames from the Free List and puts them in the
+appropriate Axis List.  The DSP then loads the frames in the Axis list
+as the motion sequence executes.  Once a frame has been loaded by the
+controller it is released back to the Free List by the DSP.  The last
+frame in the list is never removed from the list.  It is used as a
+place holder to maintain a pointer to the next frame in the list.  A
+list is considered empty when it has only one frame left.
+
+The normal sequence of events in frame usage is as follows:
+
+1) The address of the next free frame is read from the Free list
+pointer in the DSP.  If there is a frame available (i. e. the frame
+has a valid pointer to another frame) the Host modifies the Free list
+pointer to point to the next available frame in the list.  At this
+point the frame is in limbo since no pointer in the DSP refers
+to it.
+
+2) The Host usually clears the frame and then fills in the appropriate
+fields within the frame.  If this is the first frame in a series the
+FCTL_HOLD bit is usually set in the Frame Control Word and a call to
+set_gate is made before the frame is downloaded.  This prevents the
+frame from being loaded by the controller before all of the frames in
+the series have been downloaded.
+
+3) Once the fields in the frame have been filled in the Next Frame
+Pointer for the last frame in the Axis List is set to point to this
+new frame.  At this point the frame is no longer in limbo since now
+the controller has it in one of its lists.
+
+4) The next frames in a series are removed from the free list
+(allocated), filled in, and linked to the last frame in the Axis List
+(downloaded) using the above three steps.
+
+5) A call to reset_gate is made to start execution of the motion
+sequence.  The first frame is usually loaded immediately when the gate
+is reset.  Subsequent frames are each loaded when the Trigger
+conditions for the preceding frame are met.  When a frame loaded the
+FCTL_RELEASE bit is checked in the Frame Control word and, if set, the
+frame is removed from the Axis List and returned to the Free List.
+
+6) The last frame in the Axis is not released to the Free List.  It
+remains as a place holder for linking in new frames.  It is released
+as soon as a new frame is loaded.
+
+Once a series of frames has been downloaded there the sequence may be
+altered by events such as Stop, E-Stop or Abort Events.  If the Frame
+Priority value in the Frame Control Word is lower than the Current
+Operating State the frame will not be loaded but will be skipped and
+released.  In this way a frame sequence where the frames are all at
+low priority (normally 2 or lower) the frames will be released if a
+Stop or E-Stop event occurs.
+
+Motion Engineering, Inc. -- Company Confidential

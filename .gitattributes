@@ -119,6 +119,9 @@ mei-new/ccoord.c -text
 mei-new/cntdown.c -text
 mei-new/coil.c -text
 mei-new/disded.c -text
+mei-new/doc/Tech1_state-event.txt -text
+mei-new/doc/Tech2_frame_intervals.txt -text
+mei-new/doc/Tech3_trigger_control.txt -text
 mei-new/doc/frame_m.txt -text
 mei-new/envutil.c -text
 mei-new/eventint.c -text
