@@ -1313,8 +1313,7 @@ char *time_cmd(char *cmd)
 }
 int print_axis_queue(int axis)
 {
-  float position,velocity;
-  struct FRAME *frame,*nxtque,*lstque;
+  struct FRAME *frame;
   struct FRAME_QUEUE *queue;
 
   printf ("\r\nList Axis Queue=%d: %p",axis,&axis_queue[axis]);
@@ -1339,6 +1338,8 @@ int print_axis_queue(int axis)
     }
     frame = frame->nxt;
   }
+
+return 0;
 }
 
 /**********************************************************************
@@ -1382,11 +1383,13 @@ int lpos4,lpos5;
 unsigned char int_bit=0;
 void DIO316_interrupt(int type)
 {
-	  int i;
-/*	  static unsigned char int_bit=0;
-*/	  int direction, region;                        
-	  double position;
- 	  float pos,lpos;
+  /*
+    int i;
+    static unsigned char int_bit=0;
+    int direction, region;                        
+    double position;
+    float pos,lpos;
+    */
 
 /*	  latch();*/
 
@@ -1581,14 +1584,14 @@ void init_fiducial()
    	/* 001:13:35:373 */
   rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
 }
+
 void tm_latch()
 {
   int i;
-  double pos;
+  /*  double pos; */
   extern int barcode_serial();
   int fididx;
-/*  unsigned char int_bit;
-*/
+  /*  unsigned char int_bit; */
   init_fiducial();
   if (semLATCH==NULL) semLATCH = semBCreate(0,SEM_Q_FIFO);
   for (;;)
@@ -1782,7 +1785,8 @@ void tm_latch()
     }
   }
 }
-test_azfiducials_idx (int axis, double pos, int fididx)
+
+void test_azfiducials_idx (int axis, double pos, int fididx)
 {
 /*	    if (latchpos[latchidx].pos1>24)
 		fididx += 24;*/
@@ -1793,7 +1797,7 @@ test_azfiducials_idx (int axis, double pos, int fididx)
 	printf ("\r\n pos=%f, fididx=%d",pos,fididx);
 }
 
-test_rotfiducials_idx (int axis, double pos, int fididx)
+void test_rotfiducials_idx (int axis, double pos, int fididx)
 {
 	    if ((fididx<0)&&(fididx>-80))
 	    {
@@ -2037,6 +2041,8 @@ int trigger_int(int bit)
   return 0;
 }
 #endif
+
+/* note: will crash....  Industry_Pack does not malloc the memory for ip */
 void DIO316_initialize(unsigned char *addr, unsigned short vecnum)
 {
   STATUS stat;
@@ -2086,6 +2092,8 @@ void DIO316_initialize(unsigned char *addr, unsigned short vecnum)
     IP_Interrupt_Enable(ip,DIO316_IRQ);
     sysIntEnable(DIO316_IRQ);                                
 }
+
+/* note: will crash as Industry_Pack needs ip to be malloc'ed */
 void DID48_initialize(unsigned char *addr, unsigned short vecnum)
 {
   STATUS stat;
@@ -2139,6 +2147,7 @@ void NBS()
 {
     DIO316_Write_Port (tm_DIO316,3,1);
 }
+
 int amp_reset(int axis)
 {
   extern int cw_DIO316;
@@ -2146,7 +2155,10 @@ int amp_reset(int axis)
 	DIO316_Write_Port (cw_DIO316,AMP_RESET,1<<axis);
         taskDelay (2);
 	DIO316_Write_Port (cw_DIO316,AMP_RESET,0);
+	
+	return 0;
 }
+
 int sdss_init()
 {
   int i;
@@ -2221,8 +2233,10 @@ int sdss_init()
   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   taskSpawn ("tmLatch",0,VX_FP_TASK,10000,(FUNCPTR)tm_latch,0,0,0,0,0,0,0,0,0,0);
+
+  return 0;
 }
-
+
 /* extracted from home2.c 21 Feb 96 */
 /* HOME2.C
 
@@ -2253,7 +2267,6 @@ Written for Version 2.4E
 
 int sdss_home(int axis)
 {
-	int error_code;
 	double distance;
 
 /* initialize if not done */
@@ -2297,7 +2310,10 @@ int sdss_move_time (int axis, int vel, int accel, int time)
 	v_move(axis,vel,accel);
 	taskDelay (time);
 	v_move(axis,0,accel);
+	
+	return 0;
 }
+
 int sdss_move_offset (int axis, int off)
 {
 	short coeff[COEFFICIENTS];
@@ -2318,7 +2334,10 @@ int sdss_move_offset (int axis, int off)
 	set_filter (axis,(P_INT)coeff);
 
 	print_coeffs(axis);
+
+	return 0;
 }
+
 int sdss_move_pos (int axis, int vel, int accel, int pos)
 {
 	double position,last_pos,final_pos;
@@ -2345,7 +2364,10 @@ int sdss_move_pos (int axis, int vel, int accel, int pos)
         printf("\r\n  Final pos=%f",(float)position);
 	if ((final_pos>position+10)||(final_pos<position-10))
 	  printf ("\r\n ERROR: did not close in on position");
+
+	return 0;
 }
+
 int print_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -2357,7 +2379,10 @@ int print_coeffs(int axis)
 		coeff[3],coeff[4],coeff[9]);
 	printf ("\r\n          ILIMIT=%d, OFFSET=%d, OLIMIT=%d",
 		coeff[5],coeff[6],coeff[7]);
+	
+	return 0;
 }
+
 int set_coeffs(int axis, int index, int val)
 {
 	short coeff[COEFFICIENTS];
@@ -2365,7 +2390,10 @@ int set_coeffs(int axis, int index, int val)
 	get_filter (axis,(P_INT)coeff);
 	coeff[index]=val;
 	set_filter (axis,(P_INT)coeff);
+	
+	return 0;
 }
+
 int init_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -2382,7 +2410,10 @@ int init_coeffs(int axis)
 	set_filter (axis,(P_INT)coeff);
 	set_integration (axis,IM_ALWAYS);
 	print_coeffs (axis);
+
+	return 0;
 }
+
 int sdss_remap(int axis)
 {
 	int i;
@@ -2458,20 +2489,19 @@ int sdss_error(int error_code)
 			break;
 	}
 }
-
+
 #define CLOCK_INT
 #ifdef CLOCK_INT
 float sdss_get_time()
 {
-  	  struct timespec tp;
   	  unsigned long micro_sec;
 
           micro_sec = timer_read (1);
           return (float)(SDSStime+((micro_sec%1000000)/1000000.));
 }
+
 float get_time()
 {
-  	  struct timespec tp;
   	  unsigned long micro_sec;
 
           micro_sec = timer_read (1);
@@ -2626,7 +2656,8 @@ latchexcel (int axis)
   }
   printf ("\r\n");
 }
-print_max ()
+
+void print_max ()
 {
   int i;
 
@@ -2636,4 +2667,5 @@ print_max ()
   for (i=0;i<3;i++)
     printf ("\r\nAXIS %d: MAX VEL limit %lf deg/sec current max %lf",
 	  i,max_velocity[i],max_velocity[i+3]);
+
 }
