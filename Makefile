@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 
-DIRS = ab ip mei-new util mcp-new
+DIRS = ab ip mei-new util mcp-new etc
 
 all :
 	@for d in $(DIRS); do \
