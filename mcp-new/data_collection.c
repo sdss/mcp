@@ -484,8 +484,6 @@ DataCollectionTrigger(void)
       if(semTake(semSDSSDC, WAIT_FOREVER) == ERROR) {
 	 TRACE(0, "failed to take semSDSSDC: %s", strerror(errno), 0);
       } else {
-	 unsigned short CRC;		/* CRC of sdssdc, starting offset
-					   bytes into struct */
 	 const int offset = offsetof(struct SDSS_FRAME, ctime);
 
 #if 0
@@ -504,16 +502,22 @@ DataCollectionTrigger(void)
 	 semGive(semSDSSDC);
 
 	 dc_interrupt();
+#if 0
 /*
  * check that CRC
  */
-	 CRC = phCrcCalc(0, (char *)(SHARE_MEMORY + 2) + offset,
-			 (signed)sizeof(sdssdc) - offset) & 0xFFFF;
-
-	 if(sdssdc.CRC != CRC) {
-	    printf("RHL: CRC has changed: 0x%x v. 0x%x",
-		   sdssdc.CRC, CRC);
+	 {
+	    unsigned short CRC;		/* CRC of sdssdc, starting offset
+					   bytes into struct */
+	    CRC = phCrcCalc(0, (char *)(SHARE_MEMORY + 2) + offset,
+			    (signed)sizeof(sdssdc) - offset) & 0xFFFF;
+	    
+	    if(sdssdc.CRC != CRC) {
+	       printf("RHL: CRC has changed: 0x%x v. 0x%x",
+		      sdssdc.CRC, CRC);
+	    }
 	 }
+#endif
       }
    }
 }
