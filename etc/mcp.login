@@ -8,7 +8,7 @@ routeAdd("0", "192.41.211.1")
 netDevCreate("galileo:","galileo",0)
 #nfsMount ("galileo","/export/apotop/visitor1","/vxdsp")
 # get to the version root
-cd "/home/rhl/mcp"
+cd "/p/mcpbase"
 #
 ld < ip/ipOctalSerial.o
 ld < ip/mv162IndPackInit.o
