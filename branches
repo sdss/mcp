@@ -69,8 +69,15 @@ Wed Sep 19 13:11:42 MDT 2001
 	cvs ci -m "merged from v5_4 branch at point v5_4_3"
 
 Wed Sep 26 11:38:41 MDT 2001
-	cvs -1 rtag -r v5_4 v5_4_3 mcp
+	cvs -q rtag -r v5_4 v5_4_3 mcp
 	(no conflicts, hence no commits beyond v5_4_3)
 	Created v5_5 branch
 	cvs rtag v5_5_0 mcp
 	cvs rtag -b -r v5_5_0 v5_5 mcp
+
+Wed Oct 10 16:20:23 MDT 2001
+	Created v5_6 branch
+	cvs rtag -r v5_5 v5_5_0 mcp
+	(no conflicts, hence no commits beyond v5_5_0)
+	cvs -q tag v5_6_0
+	cvs -q tag -b -r v5_6_0 v5_6
