@@ -42,6 +42,8 @@
 #include "cw.h"
 #include "instruments.h"
 #include "dscTrace.h"
+#include "cmd.h"
+#include "mcpUtils.h"
 
 /*========================================================================
 **========================================================================
@@ -64,6 +66,8 @@
 SEM_ID semMEIDC=NULL;
 SEM_ID semMEIUPD=NULL;
 SEM_ID semSLCDC=NULL;
+SEM_ID semSDSSDC = NULL;
+
 int rawtick=0;
 /* Enables for axis 0, 2, 4: Azimuth(0), Altitude(2), Rotator(4) */
 int MEIDC_Enable[]={TRUE,TRUE,TRUE};
@@ -81,7 +85,7 @@ struct TM_M68K *tmaxis[NAXIS] = {
    (struct TM_M68K *)&sdssdc.axis[INSTRUMENT]
 };
 struct AXIS_STAT axis_stat[NAXIS] = {0x0, 0x0, 0x0};
-struct AXIS_STAT persistent_axis_stat[NAXIS]={0x0, 0x0, 0x0};
+
 int meistatcnt=0;
 #define	DATA_STRUCT(dsp, axis, offset)	(P_DSP_DM)((dsp)->data_struct+(DS_SIZE* (axis)) + offset)
 
@@ -158,15 +162,15 @@ mei_data_collection(unsigned long freq)
    int i;
    int MEIDC_Rotate = 0;		/* which axis to collect next */
    int rotate;				/* used to choose next MEIDC_Rotate */
-   
-   /*  ****************************************************  **
-       put whatever type of motion you want to sample here.
-       **  ****************************************************  */
+
    if(semMEIDC == NULL) {
       semMEIDC = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
    }
    if(semMEIUPD == NULL) {
       semMEIUPD = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+   }
+   if(semSDSSDC == NULL) {
+      semSDSSDC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
    }
    
    mei_freq = freq;
@@ -177,12 +181,14 @@ mei_data_collection(unsigned long freq)
 	 continue;
       }
       
-      if(semTake(semMEIUPD, 60) == ERROR) {
+      if(semTake(semMEI, NO_WAIT) == ERROR) {
 	 continue;
       }
       
-      if(semTake(semMEI, NO_WAIT) == ERROR) {
-	 semGive(semMEIUPD);
+      if(semTake(semSDSSDC, 60) == ERROR) {
+	 TRACE(2, "mei_data_collection failed to take semSDSSDC: %s",
+							   strerror(errno), 0);
+	 semGive(semMEI);
 	 continue;
       }
       
@@ -193,6 +199,7 @@ mei_data_collection(unsigned long freq)
       i = MEIDC_Rotate;
       if(!MEIDC_Enable[i]) {
 	 semGive(semMEI);
+	 semGive(semSDSSDC);
       } else {
 	 pcdsp_transfer_block(dspPtr,TRUE,FALSE,
 			      DATA_STRUCT(dspPtr, i*2, DS_PREV_ENCODER),
@@ -221,6 +228,8 @@ mei_data_collection(unsigned long freq)
 	   convert_mei_to_mcp(i, tmaxis[i]->actual_position);
 	 tmaxis[i]->actual_position2 =
 	   convert_mei_to_mcp(i, tmaxis[i]->actual_position2);
+
+	 semGive(semSDSSDC);
       }
       
       for(i = 1; i < 4; i++) {	/* find next enabled data collection */
@@ -230,46 +239,19 @@ mei_data_collection(unsigned long freq)
 	    break;
 	 }
       }
-      tm_data_collection();
-
-      semGive(semMEIUPD);
+#if 0
+      tm_data_collection();		/* values are not used */
+#endif
    }
 }
 
 /*=========================================================================
-**=========================================================================
 **
-** ROUTINE: slc_data_collection
-**
-** DESCRIPTION:
 **	Collect data from the SLC504 AB via DH+.  Also, collection of 
 **	counter-weight values from hardware, instrument lift hardware and
 **	ctime.  Status of the MEI controllers is produced for the TCC.  If
 **	the broadcast is enabled, the datagram is sent.  All this is 
 **	done at the base rate of the SLC data collection.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**	slc_read_blok
-**	cw_data_collection
-**	il_data_collection 
-**	time
-**	ipsdss_send
-**	check_stop_in
-**	az_amp_ok
-**	alt_amp_ok
-**	rot_amp_ok
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semMEI
-**	semSLC
-**	semSLCDC
-**	axis_stat[]
-**
-**=========================================================================
 */
 void
 slc500_data_collection(unsigned long freq)
@@ -292,7 +274,16 @@ slc500_data_collection(unsigned long freq)
 	 break;
       }
 
-      if(semTake(semSLC,60) != ERROR) {
+      if(semTake(semSDSSDC, 60) == ERROR) {
+	 TRACE(2, "slc500_data_collection failed to take semSDSSDC: %s",
+							   strerror(errno), 0);
+	 continue;
+      }
+      
+      if(semTake(semSLC,60) == ERROR) {
+	 TRACE(2, "slc500_data_collection failed to take semSLC: %s",
+							   strerror(errno), 0);
+      } else {
 	 stat  = slc_read_blok(1,9,BIT_FILE, 0, (uint *)&status[0], 64);
 	 stat |= slc_read_blok(1,9,BIT_FILE, 64, (uint *)&status[128], 64);
 	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 38);
@@ -305,25 +296,36 @@ slc500_data_collection(unsigned long freq)
 	 assert(status_b10[sizeof(status_b10) - 1] == '\a');
 	 
 	 if(stat == 0) {
-	    taskLock();
-	    
+/*
+ * byteswap status/status_b10 and copy them into sdssdc at the same time
+ */
 	    swab(status, (char *)(&sdssdc.status.i1),
-		   sizeof(struct AB_SLC500) -
-		   ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status));
+		 sizeof(struct AB_SLC500) -
+		 ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status));
 	    swab(status_b10, (char *)(&sdssdc.b10), sizeof(struct B10));
-	    taskUnlock();
 	 }
       }
-      
+
       cw_data_collection();
-      il_data_collection(); 
-   
-      axis_stat[0].stop_ok =
-	axis_stat[1].stop_ok = axis_stat[2].stop_ok = (check_stop_in() ? 1 : 0);
+      il_data_collection();
+	 
+      while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
+	 taskSuspend(NULL);
+      }
       
-      axis_stat[0].amp_ok = az_amp_ok()  ? 1 : 0;
-      axis_stat[1].amp_ok = alt_amp_ok() ? 1 : 0;
-      axis_stat[2].amp_ok = rot_amp_ok() ? 1 : 0;
+      axis_stat[AZIMUTH].stop_in =
+	axis_stat[ALTITUDE].stop_in =
+	  axis_stat[INSTRUMENT].stop_in = (check_stop_in() ? 1 : 0);
+
+      axis_stat[AZIMUTH].semCmdPort_taken =
+	axis_stat[ALTITUDE].semCmdPort_taken =
+	  axis_stat[INSTRUMENT].semCmdPort_taken =
+	    (getSemTaskId(semCmdPort) != 0) ? 1 : 0;
+      
+      axis_stat[AZIMUTH].amp_bad = az_amp_ok()  ? 0 : 1;
+      axis_stat[ALTITUDE].amp_bad = alt_amp_ok() ? 0 : 1;
+      axis_stat[INSTRUMENT].amp_bad = rot_amp_ok() ? 0 : 1;
 /*
  * Set sticky versions of bump switches; these stay on until explicitly
  * cleared with clear_sticky_bumps() (called by e.g. init_cmd())
@@ -358,16 +360,29 @@ slc500_data_collection(unsigned long freq)
       if(semTake(semMEI, 5) != ERROR) {
 	 for(i = 0; i < NAXIS; i++) {
 	    sdssdc.axis_state[i] = axis_state(2*i);
-	    axis_stat[i].closed_loop =
-				    (sdssdc.axis_state[i] <= NEW_FRAME) ? 1 : 0;
+	    axis_stat[i].out_closed_loop =
+	      (sdssdc.axis_state[i] <= NEW_FRAME) ? 0 : 1;
 	 }
-
+	 
 	 semGive(semMEI);
       }
-      
+/*
+ * Set old versions of some bits; these can be removed when we rebuild
+ * everything that depends on data_collection.h XXX
+ */
+      for(i = 0; i < NAXIS; i++) {
+	 axis_stat[i].stop_ok = !axis_stat[i].stop_in;
+	 axis_stat[i].amp_ok = !axis_stat[i].amp_bad;
+	 axis_stat[i].closed_loop = !axis_stat[i].out_closed_loop;
+      }
+
+      semGive(semMEIUPD);
+
       if(BCAST_Enable) {
 	 ipsdss_send((char *)&sdssdc, sizeof(struct SDSS_FRAME));
       }
+      
+      semGive(semSDSSDC);
    }
 }
 
@@ -406,21 +421,36 @@ DataCollectionTrigger(void)
 {
    DC_freq++;
    rawtick=tickGet();
-   
+/*
+ * Giving semMEIDC and/or semSLCDC causes their data collection routines
+ * to wake up and gather data
+ */
    if(semMEIDC != NULL && !(DC_freq%mei_freq)) {
       semGive(semMEIDC);
    }
    
    if(semSLCDC != NULL && !(DC_freq%slc_freq)) {
-      semGive (semSLCDC);
+      semGive(semSLCDC);
    }
-   
+/*
+ * Copy data from sdssdc to shared memory
+ */
    if(SM_COPY) {
-      *(short *)SHARE_MEMORY = TRUE;
-      bcopy((char *)&sdssdc,
-	    (char *)(SHARE_MEMORY+2),sizeof(struct SDSS_FRAME));
-      *(short *)SHARE_MEMORY = FALSE;
-      dc_interrupt();
+      if(semTake(semSDSSDC, WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "failed to take semSDSSDC: %s", strerror(errno), 0);
+      } else {
+	 if(sdssdc.status.i1.il6.sec_mir_force_limits) {
+	    printf("RHL XXX sec_mir_force_limits is true\n");
+	 }
+	 *(short *)SHARE_MEMORY = TRUE;
+	 memcpy((char *)(SHARE_MEMORY+2),
+		(char *)&sdssdc, sizeof(struct SDSS_FRAME));
+	 *(short *)SHARE_MEMORY = FALSE;
+
+	 semGive(semSDSSDC);
+
+	 dc_interrupt();
+      }
    }
 }
 
