@@ -377,17 +377,23 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 	       correction, axis_name(axis));
       } else {
 	 if(axis_stat[axis].ms_on_correction_too_large) {
-	    TRACE(0, "MS.ON is disabled for %s; not applying ",
-		  axis_name(axis), correction);
+	    if(fiducial[axis].max_correction > 0) {
+	       TRACE(0, "MS.ON is disabled for %s; not applying ",
+		     axis_name(axis), correction);
+	    }
 	    return;
 	 }
 	 
-	 TRACE(3, "Applying correction %ld to %s",
-	       correction, axis_name(axis));
+	 if(fiducial[axis].max_correction > 0) {
+	    TRACE(3, "Applying correction %ld to %s",
+		  correction, axis_name(axis));
+	 }
 	 
 	 if(abs(correction) >= fiducial[axis].max_correction) {
-	    TRACE(0, "    correction %ld is too large (max %ld)",
-		  correction, fiducial[axis].max_correction);
+	    if(fiducial[axis].max_correction > 0) {
+	       TRACE(0, "    correction for %s %ld is too large",
+		     axis_name(axis), correction);
+	    }
 	    
 	    if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
 	       TRACE(0, "couldn't take semSLCDC semahore.", 0, 0);
@@ -1589,7 +1595,7 @@ restore_fiducials_all ()
 /*****************************************************************************/
 /*
  * Restore the fiducials from a file. Note that this doesn't make them
- * current -- use MS.SET.ALL (ms_set_all_cmd()) for that.
+ * current -- use MS.DEFINE (ms_define_cmd()) for that.
  *
  * See also restore_fiducials and write_fiducials
  */
