@@ -192,7 +192,7 @@ void iptimeSet (char *node, int tzadj)
      else t.tm_mon=7;
      break;
     case 'M':		/* MAR MAY */
-     if (time_msg[5]=='r') t.tm_mon=3;
+     if (time_msg[6]=='r') t.tm_mon=3;
      else t.tm_mon=5;
      break;
     case 'N':		/* NOV*/
