@@ -1,7 +1,7 @@
 #if !defined(AXIS_H)
 #define AXIS_H
 
-#define ALLOW_AMP_UPDATE 0		/* allow *_amp_ok() to update? */
+#define ALLOW_AMP_UPDATE 1		/* allow *_amp_ok() to update? */
 
 #if !defined(M_PI)
 #  define M_PI 3.14159265358979323846
