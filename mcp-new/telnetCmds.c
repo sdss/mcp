@@ -18,7 +18,7 @@
 #include "axis.h"
 #include "cmd.h"
 
-#define STATIC				/*  */
+#define STATIC static			/*  */
 
 #define MAX_QUEUED_CONNECTIONS 3	/* max. number of queued connections
 					   to allow */
@@ -32,52 +32,85 @@ STATIC SEM_ID semCmdPort = NULL;	/* semaphore to control permission
 /*****************************************************************************/
 /*
  * Return 1 if the command should only be permitted to the holder of the
- * semCmdPort semaphore
+ * semCmdPort semaphore, otherwise 0.  Only check first word of command
  */
-STATIC int
-locked_command(const char *cmd)
+static int
+locked_command0(const char *cmd)
 {
-   if(strcmp(cmd, "ID") == 0 ||
-      strcmp(cmd, "MC.DUMP") == 0 ||
-      strcmp(cmd, "MR.DUMP") == 0 ||
-      strcmp(cmd, "MS.DUMP") == 0 ||
-      strcmp(cmd, "MS.MAP.DUMP") == 0 ||
-      strcmp(cmd, "MS.POS.DUMP") == 0 ||
-      strcmp(cmd, "STATS") == 0 ||
-      strcmp(cmd, "STATUS.LONG") == 0 ||
-      strcmp(cmd, "STATUS") == 0 ||
-      strcmp(cmd, "IR") == 0 ||
-      strcmp(cmd, "TEL1") == 0 ||
-      strcmp(cmd, "TEL2") == 0 ||
-      strcmp(cmd, "TICKLOST @ .") == 0 ||
-      strcmp(cmd, "CWSTATUS") == 0 ||
-      strcmp(cmd, "SP1") == 0 ||
-      strcmp(cmd, "SP2") == 0 ||
-      strcmp(cmd, "SLIT.STATUS") == 0 ||
-      strcmp(cmd, "FFS.CLOSE") == 0 ||
-      strcmp(cmd, "FFS.OPEN") == 0 ||
-      strcmp(cmd, "FFL.ON") == 0 ||
-      strcmp(cmd, "FFL.OFF") == 0 ||
-      strcmp(cmd, "NE.ON") == 0 ||
-      strcmp(cmd, "NE.OFF") == 0 ||
-      strcmp(cmd, "HGCD.ON") == 0 ||
-      strcmp(cmd, "HGCD.OFF") == 0 ||
-      strcmp(cmd, "FF.STATUS") == 0 ||
-      strcmp(cmd, "AB.STATUS") == 0 ||
-      strcmp(cmd, "VERSION") == 0) {
+   char cmd0[100];			/* copy of initial word of cmd */
+   int i;
+
+   for(i = 0; cmd[i] != '\0' && !isspace(cmd[i]); i++) {
+      cmd0[i] = cmd[i];
+   }
+   assert(i < 100 - 1);
+   cmd0[i] = '\0';
+
+   if(isdigit(cmd0[0]) ||
+      strcmp(cmd0, "AXIS.STATUS") == 0 ||
+      strcmp(cmd0, "ID") == 0 ||
+      strcmp(cmd0, "MC.DUMP") == 0 ||
+      strcmp(cmd0, "MR.DUMP") == 0 ||
+      strcmp(cmd0, "MS.DUMP") == 0 ||
+      strcmp(cmd0, "MS.MAP.DUMP") == 0 ||
+      strcmp(cmd0, "MS.POS.DUMP") == 0 ||
+      strcmp(cmd0, "STATS") == 0 ||
+      strcmp(cmd0, "STATUS.LONG") == 0 ||
+      strcmp(cmd0, "STATUS") == 0 ||
+      strcmp(cmd0, "IR") == 0 ||
+      strcmp(cmd0, "TEL1") == 0 ||
+      strcmp(cmd0, "TEL2") == 0 ||
+      strcmp(cmd0, "TICKLOST @ .") == 0 ||
+      strcmp(cmd0, "SP1") == 0 ||
+      strcmp(cmd0, "SP2") == 0 ||
+      strcmp(cmd0, "SLIT.STATUS") == 0 ||
+      strcmp(cmd0, "FFS.CLOSE") == 0 ||
+      strcmp(cmd0, "FFS.OPEN") == 0 ||
+      strcmp(cmd0, "FFL.ON") == 0 ||
+      strcmp(cmd0, "FFL.OFF") == 0 ||
+      strcmp(cmd0, "NE.ON") == 0 ||
+      strcmp(cmd0, "NE.OFF") == 0 ||
+      strcmp(cmd0, "HGCD.ON") == 0 ||
+      strcmp(cmd0, "HGCD.OFF") == 0 ||
+      strcmp(cmd0, "FF.STATUS") == 0 ||
+      strcmp(cmd0, "CW.STATUS") == 0 ||
+      strcmp(cmd0, "AB.STATUS") == 0 ||
+      strcmp(cmd0, "VERSION") == 0) {
       return(0);
    }
    
    return(1);
 }
 
+/*
+ * See if any word in a command string is locked
+ */
+STATIC int
+locked_command(const char *cmd)
+{
+   const char *ptr = cmd;
+
+   for(;;) {
+      if(locked_command0(ptr)) {
+	 return(1);
+      }
+
+      if((ptr = strpbrk(ptr, " \t\n")) == NULL) {
+	 break;
+      }
+      while(isspace(*ptr)) ptr++;
+   }
+
+   return(0);
+}
+
 /*****************************************************************************/
 /*
  * The task that does the work of reading commands and executing them
  */
-STATIC void
+void
 cpsWorkTask(int fd,			/* as returned by accept() */
-	       struct sockaddr_in *client) /* the client's socket address */
+	    struct sockaddr_in *client) /* the client's socket address */
 {
    char buff[MSG_SIZE];			/* buffer to reply to messages */
    char cmd[MSG_SIZE];			/* buffer to read messages */
@@ -106,7 +139,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 /*
  * Maybe execute it
  */
-      if(strcmp(cmd, "SEM.TAKE") == 0) {
+      if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
 	 if(!took_semCmdPort && semTake(semCmdPort,60) == OK) {
 	    took_semCmdPort = 1;
 	 }
@@ -118,7 +151,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 		    strerror(errno));
 	    reply = buff;
 	 }
-      } else if(strcmp(cmd, "SEM.GIVE") == 0) {
+      } else if(strncmp(cmd, "SEM.GIVE", 8) == 0) {
 	 if(took_semCmdPort && semGive(semCmdPort) == OK) {
 	    took_semCmdPort = 0;
 	 }
@@ -130,7 +163,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 		    strerror(errno));
 	    reply = buff;
 	 }
-      } else if(strcmp(cmd, "SEM.SHOW") == 0) {
+      } else if(strncmp(cmd, "SEM.SHOW", 8) == 0) {
 	 semShow(semCmdPort, 1);
 	 reply = "";
       } else if(!locked_command(cmd)) {
