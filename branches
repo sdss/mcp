@@ -27,3 +27,9 @@ Thu Jan 25 13:10:08 MST 2001
 	cvs update -p -r v4_4_5 fiducial-tables/rot.dat > \
 							fiducial-tables/rot.dat
 	cvs ci -m "merged from v4_4 branch: v4_4_0--v4_4_5"
+
+Fri May 11 17:34:39 MDT 2001
+	Created v5_0 branch
+
+	cvs rtag v5_0_0 mcp
+	cvs rtag -r v5_0_0 -b v5_0 mcp
