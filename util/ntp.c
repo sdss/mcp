@@ -14,6 +14,7 @@
 #include <in.h>
 #include "tod_prototypes.h"
 #include "ntp.h"
+#include "mcpNtp.h"
 
 int
 setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
