@@ -12,8 +12,6 @@ SYSTRAN = ../ip/systran/
 ACROMAG = ../ip/acromag/
 AB = ../ab
 VW = $(VX_DSC_DIR)/
-#VW = /p/vx_dsc/v5_1_1f3/
-#VW = /usr/vw_52/
 VWINC		= $(VW)h/
 CONFIG		= $(VW)/config/mv162/
 VWSYSINC	= $(VWINC)drv/
@@ -29,47 +27,38 @@ VWSYSINCLUDES	= $(CONFIG)mv162.h $(VWINC)drv/multi/mcchip.h
 
 INCLUDES	= $(PROGINCLUDES) $(VWINCLUDES) $(VWSYSINCLUDES)
 
-SOURCES		= usrtime.c rtc.c microtime.c iptime.c timer.c
-
 OBJECTS		= iptime.o usrtime.o rtc.o microtime.o timer.o
-
-ALLFILES	= $(MAKEFILE) $(INCLUDES) $(SOURCES)
-
+EXTRA_OBJS      = dscTrace.o
 
 ## tools
 CC		= cc68k
-AS		= as68k
 LD		= ld68k
 RM		= rm -f
-PRINT		= pr
 AR		= ar68k
 RANLIB		= ranlib68k
 LINK = ld68k
 
-
 ## flags
 
-INCLUDEFLAGS	= -I. -I$(VWINC) -I$(CONFIG) -I$(VWSYSINC)
+INCLUDEFLAGS	= -I. -I$(VWINC) -I$(CONFIG) -I$(VWSYSINC) \
+			-I$(VX_TOOLS_DIR)/include
 DEBUGFLAG	=
 CFLAGS		= -c -O -ansi -pipe -Wall $(DEBUGFLAG) $(INCLUDEFLAGS) \
 		  -DCPU=MC68040 -m68040 $(FEATURES)
-CASFLAGS	= -E $(INCLUDEFLAGS) -DCPU=MC68040
-LDFLAGS		= -d -r
 LIBS		=
-LFLAGS = -r -M
+LFLAGS = -r
 
 
 ## actions
 
-all default : $(LIBFILE)
+all default : $(LIBFILE) $(EXTRA_OBJS)
 
 $(LIBFILE): $(OBJECTS)
 	    $(RM) $(LIBFILE)
 	    $(AR) cru $(LIBFILE) $(OBJECTS)
 	    $(RANLIB) $(LIBFILE)
 	$(LINK) $(LFLAGS) -o  utiltim.out \
-	iptime.o usrtime.o rtc.o microtime.o \
-	>$(DESTDIR)utiltim.map
+	iptime.o usrtime.o rtc.o microtime.o
 
 install : all
 	cp Makefile *.[cho] *.out $(MCP_DIR)/util
