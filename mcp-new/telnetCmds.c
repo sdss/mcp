@@ -73,6 +73,8 @@ locked_command0(const char *cmd)
       strcmp(cmd0, "SLIT.STATUS") == 0 ||
       strcmp(cmd0, "FFS.CLOSE") == 0 ||
       strcmp(cmd0, "FFS.OPEN") == 0 ||
+      strcmp(cmd0, "FF.ON") == 0 ||
+      strcmp(cmd0, "FF.OFF") == 0 ||
       strcmp(cmd0, "FFL.ON") == 0 ||
       strcmp(cmd0, "FFL.OFF") == 0 ||
       strcmp(cmd0, "NE.ON") == 0 ||
@@ -184,7 +186,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  * Take the sem that display.c used to take; XXX
  */
       if(semTake(semMEIUPD, 60) == ERROR) {
- 	 TRACE(0, "Cannot take semMEIUPD to process cmd %s ($d)", cmd, errno);
+ 	 TRACE(0, "Cannot take semMEIUPD to process cmd %s (%d)", cmd, errno);
 	 continue;
       }
 /*
@@ -286,10 +288,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "restarted the tTelnetd";
 	 }
       } else if(!locked_command(cmd)) {
-	 reply = cmd_handler(cmd);
+	 reply = cmd_handler(took_semCmdPort, cmd);
       } else {
 	 if(took_semCmdPort) {
-	    reply = cmd_handler(cmd);
+	    reply = cmd_handler(took_semCmdPort, cmd);
 	 } else {
 	    reply = "I don't have the semCmdPort semaphore";
 	 }
@@ -318,7 +320,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    }
 
    if(n == ERROR && errno != 0) {
-      fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
+      fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
    }
 
    if(took_semCmdPort) {
