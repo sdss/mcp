@@ -63,10 +63,6 @@
 SEM_ID semMEI = NULL;
 SEM_ID semSLC = NULL;
 
-MSG_Q_ID msgMoveCW = NULL;		/* control the moveCW task */
-MSG_Q_ID msgMoveCWAbort = NULL;		/*  "   "   "   "  "   "   */
-SEM_ID semMoveCWBusy = NULL;		/*  "   "   "   "  "   "   */
-
 int axis_select = -1;			/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
 int MEI_interrupt = FALSE;
 int sdss_was_init = FALSE;
@@ -340,15 +336,34 @@ init_cmd(char *cmd)
    
    tm_reset_integrator(2*axis_select);
    enable_pvt(axis_select);
-   
-   while(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "couldn't take semSLCDC semaphore.", 0, 0);
+/*
+ * clear the axis status, but then give the data collection routines a chance
+ * to reset bits
+ */
+   while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
       taskSuspend(NULL);
    }
-   
-   memset(&axis_stat[axis_select], '\0', sizeof(struct AXIS_STAT *));
-   semGive(semSLCDC);
+   *(long *)&axis_stat[axis_select] = 0;
+   semGive(semMEIUPD);
 
+   if(semMEIDC != NULL) {
+      semGive(semMEIDC);		/* trigger taking data */
+
+      while(getSemTaskId(semMEIDC) == 0) {
+	 taskDelay(1);			/* give it a chance to do something*/
+      }
+   }
+   if(semSLCDC != NULL) {
+      semGive(semSLCDC);		/* trigger taking data */
+      
+      while(getSemTaskId(semSLCDC) == 0) {
+	 taskDelay(1);			/* give it a chance to do something*/
+      }
+   }
+/*
+ * OK, the axis status is updated
+ */
    switch(axis_select) {
     case AZIMUTH:
       amp_reset(2*axis_select);		/* two amplifiers, */
@@ -607,10 +622,13 @@ status_cmd(char *cmd)
    }
 
    sprintf(status_ans,"%f %f %f %ld %f",
-	    (*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
-	    (*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
-	    sdss_time, *(long *)&axis_stat[axis_select],
-	    fiducial[axis_select].mark/ticks_per_degree[axis_select]);
+	  (*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
+	   (*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
+	   sdss_time, (*(long *)&axis_stat[axis_select] & ~STATUS_MASK),
+	   fiducial[axis_select].mark/ticks_per_degree[axis_select]);
+
+   *(long *)&axis_stat[axis_select] = 0;
+
    semGive(semMEIUPD);
 
    return status_ans;
@@ -677,6 +695,7 @@ check_stop_in(void)
       sdssdc.status.i6.il0.s_rail_stop &&
       sdssdc.status.i6.il0.n_rail_stop &&
       sdssdc.status.i6.il0.n_fork_stop &&
+      sdssdc.status.i6.il0.nw_fork_stop &&
       sdssdc.status.i6.il0.n_wind_stop &&
       sdssdc.status.i6.il0.cr_stop &&
       sdssdc.status.i6.il0.s_wind_stop) {
@@ -1801,6 +1820,14 @@ axisMotionInit(void)
    set_filter(2*INSTRUMENT, (P_INT)coeff);
 
    semGive(semMEI);
+/*
+ * Check that we can cast axis_stat[] to long and do bit manipulations
+ */
+   if(sizeof(struct AXIS_STAT) != sizeof(long)) {
+      TRACE(0, "sizeof(struct AXIS_STAT) != sizeof(long) (%d != %d)",
+	    sizeof(struct AXIS_STAT), sizeof(long));
+      abort();
+   }
 /*
  * Spawn the tasks that run the axes
  */
