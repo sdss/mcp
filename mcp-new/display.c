@@ -44,6 +44,7 @@ erase the screen etc.
 #include "display.h"
 #include "stdio.h"
 #include "tickLib.h"
+#include "usrLib.h"
 #include "time.h"
 #include "ioLib.h"
 #include "semLib.h"
@@ -553,7 +554,7 @@ void Menu()
            if (fidfp!=NULL)
 	   {
 	     time (&fidtim);
-             fprintf (fidfp,"\n#Menu %d\t%d\t%.25s:%lf\t%ld\t%ld",
+             fprintf (fidfp,"\n#Menu %d\t%d\t%.25s:%f\t%ld\t%ld",
 	          Axis,fiducial[Axis/2].index,
 	          ctime(&fidtim),sdss_get_time(),
 	          (long)fiducial_position[Axis/2]-fiducial[Axis/2].mark,
