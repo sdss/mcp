@@ -1,0 +1,29 @@
+#!/bin/sh
+
+UPS_SHELL=sh;  export UPS_SHELL
+
+if [ X$MCP_DIR = X"" ]; then
+    echo 'Please set the MCP version with the setup command' >2
+    exit 1
+fi
+
+if [ ! -d $MCP_DIR ]; then
+    echo "Directory $MCP_DIR doesn't exist" >2
+    exit 1
+fi
+umask 002
+
+cd /p/mcpbase
+
+for f in ab etc ip mcp-new util; do
+    if [ -l $f ]; then 
+	rm $f
+    fi
+
+    ln -s $MCP_DIR/$f $f
+done
+
+exit 0
+
+
+
