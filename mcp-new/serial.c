@@ -672,7 +672,7 @@ cancel_read(void)
        
        if (cancel[i].tmo > 0 && !cancel[i].active) {
 	  taskUnlock();
-	  TRACE(4, "not active; port %d (tmo=%d)", i, cancel[i].tmo);
+	  TRACE(4, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo);
 	  cancel[i].tmo = 0;
        } else {
 	  taskUnlock();
@@ -683,7 +683,7 @@ cancel_read(void)
 	  status = ioctl(cancel[i].fd, FIOCANCEL, 0);
 	  cancel[i].cancel = TRUE;
 	  cancel[i].count++;
-	  TRACE(4, "canceled port %d (status=0x%x)", i, status);
+	  TRACE(4, "barcode canceled port %d (status=0x%x)", i, status);
        } else {
 	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo);
        }
