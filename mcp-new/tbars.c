@@ -47,9 +47,11 @@ tBars(void)
        case TbarsLatch_type:
        case TbarsUnlatch_type:
 	 (void)timerSend(TbarsLatchCheck_type, tmr_e_abort_ns,
-			 0, 0, 0);	/* abort any pending confimations */
+			 0, TbarsLatchCheck_type, 0); /* abort any pending
+							 confimations */
 	 (void)timerSend(TbarsUnlatchCheck_type, tmr_e_abort_ns,
-			 0, 0, 0);	/* abort any pending confimations */
+			 0, TbarsUnlatchCheck_type, 0);	/* abort any pending
+							   confimations */
 	 
 	 latch_tbars = (msg.type == TbarsLatch_type) ? 1 : 0;
 	 break;
@@ -124,7 +126,7 @@ tBars(void)
 
       msg.type = latch_tbars ? TbarsLatchCheck_type : TbarsUnlatchCheck_type;
       if(timerSend(msg.type, tmr_e_add,
-		   wait*60, 0, msgTbars) == ERROR) {
+		   wait*60, msg.type, msgTbars) == ERROR) {
 	 TRACE(0, "Failed to send message to timer task: %s (%d)",
 	       strerror(errno), errno);
       }

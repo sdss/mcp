@@ -54,7 +54,8 @@ tAlgnClmp(void)
       switch (msg.type) {
        case alignClamp_type:
 	 engage = (msg.u.alignClamp.op == ENGAGE) ? 1 : 0;
-	 timerSend(alignClampCheck_type, tmr_e_abort, 0, 0, msgAlignClamp);
+	 timerSend(alignClampCheck_type, tmr_e_abort_ns,
+		   0, alignClampCheck_type, msgAlignClamp);
 	 break;
        case alignClampCheck_type:
 	 if(sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
@@ -108,7 +109,7 @@ tAlgnClmp(void)
 	 TRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0);
 	 
 	 if(timerSend(alignClampCheck_type, tmr_e_add,
-		      wait*60, 0, msgAlignClamp) == ERROR) {
+		      wait*60, alignClampCheck_type, msgAlignClamp) == ERROR) {
 	    TRACE(0, "Failed to send message to timer task: %s (%d)",
 		  strerror(errno), errno);
 	 }
@@ -547,8 +548,10 @@ tFFS(void)
  *   FFSCheckClosed_type A request from us to check that the screens closed
  */
       if(msg.type == FFS_type) {
-	 (void)timerSend(FFSCheckClosed_type, tmr_e_abort_ns, 0, 0, 0);
-	 (void)timerSend(FFSCheckOpen_type, tmr_e_abort_ns, 0, 0, 0);
+	 (void)timerSend(FFSCheckClosed_type, tmr_e_abort_ns,
+			 0, FFSCheckClosed_type, 0);
+	 (void)timerSend(FFSCheckOpen_type, tmr_e_abort_ns,
+			 0, FFSCheckOpen_type, 0);
       } else {
 	 if(msg.type == FFSCheckClosed_type) {
 	    if(!ffs_close_status()) {
@@ -587,7 +590,7 @@ tFFS(void)
 	 msg_type = FFSCheckClosed_type;
       }
 
-      if(timerSend(msg_type, tmr_e_add, wait*60, 0, msgFFS) == ERROR) {
+      if(timerSend(msg_type, tmr_e_add, wait*60, msg_type, msgFFS) == ERROR) {
 	 TRACE(0, "Failed to send message to timer task: %s (%d)",
 	       strerror(errno), errno);
       }
