@@ -101,7 +101,7 @@ tm_move_instchange(void)
 **
 */
 void
-tm_start_move(int mei_axis, int vel, int accel, int pos)
+tm_start_move(int mei_axis, int pos, int vel, int accel)
 {
    semTake(semMEI,WAIT_FOREVER);
    start_move_corr(mei_axis, (double)pos, (double)vel, (double)accel);
@@ -133,7 +133,7 @@ tm_bf(int axis,				/* axis to move (AZ, ALT, ROT) */
    for(i = 0; i < times; i++) {
       printf ("%d ",i);
       tm_sem_controller_run(2*axis);
-      tm_start_move(2*axis, vel, accel, pos1);
+      tm_start_move(2*axis, pos1, vel, accel);
 
       status = FALSE;
       while(!status) {
@@ -144,7 +144,7 @@ tm_bf(int axis,				/* axis to move (AZ, ALT, ROT) */
 	 semGive(semMEI);
       }
 
-      tm_start_move(2*axis, vel, accel, pos2);
+      tm_start_move(2*axis, pos2, vel, accel);
 
       status = FALSE;
       while(!status) {
