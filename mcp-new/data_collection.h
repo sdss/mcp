@@ -759,7 +759,7 @@ typedef struct {
 typedef struct {
 	unsigned : 16;
 	
-	unsigned audio_warning : 1;
+	unsigned audio_warning_1 : 1;
 	unsigned rack_4_grp_5_bit14 : 1;
 	unsigned rack_4_grp_5_bit13 : 1;
 	unsigned rack_4_grp_5_bit12 : 1;
@@ -943,9 +943,10 @@ struct SDSS_FRAME {
 	struct B10 b10;
 };
 
+#define STATUS_MASK 0x00000700		/* mask of bits not to pass to TCC */
+
 struct AXIS_STAT {
 	unsigned always_zero : 1;
-
 	unsigned bump_up_ccw_sticky : 1;
 	unsigned bump_dn_cw_sticky : 1;
 	unsigned  : 4;
@@ -954,7 +955,12 @@ struct AXIS_STAT {
 	unsigned  : 6;
 	unsigned clock_slow_signal : 1;
 	unsigned clock_loss_signal : 1;
-        unsigned : 5;
+
+        unsigned : 1;
+	unsigned semCmdPort_taken : 1;
+	unsigned stop_in : 1;
+	unsigned amp_bad : 1;
+	unsigned out_closed_loop : 1;
 	unsigned stop_ok : 1;
 	unsigned amp_ok : 1;
 	unsigned closed_loop : 1;
