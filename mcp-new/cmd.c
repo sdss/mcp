@@ -51,7 +51,7 @@ SYMTAB_ID cmdSymTbl = NULL;		/* our symbol table */
 
 /*****************************************************************************/
 /*
- * A command to notify the MCP that we know it rebooted
+ * A command to notify us that They know we rebooted
  */
 static int iacked = 0;			/* set to 0 on reboot */
 
@@ -80,9 +80,6 @@ cmdInit(void)
  * Define some misc commands that done belong in any init function
  */
    define_cmd("IACK",         iack_cmd,      0, 0, 1);
-   define_cmd("SET.TIME",     set_time_cmd, -1, 1, 1);
-   define_cmd("TICKLOST @ .", ticklost_cmd,  0, 0, 1);
-   define_cmd("TIME?",        time_cmd,      0, 0, 1);
    define_cmd("VERSION",      version_cmd,   0, 0, 1);
 
    return 0;
@@ -143,6 +140,8 @@ define_cmd(char *name,			/* name of command */
 ** RETURN VALUES:
 **      char *	answer to be sent by driver making function invocation.
 */
+char *rebootedMsg = NULL;		/* the message to send until iacked */
+
 char *
 cmd_handler(int have_sem,		/* we have semCmdPort */
 	    char *cmd)			/* command to execute */
@@ -151,7 +150,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    char *ans;
    char *args;				/* arguments for this command */
    char *cmd_str = cmd;			/* pointer to cmd; or NULL */
-   static int iack_counter = -1;	/* control too many "MCP has rebooted"
+   static int iack_counter = -1;	/* control too many rebootedMsg
 					   messages; wait before the first */
    int lvl;				/* level for TRACE */
    int nskip;				/* number of tokens to skip */
@@ -162,7 +161,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 
    if(!iacked) {
       if(iack_counter++%100 == 0) {
-	 TRACE(0, "The MCP has rebooted", 0, 0);
+	 TRACE(0, "%s",
+	       (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0);
       }
    }
 
