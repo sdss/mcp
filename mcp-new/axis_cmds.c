@@ -62,8 +62,10 @@
 #include "taskLib.h"
 #include "rebootLib.h"
 #include "sysLib.h"
+#if defined(CALL_NSF)
 #include "nfsDrv.h"
 #include "nfsLib.h"
+#endif
 #include "ioLib.h"
 #include "errno.h"
 #include "usrLib.h"
@@ -90,7 +92,9 @@
 #include "cw.h"
 #include "serial.h"
 #include "mcpUtils.h"
-
+#include "dscTrace.h"
+#include "mcpMsgQ.h"
+#include "abdh.h"
 /*========================================================================
 **========================================================================
 **
@@ -138,9 +142,9 @@ int errmsg_max[3]={400,200,100}; /* axis fiducial max error to post msg */
 SEM_ID semMEI=NULL;
 SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
+MSG_Q_ID msgDIO316ClearISR = NULL;	/* notify the tm_ClrInt task */
 int tm_DIO316,tm_DID48;
 int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
-int spectograph_select=-1;	/* 0=SP1, 1=SP2, -1=ERROR  */
 int MEI_interrupt=FALSE;
 int DIO316_Init=FALSE;
 int DID48_Init=FALSE;
@@ -220,7 +224,12 @@ void restore_fiducials (int axis);
 void restore_fiducials_all ();
 void print_max ();
 double sdss_delta_time(double t2, double t1);
-void DIO316ClearISR_delay (int delay, int bit);
+#define USE_MSG_Q 1
+#if USE_MSG_Q
+   void DIO316ClearISR_delay(void);
+#else
+   void DIO316ClearISR_delay (int delay, int bit);
+#endif
 int tm_frames_to_execute(int axis);
 
 
@@ -351,7 +360,7 @@ correct_cmd(char *cmd)
      time_t fidtim;
      time(&fidtim);
 
-     fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%ld\t%ld",
+     fprintf(fidfp,"CORRECT %d\t%d\t%.24s:%f\t%ld\t%ld\n",
 	      axis_select,fiducial[axis_select].index,
 	      ctime(&fidtim),sdss_get_time(),
 	      (long)fiducial_position[axis_select]-fiducial[axis_select].mark,
@@ -452,13 +461,14 @@ mcpVersion(void)
    if(ptr == NULL) {
       strncpy(version, tag, 100);
    } else {
+      ptr++;
       while(isspace(*ptr)) ptr++;
       
       if(*ptr != '$') {			/* a CVS tag */
-	 for(i = 0;*ptr != '\0' && !isspace(*ptr) && i < 100; i++) {
+	 for(i = 0; ptr[i] != '\0' && !isspace(ptr[i]) && i < 100; i++) {
 	    version[i] = ptr[i];
 	 }
-	 *version = '\0';
+	 version[i] = '\0';
       } else {
 	 if(*ptr == '$') ptr++;
 	 if(*ptr == '|') ptr++;
@@ -469,7 +479,7 @@ mcpVersion(void)
    }
 
    assert(version[100] == '\a');	/* no overrun */
-   printf("mcpVersion: %s", version);
+   printf("mcpVersion: %s\n", version);
 }
 
 
@@ -1489,7 +1499,7 @@ status_cmd(char *cmd)
       sprintf(status_ans, "ERR: semMEIUPD : %s", strerror(errno));
    }
 
-   sprintf(status_ans,"%f %f %f 0x%lx %f",
+   sprintf(status_ans,"%f %f %f %ld %f",
 	    (*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
 	    (*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
 	    sdss_time, *(long *)&axis_stat[axis_select],
@@ -1549,6 +1559,30 @@ char *status_long_cmd(char *cmd)
 
 /*****************************************************************************/
 /*
+ * Is an e-stop in?
+ */
+int
+check_stop_in(void)
+{
+   if(sdssdc.status.i6.il0.w_lower_stop &&
+      sdssdc.status.i6.il0.e_lower_stop &&
+      sdssdc.status.i6.il0.s_lower_stop &&
+      sdssdc.status.i6.il0.n_lower_stop &&
+      sdssdc.status.i6.il0.w_rail_stop &&
+      sdssdc.status.i6.il0.s_rail_stop &&
+      sdssdc.status.i6.il0.n_rail_stop &&
+      sdssdc.status.i6.il0.n_fork_stop &&
+      sdssdc.status.i6.il0.n_wind_stop &&
+      sdssdc.status.i6.il0.cr_stop &&
+      sdssdc.status.i6.il0.s_wind_stop) {
+      return FALSE;
+   } else {
+      return TRUE;
+   }
+}
+
+/*****************************************************************************/
+/*
  * An axis-status command that can be used by IOP to get enough information
  * to update the MCP Menu
  */
@@ -1560,12 +1594,15 @@ axis_status_cmd(char *cmd)
    long fid_mark = 0;			/* position of fiducial mark */
    static char reply_str[200 + 1];	/* desired values */
 
+   TRACE(5, "Setting reply_str[200] axis == %d", axis, 0);
    reply_str[200] = '\a';
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
 
-   if (semTake (semMEIUPD,60) == ERROR) {
+   TRACE(5, "taking semMEIUPD", 0, 0);
+   if (semTake(semMEIUPD, 60) == ERROR) { 
+      TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
       sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
       return(reply_str);
    }
@@ -1590,16 +1627,21 @@ axis_status_cmd(char *cmd)
       abort();
       break;				/* NOTREACHED */
    }
-     
-   sprintf(reply_str,"%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d 0x%lx",
+
+   TRACE(5, "setting reply_str", 0, 0);
+   sprintf(reply_str,
+	   "%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d %d 0x%lx  %.4f",
 	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
 	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
 		   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
 	   fiducialidx[axis], fiducial[axis].markvalid, fid_mark,
-	   brake_is_on, *(long *)&axis_stat[axis]);
+	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis],
+	   abs(sdssdc.status.i4.alt_position-altclino_off)*altclino_sf);
 
+   TRACE(5, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
 
+   TRACE(5, "Checking reply_str[200]: %d", reply_str[200], 0);
    assert(reply_str[200] == '\a');	/* check for overflow */
 
    return(reply_str);
@@ -1718,7 +1760,7 @@ cwmov_cmd(char *cmd)
      return("ERR: malformed command arguments");
   }
 
-  if(mcp_set_cw(cw, cwpos, &ans) < 0) {
+  if(mcp_set_cw(INST_DEFAULT, cw, cwpos, &ans) < 0) {
      return((char *)ans);
   }
 
@@ -1737,7 +1779,7 @@ cwinst_cmd(char *cmd)
       return "ERR: Invalid Instrument";
    }
    
-   mcp_set_cw(inst, 0, &ans);
+   mcp_set_cw(inst, ALL_CW, 0, &ans);
 
    return (char *)ans;
 }
@@ -1751,20 +1793,17 @@ char *cwabort_cmd(char *cmd)
   return "";
 }
 
-char *
-cwstatus_cmd(char *cmd)
+static int
+get_cwstatus(char *cwstatus_ans,
+	     int size)			/* dimen of cwstatus_ans */
 {
-   static char *limitstatus[]={"LU","L "," U","  "};
-   static char cwstatus_ans[80];
-   int i, idx;
    int adc;
+   int i;
+   int idx;
    int limidx;
-   
-   if(semTake (semMEIUPD,60) == ERROR) {
-      return "ERR: semMEIUPD";
-   }
+   static char *limitstatus[]={"LU", "L.", ".U", ".."};
 
-   idx=0;
+   idx = sprintf(cwstatus_ans,"CW   ");
    for(i = 0; i < 4; i++) {
       adc = sdssdc.weight[i].pos;
       if((adc & 0x800) == 0x800) {
@@ -1773,14 +1812,72 @@ cwstatus_cmd(char *cmd)
 	 adc &= 0xFFF;
       }
       limidx = (cwLimit >> (i*2)) & 0x3;
-      idx += sprintf(&cwstatus_ans[idx],"CW%d %d %s",
-		     i,(1000*adc)/2048,limitstatus[limidx]);
+      idx += sprintf(&cwstatus_ans[idx],"%d %s ",
+		     (1000*adc)/2048,limitstatus[limidx]);
    }
+   cwstatus_ans[idx++] = '\n';
+   cwstatus_ans[idx] = '\0';
+
+   assert(idx < size - 1);
+
+   return(idx);
+}
+
+char *
+cwstatus_cmd(char *cmd)
+{
+   static char cwstatus_ans[80];
+   
+   if(semTake (semMEIUPD,60) == ERROR) {
+      return "ERR: semMEIUPD";
+   }
+
+   (void)get_cwstatus(cwstatus_ans, 80);
+
    semGive (semMEIUPD);
 
    return cwstatus_ans;
 }
-
+
+/*****************************************************************************/
+/*
+ * Set the imager T-bars
+ */
+int
+mcp_set_tbars(int val)
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_2 tm_ctrl1;   
+             
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,2,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=0x%x\n",err);
+      return err;
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+
+   tm_ctrl1.mcp_t_bar_latch = val;
+   tm_ctrl1.mcp_t_bar_unlatch = !val;
+
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   err = slc_write_blok(1,10,BIT_FILE,2,&ctrl[0],1);
+   semGive (semSLC);
+   
+   if(err) {
+      printf ("W Err=0x%x\n",err);
+      return err;
+   }
+
+   return(0);
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1857,177 +1954,38 @@ char *clampoff_cmd(char *cmd)
   return "";
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: sp1_cmd
-**	    sp2_cmd
-**
-** DESCRIPTION:
-**	SP1 - select spectograph1
-**	SP2 - select spectograph2
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	spectograph_select
-**
-**=========================================================================
-*/
-char *sp1_cmd(char *cmd)
+/*****************************************************************************/
+/*
+ * Report the status of the spectrograph doors/slits
+ */
+static int
+get_slitstatus(char *slitstatus_ans,
+	       int size)			/* dimen of slitstatus_ans */
 {
-  printf (" SP1 command fired\r\n");
-  spectograph_select=SPECTOGRAPH1;
-  return "";
-}
-char *sp2_cmd(char *cmd)
-{
-  printf (" SP2 command fired\r\n");
-  spectograph_select=SPECTOGRAPH2;
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: slitclear_cmd
-**	    slitopen_cmd
-**	    slitclose_cmd
-**
-** DESCRIPTION:
-**	SLIT.CLEAR - Neither close nor open the slit door...allow it to be 
-**	moved by hand or gravity
-**	SLIT.OPEN - open the selected spectograph's slit door.
-**	SLIT.CLOSE - close the selected spectograph's slit door.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**	tm_slit_clear
-**	tm_slit_open
-**	tm_slit_close
-**
-** GLOBALS REFERENCED:
-**	spectograph_select
-**
-**=========================================================================
-*/
-char *
-slitclear_cmd(char *cmd)
-{
-  printf (" SLIT.CLEAR command fired\r\n");
-  if(spectograph_select != SPECTOGRAPH1 && spectograph_select != SPECTOGRAPH2){
-     return "ERR: ILLEGAL DEVICE SELECTION";
-  }
+  int len;
+
+  sprintf(slitstatus_ans,"SP1: %d %d %d %d  SP2: %d %d %d %d\n",
+	  sdssdc.status.i1.il9.slit_head_door1_opn,
+	  sdssdc.status.i1.il9.slit_head_door1_cls,
+	  sdssdc.status.i1.il9.slit_head_latch1_ext,
+	  sdssdc.status.i1.il9.slit_head_1_in_place,
+	  sdssdc.status.i1.il9.slit_head_door2_opn,
+	  sdssdc.status.i1.il9.slit_head_door2_cls,
+	  sdssdc.status.i1.il9.slit_head_latch2_ext,
+	  sdssdc.status.i1.il9.slit_head_2_in_place);
   
-  tm_slit_clear(spectograph_select - SPECTOGRAPH1);
-  
-  return "";
+  len = strlen(slitstatus_ans);
+  assert(len < size);
+
+  return(len);
 }
 
-char *
-slitopen_cmd(char *cmd)
-{
-  printf (" SLIT.OPEN command fired\r\n");
-  if(spectograph_select != SPECTOGRAPH1 && spectograph_select != SPECTOGRAPH2){
-     return "ERR: ILLEGAL DEVICE SELECTION";
-  }
-
-  tm_slit_open(spectograph_select - SPECTOGRAPH1);
-  
-  return "";
-}
-char *slitclose_cmd(char *cmd)
-{
-  printf (" SLIT.CLOSE command fired\r\n");
-  if(spectograph_select != SPECTOGRAPH1 && spectograph_select != SPECTOGRAPH2){
-     return "ERR: ILLEGAL DEVICE SELECTION";
-  }
-
-  tm_slit_close(spectograph_select-SPECTOGRAPH1);
-  
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cartlatch_cmd
-**	    cartunlatch_cmd
-**
-** DESCRIPTION:
-**	CART.LATCH - latch the fiber cartridge
-**	CART.UNLATCH - latch the fiber cartridge
-**	There is currently no status as to the position of the latch.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**	tm_cart_latch
-**	tm_cart_unlatch
-**
-** GLOBALS REFERENCED:
-**	spectograph_select
-**
-**=========================================================================
-*/
-char *cartlatch_cmd(char *cmd)
-{
-  printf (" CART.LATCH command fired\r\n");
-  if ((spectograph_select<SPECTOGRAPH1) ||
-    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_cart_latch(spectograph_select-SPECTOGRAPH1);
-  return "";
-}
-char *cartunlatch_cmd(char *cmd)
-{
-  printf (" CART.UNLATCH command fired\r\n");
-  if ((spectograph_select<SPECTOGRAPH1) ||
-    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_cart_unlatch(spectograph_select-SPECTOGRAPH1);
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: slitstatus_cmd
-**
-** DESCRIPTION:
-**	SLIT.STATUS - status of the selected slit and latch for the 
-**	fiber cartridge
-**	There is currently no status as to the position of the latch.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	spectograph_select
-**	sdssdc
-**
-**=========================================================================
-*/
 char *
 slitstatus_cmd(char *cmd)
 {
    static char slitstatus_ans[50];
-   
-   sprintf(slitstatus_ans,"SP1: %d %d %d %d  SP2: %d %d %d %d",
-	   sdssdc.status.i1.il9.slit_head_door1_opn,
-	   sdssdc.status.i1.il9.slit_head_door1_cls,
-	   sdssdc.status.i1.il9.slit_head_latch1_opn,
-	   sdssdc.status.i1.il9.slit_head_1_in_place,
-	   sdssdc.status.i1.il9.slit_head_door2_opn,
-	   sdssdc.status.i1.il9.slit_head_door2_cls,
-	   sdssdc.status.i1.il9.slit_head_latch2_opn,
-	   sdssdc.status.i1.il9.slit_head_2_in_place);
+
+   (void)get_slitstatus(slitstatus_ans, 50);
 
    return(slitstatus_ans);
 }
@@ -2167,85 +2125,105 @@ char *hgcdoff_cmd(char *cmd)
   tm_hgcd_off();
   return "";
 }
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: ffstatus_cmd
-**
-** DESCRIPTION:
-**	FF.STATUS - turn on the flat field incandescent lamps
-**
-** RETURN VALUES:
-**	NULL string
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**
-**=========================================================================
-*/
-char ffstatus_ans[250];
-char *ffstatus_cmd(char *cmd)
-{
-  char open[]={' ','O'};
-  char close[]={' ','C'};
-  char *oo[]={"Off"," On"};
 
-  printf (" FF.STATUS command fired\r\n");
-  sprintf (&ffstatus_ans[0],"\r\nLeaf 01 02 03 04 05 06 07 08");
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],
-	"\r\n  FF %c%c  %c%c %c%c %c%c %c%c  %c%c %c%c %c%c  %d",
-	open[sdssdc.status.i1.il13.leaf_1_open_stat],
-	close[sdssdc.status.i1.il13.leaf_1_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_2_open_stat],
-	close[sdssdc.status.i1.il13.leaf_2_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_3_open_stat],
-	close[sdssdc.status.i1.il13.leaf_3_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_4_open_stat],
-	close[sdssdc.status.i1.il13.leaf_4_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_5_open_stat],
-	close[sdssdc.status.i1.il13.leaf_5_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_6_open_stat],
-	close[sdssdc.status.i1.il13.leaf_6_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_7_open_stat],
-	close[sdssdc.status.i1.il13.leaf_7_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_8_open_stat],
-	close[sdssdc.status.i1.il13.leaf_8_closed_stat],
-	      sdssdc.status.o1.ol14.ff_screen_open_pmt
-  );
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nLamp  01  02  03  04");
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  FF %s %s %s %s %d",
-	oo[sdssdc.status.i1.il13.ff_1_stat],
-	oo[sdssdc.status.i1.il13.ff_2_stat],
-	oo[sdssdc.status.i1.il13.ff_3_stat],
-	oo[sdssdc.status.i1.il13.ff_4_stat],
-	   sdssdc.status.o1.ol14.ff_lamps_on_pmt
-  );
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  Ne %s %s %s %s %d",
-	oo[sdssdc.status.i1.il13.ne_1_stat],
-	oo[sdssdc.status.i1.il13.ne_2_stat],
-	oo[sdssdc.status.i1.il13.ne_3_stat],
-	oo[sdssdc.status.i1.il13.ne_4_stat],
-	   sdssdc.status.o1.ol14.ne_lamps_on_pmt
-  );
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nHgCd %s %s %s %s %d",
-	oo[sdssdc.status.i1.il13.hgcd_1_stat],
-	oo[sdssdc.status.i1.il13.hgcd_2_stat],
-	oo[sdssdc.status.i1.il13.hgcd_3_stat],
-	oo[sdssdc.status.i1.il13.hgcd_4_stat],
-	   sdssdc.status.o1.ol14.hgcd_lamps_on_pmt
-  );
+/*****************************************************************************/
 /*
-  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
-  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rne_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ne_lamps_on_pmt);
-  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rff_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
-  sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rff_screen_open_pmt=%d",sdssdc.status.o1.ol14.ff_screen_open_pmt);
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n");
-*/
-  printf ("\r\nffstatus_ans length=%d",strlen(&ffstatus_ans[0]));
-  return &ffstatus_ans[0];	
+ * Report the status of the flatfield screen and lamps
+ */
+static int
+get_ffstatus(char *ffstatus_ans,
+	     int size)			/* dimen of ffstatus_ans */
+{
+  int len;
+
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],
+	"FFS  %d%d %d%d %d%d %d%d  %d%d %d%d %d%d %d%d  %d\n",
+	   sdssdc.status.i1.il13.leaf_1_open_stat,
+	   sdssdc.status.i1.il13.leaf_1_closed_stat,
+	   sdssdc.status.i1.il13.leaf_2_open_stat,
+	   sdssdc.status.i1.il13.leaf_2_closed_stat,
+	   sdssdc.status.i1.il13.leaf_3_open_stat,
+	   sdssdc.status.i1.il13.leaf_3_closed_stat,
+	   sdssdc.status.i1.il13.leaf_4_open_stat,
+	   sdssdc.status.i1.il13.leaf_4_closed_stat,
+	   sdssdc.status.i1.il13.leaf_5_open_stat,
+	   sdssdc.status.i1.il13.leaf_5_closed_stat,
+	   sdssdc.status.i1.il13.leaf_6_open_stat,
+	   sdssdc.status.i1.il13.leaf_6_closed_stat,
+	   sdssdc.status.i1.il13.leaf_7_open_stat,
+	   sdssdc.status.i1.il13.leaf_7_closed_stat,
+	   sdssdc.status.i1.il13.leaf_8_open_stat,
+	   sdssdc.status.i1.il13.leaf_8_closed_stat,
+	   sdssdc.status.o1.ol14.ff_screen_open_pmt);
+  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"FF   %d %d %d %d  %d\n",
+	  sdssdc.status.i1.il13.ff_1_stat,
+	  sdssdc.status.i1.il13.ff_2_stat,
+	  sdssdc.status.i1.il13.ff_3_stat,
+	  sdssdc.status.i1.il13.ff_4_stat,
+	  sdssdc.status.o1.ol14.ff_lamps_on_pmt);
+  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"Ne   %d %d %d %d  %d\n",
+	  sdssdc.status.i1.il13.ne_1_stat,
+	  sdssdc.status.i1.il13.ne_2_stat,
+	  sdssdc.status.i1.il13.ne_3_stat,
+	  sdssdc.status.i1.il13.ne_4_stat,
+	  sdssdc.status.o1.ol14.ne_lamps_on_pmt);
+  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"HgCd %d %d %d %d  %d\n",
+	  sdssdc.status.i1.il13.hgcd_1_stat,
+	  sdssdc.status.i1.il13.hgcd_2_stat,
+	  sdssdc.status.i1.il13.hgcd_3_stat,
+	  sdssdc.status.i1.il13.hgcd_4_stat,
+	  sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
+
+  len = strlen(ffstatus_ans);
+  assert(len < size);
+  
+  return(len);	
+}
+
+char *
+ffstatus_cmd(char *cmd)			/* NOTUSED */
+{
+  static char ffstatus_ans[250];
+
+  (void)get_ffstatus(ffstatus_ans, 250);
+
+  return(ffstatus_ans);
+}
+
+/*****************************************************************************/
+/*
+ * An status command that can be used by IOP to get enough information
+ * to update the MCP Menu. Returns everything except the axis status and
+ * the state of the semCmdPort
+ */
+char *
+system_status_cmd(char *cmd)
+{
+   int i;
+   static char reply_str[200 + 1];	/* desired values */
+   const int size = sizeof(reply_str) - 1;
+
+   reply_str[size] = '\a';
+
+   TRACE(5, "taking semMEIUPD", 0, 0);
+   if (semTake(semMEIUPD, 60) == ERROR) { 
+      TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
+      sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
+      return(reply_str);
+   }
+
+   i = 0;
+   i += get_cwstatus(&reply_str[i], size - i);
+   i += get_ffstatus(&reply_str[i], size - i);
+   i += get_slitstatus(&reply_str[i], size - i);
+
+   TRACE(5, "giving semMEIUPD", 0, 0);
+   semGive(semMEIUPD);
+
+   TRACE(5, "Checking reply_str[end]: %d", reply_str[size], 0);
+   assert(reply_str[size] == '\a');	/* check for overflow */
+
+   return(reply_str);
 }
 
 /*=========================================================================
@@ -3549,26 +3527,32 @@ float latchpos4,latchpos5;
 int lpos4,lpos5;
 int illegal_NIST=0;
 unsigned char dio316int_bit=0;
-void DIO316_interrupt(int type)
-{
 
-	  int_count++;
-          DIO316ReadISR (tm_DIO316,&dio316int_bit);
-          if (dio316int_bit&NIST_INT)
-          {
-	    illegal_NIST++;
-            DIO316ClearISR (tm_DIO316);
-          }
-	  else
-	  {
-            if (dio316int_bit&AZIMUTH_INT) 
-	      DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
-            if (dio316int_bit&ALTITUDE_INT) 
-	      DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
-            if (dio316int_bit&INSTRUMENT_INT) 
-	      DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
-	    semGive (semLATCH);
-	  }
+void
+DIO316_interrupt(int type)
+{
+   TRACE0(16, "DIO316_interrupt", 0, 0);	 
+
+   int_count++;
+   DIO316ReadISR (tm_DIO316,&dio316int_bit);
+
+   if(dio316int_bit & NIST_INT) {
+      illegal_NIST++;
+      DIO316ClearISR (tm_DIO316);
+   } else {
+      if(dio316int_bit&AZIMUTH_INT) {
+	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_DIS);
+      }
+      if(dio316int_bit & ALTITUDE_INT) {
+	 DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_DIS);
+      }
+      if(dio316int_bit & INSTRUMENT_INT) {
+	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_DIS);
+      }
+
+      semGive (semLATCH);
+      TRACE0(5, "Gave semLATCH", 0, 0);
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -3664,6 +3648,7 @@ void init_fiducial()
   rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
 }
 static char const thePath[] = "/mcptpm/";
+#if defined(CALL_NSF)
 /*------------------------------------------------------------------------------
   createNfsConnection
 
@@ -3699,6 +3684,7 @@ static STATUS destroyNfsConnection(void)
 {
         return nfsUnmount((char*) thePath);
 }
+#endif
 /* This variable holds the default path to where the log files will be
    held. There is code that expects this string to contain the
    trailing '/' */
@@ -3749,9 +3735,10 @@ static char const* bldFileName(char const* newName)
 void fiducial_shutdown(int type)
 {
   printf("fiducial file shutdown: FP=%p\r\n",fidfp);
-  fflush (fidfp);
   fclose (fidfp);
+#if defined(CALL_NSF)
   destroyNfsConnection();
+#endif
 }
 /*=========================================================================
 **=========================================================================
@@ -3813,9 +3800,11 @@ tm_latch(char *name)
    time_t fidtim;
    int ret;				/* return code from semTake() */
    
+#if defined(CALL_NSF)
    if((status = createNfsConnection()) == ERROR) {
       printf ("\r\nNFSConnection error");
    }
+#endif
 
    fidfp = fopen(bldFileName(name),"a");
    if(fidfp == NULL) {
@@ -3829,23 +3818,63 @@ tm_latch(char *name)
 #endif
       
       time(&fidtim);
-      fprintf (fidfp,"\n#RESTART......... %s %.24s",
+      fprintf(fidfp,"#RESTART......... %s %.24s\n",
 	       bldFileName(name),ctime(&fidtim));
-      fprintf(fidfp,"\n#Axis\tIndex\tDate & Time:SDSStime\t"
-	      "Position1\tPosition2");
-      /* should use fflush, but doesn't work */
+      fprintf(fidfp,
+	      "#Axis\tIndex\tDate & Time:SDSStime\tPosition1\tPosition2\n");
+#if 1
+      fflush(fidfp);
+#else
       fclose(fidfp);
-      fidfp=fopen (bldFileName(name),"a");
+      fidfp = fopen(bldFileName(name),"a");
+#endif
    }
    
    init_fiducial();
    if(semLATCH == NULL) {
       semLATCH = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
    }
+#if USE_MSG_Q
+   if(msgDIO316ClearISR == NULL) {
+      msgDIO316ClearISR = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+      assert(msgDIO316ClearISR != NULL);
+	 
+      taskSpawn("tm_ClrInt", 30, 8, 4000, \
+		(FUNCPTR)DIO316ClearISR_delay, 120, dio316int_bit,
+		0,0,0,0,0,0,0,0);
+   }
+#endif
    
-   for(;;) {
+   for(latchidx = -1;; latchidx = (latchidx + 1)%MAX_LATCHED) {
+      if(latchidx < 0) {
+	 latchidx = 0;
+      } else {
+#if USE_MSG_Q
+/*
+ * send message requesting the latches to rearm, reenabling interrupts
+ */
+	 MCP_MSG msg;
+	 STATUS stat;
+
+	 msg.type = DIO316ClearISR_type;
+	 msg.u.DIO316ClearISR.timeout = 120;	
+	 msg.u.DIO316ClearISR.dio316int_bit = dio316int_bit;
+ 
+	 stat = msgQSend(msgDIO316ClearISR, (char *)&msg, sizeof(msg),
+			 NO_WAIT, MSG_PRI_NORMAL);
+	 assert(stat == OK);
+#else
+	 DIO316ClearISR(tm_DIO316);
+	 taskSpawn("tm_ClrInt",30,8,4000,(FUNCPTR)DIO316ClearISR_delay,120,
+		   dio316int_bit,0,0,0,0,0,0,0,0);
+#endif
+      }
+/*
+ * The interrupt routine DIO316_interrupt gives semLATCH, so wait for it
+ */
       ret = semTake(semLATCH, WAIT_FOREVER);
       assert(ret != ERROR);
+      TRACE(5, "Took semLATCH", 0, 0);
 
       for(i = 15, status = FALSE; status == FALSE && i > 0; i--) {
 	 ret = semTake(semMEI, WAIT_FOREVER);
@@ -3870,7 +3899,7 @@ tm_latch(char *name)
 	    latchpos[latchidx].axis = -(INSTRUMENT+1);
 	 }
 
-	 printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
+	 TRACE(4, "BAD LATCH: latchidx = %d", latchidx, 0);
 
 	 continue;
       }
@@ -3878,7 +3907,8 @@ tm_latch(char *name)
  * OK, we read a latch position so do something with it
  */
       fididx = -1;
-      latchpos[latchidx].axis=-9;
+      assert(latchidx >= 0 && latchidx < MAX_LATCHED); 
+      latchpos[latchidx].axis = -9;
 
       if(dio316int_bit & AZIMUTH_INT) {
 	 latchpos[latchidx].axis = AZIMUTH;
@@ -3907,15 +3937,18 @@ tm_latch(char *name)
 	       fidtim = time(&fidtim);
 	       time(&fidtim);
 	       
-	       fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-			latchpos[latchidx].axis,fididx,
-			ctime(&fidtim),sdss_get_time(),
-			(long)latchpos[latchidx].pos1,
-			(long)latchpos[latchidx].pos2);
-	       fprintf (fidfp,"\n#first barcode reading=%d",fididx1);
-	       
+	       fprintf(fidfp, "%d\t%d\t%.24s:%f\t%ld\t%ld\n",
+		       latchpos[latchidx].axis,fididx,
+		       ctime(&fidtim),sdss_get_time(),
+		       (long)latchpos[latchidx].pos1,
+		       (long)latchpos[latchidx].pos2);
+	       fprintf(fidfp, "#first barcode reading=%d\n",fididx1);
+#if 1
+	       fflush(fidfp);
+#else
 	       fclose(fidfp);
-	       fidfp=fopen (bldFileName(name),"a");
+	       fidfp = fopen(bldFileName(name),"a");
+#endif
 	    }
 	    
 	    if(fididx < 48 && fididx > 0) {
@@ -3972,19 +4005,23 @@ tm_latch(char *name)
 	 fididx++;
 	 if(fididx != -1) {
 	    fididx--;
-	    if (fidfp!=NULL) {
+	    if (fidfp != NULL) {
 	       fidtim = time(&fidtim);
 	       time(&fidtim);
 	       
-	       fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-			latchpos[latchidx].axis,fididx,
-			ctime(&fidtim),sdss_get_time(),
-			(long)latchpos[latchidx].pos1,
-			(long)latchpos[latchidx].pos2);
-	       fprintf (fidfp,"\n#alt_position=%d",
-			sdssdc.status.i4.alt_position);
+	       fprintf(fidfp, "%d\t%d\t%.24s:%f\t%ld\t%ld\n",
+		       latchpos[latchidx].axis,fididx,
+		       ctime(&fidtim),sdss_get_time(),
+		       (long)latchpos[latchidx].pos1,
+		       (long)latchpos[latchidx].pos2);
+	       fprintf(fidfp, "#alt_position=%d\n",
+		       sdssdc.status.i4.alt_position);
+#if 1
+	       fflush(fidfp);
+#else
 	       fclose(fidfp);
-	       fidfp=fopen (bldFileName(name),"a");  /*  */
+	       fidfp = fopen(bldFileName(name),"a");
+#endif
 	    }
 	    
             if(fididx < 7 && fididx >= 0) {
@@ -4075,6 +4112,8 @@ tm_latch(char *name)
 	       
 	       if(fididx <= 0 || fididx >= 156) {
 		  fprintf(stderr,"Illegal fididx = %d\n", fididx);
+	 
+		  rot_latch = latchpos[latchidx].pos1;
 		  continue;
 	       }
 	       
@@ -4096,6 +4135,8 @@ tm_latch(char *name)
 	       
 	       if(fididx <= 0 || fididx >= 156) {
 		  fprintf(stderr,"Illegal fididx = %d\n", fididx);
+	 
+		  rot_latch = latchpos[latchidx].pos1;
 		  continue;
 	       }
 	       
@@ -4106,6 +4147,7 @@ tm_latch(char *name)
 			 rot_fiducial[fididx].mark - rot_fiducial[fididx].last;
 	    } else {
 	       fprintf(stderr,"Impossible value of fididx: %d\n", fididx);
+	       rot_latch = latchpos[latchidx].pos1;
 	       continue;
 	    }
 
@@ -4133,17 +4175,24 @@ tm_latch(char *name)
 	       fidtim = time(&fidtim);
 	       time (&fidtim);
 	       
-	       fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-			latchpos[latchidx].axis,fididx,
-			ctime(&fidtim), sdss_get_time(),
-			(long)latchpos[latchidx].pos1,
-			(long)latchpos[latchidx].pos2);
-	       
+	       fprintf(fidfp, "%d\t%d\t%.24s:%f\t%ld\t%ld\n",
+		       latchpos[latchidx].axis,fididx,
+		       ctime(&fidtim), sdss_get_time(),
+		       (long)latchpos[latchidx].pos1,
+		       (long)latchpos[latchidx].pos2);
+#if 1
+	       fflush(fidfp);
+#else
 	       fclose(fidfp);
-	       fidfp=fopen (bldFileName(name),"a");  /*  */
+	       fidfp = fopen(bldFileName(name),"a");
+#endif
 	    }
 	 }
 
+	 TRACE(4, "ROT FIDUCIAL %.2f deg",
+	       rot_fiducial[fididx].mark/ROT_TICKS_DEG, 0);
+	 TRACE(4, "             err = %d ticks", rot_fiducial[fididx].err, 0);
+	 
 	 if(LATCH_verbose) {
             i = fididx;
             printf ("\r\nROT FIDUCIAL %d:  mark=%ld, pos=%ld, last=%ld",i,
@@ -4159,21 +4208,6 @@ tm_latch(char *name)
             fiducial[INSTRUMENT].markvalid = TRUE;
 	 }
       }
-
-      latchidx = (latchidx + 1)%MAX_LATCHED;
-      
-#if 0
-      ret = semTake(semMEI,WAIT_FOREVER);
-      assert(ret != ERROR);
-
-      arm_latch(TRUE);
-      semGive (semMEI);
-#endif
-      
-      DIO316ClearISR (tm_DIO316);
-   
-      taskSpawn ("tm_ClrInt",30,8,4000,(FUNCPTR)DIO316ClearISR_delay,120,
-		 dio316int_bit,0,0,0,0,0,0,0,0);
    }
 }
 
@@ -4196,25 +4230,80 @@ tm_latch(char *name)
 **
 **=========================================================================
 */
-void DIO316ClearISR_delay (int delay, int bit)
+#if USE_MSG_Q
+void
+DIO316ClearISR_delay(void)
 {
-  int status;
+   unsigned char dio316int_bit;		/* value read by DIO316_interrupt */
+   MCP_MSG msg;				/* message to read */
+   int status;
 
-  taskDelay(delay);
+   for(;;) {
+/*
+ * Wait for a message asking us to do something
+ */
+      status =
+	msgQReceive(msgDIO316ClearISR, (char*)&msg, sizeof(msg), WAIT_FOREVER);
+      assert(status != ERROR);
 
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-  {
-    while ((status=arm_latch(TRUE))!=DSP_OK) 
-	printf ("\r\n Trying to ARM Latch; status=%d",status);
-    semGive (semMEI);
-  }
-  if (bit&AZIMUTH_INT)
-    DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_ENA);
-  if (bit&ALTITUDE_INT)
-    DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_ENA);
-  if (bit&INSTRUMENT_INT)
-    DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_ENA);
+      TRACE(4, "DIO316ClearISR_delay: received message %d %d",
+	    msg.type, msg.u.DIO316ClearISR.dio316int_bit);
+      
+      assert(msg.type == DIO316ClearISR_type);
+      dio316int_bit = msg.u.DIO316ClearISR.dio316int_bit;
+/*
+ * OK, we have our orders
+ */
+      DIO316ClearISR(tm_DIO316);
+      taskDelay(msg.u.DIO316ClearISR.timeout);
+      
+      status = semTake(semMEI,WAIT_FOREVER);
+      assert(status == OK);
+
+      while((status = arm_latch(TRUE)) != DSP_OK) {
+	 TRACE(4, "Trying to ARM Latch; status=%d", status, 0);
+      }
+      semGive (semMEI);
+
+      if(dio316int_bit & AZIMUTH_INT) {
+	 DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
+      }
+      if(dio316int_bit & ALTITUDE_INT) {
+	 DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
+      }
+      if(dio316int_bit & INSTRUMENT_INT) {
+	 DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
+      }
+   }
+}	 
+#else
+void
+DIO316ClearISR_delay(int delay,
+		     int bit)
+{
+   int status;
+   
+   taskDelay(delay);
+
+   if(semTake(semMEI,WAIT_FOREVER) == ERROR) {
+   } else {
+      while((status = arm_latch(TRUE)) != DSP_OK) {
+	 TRACE(4, "Trying to ARM Latch; status=%d", status);
+      }
+      semGive (semMEI);
+   }
+   if(bit & AZIMUTH_INT) {
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
+   }
+   if(bit & ALTITUDE_INT) {
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
+   }
+   if(bit & INSTRUMENT_INT) {
+      DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
+   }
 }
+#endif
+
 /*=========================================================================
 **=========================================================================
 **
@@ -4485,12 +4574,12 @@ print_fiducials(int axis,		/* which axis */
 	   if(fiducial[axis].markvalid == i) printf ("!");
 	}
 	if(az_fiducial[i].markvalid) {
-	   printf("AZ FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld\n",
-		   i, (int)(az_fiducial[i].mark/AZ_TICKS_DEG),
-		   az_fiducial[i].mark,az_fiducial_position[i],
-		   az_fiducial[i].last);
-	   printf("                 err=%ld, poserr=%ld\n",
-		   az_fiducial[i].err,az_fiducial[i].poserr);
+	   printf("AZ FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld "
+		  " err=%ld, poserr=%ld\n",
+		  i, (int)(az_fiducial[i].mark/AZ_TICKS_DEG),
+		  az_fiducial[i].mark,az_fiducial_position[i],
+		  az_fiducial[i].last,
+		  az_fiducial[i].err,az_fiducial[i].poserr);
 	} else {
 	   if(show_all) {
 	      printf("AZ FIDUCIAL %d:  pos=%ld\n", i, az_fiducial_position[i]);
@@ -4505,11 +4594,11 @@ print_fiducials(int axis,		/* which axis */
 	   if(fiducial[axis].markvalid == i) printf ("!");
 	}
 	if(alt_fiducial[i].markvalid) {
-	   printf("ALT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld\n",
-		   i, (int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
-		   alt_fiducial[i].mark,alt_fiducial_position[i],
-		   alt_fiducial[i].last);
-	   printf("\n                 err=%ld, poserr=%ld\n",
+	   printf("ALT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld "
+		  " err=%ld, poserr=%ld\n",
+		  i, (int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
+		  alt_fiducial[i].mark,alt_fiducial_position[i],
+		  alt_fiducial[i].last,
 		  alt_fiducial[i].err,alt_fiducial[i].poserr);
 	} else {
 	   if(show_all) {
@@ -4525,13 +4614,13 @@ print_fiducials(int axis,		/* which axis */
 	   if(fiducial[axis].markvalid == i) printf ("!");
 	}
 
-	if(rot_fiducial[i].markvalid) {
-	   printf("ROT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld\n",
+	if(rot_fiducial[i].markvalid) {	   
+	   printf("ROT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld "
+		  " err=%ld, poserr=%ld\n",
 		  i, (int)(rot_fiducial[i].mark/ROT_TICKS_DEG),
 		  rot_fiducial[i].mark,rot_fiducial_position[i],
-		  rot_fiducial[i].last);
-	   printf("                  err=%ld, poserr=%ld\n",
-		   rot_fiducial[i].err,rot_fiducial[i].poserr);
+		  rot_fiducial[i].last,
+		  rot_fiducial[i].err,rot_fiducial[i].poserr);
 	} else {
 	   if(show_all) {
 	      printf("ROT FIDUCIAL %d:  pos=%ld\n",i,rot_fiducial_position[i]);
@@ -4632,6 +4721,8 @@ unsigned long SDSS_cnt=0;
 #define DAYINSECS	86400
 void DID48_interrupt(int type)
 {
+  TRACE0(16, "DID48_interrupt", 0, 0);
+	 
   DID48_Read_Port (tm_DID48,5,&did48int_bit);
   NIST_cnt++;
   if (did48int_bit&NIST_INT)
@@ -5187,6 +5278,28 @@ int print_diagq()
  * via the serial or tcp interfaces
  */
 /*
+ * Set whether an axis is monitored
+ */
+int
+mcp_set_monitor(int axis,		/* which axis? */
+		int on_off)		/* set monitor on/off/toggle */
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_set_monitor: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(on_off == -1) {
+      on_off = !monitor_on[axis];
+   }
+
+   monitor_on[axis] = on_off ? 1 : 0;
+
+   return(0);
+}
+
+/*
  * Set the position of an axis
  */
 int
@@ -5308,11 +5421,11 @@ mcp_set_fiducial(int axis)
       time_t fidtim;
       
       time (&fidtim);
-      fprintf (fidfp,"%s\t%d\t%.25s:%f\t%ld\t%ld\n",
-	       axis_name(axis), fiducial[axis].index,
-	       ctime(&fidtim), sdss_get_time(),
-	       (long)fiducial_position[axis] - fiducial[axis].mark,
-	       (long)(*tmaxis[axis]).actual_position);
+      fprintf(fidfp, "%s\t%d\t%.25s:%f\t%ld\t%ld\n",
+	      axis_name(axis), fiducial[axis].index,
+	      ctime(&fidtim), sdss_get_time(),
+	      (long)fiducial_position[axis] - fiducial[axis].mark,
+	      (long)(*tmaxis[axis]).actual_position);
    }
    
    fiducial[axis].mark = fiducial_position[axis];
@@ -5465,8 +5578,7 @@ mcp_amp_reset(int axis)
 int
 mcp_cw_abort(void)
 {
-   taskDelete(taskIdFigure("cw"));
-   taskDelete(taskIdFigure("cwp"));
+   taskDelete(taskIdFigure("moveCW"));
    cw_abort();
 
    return(0);
@@ -5477,11 +5589,18 @@ mcp_cw_abort(void)
  * Set or balance the counter weights
  */
 int
-mcp_set_cw(int cw,			/* CW to move, or INST_DEFAULT */
+mcp_set_cw(int inst,			/* instrument to balance for */
+	   int cw,			/* CW to move, or ALL_CW */
 	   int cwpos,			/* desired position, or 0 to balance */
 	   const char **errstr)		/* &error_string, or NULL  */
 {
-   if(cw < 0 || cw >= 16) {
+   if(inst < 0 || inst >= NUMBER_INST) {
+      if(errstr != NULL) {
+	 *errstr = "illegal choice of instrument";
+      }
+   }
+
+   if(cw != ALL_CW && (cw < 0 || cw > NUMBER_CW)) {
       if(errstr != NULL) {
 	 *errstr = "illegal choice of CW";
       }
@@ -5497,16 +5616,12 @@ mcp_set_cw(int cw,			/* CW to move, or INST_DEFAULT */
       return(-1);
    }
 
-   if(taskIdFigure("cw") != ERROR || taskIdFigure("cwp") != ERROR) {
+   if(taskIdFigure("moveCW") != ERROR) {
       if(errstr != NULL) {
 	 *errstr = "ERR: CW or CWP task still active...be patient";
       }
       
       return(-1);			/* CW or CWP task still active */
-   }
-
-   if(cw == INST_DEFAULT) {
-      cw_set_positionv(INST_DEFAULT, cwpos, cwpos, cwpos, cwpos);
    }
 
    if(sdssdc.status.i9.il0.alt_brake_en_stat == 0) {
@@ -5516,15 +5631,9 @@ mcp_set_cw(int cw,			/* CW to move, or INST_DEFAULT */
       
       return(-1);
    } else {
-      if(cwpos == 0) {			/* balance the weight */
-	 taskSpawn("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
-		    cw,
-		    0,0,0,0,0,0,0,0,0);
-      } else {
-	 taskSpawn("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
-		    cw, cwpos,
-		    0,0,0,0,0,0,0,0);
-      }
+      taskSpawn("moveCW",60,VX_FP_TASK,10000,(FUNCPTR)set_counterweight,
+		inst, cw, cwpos,
+		0,0,0,0,0,0,0);
    }
 
    if(errstr != NULL) {
