@@ -231,8 +231,8 @@ tBrakesInit(void)
 /*
  * Declare commands
  */
-   define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 1);
-   define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 1);
+   define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 0, 1, "");
    
    return 0;
 }

@@ -809,10 +809,10 @@ tUmbilicalInit(int dsec)		/* interval, in seconds, between
  * Declare command that controls whether the umbilical tower control
  * is active
  */
-   define_cmd("UMBILICAL",     umbilical_cmd,           1, 0, 1);
-   define_cmd("UMBILICAL.ABORT", umbilical_abort_cmd,   0, 0, 1);
-   define_cmd("UMBILICAL.POS", umbilical_pos_cmd,       1, 0, 1);
-   define_cmd("UMBILICAL.STATUS", umbilical_status_cmd, 0, 0, 1);
+   define_cmd("UMBILICAL",     umbilical_cmd,           1, 0, 0, 1, "");
+   define_cmd("UMBILICAL.ABORT", umbilical_abort_cmd,   0, 0, 0, 1, "");
+   define_cmd("UMBILICAL.POS", umbilical_pos_cmd,       1, 0, 0, 1, "");
+   define_cmd("UMBILICAL.STATUS", umbilical_status_cmd, 0, 0, 0, 1, "");
 
    return 0;
 }

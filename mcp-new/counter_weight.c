@@ -1856,10 +1856,10 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
 /*
  * Declare CW commands
  */
-   define_cmd("CWMOV",     cwmov_cmd,    2, 1, 1);
-   define_cmd("CWINST",    cwinst_cmd,   1, 1, 1);
-   define_cmd("CWABORT",   cwabort_cmd,  0, 1, 1);
-   define_cmd("CW.STATUS", cwstatus_cmd, 0, 0, 1);
+   define_cmd("CWMOV",     cwmov_cmd,    2, 1, 0, 1, "");
+   define_cmd("CWINST",    cwinst_cmd,   1, 1, 0, 1, "");
+   define_cmd("CWABORT",   cwabort_cmd,  0, 1, 0, 1, "");
+   define_cmd("CW.STATUS", cwstatus_cmd, 0, 0, 0, 1, "");
 /*
  * Spawn the task that does the work
  */   

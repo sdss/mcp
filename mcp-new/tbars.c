@@ -180,7 +180,7 @@ tBarsInit(void)
 /*
  * Declare command
  */
-   define_cmd("TBAR.LATCH",    tbar_latch_cmd,    1, 1, 1);
+   define_cmd("TBAR.LATCH",    tbar_latch_cmd,    1, 1, 0, 1, "");
    
    return 0;
 }
