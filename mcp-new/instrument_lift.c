@@ -2647,7 +2647,7 @@ UWORD i_stat;
            cblk->event_status |= (BYTE)(i_stat >> 8 );   /* update event */
 
         /* service the hardware */
-    logMsg ("\r\nIP480 ABORT fired %d, istat=%d",wdog++,i_stat,0,0,0,0);
+	   TRACE(8, "IP480 ABORT fired %d, istat=%d\n", wdog++, i_stat);
         /* check each bit for an interrupt pending state */
     for( i = 0; i < j; i++ )   /* check each c */
     {
