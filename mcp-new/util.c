@@ -1,6 +1,8 @@
 #include "vxWorks.h"
 #include "stdlib.h"
 #include "stdio.h"
+#include <time.h>
+#include <assert.h>
 #include "sysLib.h"
 #include "logLib.h"
 #include "iv.h"
@@ -241,3 +243,49 @@ unsigned long timer_stop(int timer)
   }
   return 0;
 }
+
+/*****************************************************************************/
+/*
+ * Open a logfile in /mcptpm/<mjd>
+ */
+int
+open_log(const char *file)
+{
+   int fd;
+   
+   fd = open ("/mcptpm/cwp.log", O_RDWR|O_CREAT,0666);
+
+   return(fd);
+}
+
+/*****************************************************************************/
+/*
+ * Return the MJD, as modified by the SDSS to roll over at 10am
+ */
+#if 0
+extern void slaCldj(int, int, int, double*, int*);
+
+int
+mjd(void)
+{
+   int stat;
+   double ldj;
+   time_t t;
+   struct tm *Time;
+
+   (void)time(&t);
+   Time = gmtime(&t);
+   assert(Time != NULL);
+
+   slaCldj(Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday, &ldj, &stat);
+
+   if(stat) {
+      fprintf(stderr,"slaCldj returns %d (Y m d == %d %d %d)\n",
+	      stat, Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
+   
+      return(-1);
+   } else {
+      return((int)(ldj + 0.3));
+   }
+}
+#endif
