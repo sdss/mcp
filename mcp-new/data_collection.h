@@ -124,237 +124,981 @@ struct PVT {
 	short time_hi;
 	unsigned short time_lo;
 };
+/*
+ * Start of machine generated code
+ */
+typedef struct {
+   unsigned rot_mtr_iv_good : 1;             
+   unsigned alt_mtr_iv_good : 1;             
+   unsigned az_mtr_iv_good : 1;              
+   unsigned hgcd_lamp_on_request : 1;        
+   unsigned ne_lamp_on_request : 1;          
+   unsigned lift_speed_man_ovrid : 1;         /* Used to overide MCP lift speed from the lift controls. */
+   unsigned ilcb_led_on : 1;                  /* Turns on the instrument latch control box lights when at the zenith. */
+   unsigned ff_screens_closed : 1;            /* This bit indicates that all flat field screens are closed. */
+   unsigned e_stop_flash_reset : 1;           /* OSR used to reset the e-stop LED flash timer. */
+   unsigned led_flash : 1;                    /* E-stop led flash bit. */
+   unsigned flip_flop_5 : 1;                  /* Used to create e-stop led flasher. */
+   unsigned flip_flop_4 : 1;                  /* Used to create e-stop led flasher. */
+   unsigned flip_flop_3 : 1;                  /* Used to create e-stop led flasher. */
+   unsigned flip_flop_2 : 1;                  /* Used to debounce the low level lighting switch and latch the light on. */
+   unsigned flip_flop_1 : 1;                  /* Used to debounce the low level lighting switch and latch the light on. */
+   unsigned flip_flop_0 : 1;                  /* Used to debounce the low level lighting switch and latch the light on. */
+   unsigned : 10;                            
+   unsigned e_stop_permit : 1;               
+   unsigned dn_inhibit_latch_4 : 1;           /* Altitude Down inhibit latch bit 4 */
+   unsigned dn_inhibit_latch_3 : 1;           /* Altitude Down inhibit latch bit 3 */
+   unsigned dn_inhibit_latch_2 : 1;           /* Altitude Down inhibit latch bit 2 */
+   unsigned dn_inhibit_latch_1 : 1;           /* Altitude Down inhibit latch bit 1 */
+   unsigned up_inhibit_latch : 1;             /* Altitude Up inhibit latch bit */
+} B3_L0;
 
-typedef struct {		/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
-	unsigned rack_0_grp_0_bit_15 : 1;
-	unsigned az_bump_ccw : 1;		/* AZCCWC	*/
-	unsigned az_bump_cw : 1;		/* AZCWC	*/
-	unsigned rack_0_grp_0_bit_12 : 1;
-	unsigned ops_cart_in_pos : 1;
-	unsigned fiber_cart_pos2 : 1;	/* cart locked in second position - put */
-	unsigned fiber_cart_pos1 : 1;	/* cart locked in first position - get */
-	unsigned inst_lift_low_force : 1;	/* */
-	unsigned inst_lift_high_force : 1;	/* */
-	unsigned inst_lift_man : 1;	/* lift is in manual or local mode */
-	unsigned inst_lift_dn : 1;	/* lift is in down position */
-	unsigned inst_lift_sw4 : 1;	/* fiber cartridge on cart floor */
-	unsigned inst_lift_sw3 : 1;	/* dummy cartridge on cart floor */
-	unsigned inst_lift_sw2 : 1;	/* engaged with clamping force */
-	unsigned inst_lift_sw1 : 1;	/* kinematic mounts engaged */
-	unsigned inst_lift_pump_on : 1;	/* pump status */
+typedef struct {
+   unsigned undefined_3 : 1;                 
+   unsigned undefined_2 : 1;                 
+   unsigned undefined_1 : 1;                 
+   unsigned img_cam : 1;                     
+   unsigned eng_cam : 1;                     
+   unsigned cartridge_9 : 1;                 
+   unsigned cartridge_8 : 1;                 
+   unsigned cartridge_7 : 1;                 
+   unsigned cartridge_6 : 1;                 
+   unsigned cartridge_5 : 1;                 
+   unsigned cartridge_4 : 1;                 
+   unsigned cartridge_3 : 1;                 
+   unsigned cartridge_2 : 1;                 
+   unsigned cartridge_1 : 1;                 
+   unsigned no_device : 1;                   
+   unsigned disc_cable : 1;                  
+   unsigned version_id : 16;                  /* Version 2 : v2  */
+} B3_L1;
 
-	unsigned low_lvl_light_req : 1;	/* msw bit - 15 I:1/31, i.e. 0x8000 */
-	unsigned rack_0_grp_1_bit_14 : 1;
-	unsigned rack_0_grp_1_bit_13 : 1;
-	unsigned rack_0_grp_1_bit_12 : 1;
-	unsigned rack_0_grp_1_bit_11 : 1;
-	unsigned rack_0_grp_1_bit_10 : 1;
-	unsigned rack_0_grp_1_bit_9 : 1;
-	unsigned rack_0_grp_1_bit_8 : 1;
-	unsigned rack_0_grp_1_bit_7 : 1;
-	unsigned optical_bench_cls : 1;
-	unsigned optical_bench_opn : 1;
-	unsigned ops_cart_in_house : 1;
-	unsigned dog_house_door_cls : 1;
-	unsigned dog_house_door_opn : 1;
-	unsigned dog_house_ccw_pad : 1;
-	unsigned dog_house_cw_pad : 1;
-}IF1_L0;
 typedef struct {
-	unsigned sad_latch_opn_cmd : 1;
-	unsigned sad_latch_cls_cmd : 1;
-	unsigned sec_latch_opn_cmd : 1;
-	unsigned sec_latch_cls_cmd : 1;
-	unsigned pri_latch_opn_cmd : 1;
-	unsigned pri_latch_cls_cmd : 1;
-	unsigned rack_1_grp_0_bit_9 : 1;
-	unsigned rack_1_grp_0_bit_8 : 1;
-	unsigned sad_man_valve_cls : 1;
-	unsigned sec_man_valve_cls : 1;
-	unsigned inst_man_valve_cls : 1;
-	unsigned ilcb_pres_good : 1;
-	unsigned rot_pos_370_ccw : 1;		/* ROCCWSL	*/
-	unsigned rot_neg_190_cw : 1;		/* ROCWSL	*/
-	unsigned rot_inst_chg_b : 1;
-	unsigned rot_inst_chg_a : 1;		/* ROICHG	*/
+   unsigned mcp_clamp_engage_cmd : 1;         /* MCP Clamp engage command */
+   unsigned mcp_alt_brk_en_cmd : 1;           /* MCP Altitude brake engage command bit from VME */
+   unsigned mcp_alt_brk_dis_cmd : 1;          /* MCP Altitude brake disengage command bit from VME */
+   unsigned mcp_az_brk_en_cmd : 1;            /* MCP Azimuth brake engage command bit from VME */
+   unsigned mcp_az_brk_dis_cmd : 1;           /* MCP Azimuth brake disengage command bit from VME */
+   unsigned mcp_solenoid_engage : 1;          /* MCP command to turn on the instrument lift solenoid.  The solenoid must be on for the lift to work */
+   unsigned mcp_pump_on : 1;                  /* MCP command to turn on the instrument lift pump. */
+   unsigned mcp_lift_dn_4 : 1;                /* Part of the binary code for down lift speed. */
+   unsigned mcp_lift_dn_3 : 1;                /* Part of the binary code for down lift speed. */
+   unsigned mcp_lift_dn_2 : 1;                /* Part of the binary code for down lift speed. */
+   unsigned mcp_lift_dn_1 : 1;                /* Part of the binary code for down lift speed. */
+   unsigned mcp_lift_up_1 : 1;                /* Part of the binary code for up lift speed. */
+   unsigned mcp_lift_up_2 : 1;                /* Part of the binary code for up lift speed. */
+   unsigned mcp_lift_up_3 : 1;                /* Part of the binary code for up lift speed. */
+   unsigned mcp_lift_up_4 : 1;                /* Part of the binary code for up lift speed. */
+   unsigned mcp_lift_high_psi : 1;            /* MCP command to turn on the high lift pressure for camera exchange for the instrument lift. */
+   unsigned mcp_ff_screen_enable : 1;         /* Enable motion of the flat field screens */
+   unsigned mcp_hgcd_lamp_on_cmd : 1;         /* MCP command to turn on the hgcd lamps */
+   unsigned mcp_ne_lamp_on_cmd : 1;           /* MCP command to turn the ne lamps on */
+   unsigned mcp_ff_lamp_on_cmd : 1;           /* MCP command to turn the ff lamps on */
+   unsigned mcp_ff_scrn_opn_cmd : 1;          /* MCP command to open the ff screen. */
+   unsigned mcp_slit_latch2_cmd : 1;          /* MCP slithead latch2 control 1=engage 0=disengage */
+   unsigned mcp_slit_dr2_cls_cmd : 1;         /* MCP slithead door 2 close command bit from VME */
+   unsigned mcp_slit_dr2_opn_cmd : 1;         /* MCP slithead door 2 open command bit from VME */
+   unsigned mcp_slit_latch1_cmd : 1;          /* MCP slithead latch 1 control bit from VME 1=engage 0=disengage */
+   unsigned mcp_slit_dr1_cls_cmd : 1;         /* MCP slithead door 1 close command bit from VME */
+   unsigned mcp_slit_dr1_opn_cmd : 1;         /* MCP slithead door 1 open command bit from VME */
+   unsigned mcp_umbilical_on_off : 1;         /* MCP camera umbilical motor on / off command line. 1=on 0=off */
+   unsigned mcp_umbilical_up_dn : 1;          /* MCP camera umbilical motor up / down command line. 0=up 1=down */
+   unsigned mcp_15deg_stop_ret_c : 1;         /* MCP 15 degree stop remove command */
+   unsigned mcp_15deg_stop_ext_c : 1;         /* MCP 15 degree stop insert command */
+   unsigned mcp_clamp_disen_cmd : 1;          /* MCP Clamp disengage command */
+} B10_L0;
 
-	unsigned : 16;
-}IF1_L4;
 typedef struct {
-	unsigned rack_1_grp_4_bit_15 : 1;
-	unsigned rack_1_grp_4_bit_14 : 1;
-	unsigned rack_1_grp_4_bit_13 : 1;
-	unsigned rack_1_grp_4_bit_12 : 1;
-	unsigned rack_1_grp_4_bit_11 : 1;
-	unsigned rack_1_grp_4_bit_10 : 1;
-	unsigned rack_1_grp_4_bit_9 : 1;
-	unsigned rack_1_grp_4_bit_8 : 1;
-	unsigned rack_1_grp_4_bit_7 : 1;
-	unsigned rack_1_grp_4_bit_6 : 1;
-	unsigned rack_1_grp_4_bit_5 : 1;
-	unsigned rack_1_grp_4_bit_4 : 1;
-	unsigned sec_mir_force_limits : 1;
-	unsigned alt_bump_dn : 1;
-	unsigned alt_bump_up : 1;
-	unsigned purge_air_pressur_sw : 1;
+   unsigned : 5;                             
+   unsigned mcp_inst_chg_alert : 1;           /* MCP command to alert the observers for an instrument change malfunction. */
+   unsigned mcp_inst_chg_prompt : 1;          /* MCP command to alert the observers for an instrument change prompt. */
+   unsigned mcp_sad_latch_opn_cm : 1;         /* MCP command to open the saddle latches. */
+   unsigned mcp_sad_latch_cls_cm : 1;         /* MCP command to close the saddle latches. */
+   unsigned mcp_sec_latch_opn_cm : 1;         /* MCP command to open the secondary latches. */
+   unsigned mcp_sec_latch_cls_cm : 1;         /* MCP command to close the secondary latches. */
+   unsigned mcp_pri_latch_opn_cm : 1;         /* MCP command to open the primary latches. */
+   unsigned mcp_pri_latch_cls_cm : 1;         /* MCP command to close the primary latches. */
+   unsigned mcp_purge_cell_on : 1;            /* MCP command to start the purge cell. */
+   unsigned mcp_t_bar_tel : 1;                /* MCP command to latch the t-bar latches */
+   unsigned mcp_t_bar_xport : 1;              /* MCP command to unlatch the t-bar latches */
+   unsigned : 15;                            
+   unsigned velocity_trp_rst_in : 1;          /* MCP command to reset a velocity trip in the slip detection module. */
+} B10_L1;
 
-	unsigned : 16;
-}IF1_L6;
 typedef struct {
-	unsigned rack_2_grp_0_bit_15 : 1;
-	unsigned spec_autofill_on : 1;
-  	unsigned spec_lens2 : 1;
-  	unsigned spec_lens1 : 1;
-  	unsigned inst_id3_4 : 1;
-  	unsigned inst_id3_3 : 1;
-  	unsigned inst_id3_2 : 1;
-  	unsigned inst_id3_1 : 1;
-  	unsigned inst_id2_4 : 1;
-  	unsigned inst_id2_3 : 1;
-  	unsigned inst_id2_2 : 1;
-  	unsigned inst_id2_1 : 1;
-  	unsigned inst_id1_4 : 1;
-  	unsigned inst_id1_3 : 1;
-  	unsigned inst_id1_2 : 1;
-  	unsigned inst_id1_1 : 1;
+   unsigned rack_0_grp_0_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned az_bump_ccw : 1;                  /* Azimuth telescope to windscreen counter-clockwise bump switch. */
+   unsigned az_bump_cw : 1;                   /* Azimuth telescope to windscreen clockwise bump switch. */
+   unsigned rack_0_grp_0_bit_12 : 1;          /* Spare input bit */
+   unsigned ops_cart_in_pos : 1;              /* Imager cart in position status bit. */
+   unsigned fiber_cart_pos2 : 1;              /* Fiber cartridge cart in position 2 status bit. */
+   unsigned fiber_cart_pos1 : 1;              /* Fiber cartridge cart in position 1 status bit. */
+   unsigned inst_lift_low_force : 1;          /* Instrument lift in low force status bit. */
+   unsigned inst_lift_high_force : 1;         /* Instrument lift in high force status bit. */
+   unsigned inst_lift_man : 1;                /* Instrument lift in the manual mode status bit. */
+   unsigned inst_lift_dn : 1;                 /* Instrument lift plate in the down position status bit. */
+   unsigned inst_lift_sw4 : 1;                /* Instrument lift plate switch 4 status bit. */
+   unsigned inst_lift_sw3 : 1;                /* Instrument lift plate switch 3 status bit. */
+   unsigned inst_lift_sw2 : 1;                /* Instrument lift plate switch 2 status bit. */
+   unsigned inst_lift_sw1 : 1;                /* Instrument lift plate switch 1 status bit. */
+   unsigned inst_lift_pump_on : 1;            /* Instrument lift pump on status bit. */
+   unsigned low_lvl_light_req : 1;            /* Low lever lighting request to change state of low level lighting from off to on or on to off. */
+   unsigned rack_0_grp_1_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_13 : 1;          /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_12 : 1;          /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_11 : 1;          /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_10 : 1;          /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_9 : 1;           /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_8 : 1;           /* Spare PLC input bit. */
+   unsigned rack_0_grp_1_bit_7 : 1;           /* Spare PLC input bit. */
+   unsigned optical_bench_cls : 1;            /* T Bar latches closed or on t bars. CCD's unsafe to move camera. */
+   unsigned optical_bench_opn : 1;            /* T Bar latches open or off t bars. CCD's safe to move camera. */
+   unsigned ops_cart_in_house : 1;            /* Imager operations cart in dog house status bit. */
+   unsigned dog_house_door_cls : 1;           /* Dog house door closed status bit. */
+   unsigned dog_house_door_opn : 1;           /* Dog house door open status bit. */
+   unsigned dog_house_ccw_pad : 1;            /* Dog house ccw bump switch.  Stops telescope and windscreen motion if dog house hits obj. */
+   unsigned dog_house_cw_pad : 1;             /* Dog house cw bump switch.  Stops telescope and windscreen motion if dog house hits obj. */
+} I1_L0;
 
-    	unsigned safety_latch2_cls : 1;
-    	unsigned safety_latch2_opn : 1;
-    	unsigned safety_latch1_cls : 1;
-    	unsigned safety_latch1_opn : 1;
-    	unsigned sec_latch3_cls : 1;
-    	unsigned sec_latch3_opn : 1;
-    	unsigned sec_latch2_cls : 1;
-    	unsigned sec_latch2_opn : 1;
-    	unsigned sec_latch1_cls : 1;
-    	unsigned sec_latch1_opn : 1;
-    	unsigned pri_latch3_cls : 1;
-    	unsigned pri_latch3_opn : 1;
-    	unsigned pri_latch2_cls : 1;
-    	unsigned pri_latch2_opn : 1;
-    	unsigned pri_latch1_cls : 1;
-    	unsigned pri_latch1_opn : 1;
-}IF1_L8;
 typedef struct {
-	unsigned rack_2_grp_2_bit_15 : 1;
-	unsigned rack_2_grp_2_bit_14 : 1;
-	unsigned slit_head_2_in_place : 1;
-	unsigned slit_head_latch2_ext : 1;
-	unsigned slit_head_door2_cls : 1;
-	unsigned slit_head_door2_opn : 1;
-	unsigned slit_head_1_in_place : 1;
-	unsigned slit_head_latch1_ext : 1;
-	unsigned slit_head_door1_cls : 1;
-	unsigned slit_head_door1_opn : 1;
-	unsigned sad_mount2 : 1;
-	unsigned sad_mount1 : 1;
-	unsigned sad_latch2_cls : 1;
-	unsigned sad_latch2_opn : 1;
-	unsigned sad_latch1_cls : 1;
-	unsigned sad_latch1_opn : 1;
-	
-	unsigned : 16;
-}IF1_L9;
+   unsigned spare : 32;                      
+} I1_L1;
+
 typedef struct {
-	unsigned : 16;
-	
-	unsigned rack_3_grp_1_bit_15 : 1;
-	unsigned rack_3_grp_1_bit_14 : 1;
-	unsigned rack_3_grp_1_bit_13 : 1;
-	unsigned rack_3_grp_1_bit_12 : 1;
-	unsigned rack_3_grp_1_bit_11 : 1;
-	unsigned rack_3_grp_1_bit_10 : 1;
-	unsigned man_lift_dn : 4;
-	unsigned man_lift_up : 4;
-	unsigned inst_lift_auto : 1;
-	unsigned : 1;
-}IF1_L12;
+   unsigned spare : 32;                      
+} I1_L2;
+
 typedef struct {
-	unsigned leaf_8_closed_stat : 1;
-	unsigned leaf_8_open_stat : 1;
-	unsigned leaf_7_closed_stat : 1;
-	unsigned leaf_7_open_stat : 1;
-	unsigned leaf_6_closed_stat : 1;
-	unsigned leaf_6_open_stat : 1;
-	unsigned leaf_5_closed_stat : 1;
-	unsigned leaf_5_open_stat : 1;
-	unsigned leaf_4_closed_stat : 1;
-	unsigned leaf_4_open_stat : 1;
-	unsigned leaf_3_closed_stat : 1;
-	unsigned leaf_3_open_stat : 1;
-	unsigned leaf_2_closed_stat : 1;
-	unsigned leaf_2_open_stat : 1;
-	unsigned leaf_1_closed_stat : 1;
-	unsigned leaf_1_open_stat : 1;
-	
-	unsigned rack_3_grp_3_bit_15 : 1;
-	unsigned rack_3_grp_3_bit_14 : 1;
-	unsigned rack_3_grp_3_bit_13 : 1;
-	unsigned rack_3_grp_3_bit_12 : 1;
-	unsigned hgcd_4_stat : 1;
-	unsigned hgcd_3_stat : 1;
-	unsigned hgcd_2_stat : 1;
-	unsigned hgcd_1_stat : 1;
-	unsigned ne_4_stat : 1;
-	unsigned ne_3_stat : 1;
-	unsigned ne_2_stat : 1;
-	unsigned ne_1_stat : 1;
-	unsigned ff_4_stat : 1;
-	unsigned ff_3_stat : 1;
-	unsigned ff_2_stat : 1;
-	unsigned ff_1_stat : 1;
-}IF1_L13;
+   unsigned spare : 32;                      
+} I1_L3;
+
 typedef struct {
-	unsigned rack_3_grp_4_bit_15 : 1;
-	unsigned rack_3_grp_4_bit_14 : 1;
-	unsigned rack_3_grp_4_bit_13 : 1;
-	unsigned rack_3_grp_4_bit_12 : 1;
-	unsigned rack_3_grp_4_bit_11 : 1;
-	unsigned rack_3_grp_4_bit_10 : 1;
-	unsigned rack_3_grp_4_bit_9 : 1;
-	unsigned rack_3_grp_4_bit_8 : 1;
-	unsigned rack_3_grp_4_bit_7 : 1;
-	unsigned rack_3_grp_4_bit_6 : 1;
-	unsigned ff_man_cont_on : 1;
-	unsigned man_hgcd_lamp_on_cmd : 1;
-	unsigned man_ne_lamp_on_cmd : 1;
-	unsigned man_ff_lamp_on_cmd : 1;
-	unsigned man_ff_scrn_en_cmd : 1;
-	unsigned man_ff_scrn_opn_cmd : 1;
-	
-	unsigned : 16;
-}IF1_L14;
+   unsigned open_slit_doors : 1;              /* Latch control box Slithead door Open switch */
+   unsigned close_slit_doors : 1;             /* Latch control box Slithead door Close switch */
+   unsigned inst_chg_remove_sw : 1;           /* Latch control box Instrument change Remove switch */
+   unsigned inst_chg_install_sw : 1;          /* Latch control box Instrument change Install switch */
+   unsigned man_mode_switch : 1;              /* Latch control box Manual mode switch */
+   unsigned auto_mode_sw : 1;                 /* Latch control box Auto mode switch */
+   unsigned off_mode_sw : 1;                  /* Latch control box Off mode switch */
+   unsigned iclb_leds_on_cmd : 1;             /* Latch control box LEDs on switch */
+   unsigned sad_man_valve_cls : 1;            /* Saddle latch manual valve closed status switch. */
+   unsigned sec_man_valve_cls : 1;            /* Secondary latch manual valve closed status switch. */
+   unsigned inst_man_valve_cls : 1;           /* Imager latch manual valve closed status switch. */
+   unsigned ilcb_pres_good : 1;               /* Instrument latch control box air pressure status switch. */
+   unsigned rot_pos_370_ccw : 1;              /* First ccw inhibit switch for the rotator.  Causes a directional inhibit. */
+   unsigned rot_neg_190_cw : 1;               /* First cw inhibit switch for the rotator.  Causes a directional inhibit. */
+   unsigned rot_inst_chg_b : 1;               /* Second of two switches used to determine rotator is at the instrument change position. */
+   unsigned rot_inst_chg_a : 1;               /* First of two switches used to determine the rotator is at the instrument change po */
+   unsigned rack_1_grp_1_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_13 : 1;          /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_12 : 1;          /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_11 : 1;          /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_10 : 1;          /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_9 : 1;           /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_8 : 1;           /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_7 : 1;           /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_6 : 1;           /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_5 : 1;           /* Spare PLC input bit. */
+   unsigned rack_1_grp_1_bit_4 : 1;           /* Spare PLC input bit. */
+   unsigned tbar_latch_tel_cmd : 1;           /* Tbar latch telescope command input */
+   unsigned tbar_latch_xport_cmd : 1;         /* Tbar latch transport command input */
+   unsigned slit_latch_lth_cmd : 1;           /* Slit head latch command input */
+   unsigned slit_latch_unlth_cmd : 1;         /* Slit head unlatch command input */
+} I1_L4;
+
+typedef struct {
+   unsigned spare : 32;                      
+} I1_L5;
+
+typedef struct {
+   unsigned spare : 32;                      
+} I1_L6;
+
+typedef struct {
+   unsigned spare : 32;                      
+} I1_L7;
+
+typedef struct {
+   unsigned rack_2_grp_0_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned spec_autofill_on : 1;             /* Spectrograph autofill system connected.  Altitude and Rotator motion disabled. */
+   unsigned spec_lens2 : 1;                   /* Spectrographic corrector lens mount position 2 switch. */
+   unsigned spec_lens1 : 1;                   /* Spectrographic corrector lens mount position 1 switch. */
+   unsigned inst_id3_4 : 1;                   /* Instrument ID block 3 switch 4 status. */
+   unsigned inst_id3_3 : 1;                   /* Instrument ID block 3 switch 3 status. */
+   unsigned inst_id3_2 : 1;                   /* Instrument ID block 3 switch 2 status. */
+   unsigned inst_id3_1 : 1;                   /* Instrument ID block 3 switch 1 status. */
+   unsigned inst_id2_4 : 1;                   /* Instrument ID block 2 switch 4 status. */
+   unsigned inst_id2_3 : 1;                   /* Instrument ID block 2 switch 3 status. */
+   unsigned inst_id2_2 : 1;                   /* Instrument ID block 2 switch 2 status. */
+   unsigned inst_id2_1 : 1;                   /* Instrument ID block 2 switch 1 status. */
+   unsigned inst_id1_4 : 1;                   /* Instrument ID block 1 switch 4 status. */
+   unsigned inst_id1_3 : 1;                   /* Instrument ID block 1 switch 3 status. */
+   unsigned inst_id1_2 : 1;                   /* Instrument ID block 1 switch 2 status. */
+   unsigned inst_id1_1 : 1;                   /* Instrument ID block 1 switch 1 status. */
+   unsigned safety_latch2_cls : 1;            /* Protection bolt 2 closed status. */
+   unsigned safety_latch2_opn : 1;            /* Protection bolt 2 open status. */
+   unsigned safety_latch1_cls : 1;            /* Protection bolt 1 closed status. */
+   unsigned safety_latch1_opn : 1;            /* Protection bolt 1 open status. */
+   unsigned sec_latch3_cls : 1;               /* Secondary latch 3 closed status. */
+   unsigned sec_latch3_opn : 1;               /* Secondary latch 3 open status. */
+   unsigned sec_latch2_cls : 1;               /* Secondary latch 2 closed status. */
+   unsigned sec_latch2_opn : 1;               /* Secondary latch 2 open status. */
+   unsigned sec_latch1_cls : 1;               /* Secondary latch 1 closed status. */
+   unsigned sec_latch1_opn : 1;               /* Secondary latch 1 open status. */
+   unsigned pri_latch3_cls : 1;               /* Primary latch 3 closed status. */
+   unsigned pri_latch3_opn : 1;               /* Primary latch 3 open status. */
+   unsigned pri_latch2_cls : 1;               /* Primary latch 2 closed status. */
+   unsigned pri_latch2_opn : 1;               /* Primary latch 2 open status. */
+   unsigned pri_latch1_cls : 1;               /* Primary latch 1 closed status. */
+   unsigned pri_latch1_opn : 1;               /* Primary latch 1 open status. */
+} I1_L8;
+
+typedef struct {
+   unsigned rack_2_grp_2_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_2_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned slit_head_2_in_place : 1;         /* Cartridge 2 in place status. */
+   unsigned slit_head_latch2_ext : 1;         /* Cartridge latch 2 extended status. */
+   unsigned slit_head_door2_cls : 1;          /* Slit head door 2 closed status. */
+   unsigned slit_head_door2_opn : 1;          /* Slit head door 2 open status. */
+   unsigned slit_head_1_in_place : 1;         /* Cartridge 1 in place status. */
+   unsigned slit_head_latch1_ext : 1;         /* Cartridge latch 1 extended status. */
+   unsigned slit_head_door1_cls : 1;          /* Slit head door 1 closed status. */
+   unsigned slit_head_door1_opn : 1;          /* Slit head door 1 open status. */
+   unsigned sad_mount2 : 1;                   /* Saddle mount position 2 switch. */
+   unsigned sad_mount1 : 1;                   /* Saddle mount position 1 switch. */
+   unsigned sad_latch2_cls : 1;               /* Saddle latch 2 closed status. */
+   unsigned sad_latch2_opn : 1;               /* Saddle latch 2 open status. */
+   unsigned sad_latch1_cls : 1;               /* Saddle latch 1 closed status. */
+   unsigned sad_latch1_opn : 1;               /* Saddle latch 1 open status. */
+   unsigned : 16;                            
+} I1_L9;
+
+typedef struct {
+   unsigned rack_2_grp_4_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_13 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_12 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_11 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_10 : 1;          /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_9 : 1;           /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_8 : 1;           /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_7 : 1;           /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_6 : 1;           /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_5 : 1;           /* Spare PLC input bit. */
+   unsigned rack_2_grp_4_bit_4 : 1;           /* Spare PLC input bit. */
+   unsigned sec_mir_force_limits : 1;         /* Spare PLC input bit. */
+   unsigned alt_bump_dn : 1;                  /* Altitude telescope to windscreen down bump switch. */
+   unsigned alt_bump_up : 1;                  /* Altitude telescope to windscreen up bump switch. */
+   unsigned purge_air_pressur_sw : 1;         /* Purge air pressure switch */
+   unsigned : 16;                            
+} I1_L10;
+
+typedef struct {
+   unsigned spare : 32;                      
+} I1_L11;
+
+typedef struct {
+   unsigned : 16;                            
+   unsigned rack_3_grp_1_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_1_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_1_bit_13 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_1_bit_12 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_1_bit_11 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_1_bit_10 : 1;          /* Spare PLC input bit. */
+   unsigned man_lift_dn_4 : 1;                /* Manual control lift down 4 switch. */
+   unsigned man_lift_dn_3 : 1;                /* Manual control lift down 3 switch. */
+   unsigned man_lift_dn_2 : 1;                /* Manual control lift down 2 switch. */
+   unsigned man_lift_dn_1 : 1;                /* Manual control lift down 1 switch. */
+   unsigned man_lift_up_4 : 1;                /* Manual control lift up 4 switch. */
+   unsigned man_lift_up_3 : 1;                /* Manual control lift up 3 switch. */
+   unsigned man_lift_up_2 : 1;                /* Manual control lift up 2 switch. */
+   unsigned man_lift_up_1 : 1;                /* Manual control lift up 1 switch. */
+   unsigned inst_lift_auto : 1;               /* Instrument lift in automatic position. */
+   unsigned rack_3_grp_1_bit_0 : 1;           /* Spare PLC input bit. */
+} I1_L12;
+
+typedef struct {
+   unsigned leaf_8_closed_stat : 1;           /* Leaf Screen 8 closed status bit */
+   unsigned leaf_8_open_stat : 1;             /* Leaf Screen 8 open status bit */
+   unsigned leaf_7_closed_stat : 1;           /* Leaf Screen 7 closed status bit */
+   unsigned leaf_7_open_stat : 1;             /* Leaf Screen 7 open status bit */
+   unsigned leaf_6_closed_stat : 1;           /* Leaf Screen 6 closed status bit */
+   unsigned leaf_6_open_stat : 1;             /* Leaf Screen 6 open status bit */
+   unsigned leaf_5_closed_stat : 1;           /* Leaf Screen 5 closed status bit */
+   unsigned leaf_5_open_stat : 1;             /* Leaf Screen 5 open status bit */
+   unsigned leaf_4_closed_stat : 1;           /* Leaf Screen 4 closed status bit */
+   unsigned leaf_4_open_stat : 1;             /* Leaf Screen 4 open status bit */
+   unsigned leaf_3_closed_stat : 1;           /* Leaf Screen 3 closed status bit */
+   unsigned leaf_3_open_stat : 1;             /* Leaf Screen 3 open status bit */
+   unsigned leaf_2_closed_stat : 1;           /* Leaf Screen 2 closed status bit */
+   unsigned leaf_2_open_stat : 1;             /* Leaf Screen 2 open status bit */
+   unsigned leaf_1_closed_stat : 1;           /* Leaf Screen 1 closed status bit */
+   unsigned leaf_1_open_stat : 1;             /* Leaf Screen 1 open status bit */
+   unsigned rack_3_grp_3_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_3_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_3_bit_13 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_3_bit_12 : 1;          /* Spare PLC input bit. */
+   unsigned hgcd_4_stat : 1;                  /* Mercury-cadmium lamp 4 status bit */
+   unsigned hgcd_3_stat : 1;                  /* Mercury-cadmium lamp 3 status bit */
+   unsigned hgcd_2_stat : 1;                  /* Mercury-cadmium lamp 2 status bit */
+   unsigned hgcd_1_stat : 1;                  /* Mercury-cadmium lamp 1 status bit */
+   unsigned ne_4_stat : 1;                    /* Neon lamp 4 status bit */
+   unsigned ne_3_stat : 1;                    /* Neon lamp 3 status bit */
+   unsigned ne_2_stat : 1;                    /* Neon lamp 2 status bit */
+   unsigned ne_1_stat : 1;                    /* Neon lamp 1 status bit */
+   unsigned ff_4_stat : 1;                    /* Flatfield lamp 4 status bit */
+   unsigned ff_3_stat : 1;                    /* Flatfield lamp 3 status bit */
+   unsigned ff_2_stat : 1;                    /* Flatfield lamp 2 status bit */
+   unsigned ff_1_stat : 1;                    /* Flatfield lamp 1 status bit */
+} I1_L13;
+
+typedef struct {
+   unsigned rack_3_grp_4_bit_15 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_14 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_13 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_12 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_11 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_10 : 1;          /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_9 : 1;           /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_8 : 1;           /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_7 : 1;           /* Spare PLC input bit. */
+   unsigned rack_3_grp_4_bit_6 : 1;           /* Spare PLC input bit. */
+   unsigned ff_man_cont_enable : 1;           /* Manual flatfield control module connected to telescope.  Alt and Az motion disabled. */
+   unsigned man_hgcd_lamp_on_cmd : 1;         /* Manual mercury cadmium lamps on command */
+   unsigned man_ne_lamp_on_cmd : 1;           /* Manual Neon lamps on command */
+   unsigned man_ff_lamp_on_cmd : 1;           /* Manual flatfield lamps on command */
+   unsigned man_ff_scrn_en_cmd : 1;           /* Manual flatfield screen enable command */
+   unsigned man_ff_scrn_opn_cmd : 1;          /* Manual flatfield screen open command */
+   unsigned : 16;                            
+} I1_L14;
+
+typedef struct {
+   unsigned spare : 32;                      
+} I1_L15;
+
+typedef struct {
+   unsigned dcm_status : 16;                  /* Direct communications module status word. */
+   unsigned spare : 1;                        /* Spare PLC input bit. */
+   unsigned : 9;                             
+   unsigned wind_alt_perm : 1;                /* Windscreen altitude motion permit bit. */
+   unsigned wind_az_perm : 1;                 /* Windscreen azimuth motion permit bit. */
+   unsigned wind_alt1_fault : 1;              /* Windscreen altitude amplifier fault bit. */
+   unsigned wind_az3_fault : 1;               /* Windscreen azimuth amplifier 3 fault bit. */
+   unsigned wind_az2_fault : 1;               /* Windscreen azimuth amplifier 2 fault bit. */
+   unsigned wind_az1_fault : 1;               /* Windscreen azimuth amplifier 1 fault bit. */
+} I2_L0;
+
+typedef struct {
+   unsigned az_lvdt_error : 16;               /* Azimuth LVDT error analog value. */
+   unsigned alt_lvdt_error : 16;              /* Altitude LVDT error analog value. */
+} I2_L1;
+
+typedef struct {
+   unsigned az_primary_drv : 16;              /* Azimuth primary drive value. */
+   unsigned az_feed_forward_drv : 16;         /* Azimuth feed forward drive value. */
+} I2_L2;
+
+typedef struct {
+   unsigned alt_primary_drv : 16;             /* Altitude primary drive value. */
+   unsigned : 16;                            
+} I2_L3;
+
+typedef struct {
+   unsigned az_1_voltage : 16;                /* Azimuth motor 1 voltage. */
+   unsigned az_1_current : 16;                /* Azimuth motor 1 current. */
+} I3_L0;
+
+typedef struct {
+   unsigned az_2_voltage : 16;                /* Azimuth motor 2 voltage. */
+   unsigned az_2_current : 16;                /* Azimuth motor 2 current. */
+} I3_L1;
+
+typedef struct {
+   unsigned alt_1_voltage : 16;               /* Altitude motor 1 voltage. */
+   unsigned alt_1_current : 16;               /* Altitude motor 1 current. */
+} I3_L2;
+
+typedef struct {
+   unsigned alt_2_voltage : 16;               /* Altitude motor 2 voltage. */
+   unsigned alt_2_current : 16;               /* Altitude motor 2 current. */
+} I3_L3;
+
+typedef struct {
+   unsigned alt_position : 16;                /* Altitude clinometer raw position value. */
+   unsigned rot_1_voltage : 16;               /* Rotator motor voltage. */
+} I4_L0;
+
+typedef struct {
+   unsigned rot_1_current : 16;               /* Rotator motor current. */
+   unsigned umbilical_dist : 16;              /* Camera umbilical distance value. */
+} I4_L1;
+
+typedef struct {
+   unsigned inst_lift_force : 16;             /* Instrument lift strain gauge value. */
+   unsigned inst_lift_dist : 16;              /* Instrument lift string pot distance value. */
+} I4_L2;
+
+typedef struct {
+   unsigned i_4_analog_6_spare : 16;          /* Spare analog channel. */
+   unsigned i_4_analog_7_spare : 16;          /* Spare analog channel. */
+} I4_L3;
+
+typedef struct {
+   unsigned counterweight_1_pos : 16;         /* Counterweight #1 string pot position value */
+   unsigned counterweight_2_pos : 16;         /* Counterweight #2 string pot position value */
+} I5_L0;
+
+typedef struct {
+   unsigned counterweight_3_pos : 16;         /* Counterweight #3 string pot position value */
+   unsigned counterweight_4_pos : 16;         /* Counterweight #4 string pot position value */
+} I5_L1;
+
+typedef struct {
+   unsigned i_5_analog_4_spare : 16;          /* Spare analog channel. */
+   unsigned i_5_analog_5_spare : 16;          /* Spare analog channel. */
+} I5_L2;
+
+typedef struct {
+   unsigned i_5_analog_6_spare : 16;          /* Spare analog channel. */
+   unsigned i_5_analog_7_spare : 16;          /* Spare analog channel. */
+} I5_L3;
+
+typedef struct {
+   unsigned spare_s2_c7 : 1;                  /* Spare splitter chassis channel */
+   unsigned nw_fork_stop : 1;                 /* North West Fork E-Stop */
+   unsigned s_wind_stop : 1;                  /* South wind screen e-stop */
+   unsigned w_lower_stop : 1;                 /* West lower level e-stop */
+   unsigned e_lower_stop : 1;                 /* East lower level e-stop */
+   unsigned s_lower_stop : 1;                 /* South lower level e-stop */
+   unsigned n_lower_stop : 1;                 /* North lower level e-stop */
+   unsigned w_rail_stop : 1;                  /* West railing e-stop */
+   unsigned s_rail_stop : 1;                  /* South railing e-stop */
+   unsigned n_rail_stop : 1;                  /* North railing e-stop */
+   unsigned n_fork_stop : 1;                  /* North fork e-stop */
+   unsigned n_wind_stop : 1;                  /* North wind screen e-stop */
+   unsigned fiber_signal_loss : 1;            /* Control room e-stop fiber link signal loss indicator. Currently not implemented. */
+   unsigned spare_s1_c2 : 1;                  /* Spare splitter chassis channel. */
+   unsigned cr_stop : 1;                      /* Control Room e-stop switch. */
+   unsigned tcc_stop : 1;                     /* TCC inhibit input hook.  Currently not implemented. */
+   unsigned az_stow_3b : 1;                   /* Azimuth stow position switch status */
+   unsigned wind_az_plc_perm_in : 1;          /* Wind screen PLC permit status */
+   unsigned az_plc_perm_in : 1;               /* Azimuth PLC permit status */
+   unsigned wind_az_mtr_perm_in : 1;          /* Wind screen azimuth motor permit status */
+   unsigned az_mtr2_perm_in : 1;              /* Azimuth motor 2 permit status */
+   unsigned az_mtr1_perm_in : 1;              /* Azimuth motor 1 permit status */
+   unsigned az_mtr_ccw_perm_in : 1;           /* Azimuth motor CCW permit status */
+   unsigned az_mtr_cw_perm_in : 1;            /* Azimuth motor CW permit status */
+   unsigned az_stow_3a : 1;                   /* Azimuth stow position switch status */
+   unsigned wind_alt_plc_perm_in : 1;         /* Wind screen PLC permit status */
+   unsigned alt_plc_perm_in : 1;              /* Altitude PLC permit status */
+   unsigned wind_alt_mtr_perm_in : 1;         /* Wind screen altitude motor permit in */
+   unsigned alt_mtr2_perm_in : 1;             /* Altitude motor 2 permit status */
+   unsigned alt_mtr1_perm_in : 1;             /* Altitude motor 1 permit status */
+   unsigned alt_mtr_dn_perm_in : 1;           /* Altitude motor down permit status */
+   unsigned alt_mtr_up_perm_in : 1;           /* Altitude motor up permit status */
+} I6_L0;
+
+typedef struct {
+   unsigned az_stow_1b : 1;                   /* Azimuth stow position status */
+   unsigned az_stow_1a : 1;                   /* Azimuth stow position status */
+   unsigned alt_grt_18d6_limit_1 : 1;         /* Altitude greater than 18.6 degree limit status */
+   unsigned az_109_131_limit_1 : 1;           /* Azimuth between 109 to 131 degrees status */
+   unsigned bldg_on_alt : 1;                  /* Building on status for altitude logic */
+   unsigned alt_les_90d5_limit : 1;           /* Altitude less than 90.5 degree limit status */
+   unsigned alt_locking_pin_out : 1;          /* Altitude locking pin out status */
+   unsigned alt_grt_0d3_limit : 1;            /* Altitude greater then 0.3 degree limit status */
+   unsigned alt_les_2d5_limit : 1;            /* Altitude greater then 2.5 degree limit status */
+   unsigned hatch_cls : 1;                    /* Hatch closed status switch */
+   unsigned rot_plc_perm_in : 1;              /* Rotator PLC permit status */
+   unsigned bldg_perm_in : 1;                 /* Building motion permit status */
+   unsigned spare_s5_c3 : 1;                  /* Spare splitter chassis channel */
+   unsigned rot_mtr_perm_in : 1;              /* Rotator motor permit status */
+   unsigned rot_mtr_ccw_perm_in : 1;          /* Rotator motor CCW permit status */
+   unsigned rot_mtr_cw_perm_in : 1;           /* Rotator motor CW permit status */
+   unsigned spare_s8_c7 : 1;                  /* Spare splitter chassis channel */
+   unsigned spare_s8_c6 : 1;                  /* Spare splitter chassis channel */
+   unsigned az_pos_410b_ccw : 1;              /* Azimuth less than +410 degree limit status */
+   unsigned az_neg_170b_cw : 1;               /* Azimuth greater than -170 degrees status */
+   unsigned az_pos_410a_ccw : 1;              /* Azimuth less than +410 degree limit status */
+   unsigned az_neg_170a_cw : 1;               /* Azimuth greater then -170 degrees status */
+   unsigned az_dir_ccw : 1;                   /* Azimuth direction CCW status */
+   unsigned az_dir_cw : 1;                    /* Azimuth direction CW status */
+   unsigned alt_velocity_limit : 1;           /* Altitude velocity limit status */
+   unsigned alt_slip : 1;                     /* Altitude slip detection status */
+   unsigned alt_grt_18d6_limit_2 : 1;         /* Altitude greater than 18.6 degree limit status */
+   unsigned deg_15_stop_ext : 1;              /* 15 degree stop extended status */
+   unsigned az_stow_2b : 1;                   /* Azimuth stow position status */
+   unsigned az_stow_2a : 1;                   /* Azimuth stow position status */
+   unsigned bldg_clear_alt : 1;               /* Building clear status for altitude logic */
+   unsigned alt_grt_83_limit_1 : 1;           /* Altitude greater than 83 degree limit status */
+} I7_L0;
+
+typedef struct {
+   unsigned rot_velocity_limit : 1;           /* Rotator velocity limit status */
+   unsigned rot_slip : 1;                     /* Rotator slip detection status */
+   unsigned rot_pos_380b_ccw : 1;             /* Rotator less than +300 degree limit status */
+   unsigned rot_neg_200b_cw : 1;              /* Rotator greater then -200 degrees status */
+   unsigned rot_pos_380a_ccw : 1;             /* Rotator less than +300 degree limit status */
+   unsigned rot_neg_200a_cw : 1;              /* Rotator greater then -200 degrees status */
+   unsigned rot_dir_ccw : 1;                  /* Rotator direction CCW status */
+   unsigned rot_dir_cw : 1;                   /* Rotator direction CW status */
+   unsigned az_velocity_limit : 1;            /* Azimuth velocity limit status */
+   unsigned az_slip : 1;                      /* Azimuth slip detection status */
+   unsigned spare_s9_c5 : 1;                  /* Spare splitter chassis channel */
+   unsigned bldg_clear_az : 1;                /* Building clear status for Azimuth logic */
+   unsigned alt_grt_83_limit_2 : 1;           /* Altitude greater then 83 degree limit status */
+   unsigned az_109_131_limit_2 : 1;           /* Azimuth between 109 and 131 degrees limit status */
+   unsigned bldg_on_az : 1;                   /* Building on status for Azimuth logic */
+   unsigned alt_grt_18d6_limit_3 : 1;         /* Altitude greater than 18.6 degree limit status */
+   unsigned t_bar_xport_stat : 1;             /* Camera T-Bar latch latched status */
+   unsigned in_8_bit_30_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_8_bit_29_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_8_bit_28_spare : 1;            /* Spare PLC Input Bit */
+   unsigned deg_15_stop_ret : 1;              /* 15 degree stop retracted (will not stop telescope altitude motion) */
+   unsigned e_stop_byp_sw : 1;                /* E-stop bypass strobe enable key switch status */
+   unsigned umbilical_strain_sw : 1;          /* Camera umbilical strain switch status */
+   unsigned rot_mtr_rdy : 1;                  /* Rotator motor ready status */
+   unsigned alt_mtr2_rdy : 1;                 /* Altitude motor 2 ready status */
+   unsigned alt_mtr1_rdy : 1;                 /* Altitude motor 1 ready status */
+   unsigned az_mtr2_rdy : 1;                  /* Azimuth motor 2 ready status */
+   unsigned az_mtr1_rdy : 1;                  /* Azimuth motor 1 ready status */
+   unsigned az_pos_400_ccw : 1;               /* Azimuth less than +400 degree limit status */
+   unsigned az_neg_165_cw : 1;                /* Azimuth greater than -165 degree limit status */
+   unsigned az_110_130_limit : 1;             /* Azimuth between 110 and 130 degree limit status */
+   unsigned az_stow_cntr_sw : 1;              /* Azimuth stow center switch status */
+} I8_L0;
+
+typedef struct {
+   unsigned in_9_bit_15_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_9_bit_14_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_9_bit_13_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_9_bit_12_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_9_bit_11_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_9_bit_10_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_9_bit_9_spare : 1;             /* Spare PLC Input Bit */
+   unsigned solenoid_engage_sw : 1;           /* Solenoid engage (dead mans switch) */
+   unsigned low_lvl_lighting_req : 1;         /* Low lever lighting state change request bit. */
+   unsigned alt_brake_dis_stat : 1;           /* Altitude brake disabled status */
+   unsigned alt_brake_en_stat : 1;            /* Altitude brake enabled status */
+   unsigned az_brake_dis_stat : 1;            /* Azimuth brake disabled status */
+   unsigned az_brake_en_stat : 1;             /* Azimuth brake enabled status */
+   unsigned clamp_dis_stat : 1;               /* Clamp disengaged status */
+   unsigned clamp_en_stat : 1;                /* Clamp engaged status */
+   unsigned t_bar_tel_stat : 1;               /* Camera T-Bar latch unlatched status */
+   unsigned s2_c7_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c6_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c5_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c4_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c3_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c2_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c1_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c0_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c7_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c6_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c5_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c4_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c3_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c2_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c1_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s1_c0_bypass_sw : 1;              /* E-Stop bypass monitor status */
+} I9_L0;
+
+typedef struct {
+   unsigned in_10_bit_15_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_14_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_13_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_12_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_11_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_10_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_9_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_8_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_7_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_6_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_5_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_4_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_3_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_2_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_1_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_0_spare : 1;            /* Spare PLC Input Bit */
+   unsigned in_10_bit_31_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_30_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_29_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_28_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_27_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_26_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_25_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_24_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_23_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_22_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_21_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_20_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_19_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_18_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_17_spare : 1;           /* Spare PLC Input Bit */
+   unsigned in_10_bit_16_spare : 1;           /* Spare PLC Input Bit */
+} I10_L0;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L0;
+
+typedef struct {
+   unsigned low_lvl_light_2 : 1;              /* Low level lighting enable bit 2 */
+   unsigned low_lvl_light_1 : 1;              /* Low level lighting enable bit 1 */
+   unsigned az_stow_light : 1;                /* Azimuth stow indicator light output bit */
+   unsigned stop_bypass_strobe : 1;           /* E-Stop bypass warning strobe enable bit */
+   unsigned az_stow_center_light : 1;         /* Turns on the azimuth stow position center light. */
+   unsigned rack_0_grp_2_bit_10 : 1;          /* Spare PLC Output Bit */
+   unsigned lamp_on_enable : 1;               /* NE and HGCD lamp enable relay. */
+   unsigned inst_lift_dn_4 : 1;               /* Instrument lift down speed bit 4 */
+   unsigned inst_lift_dn_3 : 1;               /* Instrument lift down speed bit 3 */
+   unsigned inst_lift_dn_2 : 1;               /* Instrument lift down speed bit 2 */
+   unsigned inst_lift_dn_1 : 1;               /* Instrument lift down speed bit 1 */
+   unsigned inst_lift_up_1 : 1;               /* Instrument lift up speed bit 1 */
+   unsigned inst_lift_up_2 : 1;               /* Instrument lift up speed bit 2 */
+   unsigned inst_lift_up_3 : 1;               /* Instrument lift up speed bit 3 */
+   unsigned inst_lift_up_4 : 1;               /* Instrument lift up speed bit 4 */
+   unsigned inst_lift_high_psi : 1;           /* Instrument lift high pressure enable bit */
+   unsigned : 16;                            
+} O1_L1;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L2;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L3;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L4;
+
+typedef struct {
+   unsigned slit1_latched_led : 1;            /* Slit head 1  latched LED */
+   unsigned slit1_unlatched_led : 1;          /* Slit head 1  unltched LED */
+   unsigned lift_down_led : 1;                /* Lift plate down LED */
+   unsigned cart_in_place_led : 1;            /* Cart in  place LED */
+   unsigned cam_crt_in_house_led : 1;         /* Camera cart in dog house LED */
+   unsigned dog_door_open_led : 1;            /* Dog house door not closed LED */
+   unsigned jhook_in_place_led : 1;           /* J Hook in place LED */
+   unsigned sad_in_place_led : 1;             /* Saddle in place LED */
+   unsigned eng_in_place_led : 1;             /* Eng Camera in place LED */
+   unsigned cartg_in_place_led : 1;           /* Cartridge in place LED */
+   unsigned cam_in_place_led : 1;             /* Camera in place LED */
+   unsigned cor_in_place_led : 1;             /* Corrector in place LED */
+   unsigned eng_on_lift_led : 1;              /* Eng Camera on Lift LED */
+   unsigned cartg_on_lift_led : 1;            /* Cartridge on Lift LED */
+   unsigned cam_on_lift_led : 1;              /* Camera on Lift LED */
+   unsigned cor_on_lift_led : 1;              /* Corrector on Lift LED */
+   unsigned sec_latch2_cls_led : 1;           /* ILCB Secondary latch 2 closed LED */
+   unsigned sec_latch2_opn_led : 1;           /* ILCB Secondary latch 2 open LED */
+   unsigned sec_latch1_cls_led : 1;           /* ILCB Secondary latch 1 closed LED */
+   unsigned sec_latch1_opn_led : 1;           /* ILCB Secondary latch 1 open LED */
+   unsigned inst_latch_perm : 1;              /* Instrument latch latch permit */
+   unsigned inst_unlatch_perm : 1;            /* Instrument latch unlatch permit */
+   unsigned inst_latch3_cls_led : 1;          /* ILCB Instrument latch 3 closed LED */
+   unsigned inst_latch3_opn_led : 1;          /* ILCB Instrument latch 3 open LED */
+   unsigned inst_latch2_cls_led : 1;          /* ILCB Instrument latch 2 closed LED */
+   unsigned inst_latch2_opn_led : 1;          /* ILCB Instrument latch 2 open LED */
+   unsigned inst_latch1_cls_led : 1;          /* ILCB Instrument latch 1 closed LED */
+   unsigned inst_latch1_opn_led : 1;          /* ILCB Instrument latch 1 open LED */
+   unsigned slit_latch_prm_led : 1;           /* Slit head latch permit LED */
+   unsigned slit_unlatch_prm_led : 1;         /* Slit head unlatch permit LED */
+   unsigned slit2_latched_led : 1;            /* Slit head 2 latched LED */
+   unsigned slit2_unlatched_led : 1;          /* Slit head 2 unltched LED */
+} O1_L5;
+
+typedef struct {
+   unsigned slit_dr_opn_perm_led : 1;         /* Slit head door open permit LED */
+   unsigned slit_dr_cls_perm_led : 1;         /* Slit head door close permit LED */
+   unsigned tbar_tel_perm_led : 1;            /* T Bar latch telescope permit LED */
+   unsigned tbar_xport_perm_led : 1;          /* T Bar latch transport permit LED */
+   unsigned tbar_tel_led : 1;                 /* T Bar latch telescope status LED */
+   unsigned tbar_xport_led : 1;               /* T Bar latch transport status LED */
+   unsigned sad_latch_perm : 1;               /* Saddle latch latch permit */
+   unsigned sad_unlatch_perm : 1;             /* Saddle latch unlatch permit */
+   unsigned sad_latch2_cls_led : 1;           /* ILCB Saddle latch 2 closed status LED */
+   unsigned sad_latch2_opn_led : 1;           /* ILCB Saddle latch 2 open status LED */
+   unsigned sad_latch1_cls_led : 1;           /* ILCB Saddle latch 1 closed status LED */
+   unsigned sad_latch1_opn_led : 1;           /* ILCB Saddle latch 1 open status LED */
+   unsigned sec_latch_perm : 1;               /* Secondary latch latch permit */
+   unsigned sec_unlatch_perm : 1;             /* Secondary latch unlatch permit */
+   unsigned sec_latch3_cls_led : 1;           /* ILCB Secondary latch 3 closed LED */
+   unsigned sec_latch3_opn_led : 1;           /* ILCB Secondary latch 3 open LED */
+   unsigned rack_1_grp_5_bit_15 : 1;          /* Spare PLC output bit. */
+   unsigned rack_1_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
+   unsigned rack_1_grp_5_bit_13 : 1;          /* Spare PLC output bit. */
+   unsigned saf_latch2_cls_led : 1;           /* ILCB Protection bolt 2 closed LED */
+   unsigned saf_latch2_opn_led : 1;           /* ILCB Protection bolt 2 open LED */
+   unsigned saf_latch1_cls_led : 1;           /* ILCB Protection bolt 1 closed LED */
+   unsigned saf_latch1_opn_led : 1;           /* ILCB Protection bolt 1 open LED */
+   unsigned manual_mode_led : 1;              /* Manual mode status LED */
+   unsigned sad_latch_air_led : 1;            /* Saddle latch air on status LED */
+   unsigned sec_latch_air_led : 1;            /* Secondary latch air on status LED */
+   unsigned inst_latch_air_led : 1;           /* Instrument latch air on status LED */
+   unsigned ilcb_pres_led : 1;                /* ILCB air pressure good LED */
+   unsigned slit_dr2_opn_led : 1;             /* Slit head door 2 open status LED */
+   unsigned slit_dr2_cls_led : 1;             /* Slit head door 2 closed status LED */
+   unsigned slit_dr1_opn_led : 1;             /* Slit head door 1 open status LED */
+   unsigned slit_dr1_cls_led : 1;             /* Slit head door 1 closed status LED */
+} O1_L6;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L7;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L8;
+
+typedef struct {
+   unsigned : 16;                            
+   unsigned rack_2_grp_3_bit_15 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_14 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_13 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_12 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_11 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_10 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_9 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_8 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_7 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_3_bit_6 : 1;           /* Spare PLC output bit. */
+   unsigned slit_latch2_ext_perm : 1;         /* Slithead latch 2 extended permit */
+   unsigned slit_dr2_opn_perm : 1;            /* Slithead door 2 open permit */
+   unsigned slit_dr2_cls_perm : 1;            /* Slithead door 2 close permit */
+   unsigned slit_latch1_ext_perm : 1;         /* Slithead latch 1 extended permit */
+   unsigned slit_dr1_opn_perm : 1;            /* Slithead door 1 open permit */
+   unsigned slit_dr1_cls_perm : 1;            /* Slithead door 1 close permit */
+} O1_L9;
+
+typedef struct {
+   unsigned : 16;                            
+   unsigned audio_warning_2 : 1;              /* Audio warning used for instrument change error */
+   unsigned rack_2_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_13 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_12 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_11 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_10 : 1;          /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_9 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_8 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_7 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_6 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_5 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_4 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_3 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_2 : 1;           /* Spare PLC output bit. */
+   unsigned rack_2_grp_5_bit_1 : 1;           /* Spare PLC output bit. */
+   unsigned purge_valve_permit : 1;           /* Purge valve permit */
+} O1_L10;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L11;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L12;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L13;
+
+typedef struct {
+   unsigned : 16;                            
+   unsigned audio_warning_1 : 1;              /* Audio warning used for instrument change error */
+   unsigned rack_4_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_13 : 1;          /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_12 : 1;          /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_11 : 1;          /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_10 : 1;          /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_9 : 1;           /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_8 : 1;           /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_7 : 1;           /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_6 : 1;           /* Spare PLC output bit. */
+   unsigned rack_4_grp_5_bit_5 : 1;           /* Spare PLC output bit. */
+   unsigned hgcd_lamps_on_pmt : 1;            /* Mercury cadmium lamps on permit */
+   unsigned ne_lamps_on_pmt : 1;              /* Neon lamps on permit */
+   unsigned ff_lamps_on_pmt : 1;              /* Flatfield lamps on permit */
+   unsigned ff_screen_enable_pmt : 1;         /* Flatfield screen enable permit */
+   unsigned ff_screen_open_pmt : 1;           /* Flatfield screen open permit */
+} O1_L14;
+
+typedef struct {
+   unsigned spare : 32;                      
+} O1_L15;
+
+typedef struct {
+   unsigned : 26;                            
+   unsigned out_2_bit_21_spare : 1;           /* Spare PLC output bit */
+   unsigned out_2_bit_20_spare : 1;           /* Spare PLC output bit. */
+   unsigned wind_mtr_dn_perm : 1;             /* Windscreen motor down permit */
+   unsigned wind_mtr_up_perm : 1;             /* Windscreen motor up permit */
+   unsigned wind_mtr_ccw_perm : 1;            /* Windscreen motor CCW permit */
+   unsigned wind_mtr_cw_perm : 1;             /* Windscreen motor CW permit */
+} O2_L0;
+
+typedef struct {
+   unsigned az_1_voltage_config : 16;         /* Analog input module 3 configuration control word 0 */
+   unsigned az_1_current_config : 16;         /* Analog input module 3 configuration control word 1 */
+} O3_L0;
+
+typedef struct {
+   unsigned az_2_voltage_config : 16;         /* Analog input module 3 configuration control word 2 */
+   unsigned az_2_current_config : 16;         /* Analog input module 3 configuration control word 3 */
+} O3_L1;
+
+typedef struct {
+   unsigned alt_1_voltage_config : 16;        /* Analog input module 3 configuration control word 4 */
+   unsigned alt_1_current_config : 16;        /* Analog input module 3 configuration control word 5 */
+} O3_L2;
+
+typedef struct {
+   unsigned alt_2_voltage_config : 16;        /* Analog input module 3 configuration control word 6 */
+   unsigned alt_2_current_config : 16;        /* Analog input module 3 configuration control word 7 */
+} O3_L3;
+
+typedef struct {
+   unsigned alt_position_config : 16;         /* Analog input module 4 configuration control word 0 */
+   unsigned rot_1_voltage_config : 16;        /* Analog input module 4 configuration control word 1 */
+} O4_L0;
+
+typedef struct {
+   unsigned rot_1_current_config : 16;        /* Analog input module 4 configuration control word 2 */
+   unsigned umbilical_dist_confi : 16;        /* Analog input module 4 configuration control word 3 */
+} O4_L1;
+
+typedef struct {
+   unsigned inst_lift_force_conf : 16;        /* Analog input module 4 configuration control word 4 */
+   unsigned inst_lift_dist_confi : 16;        /* Analog input module 4 configuration control word 5 */
+} O4_L2;
+
+typedef struct {
+   unsigned i_4_analog_6_config : 16;         /* Analog input module 4 configuration control word 6 */
+   unsigned i_4_analog_7_config : 16;         /* Analog input module 4 configuration control word 7 */
+} O4_L3;
+
+typedef struct {
+   unsigned cntrwht_1_pos_config : 16;        /* Analog input module 5 configuration control word 0 */
+   unsigned cntrwht_2_pos_config : 16;        /* Analog input module 5 configuration control word 1 */
+} O5_L0;
+
+typedef struct {
+   unsigned cntrwht_3_pos_config : 16;        /* Analog input module 5 configuration control word 2 */
+   unsigned cntrwht_4_pos_config : 16;        /* Analog input module 5 configuration control word 3 */
+} O5_L1;
+
+typedef struct {
+   unsigned i_5_analog_4_config : 16;         /* Analog input module 5 configuration control word 4 */
+   unsigned i_5_analog_5_config : 16;         /* Analog input module 5 configuration control word 5 */
+} O5_L2;
+
+typedef struct {
+   unsigned i_5_analog_6_config : 16;         /* Analog input module 5 configuration control word 6 */
+   unsigned i_5_analog_7_config : 16;         /* Analog input module 5 configuration control word 7 */
+} O5_L3;
+
+typedef struct {
+   unsigned s_ll_led : 1;                     /* South Lower Level e-stop LED */
+   unsigned n_ll_led : 1;                     /* North Lower Level e-stop LED */
+   unsigned w_rail_led : 1;                   /* West Rail e-stop LED */
+   unsigned s_rail_led : 1;                   /* South Rail e-stop LED */
+   unsigned n_rail_led : 1;                   /* North Rail e-stop LED */
+   unsigned rot_plc_perm : 1;                 /* Rotator motion PLC permit */
+   unsigned rot_mtr_ccw_perm : 1;             /* Rotator motor CCW permit */
+   unsigned rot_mtr_cw_perm : 1;              /* Rotator motor CW permit */
+   unsigned wind_az_plc_perm : 1;             /* Windscreen azimuth motion PLC permit */
+   unsigned az_plc_perm : 1;                  /* Azimuth motion PLC permit */
+   unsigned az_mtr_ccw_perm : 1;              /* Azimuth motor CCW permit */
+   unsigned az_mtr_cw_perm : 1;               /* Azimuth motor CW permit */
+   unsigned wind_alt_plc_perm : 1;            /* Windscreen altitude motion PLC permit */
+   unsigned alt_plc_perm : 1;                 /* Altitude motion PLC permit */
+   unsigned alt_mtr_dn_perm : 1;              /* Altitude motor down permit */
+   unsigned alt_mtr_up_perm : 1;              /* Altitude motor up permit */
+   unsigned clamp_en : 1;                     /* Clamp engage permit */
+   unsigned clamp_dis : 1;                    /* Clamp disengage permit */
+   unsigned t_bar_xport_perm : 1;             /* Camera T-Bar latch unlatch permit */
+   unsigned t_bar_tel_perm : 1;               /* Camera T-Bar latch latch permit */
+   unsigned out_11_bit_27_spare : 1;          /* Spare PLC output bit. */
+   unsigned lift_pump_on : 1;                 /* Instrument lift pump on permit */
+   unsigned out_11_bit_25_spare : 1;          /* Spare PLC output bit. */
+   unsigned out_11_bit_24_spare : 1;          /* Spare PLC output bit. */
+   unsigned deg_15_stop_ret_perm : 1;         /* 15 degree stop retracted permit */
+   unsigned deg_15_stop_ext_perm : 1;         /* 15 degree stop extended permit */
+   unsigned lift_solenoid_en : 1;             /* Instrument lift solenoid enable */
+   unsigned s_wind_led : 1;                   /* South Windscreen e-stop LED */
+   unsigned n_fork_led : 1;                   /* North Telescope fork e-stop LED */
+   unsigned n_wind_led : 1;                   /* North Windscreen e-stop LED */
+   unsigned w_ll_led : 1;                     /* West Lower Level e-stop LED */
+   unsigned e_ll_led : 1;                     /* East Lower Level e-stop LED */
+} O11_L0;
+
+typedef struct {
+   unsigned out_12_bit_15_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_14_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_13_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_12_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_11_spare : 1;          /* Spare PLC Output Bit */
+   unsigned velocity_trp_rst_out : 1;         /* Output bit to reset a velocity trip in the slip detection module. */
+   unsigned velocity_select_bit : 1;          /* This bit is used to select between the 1.0 degree per sec and 3.5 degree per sec velocity limits */
+   unsigned stow_pos_light : 1;               /* Stow position indicator light on permit */
+   unsigned inst_chg_pos_light : 1;           /* Instrument change position indicator light on permit */
+   unsigned nw_fork_led : 1;                  /* North West Fork e-stop led */
+   unsigned umbilical_up_dn : 1;              /* Umbilical cord lift up / down command */
+   unsigned umbilical_on_off : 1;             /* Umbilical cord lift on / off command */
+   unsigned alt_brake_en : 1;                 /* Altitude brake engage permit */
+   unsigned alt_brake_dis : 1;                /* Altitude brake disengage permit */
+   unsigned az_brake_en : 1;                  /* Azimuth brake engage permit */
+   unsigned az_brake_dis : 1;                 /* Azimuth brake disengage permit */
+   unsigned out_12_bit_31_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_30_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_29_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_28_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_27_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_26_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_25_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_24_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_23_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_22_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_21_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_20_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_19_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_18_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_17_spare : 1;          /* Spare PLC Output Bit */
+   unsigned out_12_bit_16_spare : 1;          /* Spare PLC Output Bit */
+} O12_L0;
+
+
+/*
+ * Version from PLC
+ */
+#if defined(DATA_COLLECTION_C)
+   static char plcVersion[] = "Version 2 : v2";
+#endif
+/*
+ * End of machine generated code
+ */
 struct I1 {
-	IF1_L0 il0;
-	unsigned long undefined1;
-	unsigned long undefined2;
-	unsigned long undefined3;
-	IF1_L4 il4;
-	unsigned long undefined5;
-	IF1_L6 il6;
-	unsigned long undefined7;
-	IF1_L8 il8;
-	IF1_L9 il9;
-	unsigned long undefined10;
-	unsigned long undefined11;
-	IF1_L12 il12;
-	IF1_L13 il13;
-	IF1_L14 il14;
-	unsigned long undefined15;
+   I1_L0 il0;
+   I1_L1 il1;
+   I1_L2 il2;
+   I1_L3 il3;
+   I1_L4 il4;
+   I1_L5 il5;
+   I1_L6 il6;
+   I1_L7 il7;
+   I1_L8 il8;
+   I1_L9 il9;
+   I1_L10 il10;
+   I1_L11 il11;
+   I1_L12 il12;
+   I1_L13 il13;
+   I1_L14 il14;
+   I1_L15 il15;
 };
-typedef struct {
-	unsigned dcm_status : 16;
-
-	unsigned : 10;
-	unsigned wind_alt_perm : 1;
-	unsigned wind_az_perm : 1;
-	unsigned wind_alt1_fault : 1;
-	unsigned wind_az3_fault : 1;
-	unsigned wind_az2_fault : 1;
-	unsigned wind_az1_fault : 1;
-}IF2_L0;
 struct I2 {
-	IF2_L0 il0;
+	I2_L0 il0;
 	short az_lvdt_error;
 	short alt_lvdt_error;				/* ALWSPOS	*/
 	short az_primary_drv;
@@ -404,349 +1148,43 @@ struct I5 {
 	short i_5_analog_6_spare;
 	short i_5_analog_7_spare;
 };
-typedef struct {
-	unsigned spare_s2_c7 : 1;
-	unsigned nw_fork_stop : 1;
-	unsigned s_wind_stop : 1;
-	unsigned w_lower_stop : 1;
-	unsigned e_lower_stop : 1;
-	unsigned s_lower_stop : 1;
-	unsigned n_lower_stop : 1;
-	unsigned w_rail_stop : 1;
-	unsigned s_rail_stop : 1;
-	unsigned n_rail_stop : 1;
-	unsigned n_fork_stop : 1;
-	unsigned n_wind_stop : 1;
-	unsigned fiber_signal_loss : 1;
-	unsigned spare_s1_c2 : 1;
-	unsigned cr_stop : 1;
-	unsigned tcc_stop : 1;
-	
-	unsigned az_stow_3b : 1;
-	unsigned wind_az_plc_perm_in : 1;
-	unsigned az_plc_perm_in : 1;
-	unsigned wind_az_mtr_perm_in : 1;
-	unsigned az_mtr2_perm_in : 1;
-	unsigned az_mtr1_perm_in : 1;
-	unsigned az_mtr_ccw_perm_in : 1;
-	unsigned az_mtr_cw_perm_in : 1;
-	unsigned az_stow_3a : 1;
-	unsigned wind_alt_plc_perm_in : 1;
-	unsigned alt_plc_perm_in : 1;
-	unsigned wind_alt_mtr_perm_in : 1;
-	unsigned alt_mtr2_perm_in : 1;
-	unsigned alt_mtr1_perm_in : 1;
-	unsigned alt_mtr_dn_perm_in : 1;
-	unsigned alt_mtr_up_perm_in : 1;
-} IF6_L0;
 struct I6 {
-	IF6_L0	il0;
+	I6_L0	il0;
 };
-typedef struct {
-	unsigned az_stow_1b : 1;
-	unsigned az_stow_1a : 1;
-	unsigned alt_grt_18d6_limit_1 : 1;		/* ALP20 */
-	unsigned az_109_131_limit_1 : 1;
-	unsigned bldg_on_alt : 1;				/* AZCWHL */
-	unsigned alt_les_90d5_limit : 1;		/* ALP100 */
-	unsigned alt_locking_pin_out : 1;		/* ALSTOW */
-	unsigned alt_grt_0d3_limit : 1;			/* ALP_2 */
-	unsigned alt_les_2d5_limit : 1;			/* AZCWHL */
-	unsigned hatch_cls : 1;					/* AZCCWSL */
-	unsigned rot_plc_perm_in : 1;			/* AZCWSL */
-	unsigned bldg_perm_in : 1;
-	unsigned spare_s5_c3 : 1;
-	unsigned rot_mtr_perm_in : 1;
-	unsigned rot_mtr_ccw_perm_in : 1;
-	unsigned rot_mtr_cw_perm_in : 1;
-
-	unsigned spare_s8_c7 : 1;
-	unsigned spare_s8_c6 : 1;
-	unsigned az_pos_410b_ccw : 1;			/* AZCCWHL	*/
-	unsigned az_neg_170b_cw : 1;			/* AZCWHL	*/
-	unsigned az_pos_410a_ccw : 1;			/* AZCCWSL	*/
-	unsigned az_neg_170a_cw : 1;			/* AZCWSL	*/
-	unsigned az_dir_ccw : 1;
-	unsigned az_dir_cw : 1;
-	unsigned alt_velocity_limit : 1;
-	unsigned alt_slip : 1;
-	unsigned alt_grt_18d6_limit_2 : 1;		/* AZCWHL */
-	unsigned deg_15_stop_ext : 1;
-	unsigned az_stow_2b : 1;
-	unsigned az_stow_2a : 1;
-	unsigned bldg_clear_alt : 1;
-	unsigned alt_grt_83_limit_1 : 1;		/* AZCWHL */
-} IF7_L0;
 struct I7 {
-	IF7_L0	il0;
+	I7_L0	il0;
 };
-typedef struct {
-	unsigned rot_velocity_limit : 1;
-	unsigned rot_slip : 1;
-	unsigned rot_pos_380b_ccw : 1;			/* ROCCWHL	*/
-	unsigned rot_neg_200b_cw : 1;			/* ROCWHL	*/
-	unsigned rot_pos_380a_ccw : 1;			/* ROCCWSL	*/
-	unsigned rot_neg_200a_cw : 1;			/* ROCWSL	*/
-	unsigned rot_dir_ccw : 1;
-	unsigned rot_dir_cw : 1;
-	unsigned az_velocity_limit : 1;
-	unsigned az_slip : 1;
-	unsigned spare_s9_c5 : 1;
-	unsigned bldg_clear_az : 1;
-	unsigned alt_grt_83_limit_2 : 1;		/* ALP-2	*/
-	unsigned az_109_131_limit_2 : 1;		/* ALP-2	*/
-	unsigned bldg_on_az : 1;
-	unsigned alt_grt_18d6_limit_3 : 1;		/* ALP-2	*/
-	
-	unsigned t_bar_latch_stat : 1;
-	unsigned in_8_bit_30_spare : 1;
-	unsigned in_8_bit_29_spare : 1;
-	unsigned in_8_bit_28_spare : 1;
-	unsigned deg_15_stop_ret : 1;
-	unsigned e_stop_byp_sw : 1;
-	unsigned umbilical_strain_sw : 1;
-	unsigned rot_mtr_rdy : 1;
-	unsigned alt_mtr2_rdy : 1;
-	unsigned alt_mtr1_rdy : 1;
-	unsigned az_mtr2_rdy : 1;
-	unsigned az_mtr1_rdy : 1;
-	unsigned az_pos_400_ccw : 1;
-	unsigned az_neg_165_cw : 1;
-	unsigned az_110_130_limit : 1;
-	unsigned az_stow_cntr_sw : 1;
-} IF8_L0;
 struct I8 {
-	IF8_L0	il0;
+	I8_L0	il0;
 };
-typedef struct {
-	unsigned in_9_bit_15_spare: 1;
-	unsigned in_9_bit_14_spare: 1;
-	unsigned in_9_bit_13_spare: 1;
-	unsigned in_9_bit_12_spare: 1;
-	unsigned in_9_bit_11_spare: 1;
-	unsigned in_9_bit_10_spare: 1;
-	unsigned in_9_bit_9_spare: 1;
-	unsigned solenoid_engage_sw : 1;
-	unsigned low_lvl_lighting_req : 1;
-	unsigned alt_brake_dis_stat : 1;
-	unsigned alt_brake_en_stat : 1;
-	unsigned az_brake_dis_stat : 1;
-	unsigned az_brake_en_stat : 1;
-	unsigned clamp_dis_stat : 1;
-	unsigned clamp_en_stat : 1;
-	unsigned t_bar_unlatch_stat : 1;
-
-	unsigned s2_c7_bypass_sw : 1;
-	unsigned s2_c6_bypass_sw : 1;
-	unsigned s2_c5_bypass_sw : 1;
-	unsigned s2_c4_bypass_sw : 1;
-	unsigned s2_c3_bypass_sw : 1;
-	unsigned s2_c2_bypass_sw : 1;
-	unsigned s2_c1_bypass_sw : 1;
-	unsigned s2_c0_bypass_sw : 1;
-	unsigned s1_c7_bypass_sw : 1;
-	unsigned s1_c6_bypass_sw : 1;
-	unsigned s1_c5_bypass_sw : 1;
-	unsigned s1_c4_bypass_sw : 1;
-	unsigned s1_c3_bypass_sw : 1;
-	unsigned s1_c2_bypass_sw : 1;
-	unsigned s1_c1_bypass_sw : 1;
-	unsigned s1_c0_bypass_sw : 1;
-} IF9_L0;
 struct I9 {
-	IF9_L0	il0;
+	I9_L0	il0;
 };
-typedef struct {
-	unsigned in_10_bit_15_spare: 1;
-	unsigned in_10_bit_14_spare: 1;
-	unsigned in_10_bit_13_spare: 1;
-	unsigned in_10_bit_12_spare: 1;
-	unsigned in_10_bit_11_spare: 1;
-	unsigned in_10_bit_10_spare: 1;
-	unsigned in_10_bit_9_spare: 1;
-	unsigned in_10_bit_8_spare: 1;
-	unsigned in_10_bit_7_spare: 1;
-	unsigned in_10_bit_6_spare: 1;
-	unsigned in_10_bit_5_spare: 1;
-	unsigned in_10_bit_4_spare: 1;
-	unsigned in_10_bit_3_spare: 1;
-	unsigned in_10_bit_2_spare: 1;
-	unsigned in_10_bit_1_spare: 1;
-	unsigned in_10_bit_0_spare: 1;
-
-	unsigned in_10_bit_31_spare: 1;
-	unsigned in_10_bit_30_spare: 1;
-	unsigned in_10_bit_29_spare: 1;
-	unsigned in_10_bit_28_spare: 1;
-	unsigned in_10_bit_27_spare: 1;
-	unsigned in_10_bit_26_spare: 1;
-	unsigned in_10_bit_25_spare: 1;
-	unsigned in_10_bit_24_spare: 1;
-	unsigned in_10_bit_23_spare: 1;
-	unsigned in_10_bit_22_spare: 1;
-	unsigned in_10_bit_21_spare: 1;
-	unsigned in_10_bit_20_spare: 1;
-	unsigned in_10_bit_19_spare: 1;
-	unsigned in_10_bit_18_spare: 1;
-	unsigned in_10_bit_17_spare: 1;
-	unsigned in_10_bit_16_spare: 1;
-} IF10_L0;
 struct I10 {
-	IF10_L0	il0;
+	I10_L0	il0;
 };
-typedef struct {
-	unsigned low_lvl_light_2 : 1;
-	unsigned low_lvl_light_1 : 1;
-	unsigned az_stow_light : 1;
-	unsigned stop_bypass_strobe : 1;
-	unsigned az_stow_center_light : 1;
-	unsigned rack_0_grp_2_bit10 : 1;
-	unsigned inst_lift_perm : 1;
-  	unsigned inst_lift_dn_4 : 1;
-  	unsigned inst_lift_dn_3 : 1;
-  	unsigned inst_lift_dn_2 : 1;
-  	unsigned inst_lift_dn_1 : 1;
-  	unsigned inst_lift_up_1 : 1;
-  	unsigned inst_lift_up_2 : 1;
-  	unsigned inst_lift_up_3 : 1;
-  	unsigned inst_lift_up_4 : 1;
-  	unsigned inst_lift_high_psi : 1;
-	
-	unsigned : 16;
-} OF1_L1;
-typedef struct {
-	unsigned : 16;
-	
-	unsigned sad_latch2_cls_led : 1;
-	unsigned sad_latch2_opn_led : 1;
-	unsigned sad_latch1_cls_led : 1;
-	unsigned sad_latch1_opn_led : 1;
-	unsigned rack_1_grp_1_bit11 : 1;
-	unsigned rack_1_grp_1_bit10 : 1;
-	unsigned sad_man_req : 1;
-	unsigned sad_latch_perm : 1;
-	unsigned sad_unlatch_perm : 1;
-	unsigned sec_man_req : 1;
-	unsigned sec_latch_perm : 1;
-	unsigned sec_unlatch_perm : 1;
-	unsigned inst_man_req : 1;
-	unsigned inst_latch_perm : 1;
-	unsigned inst_unlatch_perm : 1;
-	unsigned ilcb_pres_led : 1;
-} OF1_L4;
-typedef struct {
-	unsigned safety_latch2_cls_led : 1;
-	unsigned safety_latch2_opn_led : 1;
-	unsigned safety_latch1_cls_led : 1;
-	unsigned safety_latch1_opn_led : 1;
-	unsigned sec_latch3_cls_led : 1;
-	unsigned sec_latch3_opn_led : 1;
-	unsigned sec_latch2_cls_led : 1;
-	unsigned sec_latch2_opn_led : 1;
-      	unsigned sec_latch1_cls_led : 1;
-	unsigned sec_latch1_opn_led : 1;
-	unsigned inst_latch3_cls_led : 1;
-	unsigned inst_latch3_opn_led : 1;
-	unsigned inst_latch2_cls_led : 1;
-	unsigned inst_latch2_opn_led : 1;
-	unsigned inst_latch1_cls_led : 1;
-	unsigned inst_latch1_opn_led : 1;
-	
-	unsigned : 16;
-} OF1_L5;
-typedef struct {
-	unsigned : 16;
-	
-	unsigned audio_warning_2 : 1;
-	unsigned rack_1_grp_5_bit14 : 1;
-	unsigned rack_1_grp_5_bit13 : 1;
-	unsigned rack_1_grp_5_bit12 : 1;
-	unsigned rack_1_grp_5_bit11 : 1;
-	unsigned rack_1_grp_5_bit10 : 1;
-	unsigned rack_1_grp_5_bit9 : 1;
-	unsigned rack_1_grp_5_bit8 : 1;
-	unsigned rack_1_grp_5_bit7 : 1;
-	unsigned rack_1_grp_5_bit6 : 1;
-	unsigned rack_1_grp_5_bit5 : 1;
-	unsigned rack_1_grp_5_bit4 : 1;
-	unsigned rack_1_grp_5_bit3 : 1;
-	unsigned rack_1_grp_5_bit2 : 1;
-	unsigned rack_1_grp_5_bit1 : 1;
-	unsigned purge_valve_permit : 1;
-} OF1_L6;
-typedef struct {
-	unsigned : 16;
-	
-	unsigned rack_2_grp_3_bit15 : 1;
-	unsigned rack_2_grp_3_bit14 : 1;
-	unsigned rack_2_grp_3_bit13 : 1;
-	unsigned rack_2_grp_3_bit12 : 1;
-	unsigned rack_2_grp_3_bit11 : 1;
-	unsigned rack_2_grp_3_bit10 : 1;
-	unsigned rack_2_grp_3_bit9 : 1;
-	unsigned rack_2_grp_3_bit8 : 1;
-	unsigned rack_2_grp_3_bit7 : 1;
-	unsigned rack_2_grp_3_bit6 : 1;
-	unsigned slit_latch2_ext_perm : 1;
-	unsigned slit_dr2_opn_perm : 1;
-	unsigned slit_dr2_cls_perm : 1;
-	unsigned slit_latch1_ext_perm : 1;
-	unsigned slit_dr1_opn_perm : 1;
-	unsigned slit_dr1_cls_perm : 1;
-} OF1_L9;
-typedef struct {
-	short flex_analog_config;
-	short unused_short1;
-} OF1_L12;
-typedef struct {
-	unsigned : 16;
-	
-	unsigned audio_warning_1 : 1;
-	unsigned rack_4_grp_5_bit14 : 1;
-	unsigned rack_4_grp_5_bit13 : 1;
-	unsigned rack_4_grp_5_bit12 : 1;
-	unsigned rack_4_grp_5_bit11 : 1;
-	unsigned rack_4_grp_5_bit10 : 1;
-	unsigned rack_4_grp_5_bit9 : 1;
-	unsigned rack_4_grp_5_bit8 : 1;
-	unsigned rack_4_grp_5_bit7 : 1;
-	unsigned rack_4_grp_5_bit6 : 1;
-	unsigned rack_4_grp_5_bit5 : 1;
-	unsigned hgcd_lamps_on_pmt : 1;
-	unsigned ne_lamps_on_pmt : 1;
-	unsigned ff_lamps_on_pmt : 1;
-	unsigned ff_screen_enable_pmt : 1;
-	unsigned ff_screen_open_pmt : 1;
-} OF1_L14;
+
 struct O1 {
-	unsigned long undefined0;
-	OF1_L1 ol1;
-	unsigned long undefined2;
-	unsigned long undefined3;
-	OF1_L4 ol4;
-	OF1_L5 ol5;
-	OF1_L6 ol6;
-	unsigned long undefined7;
-	unsigned long undefined8;
-	OF1_L9 ol9;
-	unsigned long undefined10;
-	unsigned long undefined11;
-	OF1_L12 ol12;
-	unsigned long undefined13;
-	OF1_L14 ol14;
-	unsigned long undefined15;
+   O1_L0 ol0;
+   O1_L1 ol1;
+   O1_L2 ol2;
+   O1_L3 ol3;
+   O1_L4 ol4;
+   O1_L5 ol5;
+   O1_L6 ol6;
+   O1_L7 ol7;
+   O1_L8 ol8;
+   O1_L9 ol9;
+   O1_L10 ol10;
+   O1_L11 ol11;
+   O1_L12 ol12;
+   O1_L13 ol13;
+   O1_L14 ol14;
+   O1_L15 ol15;
 };
-typedef struct {
-	unsigned : 16;
-	
-	unsigned : 12;
-	unsigned wind_mtr_dn_perm : 1;
-	unsigned wind_mtr_up_perm : 1;
-	unsigned wind_mtr_ccw_perm : 1;
-	unsigned wind_mtr_cw_perm : 1;
-} OF2_L0;
+
 struct O2 {
-	OF2_L0 ol0;
+	O2_L0 ol0;
 	unsigned long undefined1;
 	unsigned long undefined2;
 	unsigned long undefined3;
@@ -763,199 +1201,21 @@ struct O2 {
 	unsigned long undefined14;
 	unsigned long undefined15;
 };
-typedef struct {
-	unsigned s_ll_led: 1;
-	unsigned n_ll_led: 1;
-	unsigned w_rail_led: 1;
-	unsigned s_rail_led: 1;
-	unsigned n_rail_led: 1;
-	unsigned rot_plc_perm : 1;
-	unsigned rot_mtr_ccw_perm : 1;
-	unsigned rot_mtr_cw_perm : 1;
-	unsigned wind_az_plc_perm : 1;
-	unsigned az_plc_perm : 1;
-	unsigned az_mtr_ccw_perm : 1;
-	unsigned az_mtr_cw_perm : 1;
-	unsigned wind_alt_plc_perm : 1;
-	unsigned alt_plc_perm : 1;
-	unsigned alt_mtr_dn_perm : 1;
-	unsigned alt_mtr_up_perm : 1;
-
-	unsigned clamp_en : 1;
-	unsigned clamp_dis : 1;
-	unsigned t_bar_unlatch_perm : 1;
-	unsigned t_bar_latch_perm : 1;
-	unsigned out_11_bit_27_spare : 1;
-	unsigned lift_pump_on : 1;
-	unsigned out_11_bit_25_spare : 1;
-	unsigned out_11_bit_24_spare : 1;
-	unsigned deg_15_stop_ret_perm : 1;
-	unsigned deg_15_stop_ext_perm : 1;
-	unsigned lift_solenoid_en: 1;
-	unsigned s_wind_led: 1;
-	unsigned n_fork_led: 1;
-	unsigned n_wind_led: 1;
-	unsigned w_ll_led: 1;
-	unsigned e_ll_led: 1;
-} OF11_L0;
 struct O11 {
-	OF11_L0	ol0;
+	O11_L0	ol0;
 };
-typedef struct {
-	unsigned out_12_bit_15_spare : 1;
-	unsigned out_12_bit_14_spare : 1;
-	unsigned out_12_bit_13_spare : 1;
-	unsigned out_12_bit_12_spare : 1;
-	unsigned out_12_bit_11_spare : 1;
-	unsigned out_12_bit_10_spare : 1;
-	unsigned out_12_bit_9_spare : 1;
-	unsigned stow_pos_light : 1;
-	unsigned inst_chg_pos_light : 1;
-	unsigned nw_fork_led : 1;
-	unsigned umbilical_up_dn : 1;
-	unsigned umbilical_on_off : 1;
-	unsigned alt_brake_en : 1;
-	unsigned alt_brake_dis : 1;
-	unsigned az_brake_en : 1;
-	unsigned az_brake_dis : 1;
-
-	unsigned out_12_bit_31_spare : 1;
-	unsigned out_12_bit_30_spare : 1;
-	unsigned out_12_bit_29_spare : 1;
-	unsigned out_12_bit_28_spare : 1;
-	unsigned out_12_bit_27_spare : 1;
-	unsigned out_12_bit_26_spare : 1;
-	unsigned out_12_bit_25_spare : 1;
-	unsigned out_12_bit_24_spare : 1;
-	unsigned out_12_bit_23_spare : 1;
-	unsigned out_12_bit_22_spare : 1;
-	unsigned out_12_bit_21_spare : 1;
-	unsigned out_12_bit_20_spare : 1;
-	unsigned out_12_bit_19_spare : 1;
-	unsigned out_12_bit_18_spare : 1;
-	unsigned out_12_bit_17_spare : 1;
-	unsigned out_12_bit_16_spare : 1;
-} OF12_L0;
 struct O12 {
-	OF12_L0	ol0;
+	O12_L0	ol0;
 };
-
-typedef struct {
-   unsigned rot_mtr_iv_good : 1;	/* Rotator motor resistance check OK */
-   unsigned alt_mtr_iv_good : 1;	/* Altitude motor resistance check OK*/
-   unsigned az_mtr_iv_good : 1;		/* Azimuth motor resistance check OK */
-   unsigned hgcd_lamp_on_request : 1;	/* Turn HgCd lamps on */
-   unsigned ne_lamp_on_request : 1;	/* Turn Ne lamps on */
-   unsigned lift_speed_man_ovrid : 1;	/* override MCP lift speed. */
-   unsigned ilcb_led_on : 1;		/* Turn on instr latch ctrl box light*/
-   unsigned ff_screens_closed : 1;	/* all flat field screens are closed */
-   unsigned e_stop_flash_reset : 1;	/* reset the e-stop LED flash timer */
-   unsigned led_flash : 1;		/* E-stop led flash bit */
-   unsigned flip_flop_5 : 1;		/* create e-stop led flasher */
-   unsigned flip_flop_4 : 1;		/* create e-stop led flasher */
-   unsigned flip_flop_3 : 1;		/* create e-stop led flasher */
-   unsigned flip_flop_2 : 1;		/* debounce the */
-   unsigned flip_flop_1 : 1;		/*    low level lighting switch and */
-   unsigned flip_flop_0 : 1;		/*       latch the light on */
-
-   unsigned spare31 : 1;
-   unsigned spare30 : 1;
-   unsigned spare29 : 1;
-   unsigned spare28 : 1;
-   unsigned spare27 : 1;
-   unsigned spare26 : 1;
-   unsigned spare25 : 1;
-   unsigned spare24 : 1;
-   unsigned spare23 : 1;
-   unsigned spare22 : 1;
-   unsigned spare21 : 1;
-   unsigned dn_inhibit_latch_4 : 1;	/* Altitude Down inhibit latch bit 4 */
-   unsigned dn_inhibit_latch_3 : 1;	/* Altitude Down inhibit latch bit 3 */
-   unsigned dn_inhibit_latch_2 : 1;	/* Altitude Down inhibit latch bit 2 */
-   unsigned dn_inhibit_latch_1 : 1;	/* Altitude Down inhibit latch bit 1 */
-   unsigned up_inhibit_latch : 1;	/* Altitude Up inhibit latch bit */
-} B3_W0;
 
 struct B3 {
-   B3_W0 w0;
-   unsigned long undefined1;
+   B3_L0 w0;
+   B3_L1 w1;
 };
 
-typedef struct {
-   unsigned mcp_clamp_engage_cmd : 1;	/* Clamp engage command */
-   unsigned mcp_alt_brk_en_cmd : 1;	/* Alt brake engage command bit */
-   unsigned mcp_alt_brk_dis_cmd : 1;	/* Alt brake disengage command bit */
-   unsigned mcp_az_brk_en_cmd : 1;	/* Az brake engage command bit */
-   unsigned mcp_az_brk_dis_cmd : 1;	/* Az brake disengage command bit */
-   unsigned mcp_solenoid_engage : 1;	/* turn on the inst. lift solenoid */
-   unsigned mcp_pump_on : 1;		/* turn on the instrument lift pump */
-   unsigned mcp_lift_dn_4 : 1;		/* Part of the */
-   unsigned mcp_lift_dn_3 : 1;		/*    binary code */
-   unsigned mcp_lift_dn_2 : 1;		/*       for down lift */
-   unsigned mcp_lift_dn_1 : 1;		/*          speed */
-   unsigned mcp_lift_up_1 : 1;		/* Part of the */
-   unsigned mcp_lift_up_2 : 1;		/*    binary code */
-   unsigned mcp_lift_up_3 : 1;		/*       for up lift */
-   unsigned mcp_lift_up_4 : 1;		/*          speed */
-   unsigned mcp_lift_high_psi : 1;	/* turn on the high pressure for lift*/
-
-   unsigned mcp_ff_screen_enable : 1;	/* Enable flat field screen motion */
-   unsigned mcp_hgcd_lamp_on_cmd : 1;	/* turn on the HgCd lamps */
-   unsigned mcp_ne_lamp_on_cmd : 1;	/* turn the Ne lamps on */
-   unsigned mcp_ff_lamp_on_cmd : 1;	/* turn the ff lamps on */
-   unsigned mcp_ff_scrn_opn_cmd : 1;	/* open the ff screen */
-   unsigned mcp_slit_latch2_cmd : 1;	/* slithead latch2 control 1=en 0=dis*/
-   unsigned mcp_slit_dr2_cls_cmd : 1;	/* slithead door 2 close command bit */
-   unsigned mcp_slit_dr2_opn_cmd : 1;	/* slithead door 2 open command bit */
-   unsigned mcp_slit_latch1_cmd : 1;	/* slithead latch1 control 1=en 0=dis*/
-   unsigned mcp_slit_dr1_cls_cmd : 1;	/* slithead door 1 close command bit */
-   unsigned mcp_slit_dr1_opn_cmd : 1;	/* slithead door 1 open command bit */
-   unsigned mcp_umbilical_on_off : 1;	/* umbilical motor 1=on 0=off */
-   unsigned mcp_umbilical_up_dn : 1;	/* umbilical motor 0=up 1=down */
-   unsigned mcp_15deg_stop_ret_c : 1;	/* 15 degree stop remove command */
-   unsigned mcp_15deg_stop_ext_c : 1;	/* 15 degree stop insert command */
-   unsigned mcp_clamp_disen_cmd : 1;	/* Clamp disengage command */
-} B10_W0;
-
-typedef struct {
-   unsigned spare15 : 1;
-   unsigned spare14 : 1;
-   unsigned spare13 : 1;
-   unsigned spare12 : 1;
-   unsigned spare11 : 1;
-   unsigned mcp_inst_chg_alert : 1;	/* alert the observers of malfunction*/
-   unsigned mcp_inst_chg_prompt : 1;	/* prompt the observers */
-   unsigned mcp_sad_latch_opn_cm : 1;	/* open the saddle latches */
-   unsigned mcp_sad_latch_cls_cm : 1;	/* close the saddle latches */
-   unsigned mcp_sec_latch_opn_cm : 1;	/* open the secondary latches */
-   unsigned mcp_sec_latch_cls_cm : 1;	/* close the secondary latches */
-   unsigned mcp_pri_latch_opn_cm : 1;	/* open the primary latches */
-   unsigned mcp_pri_latch_cls_cm : 1;	/* close the primary latches */
-   unsigned mcp_purge_cell_on : 1;	/* start the purge cell */
-   unsigned mcp_t_bar_latch : 1;	/* latch the t-bar latches */
-   unsigned mcp_t_bar_unlatch : 1;	/* unlatch the t-bar latches */
-
-   unsigned spare31 : 1;
-   unsigned spare30 : 1;
-   unsigned spare29 : 1;
-   unsigned spare28 : 1;
-   unsigned spare27 : 1;
-   unsigned spare26 : 1;
-   unsigned spare25 : 1;
-   unsigned spare24 : 1;
-   unsigned spare23 : 1;
-   unsigned spare22 : 1;
-   unsigned spare21 : 1;
-   unsigned spare20 : 1;
-   unsigned spare19 : 1;
-   unsigned spare18 : 1;
-   unsigned spare17 : 1;
-   unsigned velocity_trp_rst_in : 1;	/* reset slip detection velocity trip*/
-} B10_W1;
-
 struct B10 {
-   B10_W0 w0;
-   B10_W1 w1;
+   B10_L0 w0;
+   B10_L1 w1;
 };
 
 struct AB_SLC500 {
