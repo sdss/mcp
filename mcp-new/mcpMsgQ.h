@@ -7,6 +7,7 @@
 typedef struct {
    enum {
       alignClamp_type,			/* move alignment clamp */
+      alignClampCheck_type,		/* check if alignment clamp moved */
       lamps_type,			/* turn lamps on/off */
       latchCrossed_type,		/* we crossed a fiducial */
       latchReenable_type,		/* reenable fiducial latches */
