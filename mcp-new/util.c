@@ -255,8 +255,14 @@ int
 open_log(const char *file)
 {
    int fd;
-   
-   fd = open ("/mcptpm/cwp.log", O_RDWR|O_CREAT,0666);
+   char filename[100];
+
+   sprintf(filename, "/mcptpm/%d/%s", mjd(), file);
+   assert(strlen(filename) < sizeof(filename));
+
+   printf("Opening %s\n", filename);
+
+   fd = open(filename, O_RDWR|O_CREAT, 0666);
 
    return(fd);
 }
@@ -265,7 +271,7 @@ open_log(const char *file)
 /*
  * Return the MJD, as modified by the SDSS to roll over at 10am
  */
-#if 0
+#if 1
 extern void slaCldj(int, int, int, double*, int*);
 
 int
@@ -288,6 +294,9 @@ mjd(void)
    
       return(-1);
    } else {
+      fprintf(stderr,"slaCldj returns %d (Y m d == %d %d %d)\n",
+	      stat, Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
+   
       return((int)(ldj + 0.3));
    }
 }
