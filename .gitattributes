@@ -75,6 +75,7 @@ mcp-new/frame.h -text
 mcp-new/instrument_lift.c -text
 mcp-new/io.h -text
 mcp-new/ipcast.c -text
+mcp-new/ipcast.h -text
 mcp-new/ipsym.c -text
 mcp-new/ms.h -text
 mcp-new/mv162.h -text
