@@ -123,8 +123,8 @@ setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
    }
 
    time->tv_sec  = NTPstamp.xmt.int_part - JAN_1970 + forceStep;
-   time->tv_usec = (unsigned long)((NTPstamp.xmt.fraction*15625) >> 26);
-
+   time->tv_usec = NTPstamp.xmt.fraction*1e6/(2*(float)(1U<<31));
+   
    if(time == &time_s) {		/* actually set the time */
       settimeofday(time, NULL);
    }
