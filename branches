@@ -125,3 +125,6 @@ Thu Jan 24 06:01:46 MST 2002
 	cvs tag v5_9_0
 	N.b. Not a branch (yet).
 
+Thu Jan 24 14:12:44 MST 2002
+	cvs rtag -b -r v5_9_0 v5_9 mcp
+
