@@ -82,18 +82,18 @@ double
 get_time(void)
 {
    double time = sdss_get_time();
-   printf("\r\nSDSS time=%f", time);
+   printf("SDSS time = %f\n", time);
 
    return(time);
 }
 
 /*=========================================================================
-**=========================================================================
 **
-**	Determine the delta time.  This routine takes into consideration
-**	the window when the time wraps from a full day to the beginning
-**	of the new day.  The logic has a limit of 400 seconds to the end
-**	of the day to work across the boundary.
+** Determine the interval between two timestamps, given in seconds since
+** midnight UTC ~ 5pm MST.
+**
+** The routine assumes that within 400s of this roll-over time the smaller
+** time really belongs to the following day, and acts accordingly
 **
 **=========================================================================
 */
@@ -112,7 +112,7 @@ sdss_delta_time(double t2, double t1)
 int
 test_dt(int t2,int t1)
 {
-  printf ("\r\ndt=%f",sdss_delta_time((double)t2,(double)t1));
+  printf ("dt=%f\n",sdss_delta_time((double)t2,(double)t1));
   return (int)sdss_delta_time((double)t2,(double)t1);
 }
 
@@ -368,31 +368,23 @@ axis_DIO316_shutdown(int type)
    taskDelay(30);
 }
 
-/*=========================================================================
-**=========================================================================
-**
-**	Interrupt handler. Used for monitoring a crossing of a fiducial
-**	and triggers a task via a message queue
-**
-**
-** GLOBALS REFERENCED:
-**	msgLatch
-**
-**=========================================================================
-*/
-static unsigned long int_count = 0;
-static int illegal_NIST = 0;
-unsigned char dio316int_bit = 0;
+/*
+ * Interrupt handler. Used for monitoring a crossing of a fiducial
+ * and triggers a task via a message queue
+ */
+int illegal_NIST = 0;
 
 void
 DIO316_interrupt(int type)
 {
+   unsigned char dio316int_bit = 0;
+
    TRACE0(16, "DIO316_interrupt", 0, 0);	 
 
-   int_count++;
    DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
+      TRACE(0, "NIST_INT bit is set: %d", dio316int_bit, 0);
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
@@ -412,6 +404,7 @@ DIO316_interrupt(int type)
 
 	 msg.type = latchCrossed_type;
 	 msg.u.latchCrossed.time = timer_read(2);
+	 msg.u.latchCrossed.dio316int_bit = dio316int_bit;
 
 	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);
