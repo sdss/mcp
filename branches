@@ -176,3 +176,6 @@ Tue May 28 07:29:27 MDT 2002
 	cvs ci -m "Merged from v5_11 branch at point v5_11_3"
 	cvs rtag v5_12_0 mcp
 	cvs rtag -b -r v5_12_0 v5_12 mcp
+
+Tue May 28 14:47 APO time 2002
+ created mainline tag v5_13_0 and branch tag v5_13 at that point
