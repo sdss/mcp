@@ -1159,21 +1159,30 @@ DIO316ClearISR_delay(void)
       assert(msg.type == latchReenable_type);
       dio316int_bit = msg.u.latchReenable.dio316int_bit;
 /*
- * OK, we have our orders
+ * OK, we have our orders.  We need to make rearming the MEI and reenabling
+ * interrupts as nearly atomic as possible, hence the taskLock().
  */
       status = semTake(semMEI,WAIT_FOREVER);
       assert(status == OK);
 
       TRACE(5, "arming latches", 0, 0);
+
+      taskLock();
+
       while((status = arm_latch(TRUE)) != DSP_OK) {
-	 TRACE(4, "Trying to ARM Latch; status=%d", status, 0);
+	 TRACE(0, "Trying to ARM Latch; status=%d", status, 0);
       }
       semGive (semMEI);
+#if 0
 /*
  * Wait if so requested.  We want to be sure that there's no interrupt
  * until after the MEI has been rearmed.
+ *
+ * This is not a good idea; the MEI can latch, and we'll miss
+ * the interrupt while delaying
  */
       taskDelay(msg.u.latchReenable.timeout);
+#endif
 /*
  * Reenable interrupts on all axes
  */
@@ -1182,6 +1191,8 @@ DIO316ClearISR_delay(void)
       DIO316_Interrupt_Enable_Control(tm_DIO316, 1, DIO316_INT_ENA);
       DIO316_Interrupt_Enable_Control(tm_DIO316, 2, DIO316_INT_ENA);
       DIO316_Interrupt_Enable_Control(tm_DIO316, 3, DIO316_INT_ENA);
+
+      taskUnlock();
    }
 }	 
 
