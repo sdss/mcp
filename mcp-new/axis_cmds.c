@@ -88,10 +88,15 @@ struct FRAME_QUEUE axis_queue[3] = {
    {0, NULL, NULL},
    {0, NULL, NULL}
 };
-double max_velocity[]={2.25,1.75,2.25,0,0,0};
-double max_acceleration[]={4.,4.,6.0,0,0,0};
-double max_position[]={360.,92.,320.0,0,0,0};
-double min_position[]={-360.,0.,-180.0,0,0,0};
+/*
+ * Maximum allowed velocity/acceleration and arrays to keep account of
+ * the maximum |values| actually requested
+ */
+double max_velocity[NAXIS] = {2.25, 1.75, 2.25};
+double max_acceleration[NAXIS] = {4.0, 4.0, 6.0};
+double max_velocity_requested[NAXIS] = {0, 0, 0};
+double max_acceleration_requested[NAXIS]={0, 0, 0};
+
 int CALC_verbose=FALSE;
 int CALCOFF_verbose=FALSE;
 int CALCADDOFF_verbose=FALSE;
@@ -674,41 +679,7 @@ mc_maxacc_cmd(char *cmd)
 
    return max_ans;
 }
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: mc_maxpos_cmd
-**
-** DESCRIPTION:
-**      MC.MAX.POS -> Display the maximum position.
-**
-** RETURN VALUES:
-**      "F@ F. pos" or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	max_position
-**	axis_select
-**
-**=========================================================================
-*/
-char *
-mc_maxpos_cmd(char *cmd)		/* NOTUSED */
-{
-   printf(" MC.MAX.POS command fired\n");
-   
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
-      return "ERR: ILLEGAL DEVICE SELECTION";
-   }
-   
-   sprintf(max_ans,"F@ F. %12f", max_position[axis_select]);
 
-   return max_ans;
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -739,40 +710,6 @@ mc_maxvel_cmd(char *cmd)		/* NOTUSED */
    }
 
    sprintf(max_ans,"F@ F. %12f", max_velocity[axis_select]);
-   
-   return max_ans;
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: mc_minpos_cmd
-**
-** DESCRIPTION:
-**      MC.MIN.POS -> Display the minimum position.
-**
-** RETURN VALUES:
-**      "F@ F. pos" or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	min_position
-**	axis_select
-**
-**=========================================================================
-*/
-char *
-mc_minpos_cmd(char *cmd)		/* NOTUSED */
-{
-   printf(" MC.MIN.POS command fired\n");
-   
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
-      return "ERR: ILLEGAL DEVICE SELECTION";
-   }
-
-   sprintf(max_ans,"F@ F. %12f", min_position[axis_select]);
    
    return max_ans;
 }
@@ -926,12 +863,12 @@ move_cmd(char *cmd)
    }
    
    frame->position = position;
+
    if(fabs(velocity) > max_velocity[axis_select]) {
-      if(velocity > 0.0) {
-	 velocity = max_velocity[axis_select];
-      } else {
-	 velocity = -max_velocity[axis_select];
-      }
+      TRACE(2, "Max vel. for %s exceeded: %ld",
+	    axis_name(axis_select), (long)velocity);
+      velocity = (velocity > 0 ?
+		  max_velocity[axis_select] : -max_velocity[axis_select];
    }
    
    frame->velocity = (double)velocity;
@@ -1163,53 +1100,6 @@ char *
 tel2_cmd(char *cmd)			/* NOTUSED */
 {
    axis_select = ALTITUDE;
-   return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: set_limits_cmd
-**
-** DESCRIPTION:
-**	SET.LIMITS pos1 pos2 - sets maximum and minimum positions for axis.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	axis_select
-**	max_position
-**	min_position
-**
-**=========================================================================
-*/
-char *
-set_limits_cmd(char *cmd)
-{
-   const int axis = axis_select;	/* cmd_handler can change axis_status*/
-   double pos1,pos2;
-   
-   printf (" SET.LIMITS command fired\r\n");
-   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
-						   axis_select != INSTRUMENT) {
-      return "ERR: ILLEGAL DEVICE SELECTION";
-   }
-   
-   if (sscanf (cmd,"%12lf %12lf",&pos1,&pos2) != 2) {
-      return "ERR: requires two positions specified";
-   }
-
-   if(pos1 > pos2) {
-      max_position[axis] = pos1;
-      min_position[axis] = pos2;
-   } else {
-      max_position[axis] = pos2;
-      min_position[axis] = pos1;
-   }
-
    return "";
 }
 
@@ -2137,22 +2027,26 @@ load_frames(int axis, int cnt, int idx, double sf)
    }
    
    for(i = idx; i < cnt + idx; i++) {
-      if(fabs(a[axis][i]) > fabs(max_acceleration[axis+3])) {
-	 max_acceleration[axis+3] = a[axis][i];
+      if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
+	 max_acceleration_requested[axis] = a[axis][i];
       }
       
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 printf("AXIS %d: MAX ACC %f exceeded by %f\n",
-		axis,a[axis][i],max_acceleration[axis]);
+		axis,a[axis][i], max_acceleration[axis]);
+	 TRACE(2, "Max accl. for %s exceeded: %ld",
+		axis_name(axis), (long)a[axis][i]);
       }
       
-      if(fabs(v[axis][i]) > fabs(max_velocity[axis+3])) {
-	 max_velocity[axis+3] = v[axis][i];
+      if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
+	 max_velocity_requested[axis] = v[axis][i];
       }
       
       if(fabs(v[axis][i]) > max_velocity[axis]) {
 	 printf ("AXIS %d: MAX VEL %f exceeded by %f\n",
-		 axis,v[axis][i],max_velocity[axis]);
+		 axis,v[axis][i], max_velocity[axis]);
+	 TRACE(2, "Max vel. for %s exceeded: %ld",
+	       axis_name(axis), (long)v[axis][i]);
       }
       
       if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
@@ -2954,16 +2848,18 @@ restore_firmware(void)
 void
 print_max(void)
 {
-  int i;
-
-  for (i=0;i<3;i++)
-    printf ("\r\nAXIS %d: MAX ACC limit %f deg/sec/sec current max %f",
-	  i,max_acceleration[i],max_acceleration[i+3]);
-  for (i=0;i<3;i++)
-    printf ("\r\nAXIS %d: MAX VEL limit %f deg/sec current max %f",
-	  i,max_velocity[i],max_velocity[i+3]);
+   int i;
+   
+   for(i = 0; i < NAXIS; i++) {
+      printf("%s: MAX ACC limit %f deg/sec^2 maximum requested %f\n",
+	     axis_name(i), max_acceleration[i], max_acceleration_requested[i]);
+   }
+   for(i = 0; i < NAXIS; i++) {
+      printf("%s: MAX VEL limit %f deg/sec maximum requested %f\n",
+	     axis_name(i), max_velocity[i], max_velocity_requested[i]);
+   }
 }
-
+
 /*=========================================================================
 **=========================================================================
 **
@@ -3572,7 +3468,7 @@ axisMotionInit(void)
       get_error_limit(axis,&limit,&action);
       TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
       set_error_limit(axis,24000.,ABORT_EVENT);
-      get_error_limit(axis,&limit,&action);
+      get_error_limit(axis, &limit, &action);
       TRACE(3, "set error limit=%ld, action=%d", (long)limit, action);
 
       set_integration(axis, IM_ALWAYS);
@@ -3617,11 +3513,8 @@ axisMotionInit(void)
    define_cmd("MAXVEL",        maxvel_cmd, 	  1, 1, 1);
    define_cmd("MC.DUMP",       mc_dump_cmd, 	  0, 0, 1);
    define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 1);
-   define_cmd("MC.MAXPOS",     mc_maxpos_cmd,     0, 0, 1);
    define_cmd("MC.MAXVEL",     mc_maxvel_cmd,     0, 0, 1);
-   define_cmd("MC.MINPOS",     mc_minpos_cmd, 	  0, 0, 1);
    define_cmd("MOVE",          move_cmd, 	 -1, 1, 1);
-   define_cmd("SET.LIMITS",    set_limits_cmd,    2, 1, 1);
    define_cmd("SET.MONITOR",   set_monitor_cmd,   1, 1, 1);
    define_cmd("SET.POS.VA",    goto_pos_va_cmd,   3, 1, 1);
    define_cmd("SET.POSITION",  set_pos_cmd, 	  1, 1, 1);
