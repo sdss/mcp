@@ -67,7 +67,7 @@ short rot1vlt,rot1cur;
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
 
-
+
 int tm_move_time (int axis, int vel, int accel, int time)
 {
 	extern SEM_ID semMEI;
@@ -83,7 +83,9 @@ int tm_move_time (int axis, int vel, int accel, int time)
 	v_move(axis,(double)0,(double)accel);
 	semGive (semMEI);
 
+	return 0;
 }
+
 int tm_move_offset (int axis, int off)
 {
 	short coeff[COEFFICIENTS];
@@ -111,7 +113,10 @@ int tm_move_offset (int axis, int off)
 
 	semGive (semMEI);
 	print_coeffs(axis);
+	return 0;
+
 }
+
 int tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
 {
   int i;
@@ -145,7 +150,9 @@ extern struct TM_M68K *tmaxis[];
       tm_controller_idle(axis);    
     printf(" Done");
   }
+return 0;
 }
+
 int tm_start_move (int axis, int vel, int accel, int pos)
 {
 	extern SEM_ID semMEI;
@@ -156,7 +163,9 @@ int tm_start_move (int axis, int vel, int accel, int pos)
 /*	print_coeffs(axis);*/
 	start_move(axis,(double)pos,(double)vel,(double)accel);
 	semGive (semMEI);
+	return 0;
 }
+
 int tm_move_pos (int axis, int vel, int accel, int pos)
 {
 	double position,last_pos,final_pos;
@@ -196,7 +205,10 @@ int tm_move_pos (int axis, int vel, int accel, int pos)
         printf("\r\n  Final pos=%f",(float)position);
 	if ((final_pos>position+10)||(final_pos<position-10))
 	  printf ("\r\n ERROR: did not close in on position");
+
+return 0;
 }
+
 void tm_print_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
@@ -217,7 +229,9 @@ void tm_print_coeffs(int axis)
 		coeff[5],coeff[6],coeff[7],coeff[8]);
 	printf ("\r\n integration mode is %d",mode);
 	printf ("\r\n and sample is %d Hz",rate);
+	return 0;
 }
+
 void tm_set_coeffs(int axis, int index, int val)
 {
 	short coeff[COEFFICIENTS];
@@ -228,23 +242,29 @@ void tm_set_coeffs(int axis, int index, int val)
 	coeff[index]=val;
 	set_filter (axis,(P_INT)coeff);
 	semGive (semMEI);
+	return 0;
 }
+
 void tm_display_axis(int axis)
 {
   display_enable[axis]=TRUE;
 }
+
 void tm_nodisplay_axis(int axis)
 {
   display_enable[axis]=FALSE;
 }
+
 void tm_display_continuous()
 {
   continuous_enable=TRUE;
 }
+
 void tm_display_once()
 {
   continuous_enable=FALSE;
 }
+
 void tm_display (int delay)
 {
 	int i;
@@ -273,6 +293,7 @@ void tm_display (int delay)
 	}
       }
 }
+
 void tm_clear_pos (int axis)
 {
 	extern SEM_ID semMEI;
@@ -281,6 +302,7 @@ void tm_clear_pos (int axis)
 	set_position (axis,0.0);
 	semGive(semMEI);
 }
+
 void tm_get_pos (int axis,double *position)
 {
 	extern SEM_ID semMEI;
@@ -289,6 +311,7 @@ void tm_get_pos (int axis,double *position)
         get_position(axis,position);
 	semGive(semMEI);
 }
+
 void tm_get_vel (int axis,double *velocity)
 {
 	extern SEM_ID semMEI;
@@ -297,6 +320,7 @@ void tm_get_vel (int axis,double *velocity)
         get_velocity(axis,velocity);
 	semGive(semMEI);
 }
+
 void tm_set_sample_rate (unsigned short rate)
 {
 	extern SEM_ID semMEI;
@@ -306,6 +330,7 @@ void tm_set_sample_rate (unsigned short rate)
 	printf("\r\n Sample Rate=%d",(unsigned short)dsp_sample_rate());
 	semGive(semMEI);
 }
+
 void tm_set_pos (int axis,int pos)
 {
 	extern SEM_ID semMEI;
@@ -314,6 +339,7 @@ void tm_set_pos (int axis,int pos)
 	set_position (axis,(double)pos);
 	semGive(semMEI);
 }
+
 void tm_set_analog_encoder(int axis, int channel)
 {
 	extern SEM_ID semMEI;
@@ -324,6 +350,7 @@ void tm_set_analog_encoder(int axis, int channel)
 	set_feedback(axis,FB_ANALOG);
 	semGive(semMEI);
 }
+
 void tm_set_encoder(int axis)
 {
 	extern SEM_ID semMEI;
@@ -332,6 +359,7 @@ void tm_set_encoder(int axis)
 	set_feedback(axis,FB_ENCODER);
 	semGive(semMEI);
 }
+
 void tm_set_analog_channel(int axis, int channel)
 {
 	extern SEM_ID semMEI;
@@ -341,6 +369,7 @@ void tm_set_analog_channel(int axis, int channel)
 	set_axis_analog (axis,TRUE);
 	semGive(semMEI);
 }
+
 void tm_controller_run (int axis)
 {
 	extern SEM_ID semMEI;
@@ -351,6 +380,7 @@ void tm_controller_run (int axis)
 	controller_run (axis);
 	semGive(semMEI);
 }
+
 void tm_controller_idle (int axis)
 {
 	extern SEM_ID semMEI;
@@ -359,6 +389,7 @@ void tm_controller_idle (int axis)
 	controller_idle (axis);
 	semGive(semMEI);
 }
+
 void tm_dual_loop (int axis, int dual)
 {
 	extern SEM_ID semMEI;
@@ -378,10 +409,12 @@ void tm_set_boot_filter (int axis)
 	set_boot_filter(axis,(P_INT)coeff);
 	semGive(semMEI);
 }
+
 void tmDisplay (int delay)
 {
 	taskSpawn("tmDisp",90,0,1000,tm_display,delay,0,0,0,0,0,0,0,0,0);
 }
+
 char *help_TM[]={
         "TM_help;  axis 0,1=ALT, axis 2,3=AL, axis 4,5=ROT",
 	"TM_Verbose, TM_Quiet",
@@ -404,6 +437,7 @@ char *help_TM[]={
 	"tm_set_fiducial(int axis); tm_get_fiducial_all()",
 ""
 };                                                         
+
 void TM_help()
 {
   int i;
@@ -411,40 +445,49 @@ void TM_help()
   for (i=0;i<sizeof(help_TM)/sizeof(char *);i++)
     printf ("%s\r\n",help_TM[i]);
 }
+
 void TM_Verbose()
 {
 	TM_verbose=TRUE;
 }
+
 void TM_Quiet()
 {
 	TM_verbose=FALSE;
 }
+
+
 void ADC128F1_initialize(unsigned char *addr, int occur)
 {
   STATUS stat;
   int i;
   struct IPACK *ip;
 
-    Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
-    for (i=0;i<MAX_SLOTS;i++) 
-      if (ip->adr[i]!=NULL)
+  ip=(struct IPACK*)malloc(sizeof(struct IPACK));
+  Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
+  for (i=0;i<MAX_SLOTS;i++) {
+    if (ip->adr[i]!=NULL)
       {
         if (occur==0)
-	{
-	  printf ("\r\nFound one at %d, %p",i,ip->adr[i]);
-          tm_ADC128F1=ADC128F1Init(ip->adr[i]);
-	  printf ("\r\n tm_ADC128F1=%d",tm_ADC128F1);
-          ADC128F1_CVT_Update_Control(tm_ADC128F1,ENABLE);
-	  break;
-	}
+	  {
+	    printf ("\r\nFound one at %d, %p",i,ip->adr[i]);
+	    tm_ADC128F1=ADC128F1Init(ip->adr[i]);
+	    printf ("\r\n tm_ADC128F1=%d",tm_ADC128F1);
+	    ADC128F1_CVT_Update_Control(tm_ADC128F1,ENABLE);
+	    break;
+	  }
 	else occur--;;
       }
-    if (i>=MAX_SLOTS)
+  }
+  if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+      free(ip);
       return;
     }
+  free(ip);
 }
+
 void tm_data_collection()
 {
   extern struct SDSS_FRAME sdssdc;

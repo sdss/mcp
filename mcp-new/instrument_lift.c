@@ -430,6 +430,7 @@ char *liftdown_cmd(char *cmd)
       lift_fsm (inst,IL_DN,INIT);
   return 0;
 }
+
 int il_DIO316=-1;
 int il_ADC128F1=-1;
 int il_DAC128V=-1;
@@ -443,8 +444,11 @@ int lift_initialize(unsigned char *addr)
   extern int cw_ADC128F1;
   extern int cw_DAC128V;
 
+  ip=NULL;
+
   if (cw_ADC128F1==-1)
   {
+    ip=(struct IPACK*)malloc(sizeof(struct IPACK));
     Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
     for (i=0;i<MAX_SLOTS;i++)
       if (ip->adr[i]!=NULL)
@@ -455,6 +459,7 @@ int lift_initialize(unsigned char *addr)
     if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+      free(ip);
       return;
     }
     ADC128F1_CVT_Update_Control(il_ADC128F1,ENABLE);
@@ -465,6 +470,7 @@ int lift_initialize(unsigned char *addr)
 
   if (cw_DAC128V==-1)
   {
+    ip=(struct IPACK*)malloc(sizeof(struct IPACK));
     Industry_Pack (addr,SYSTRAN_DAC128V,ip);
     for (i=0;i<MAX_SLOTS;i++)
       if (ip->adr[i]!=NULL)
@@ -475,6 +481,7 @@ int lift_initialize(unsigned char *addr)
     if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing DAC128V at %p****\r\n",addr);
+      free(ip);
       return;
     }
     for (i=0;i<DAC128V_CHANS;i++)
@@ -502,17 +509,23 @@ int lift_initialize(unsigned char *addr)
     if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+      free(ip);
       return;
     }
     cw_DIO316=il_DIO316;
   }
   else
     il_DIO316=cw_DIO316;
-/*  DIO316_Write_Port(il_DIO316,2,0xFF);*/
+
+  /*  DIO316_Write_Port(il_DIO316,2,0xFF);*/
   DIO316_OE_Control(il_DIO316,2,DIO316_OE_ENA);
-/*  DIO316_Write_Port(il_DIO316,3,0x0);*/
+  /*  DIO316_Write_Port(il_DIO316,3,0x0);*/
   il_disable_motion();
   DIO316_OE_Control(il_DIO316,3,DIO316_OE_ENA);
+  
+  if(ip==NULL) {
+    ip=(struct IPACK*)malloc(sizeof(struct IPACK));
+  }
 
   Industry_Pack (addr,MODEL_IP_480_6,ip);
   for (i=0;i<MAX_SLOTS;i++)
@@ -529,6 +542,7 @@ int lift_initialize(unsigned char *addr)
   if (i>=MAX_SLOTS)
   {
     printf ("\r\n****Missing IP480 at %p****\r\n",addr);
+    free(ip);
     return;
   }
     
@@ -549,6 +563,7 @@ int lift_initialize(unsigned char *addr)
   }
   return 0;
 }
+
 int fiberGet ()
 {
    printf ("\r\nFIBER GET:");

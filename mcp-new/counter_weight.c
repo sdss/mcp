@@ -278,6 +278,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
     if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+      free(ip);
       return;
     }
     ADC128F1_CVT_Update_Control(cw_ADC128F1,ENABLE);
@@ -292,6 +293,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
     if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing DAC128V at %p****\r\n",addr);
+      free(ip);
       return;
     }
 
@@ -313,6 +315,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
     if (i>=MAX_SLOTS)
     {
       printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+      free(ip);
       return;
     }
     stat = intConnect (INUM_TO_IVEC(vecnum),

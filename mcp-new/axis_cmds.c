@@ -461,6 +461,7 @@ char *move_cmd(char *cmd)
   }
   return 0;
 }
+
 int calc_frames (int axis, struct FRAME *iframe, int start)
 {
   double dx,dv,dt,vdot;
@@ -2042,92 +2043,104 @@ int trigger_int(int bit)
 }
 #endif
 
-/* note: will crash....  Industry_Pack does not malloc the memory for ip */
+
 void DIO316_initialize(unsigned char *addr, unsigned short vecnum)
 {
   STATUS stat;
   int i;
   struct IPACK *ip;
 
-    Industry_Pack (addr,SYSTRAN_DIO316,ip);
-    for (i=0;i<MAX_SLOTS;i++) 
-      if (ip->adr[i]!=NULL)
+  ip=(struct IPACK*)malloc(sizeof(struct IPACK));
+
+  Industry_Pack (addr,SYSTRAN_DIO316,ip);
+  for (i=0;i<MAX_SLOTS;i++) 
+    if (ip->adr[i]!=NULL)
       {
 	printf ("\r\nFound at %d, %p",i,ip->adr[i]);
         tm_DIO316=DIO316Init(ip->adr[i], vecnum);
 	break;
       }
-    if (i>=MAX_SLOTS) 
+  if (i>=MAX_SLOTS) 
     {
       printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+      free(ip);
       return;
     }
-    DIO316_Init=TRUE;
-/*    DIO316_Read_Reg(tm_DIO316,0xA,&vecnum);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
-    if (vecnum==0) vecnum = DIO316_VECTOR;*/
-    stat = intConnect (INUM_TO_IVEC(vecnum),
-                                (VOIDFUNCPTR)DIO316_interrupt,
-                                DIO316_TYPE);
-    printf ("DIO316 vector = %d, interrupt address = %p, result = %8x\r\n",
-                vecnum,DIO316_interrupt,stat);
-    rebootHookAdd(axis_DIO316_shutdown);
 
-/*
+  DIO316_Init=TRUE;
+  /*    DIO316_Read_Reg(tm_DIO316,0xA,&vecnum);
+	DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
+	DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_DIS);
+	DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_DIS);
+	DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_DIS);
+	if (vecnum==0) vecnum = DIO316_VECTOR;
+   */
+  stat = intConnect (INUM_TO_IVEC(vecnum),
+		     (VOIDFUNCPTR)DIO316_interrupt,
+		     DIO316_TYPE);
+  printf ("DIO316 vector = %d, interrupt address = %p, result = %8x\r\n",
+	  vecnum,DIO316_interrupt,stat);
+  rebootHookAdd(axis_DIO316_shutdown);
+  
+  /*
     DIO316_Interrupt_Configuration (tm_DIO316,0,DIO316_INT_HIGH_LVL);           
     DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_ENA);
-*/
-    DIO316_Interrupt_Configuration (tm_DIO316,1,DIO316_INT_FALL_EDGE/*ON_CHANGE*/);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_ENA);
-    DIO316_Interrupt_Configuration (tm_DIO316,2,DIO316_INT_FALL_EDGE);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_ENA);
-    DIO316_Interrupt_Configuration (tm_DIO316,3,DIO316_INT_FALL_EDGE);
-    DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_ENA);
-    DIO316_OE_Control (tm_DIO316,3,DIO316_OE_ENA);
-    DIO316_OE_Control (tm_DIO316,2,DIO316_OE_ENA);
-
-    IP_Interrupt_Enable(ip,DIO316_IRQ);
-    sysIntEnable(DIO316_IRQ);                                
+    */
+  DIO316_Interrupt_Configuration (tm_DIO316,1,DIO316_INT_FALL_EDGE/*ON_CHANGE*/);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,1,DIO316_INT_ENA);
+  DIO316_Interrupt_Configuration (tm_DIO316,2,DIO316_INT_FALL_EDGE);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,2,DIO316_INT_ENA);
+  DIO316_Interrupt_Configuration (tm_DIO316,3,DIO316_INT_FALL_EDGE);
+  DIO316_Interrupt_Enable_Control (tm_DIO316,3,DIO316_INT_ENA);
+  DIO316_OE_Control (tm_DIO316,3,DIO316_OE_ENA);
+  DIO316_OE_Control (tm_DIO316,2,DIO316_OE_ENA);
+  
+  IP_Interrupt_Enable(ip,DIO316_IRQ);
+  sysIntEnable(DIO316_IRQ);                               
+  free(ip);
 }
 
-/* note: will crash as Industry_Pack needs ip to be malloc'ed */
 void DID48_initialize(unsigned char *addr, unsigned short vecnum)
 {
   STATUS stat;
   int i;
   struct IPACK *ip;
 
-    Industry_Pack (addr,SYSTRAN_DID48,ip);
-    for (i=0;i<MAX_SLOTS;i++) 
-      if (ip->adr[i]!=NULL)
+  ip=(struct IPACK*)malloc(sizeof(struct IPACK));
+
+  Industry_Pack (addr,SYSTRAN_DID48,ip);
+  for (i=0;i<MAX_SLOTS;i++) 
+    if (ip->adr[i]!=NULL)
       {
 	printf ("\r\nFound at %d, %p",i,ip->adr[i]);
         tm_DID48=DID48Init(ip->adr[i], vecnum);
 	break;
       }
-    if (i>=MAX_SLOTS) 
+  if (i>=MAX_SLOTS) 
     {
       printf ("\r\n****Missing DID48 at %p****\r\n",addr);
+      free(ip);
       return;
     }
-    DID48_Init=TRUE;
-/*    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
-    if (vecnum==0) vecnum = DID48_VECTOR;*/
-    stat = intConnect (INUM_TO_IVEC(vecnum),
-                                (VOIDFUNCPTR)DID48_interrupt,
-                                DID48_TYPE);
-    printf ("DID48 vector = %d, interrupt address = %p, result = %8x\r\n",
-                vecnum,DID48_interrupt,stat);
-    rebootHookAdd(axis_DID48_shutdown);
-
-    IP_Interrupt_Enable(ip,DID48_IRQ);
-    sysIntEnable(DID48_IRQ);                                
-    DID48_Write_Reg (tm_DID48,3,0x3); /* disable debounce for all byte lanes */
-    DID48_Interrupt_Enable_Control (tm_DID48,5,DID48_INT_ENA);
+  DID48_Init=TRUE;
+  /*
+    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
+    if (vecnum==0) vecnum = DID48_VECTOR;
+    */
+  stat = intConnect (INUM_TO_IVEC(vecnum),
+		     (VOIDFUNCPTR)DID48_interrupt,
+		     DID48_TYPE);
+  printf ("DID48 vector = %d, interrupt address = %p, result = %8x\r\n",
+	  vecnum,DID48_interrupt,stat);
+  rebootHookAdd(axis_DID48_shutdown);
+  
+  IP_Interrupt_Enable(ip,DID48_IRQ);
+  sysIntEnable(DID48_IRQ);                                
+  DID48_Write_Reg (tm_DID48,3,0x3); /* disable debounce for all byte lanes */
+  DID48_Interrupt_Enable_Control (tm_DID48,5,DID48_INT_ENA);
+  free(ip);
 }
+
 void AZ()
 {
     latch();
@@ -2533,7 +2546,8 @@ float get_time()
 }
 #endif
 int latch_done=FALSE;
-test_latch (int ticks)
+
+void test_latch (int ticks)
 {
   int i;
   double p;
@@ -2585,8 +2599,10 @@ test_latch (int ticks)
 
     taskDelay(ticks);
   }
+
 }
-latch_it ()
+
+void latch_it ()
 {
   int i;
   double p;
@@ -2610,19 +2626,24 @@ latch_it ()
     printf(" position=%12.0lf\n\r",p);
     arm_latch(TRUE);
 }
+
 int latchstart ()
 {
   latchidx=0;
+  return 0;
 }
+
 void latchverbose ()
 {
   LATCH_verbose=TRUE;
 }
+
 void latchquiet ()
 {
   LATCH_verbose=FALSE;
 }
-latchprint (char *description)
+
+void latchprint (char *description)
 {
   int i;
   float ratio;
@@ -2642,7 +2663,8 @@ latchprint (char *description)
   }
   printf ("\r\n");
 }
-latchexcel (int axis)
+
+void latchexcel (int axis)
 {
   int i;
 

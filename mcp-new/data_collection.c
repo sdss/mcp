@@ -132,10 +132,30 @@ int mei_axis_collection(int axis, int secs)
 	state = (short *)calloc(buffer_length, sizeof(state[0]));
 	voltage = (short *)calloc(buffer_length, sizeof(voltage[0]));
 
-	if (!(apos && cpos && time && state && voltage))
-	{	fprintf(stderr, "Not enough memory.\n");
-		return 1;
+
+	if( (apos==NULL) || (cpos==NULL) || (time==NULL) || (state==NULL) 
+	    || (voltage==NULL)) {
+	  
+	  if(apos==NULL) {
+	    free(apos);
+	  }
+	  if(cpos==NULL) {
+	    free(cpos);
+	  }
+	  if(time==NULL) {
+	    free(time);
+	  }
+	  if(state==NULL) {
+	    free(state);
+	  }
+	  if(voltage==NULL) {
+	    free(voltage);
+	  }
+	  fprintf(stderr, "Not enough memory.\n");
+	  return 1;
 	}
+
+	if(cpos==NULL
 
 	fprintf(stderr, "Sampling...");
 
