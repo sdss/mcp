@@ -389,7 +389,8 @@ DIO316_interrupt(int type)
    DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
-      TRACE0(0, "NIST_INT bit is set: %d", dio316int_bit, 0);
+      TRACE0(0, "NIST_INT bit is set in dio316_interrupt: 0x%x",
+	     dio316int_bit, 0);
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
@@ -473,7 +474,9 @@ DID48_interrupt(int type)
       
       NIST_sec = timer_read(1);
       if(NIST_sec > 1000100) {
-	 TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
+	 if(SDSStime >= 0) {		/* we've set our time */
+	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
+	 }
 
 	 axis_stat[AZIMUTH][0].clock_loss_signal = 
 	   axis_stat[ALTITUDE][0].clock_loss_signal =
