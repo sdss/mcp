@@ -125,64 +125,6 @@ struct PVT {
 	unsigned short time_lo;
 };
 
-struct B10_0 {
-	unsigned mcp_clamp_engage_cmd : 1;
-	unsigned mcp_alt_brk_en_cmd : 1;
-	unsigned mcp_alt_brk_dis_cmd : 1;
-	unsigned mcp_az_brk_en_cmd : 1;
-	unsigned mcp_az_brk_dis_cmd : 1;
-	unsigned mcp_solenoid_engage : 1;
-	unsigned mcp_pump_on : 1;
-	unsigned mcp_lift_dn : 4;
-	unsigned mcp_lift_up : 4;
-	unsigned mcp_lift_high_psi : 1;
-};
-struct B10_1 {
-	unsigned mcp_ff_screen_enable : 1;
-	unsigned mcp_hgcd_lamp_on_cmd : 1;
-	unsigned mcp_ne_lamp_on_cmd : 1;
-	unsigned mcp_ff_lamp_on_cmd : 1;
-	unsigned mcp_ff_scrn_opn_cmd : 1;
-	unsigned mcp_slit_latch2_cmd : 1;
-	unsigned mcp_slit_dr2_cls_cmd : 1;
-	unsigned mcp_slit_dr2_opn_cmd : 1;
-	unsigned mcp_slit_latch1_cmd : 1;
-	unsigned mcp_slit_dr1_cls_cmd : 1;
-	unsigned mcp_slit_dr1_opn_cmd : 1;
-	unsigned mcp_umbilical_on_off : 1;	/* bit 20 on=1, off=0 */
-	unsigned mcp_umbilical_up_dn : 1;	/* bit 19 dn=1, up=0 */
-	unsigned mcp_15_deg_stop_ret_c : 1;
-	unsigned mcp_15_deg_stop_ext_c : 1;
-	unsigned mcp_clamp_disen_cmd : 1;	/* bit 16 */
-};
-struct B10_2 {
-	unsigned : 5;
-	unsigned mcp_inst_chg_alert : 1;
-	unsigned mcp_inst_chg_prompt : 1;
-	unsigned mcp_sad_latch_opn_cm : 1;
-	unsigned mcp_sad_latch_cls_cm : 1;
-	unsigned mcp_sec_latch_opn_cm : 1;
-	unsigned mcp_sec_latch_cls_cm : 1;
-	unsigned mcp_pri_latch_opn_cm : 1;
-	unsigned mcp_pri_latch_cls_cm : 1;
-	unsigned mcp_purge_cell_on : 1;	
-	unsigned mcp_t_bar_latch : 1;	
-	unsigned mcp_t_bar_unlatch : 1;	/* bit 16 */
-};
-/*
- * Pad to make cc happy on irix 6.5
- */
-struct B10 {
-   union {
-      char dummy[12];
-      struct {
-	 struct B10_0 ctrl0;
-	 struct B10_1 ctrl1;
-	 struct B10_2 ctrl2;
-      } ctrl;
-   } u;
-};
-
 typedef struct {		/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
 	unsigned rack_0_grp_0_bit_15 : 1;
 	unsigned az_bump_ccw : 1;		/* AZCCWC	*/
@@ -898,6 +840,124 @@ struct O12 {
 	OF12_L0	ol0;
 };
 
+typedef struct {
+   unsigned rot_mtr_iv_good : 1;	/* Rotator motor resistance check OK */
+   unsigned alt_mtr_iv_good : 1;	/* Altitude motor resistance check OK*/
+   unsigned az_mtr_iv_good : 1;		/* Azimuth motor resistance check OK */
+   unsigned hgcd_lamp_on_request : 1;	/* Turn HgCd lamps on */
+   unsigned ne_lamp_on_request : 1;	/* Turn Ne lamps on */
+   unsigned lift_speed_man_ovrid : 1;	/* override MCP lift speed. */
+   unsigned ilcb_led_on : 1;		/* Turn on instr latch ctrl box light*/
+   unsigned ff_screens_closed : 1;	/* all flat field screens are closed */
+   unsigned e_stop_flash_reset : 1;	/* reset the e-stop LED flash timer */
+   unsigned led_flash : 1;		/* E-stop led flash bit */
+   unsigned flip_flop_5 : 1;		/* create e-stop led flasher */
+   unsigned flip_flop_4 : 1;		/* create e-stop led flasher */
+   unsigned flip_flop_3 : 1;		/* create e-stop led flasher */
+   unsigned flip_flop_2 : 1;		/* debounce the */
+   unsigned flip_flop_1 : 1;		/*    low level lighting switch and */
+   unsigned flip_flop_0 : 1;		/*       latch the light on */
+
+   unsigned spare31 : 1;
+   unsigned spare30 : 1;
+   unsigned spare29 : 1;
+   unsigned spare28 : 1;
+   unsigned spare27 : 1;
+   unsigned spare26 : 1;
+   unsigned spare25 : 1;
+   unsigned spare24 : 1;
+   unsigned spare23 : 1;
+   unsigned spare22 : 1;
+   unsigned spare21 : 1;
+   unsigned dn_inhibit_latch_4 : 1;	/* Altitude Down inhibit latch bit 4 */
+   unsigned dn_inhibit_latch_3 : 1;	/* Altitude Down inhibit latch bit 3 */
+   unsigned dn_inhibit_latch_2 : 1;	/* Altitude Down inhibit latch bit 2 */
+   unsigned dn_inhibit_latch_1 : 1;	/* Altitude Down inhibit latch bit 1 */
+   unsigned up_inhibit_latch : 1;	/* Altitude Up inhibit latch bit */
+} B3_W0;
+
+struct B3 {
+   B3_W0 w0;
+   unsigned long undefined1;
+};
+
+typedef struct {
+   unsigned mcp_clamp_engage_cmd : 1;	/* Clamp engage command */
+   unsigned mcp_alt_brk_en_cmd : 1;	/* Alt brake engage command bit */
+   unsigned mcp_alt_brk_dis_cmd : 1;	/* Alt brake disengage command bit */
+   unsigned mcp_az_brk_en_cmd : 1;	/* Az brake engage command bit */
+   unsigned mcp_az_brk_dis_cmd : 1;	/* Az brake disengage command bit */
+   unsigned mcp_solenoid_engage : 1;	/* turn on the inst. lift solenoid */
+   unsigned mcp_pump_on : 1;		/* turn on the instrument lift pump */
+   unsigned mcp_lift_dn_4 : 1;		/* Part of the */
+   unsigned mcp_lift_dn_3 : 1;		/*    binary code */
+   unsigned mcp_lift_dn_2 : 1;		/*       for down lift */
+   unsigned mcp_lift_dn_1 : 1;		/*          speed */
+   unsigned mcp_lift_up_1 : 1;		/* Part of the */
+   unsigned mcp_lift_up_2 : 1;		/*    binary code */
+   unsigned mcp_lift_up_3 : 1;		/*       for up lift */
+   unsigned mcp_lift_up_4 : 1;		/*          speed */
+   unsigned mcp_lift_high_psi : 1;	/* turn on the high pressure for lift*/
+
+   unsigned mcp_ff_screen_enable : 1;	/* Enable flat field screen motion */
+   unsigned mcp_hgcd_lamp_on_cmd : 1;	/* turn on the HgCd lamps */
+   unsigned mcp_ne_lamp_on_cmd : 1;	/* turn the Ne lamps on */
+   unsigned mcp_ff_lamp_on_cmd : 1;	/* turn the ff lamps on */
+   unsigned mcp_ff_scrn_opn_cmd : 1;	/* open the ff screen */
+   unsigned mcp_slit_latch2_cmd : 1;	/* slithead latch2 control 1=en 0=dis*/
+   unsigned mcp_slit_dr2_cls_cmd : 1;	/* slithead door 2 close command bit */
+   unsigned mcp_slit_dr2_opn_cmd : 1;	/* slithead door 2 open command bit */
+   unsigned mcp_slit_latch1_cmd : 1;	/* slithead latch1 control 1=en 0=dis*/
+   unsigned mcp_slit_dr1_cls_cmd : 1;	/* slithead door 1 close command bit */
+   unsigned mcp_slit_dr1_opn_cmd : 1;	/* slithead door 1 open command bit */
+   unsigned mcp_umbilical_on_off : 1;	/* umbilical motor 1=on 0=off */
+   unsigned mcp_umbilical_up_dn : 1;	/* umbilical motor 0=up 1=down */
+   unsigned mcp_15deg_stop_ret_c : 1;	/* 15 degree stop remove command */
+   unsigned mcp_15deg_stop_ext_c : 1;	/* 15 degree stop insert command */
+   unsigned mcp_clamp_disen_cmd : 1;	/* Clamp disengage command */
+} B10_W0;
+
+typedef struct {
+   unsigned spare15 : 1;
+   unsigned spare14 : 1;
+   unsigned spare13 : 1;
+   unsigned spare12 : 1;
+   unsigned spare11 : 1;
+   unsigned mcp_inst_chg_alert : 1;	/* alert the observers of malfunction*/
+   unsigned mcp_inst_chg_prompt : 1;	/* prompt the observers */
+   unsigned mcp_sad_latch_opn_cm : 1;	/* open the saddle latches */
+   unsigned mcp_sad_latch_cls_cm : 1;	/* close the saddle latches */
+   unsigned mcp_sec_latch_opn_cm : 1;	/* open the secondary latches */
+   unsigned mcp_sec_latch_cls_cm : 1;	/* close the secondary latches */
+   unsigned mcp_pri_latch_opn_cm : 1;	/* open the primary latches */
+   unsigned mcp_pri_latch_cls_cm : 1;	/* close the primary latches */
+   unsigned mcp_purge_cell_on : 1;	/* start the purge cell */
+   unsigned mcp_t_bar_latch : 1;	/* latch the t-bar latches */
+   unsigned mcp_t_bar_unlatch : 1;	/* unlatch the t-bar latches */
+
+   unsigned spare31 : 1;
+   unsigned spare30 : 1;
+   unsigned spare29 : 1;
+   unsigned spare28 : 1;
+   unsigned spare27 : 1;
+   unsigned spare26 : 1;
+   unsigned spare25 : 1;
+   unsigned spare24 : 1;
+   unsigned spare23 : 1;
+   unsigned spare22 : 1;
+   unsigned spare21 : 1;
+   unsigned spare20 : 1;
+   unsigned spare19 : 1;
+   unsigned spare18 : 1;
+   unsigned spare17 : 1;
+   unsigned velocity_trp_rst_in : 1;	/* reset slip detection velocity trip*/
+} B10_W1;
+
+struct B10 {
+   B10_W0 w0;
+   B10_W1 w1;
+};
+
 struct AB_SLC500 {
 	short status;
 	short errcnt;
@@ -915,6 +975,8 @@ struct AB_SLC500 {
 	struct I10 i10;
 	struct O11 o11;
 	struct O12 o12;
+	struct B3 b3;
+	struct B10 b10;
 };
 
 struct SDSS_FRAME {
@@ -940,7 +1002,6 @@ struct SDSS_FRAME {
 	unsigned long ascii_len;
 #define ASCII_LEN	80
 	unsigned char ascii[ASCII_LEN];
-	struct B10 b10;
 };
 
 #define STATUS_MASK 0x00000700		/* mask of bits not to pass to TCC */

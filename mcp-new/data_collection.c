@@ -266,24 +266,24 @@ mei_data_collection(unsigned long freq)
 **	counter-weight values from hardware, instrument lift hardware and
 **	ctime.  Status of the MEI controllers is produced for the TCC.  If
 **	the broadcast is enabled, the datagram is sent.  All this is 
-**	done at the base rate of the SLC data collection.
+**	done at the base rate of the SLC data collection -- i.e. freq
+**      is interpreted relative to the rate at which serverDCStart() is
+**      triggered (see mcp.login)
 */
 void
 slc500_data_collection(unsigned long freq)
 {
    int i;
-   char status[168*2 + 1];
-   char status_b10[12 + 1];
+   char status[176*2 + 1];
    int stat;
 /*
- * gcc complains about these assertions if I don't introduce tmp.
+ * gcc complains about this assertion if I don't introduce tmp.
  */
    {
       volatile int tmp;
       tmp = sizeof(struct AB_SLC500) + 1; assert(sizeof(status) == tmp);
-      tmp = sizeof(struct B10) + 1; assert(sizeof(status_b10) == tmp);
    }
-   status[sizeof(status) - 1] = status_b10[sizeof(status_b10) - 1] = '\a';
+   status[sizeof(status) - 1] = '\a';
    
    semSLCDC = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
    slc_freq=freq;
@@ -306,23 +306,18 @@ slc500_data_collection(unsigned long freq)
       } else {
 	 stat  = slc_read_blok(1,9,BIT_FILE, 0, (uint *)&status[0], 64);
 	 stat |= slc_read_blok(1,9,BIT_FILE, 64, (uint *)&status[128], 64);
-	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 38);
-	 
-	 stat |= slc_read_blok(1,10,BIT_FILE, 0, (uint *)status_b10,
-			       sizeof(struct B10)/2);
+	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 46);
 	 semGive (semSLC);
 	 
 	 assert(status[sizeof(status) - 1] == '\a');
-	 assert(status_b10[sizeof(status_b10) - 1] == '\a');
 	 
 	 if(stat == 0) {
 /*
- * byteswap status/status_b10 and copy them into sdssdc at the same time
+ * byteswap status and copy it into sdssdc
  */
 	    swab(status, (char *)(&sdssdc.status.i1),
 		 (int)sizeof(struct AB_SLC500) -
 		 ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status));
-	    swab(status_b10, (char *)(&sdssdc.b10), sizeof(struct B10));
 	 }
       }
 
