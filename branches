@@ -11,3 +11,8 @@ Mon Mar 27 17:27:24 MST 2000
 	Merged from v4_2 branch at point v4_2_5
 
 
+Fri Jan  5 08:28:53 MST 2001
+	Created v4_3_10b branch at point v4_3_10
+
+	cvs rtag -r v4_3_10 v4_3_10b_0 mcp
+	cvs rtag -r v4_3_10b_0 -b v4_3_10b mcp
