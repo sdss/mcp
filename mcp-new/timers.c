@@ -472,12 +472,12 @@ DID48_interrupt(int type)
    DID48_Read_Port(tm_DID48,5,&did48int_bit);
    NIST_cnt++;
    if(did48int_bit & NIST_INT) {
-      SDSS_cnt++;
-
       if(SDSStime < 0) {		/* we haven't set time yet */
 	 timer_start(1);		/* reset microsecond timer */
 	 return;
       }
+
+      SDSS_cnt++;
 /*
  * N.b. taskLock() is not callable from interrupt routines
  */
@@ -486,7 +486,9 @@ DID48_interrupt(int type)
       timer_start(1);			/* reset microsecond timer */
 
       if(NIST_sec < 1000000 - dt) {
-	 TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
+	 if(SDSS_cnt > 1) {		/* not just the first partial second */
+	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
+	 }
       } else if(NIST_sec > 1000000 + dt) {
 	 TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
 
