@@ -1454,9 +1454,12 @@ mcp_move(int axis,			/* the axis to move */
       tm_get_position(2*axis, &stop_position[axis]);
       frame_break[axis] = TRUE;
 
-      sdssdc.tccmove[axis].position = 0;
-      sdssdc.tccmove[axis].velocity = 0;
-      sdssdc.tccmove[axis].time = 0;
+      if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
+	 sdssdc.tccmove[axis].position = 0;
+	 sdssdc.tccmove[axis].velocity = 0;
+	 sdssdc.tccmove[axis].time = 0;
+	 semGive(semSDSSDC);
+      }
 
       if(frame != NULL) free(frame);
       
@@ -1536,11 +1539,15 @@ mcp_move(int axis,			/* the axis to move */
    frame->velocity = (double)velocity;
    frame->nxt = NULL;
 
-   sdssdc.tccmove[axis].position=
-     (long)(frame->position*ticks_per_degree[axis]);
-   sdssdc.tccmove[axis].velocity=
-     (long)(frame->velocity*ticks_per_degree[axis]);
-   sdssdc.tccmove[axis].time=(long)(frame->end_time*1000);
+   if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
+      sdssdc.tccmove[axis].position=
+	(long)(frame->position*ticks_per_degree[axis]);
+      sdssdc.tccmove[axis].velocity=
+	(long)(frame->velocity*ticks_per_degree[axis]);
+      sdssdc.tccmove[axis].time=(long)(frame->end_time*1000);
+
+      semGive(semSDSSDC);
+   }
 
 #if 0					/* XXX */
    printf("%s MOVE %f %f %f  %10.4f\n", axis_name(axis),
@@ -1723,12 +1730,16 @@ mcp_plus_move(int axis,			/* the axis to move */
 	  offset[axis][i][1].velocity,
 	  offset[axis][i][1].end_time);
    
-   sdssdc.tccpmove[axis].position =
-     (long)(offset[axis][i][1].position*ticks_per_degree[axis]);
-   sdssdc.tccpmove[axis].velocity =
-     (long)(offset[axis][i][1].velocity*ticks_per_degree[axis]);
-   sdssdc.tccpmove[axis].time =
-     (long)(offset[axis][i][1].end_time*1000);
+   if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
+      sdssdc.tccpmove[axis].position =
+	(long)(offset[axis][i][1].position*ticks_per_degree[axis]);
+      sdssdc.tccpmove[axis].velocity =
+	(long)(offset[axis][i][1].velocity*ticks_per_degree[axis]);
+      sdssdc.tccpmove[axis].time =
+	(long)(offset[axis][i][1].end_time*1000);
+
+      semGive(semSDSSDC);
+   }
    
    return(0);
 }
