@@ -203,11 +203,12 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    varargs = 1;
 	 }
 	 if(nskip == 0) {
+	    TRACE(lvl, "Command %s:", tok, 0);
 	    args = "";
 	 } else {
-	    args = strtok(cmd_str, "");
+	    args = cmd_str = strtok(cmd_str, "");
+	    TRACE(lvl, "Command %s: %s", tok, cmd_str);
 	 }
-	 TRACE(lvl, "Command %s: %s\n", tok, args);
       }
       
       ans = (*addr)(args);		/* actually do the work */
