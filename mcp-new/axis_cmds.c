@@ -397,6 +397,7 @@ char *mc_minpos_cmd(char *cmd)
 
 char *move_cmd(char *cmd)
 {
+  extern struct SDSS_FRAME sdssdc;
 
   double position,velocity,pos;
   struct FRAME *frame,*nxtque;
@@ -432,6 +433,9 @@ char *move_cmd(char *cmd)
 		(ticks_per_degree[axis_select]*max_acceleration[axis_select])/2);
 */
 	if (frame!=NULL) free (frame);
+	sdssdc.tccmove[axis_select].position=0;
+	sdssdc.tccmove[axis_select].velocity=0;
+	sdssdc.tccmove[axis_select].time=0;
         return 0;
 /*        break;*/
     case 1:
@@ -475,6 +479,11 @@ char *move_cmd(char *cmd)
 	}
 	break;
   }
+  sdssdc.tccmove[axis_select].position=
+	(long)(frame->position*ticks_per_degree[axis_select]);
+  sdssdc.tccmove[axis_select].velocity=
+	(long)(frame->velocity*ticks_per_degree[axis_select]);
+  sdssdc.tccmove[axis_select].time=(long)(frame->end_time*1000);
   frame->position=position;
   if (fabs(velocity)>max_velocity[axis_select]) 
       velocity=max_velocity[axis_select];
@@ -486,7 +495,7 @@ char *move_cmd(char *cmd)
   nxtque->nxt = frame;
   if (queue->active==NULL)/* end of queue, and becomes active frame */
     queue->active=frame;
-  if (cnt==-1)/* this frame becomes active frame */
+  if (cnt==-1)		/* this frame becomes active frame */
   {
 /*
     queue->active=frame;
@@ -849,6 +858,7 @@ int coeffs_state_cts (int axis, int cts)
  }
 void load_frames(int axis, int cnt, int idx, double sf)
 {
+  extern struct SDSS_FRAME sdssdc;
   int e;
   int i;
   FRAME frame;
@@ -885,6 +895,11 @@ void load_frames(int axis, int cnt, int idx, double sf)
 	FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FTRG_TIME,NEW_FRAME);    
 */
       semGive (semMEI);
+      sdssdc.pvt[axis].position=
+	(long)(p[axis][i]*sf);
+      sdssdc.pvt[axis].velocity=
+	(long)(v[axis][i]*sf);
+      sdssdc.pvt[axis].time=(long)(tim[axis][i]*1000);
     }
     if (FRAME_verbose)
         printf ("\r\n axis=%d (%d): p=%12.8lf, v=%12.8lf, a=%12.8lf, \r\nj=%12.8lf,t=%12.8lf",
@@ -1315,6 +1330,7 @@ void tm_pos_vel(int axis,int vel, int accel)
 
 char *plus_move_cmd(char *cmd)
 {
+  extern struct SDSS_FRAME sdssdc;
   double position,velocity,frame_time;
   struct FRAME *nxtque;
   struct FRAME_QUEUE *queue;
@@ -1421,6 +1437,11 @@ char *plus_move_cmd(char *cmd)
 		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
         break;
   }
+  sdssdc.tccpmove[axis_select].position=
+	(long)(offset[axis_select][1].position*ticks_per_degree[axis_select]);
+  sdssdc.tccpmove[axis_select].velocity=
+	(long)(offset[axis_select][1].velocity*ticks_per_degree[axis_select]);
+  sdssdc.tccpmove[axis_select].time=(long)(offset[axis_select][1].end_time*1000);
   return 0;
 }
 

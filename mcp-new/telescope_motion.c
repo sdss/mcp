@@ -1017,7 +1017,6 @@ int tm_cart(short val)
    if (val==0)
      tm_ctrl1.mcp_cart_latch1_cmd = 0;
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
-/*
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1029,7 +1028,6 @@ int tm_cart(short val)
        return err;
      }
    }
-*/
 /*   printf ("\r\n cnt=%d",cnt);
    tm_slit_status();*/
    return 0;

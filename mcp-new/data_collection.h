@@ -645,9 +645,9 @@ struct SDSS_FRAME {
 	struct IL inst;
 	struct CW weight[4];
 	struct AB_SLC500 status;
-	struct PVT tccmove[3];
-	struct PVT tccpmove[3];
-	struct PVT pvt[3];
+	  struct PVT_M68K tccmove[3];
+	  struct PVT_M68K tccpmove[3];
+	  struct PVT_M68K pvt[3];
 	unsigned long axis_state[3];
 	unsigned long sdsstime;
 	unsigned long ascii_len;

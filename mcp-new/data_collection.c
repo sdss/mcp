@@ -410,11 +410,11 @@ void slc500_data_collection(unsigned long freq)
     else axis_stat[2].amp_ok=0;
     if (semTake (semMEI,5)!=ERROR)
     {
-      if (axis_state(0)<=2) axis_stat[0].closed_loop=1;
+      if ((sdssdc.axis_state[0]=axis_state(0))<=2) axis_stat[0].closed_loop=1;
       else axis_stat[0].closed_loop=0;
-      if (axis_state(2)<=2) axis_stat[1].closed_loop=1;
+      if ((sdssdc.axis_state[1]=axis_state(2))<=2) axis_stat[1].closed_loop=1;
       else axis_stat[1].closed_loop=0;
-      if (axis_state(4)<=2) axis_stat[2].closed_loop=1;
+      if ((sdssdc.axis_state[2]=axis_state(4))<=2) axis_stat[2].closed_loop=1;
       else axis_stat[2].closed_loop=0;
       semGive (semMEI);
     }
