@@ -69,8 +69,8 @@ void barcode_shutdown(int type);
  */
 int
 sdss_transmit(FILE *output_stream,
-	      char *const str,		/* string */
-	      char *const str2)		/* second string to write too */
+	      const char *str,		/* string */
+	      const char *str2)		/* second string to write too */
 {
    int nchar;
 
@@ -215,6 +215,23 @@ tcc_serial(int port)
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
 	}
+
+#if 1
+	{
+	   extern SEM_ID semCMD;
+
+	   int ids[10], nblock;
+	   nblock = semInfo(semCMD, ids, 10);
+	   if(nblock > 0) {
+	      int i;
+	      fprintf(stderr, "semCMD: ");
+	      for(i = 0;i < nblock; nblock++) {
+		 fprintf(stderr,"0x%x ", ids[i]);
+	      }
+	      fprintf(stderr,"\n");
+	   }
+	}
+#endif
 
 	answer_buffer =
 	  cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
