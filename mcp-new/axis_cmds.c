@@ -400,7 +400,6 @@ init_cmd(char *cmd)
 
       semGive(semMEI);
    }
-   tm_show_axis(axis_select);		/* XXX */
 /*
  * tm_axis_state retries as well...so this is really redundant, but then the
  * brakes don't come off really quickly so this will assure closed loop for
@@ -448,7 +447,11 @@ init_cmd(char *cmd)
 
       semGive(semLatch);
    }
-   
+/*
+ * Clear the status of the bump switches
+ */
+   clear_sticky_bumps(axis_select);
+
    return "";
 }
 
@@ -1692,6 +1695,14 @@ set_vel_cmd(char *cmd)
    return("");
 }
 
+char *
+bump_clear_cmd(char *cmd)		/* NOTUSED */
+{
+   clear_sticky_bumps(axis_select);
+
+   return("");
+}
+
 /*****************************************************************************/
 /*
  * Restore positions from shared memory after a boot
@@ -1902,6 +1913,7 @@ axisMotionInit(void)
    define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0);
    define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 1);
    define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 1);
+   define_cmd("BUMP.CLEAR",    bump_clear_cmd,    0, 1, 1);
    define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1);
    define_cmd("GOTO.POS.VA",   goto_pos_va_cmd,   3, 1, 1);
    define_cmd("HALT",          hold_cmd, 	  0, 1, 1);
