@@ -460,6 +460,10 @@ init_cmd(char *cmd)
 	 TRACE(1, "AXIS INIT failed to take semCmdPort semaphore", 0, 0);
       }
    }
+/*
+ * flush the MCP command logfile
+ */
+   log_mcp_command(NULL);
 
    return "";
 }
