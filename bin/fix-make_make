@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Make the dependency list consist of one .h file per line, and
+# remove .h files not present in this directory from Makefile dependency lists
+#
+for f in $@; do
+	perl -pi -e '
+		if(/^#START_DEPEND/) { $dependencies = 1; next; }
+		if(!$dependencies) { next; }
+		#
+		# Deal with continuation lines
+		#
+		chop;
+		$line = $_;
+		while($line =~ s/\s*\\$//) {
+		    $_ = <>; chop; $line .= $_;
+		}
+		#
+		# Do the work
+		#
+		$line =~ /^([a-zA-Z_0-9]+\.o)\s*:\s+(.*)/;
+		$ofile = $1; (@deplist) = split(" ", $2);
+		$_ = "";
+		foreach $file (@deplist) {
+		    if($file =~ /\.c$/) {
+			;
+		    } elsif($file =~ m%(/vx_|Lib\.h$)%) {
+			;
+		    } elsif(! -r $file) {
+		        ;
+		    } else {
+		        $_ .= "$ofile : $file\n";
+		    }
+		}
+	' $f
+done
+
