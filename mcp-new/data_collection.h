@@ -252,7 +252,7 @@ typedef struct {
 }IF1_L6;
 typedef struct {
 	unsigned rack_2_grp_0_bit_15 : 1;
-	unsigned rack_2_grp_0_bit_14 : 1;
+	unsigned spec_autofill_on : 1;
   	unsigned spec_lens2 : 1;
   	unsigned spec_lens1 : 1;
   	unsigned inst_id3_4 : 1;
@@ -365,7 +365,7 @@ typedef struct {
 	unsigned rack_3_grp_4_bit_8 : 1;
 	unsigned rack_3_grp_4_bit_7 : 1;
 	unsigned rack_3_grp_4_bit_6 : 1;
-	unsigned rack_3_grp_4_bit_5 : 1;
+	unsigned ff_man_cont_on : 1;
 	unsigned man_hgcd_lamp_on_cmd : 1;
 	unsigned man_ne_lamp_on_cmd : 1;
 	unsigned man_ff_lamp_on_cmd : 1;
@@ -738,10 +738,10 @@ typedef struct {
 	unsigned rack_2_grp_3_bit8 : 1;
 	unsigned rack_2_grp_3_bit7 : 1;
 	unsigned rack_2_grp_3_bit6 : 1;
-	unsigned slit_latch2_opn_perm : 1;
+	unsigned slit_latch2_ext_perm : 1;
 	unsigned slit_dr2_opn_perm : 1;
 	unsigned slit_dr2_cls_perm : 1;
-	unsigned slit_latch1_opn_perm : 1;
+	unsigned slit_latch1_ext_perm : 1;
 	unsigned slit_dr1_opn_perm : 1;
 	unsigned slit_dr1_cls_perm : 1;
 } OF1_L9;
