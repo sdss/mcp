@@ -24,15 +24,15 @@ nfsAuthUnixSet "sdsshost.apo.nmsu.edu", 5036, 5530, 1, au_p
 # Go to the version root
 #
 cd "/p/mcpbase"
-
+#
+# Remove MCP main RAM Slave Map that is defined in the vxWorks image.
+#
+ld < vx_tools/objects/mvsup.mv162.o
+vmeSlaveMap1 0
 #
 # Load Ron's tracing tools from vx_tools
 #
 ld < vx_tools/lib/vxt.mv162.o
-#
-# Disable slave memory mapping
-#
-vmeSlaveMap1 0
 #
 # Load murmur
 #
