@@ -49,6 +49,7 @@
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
+#include <string.h>
 #include "vxWorks.h"                            
 #include "wdLib.h"
 #include "semLib.h"
@@ -85,6 +86,9 @@
 #include "tm.h"
 #include "axis.h"
 #include "cw.h"
+#include "serial.h"
+#include "mcpUtils.h"
+
 /*========================================================================
 **========================================================================
 **
@@ -139,10 +143,10 @@ int MEI_interrupt=FALSE;
 int DIO316_Init=FALSE;
 int DID48_Init=FALSE;
 int sdss_was_init=FALSE;
-struct FRAME_QUEUE axis_queue[]={
-		{0,NULLPTR,NULLPTR},
-		{0,NULLPTR,NULLPTR},
-		{0,NULLPTR,NULLPTR}
+struct FRAME_QUEUE axis_queue[3]={
+   {0,NULLPTR,NULLPTR},
+   {0,NULLPTR,NULLPTR},
+   {0,NULLPTR,NULLPTR}
 };
 double max_velocity[]={2.25,1.75,2.25,0,0,0};
 double max_acceleration[]={4.,4.,6.0,0,0,0};
@@ -182,10 +186,8 @@ int offset_idx[3][OFF_MAX+2]={
 			{0,0,0,0,0,0,0,0},
 			{0,0,0,0,0,0,0,0}
 };
-double sec_per_tick[]={AZ_TICK,ALT_TICK,ROT_TICK};
-double ticks_per_degree[]={AZ_TICKS_DEG,
-				ALT_TICKS_DEG,
-				ROT_TICKS_DEG};
+double sec_per_tick[3]={AZ_TICK, ALT_TICK, ROT_TICK};
+double ticks_per_degree[3]={AZ_TICKS_DEG, ALT_TICKS_DEG, ROT_TICKS_DEG};
 /*------------*/
 /* Prototypes */
 /*------------*/
@@ -291,9 +293,6 @@ char *reboot_cmd(char *cmd)
 char *
 correct_cmd(char *cmd)
 {
-  extern SEM_ID semMEI;
-  extern struct FIDUCIARY fiducial[3];
-  extern long fiducial_position[3];
   long pos;
   double position;
 
@@ -502,7 +501,6 @@ char *init_cmd(char *cmd)
 {
   int state;
   int retry;
-  extern struct SDSS_FRAME sdssdc;
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
   if ((axis_select<AZIMUTH) ||
@@ -799,8 +797,6 @@ char *mc_minpos_cmd(char *cmd)
 */
 char *move_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
-
   double position,velocity,pos;
   struct FRAME *frame,*nxtque;
   struct FRAME_QUEUE *queue;
@@ -952,7 +948,6 @@ char *move_cmd(char *cmd)
 */
 char *plus_move_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
   double position,velocity,frame_time;
   struct FRAME_QUEUE *queue;
   int cnt;
@@ -1478,11 +1473,6 @@ static char *status_ans=
 {"1073741824                                                                   "};	/* 0x40000000 */
 char *status_cmd(char *cmd)
 {
-  extern struct TM_M68K *tmaxis[];
-  extern struct FIDUCIARY fiducial[3];
-  extern SEM_ID semMEIUPD;
-  extern struct AXIS_STAT axis_stat[];
-
 /*  printf (" STATUS command fired\r\n"); */
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
@@ -1672,7 +1662,6 @@ char *cwmov_cmd(char *cmd)
 {
   int cw;
   int cwpos;
-  extern struct SDSS_FRAME sdssdc;
 
   printf (" CWMOV command fired\r\n");
   sscanf (cmd,"%d %d",&cw,&cwpos);
@@ -1693,7 +1682,6 @@ char *cwmov_cmd(char *cmd)
 }
 char *cwinst_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
   int inst;
 
   printf (" CWINST command fired\r\n");
@@ -1715,7 +1703,6 @@ char *cwinst_cmd(char *cmd)
 }
 char *cwpos_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
   int cwpos;
 
   printf (" CWPOS command fired\r\n");
@@ -1746,12 +1733,9 @@ static char *cwstatus_ans=
 	{"CW# 800 UL  CW# 800 UL  CW# 800 UL  CW# 800 UL       "};
 char *cwstatus_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
   int i, idx;
   int adc;
   int limidx;
-  extern unsigned char cwLimit;
-  extern SEM_ID semMEIUPD;
 
   printf (" CWSTATUS command fired\r\n");
   if (semTake (semMEIUPD,60)!=ERROR)
@@ -2005,8 +1989,6 @@ static char *slitstatus[]={"    ","OPEN","     ","CLOSE","UNLATCH","LATCH  "};
 static char *slitstatus_ans={"SP1 OPEN CLOSE UNLATCH SP2 OPEN CLOSE UNLATCH"};
 char *slitstatus_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
-
   printf (" SLIT.STATUS command fired\r\n");
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
@@ -2178,7 +2160,6 @@ char *hgcdoff_cmd(char *cmd)
 char ffstatus_ans[250];
 char *ffstatus_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
   char open[]={' ','O'};
   char close[]={' ','C'};
   char *oo[]={"Off"," On"};
@@ -2256,7 +2237,6 @@ char *ffstatus_cmd(char *cmd)
 char abstatus_ans[5*20];
 char *abstatus_cmd(char *cmd)
 {
-  extern struct SDSS_FRAME sdssdc;
   int i,idx;
   short *dt;
   int off,len;
@@ -2800,7 +2780,6 @@ int coeffs_state_cts (int axis, int cts)
 */
 void load_frames(int axis, int cnt, int idx, double sf)
 {
-  extern struct SDSS_FRAME sdssdc;
   int e;
   int i;
   FRAME frame;
@@ -3131,7 +3110,6 @@ void tm_TCC(int axis)
   long pos;
   int idx;
   int status;
-  extern int axis_alive;
   
   tm_controller_run (axis<<1);
   idx=0;
@@ -3795,13 +3773,9 @@ void fiducial_shutdown(int type)
 void tm_latch(char *name)
 {
   int i;
-  extern int barcode_serial();
   int fididx;
   int fididx1;
   int status;
-  extern struct SDSS_FRAME sdssdc;
-  extern int altclino_off;
-  extern float altclino_sf;
   time_t fidtim;
 
   if ((status=createNfsConnection())==ERROR) printf ("\r\nNFSConnection error");
@@ -4601,11 +4575,6 @@ unsigned long SDSS_cnt=0;
 #define DAYINSECS	86400
 void DID48_interrupt(int type)
 {
-  extern timer_read(int timer);
-  extern timer_start(int timer);
-  extern struct AXIS_STAT axis_stat[];
-  extern struct AXIS_STAT persistent_axis_stat[];
-
   DID48_Read_Port (tm_DID48,5,&did48int_bit);
   NIST_cnt++;
   if (did48int_bit&NIST_INT)
@@ -4772,8 +4741,6 @@ int DID48_initialize(unsigned char *addr, unsigned short vecnum)
 */
 void amp_reset(int axis)
 {
-  extern int cw_DIO316;
-
 	DIO316_Write_Port (cw_DIO316,AMP_RESET,1<<axis);
         taskDelay (2);
 	DIO316_Write_Port (cw_DIO316,AMP_RESET,0);
@@ -4810,7 +4777,6 @@ int sdss_init()
   char buffer[MAX_ERROR_LEN] ;
   double limit;
   short action;
-  extern void VME2_pre_scaler();
 
   for (i=0;i<3;i++)
   {
@@ -4935,9 +4901,9 @@ void restore_firmware()
 /* turn on 1 Hz interrupt time returns else use local clock
 */
 #ifdef CLOCK_INT
-double sdss_get_time()
+double
+sdss_get_time()
 {
-  extern timer_read(int timer);
   	  unsigned long micro_sec;
 
 /*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
@@ -4945,9 +4911,10 @@ double sdss_get_time()
 	  if (micro_sec>1000000) micro_sec=999999;
           return (double)(SDSStime+((micro_sec%1000000)/1000000.));
 }
-double get_time()
+
+double
+get_time()
 {
-  extern timer_read(int timer);
   	  unsigned long micro_sec;
 
 /*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
@@ -4958,9 +4925,9 @@ double get_time()
           return (double)(SDSStime+((micro_sec%1000000)/1000000.));
 }
 #else
-double sdss_get_time()
+double
+sdss_get_time()
 {
-  extern timer_read(int timer);
   	  struct timespec tp;
   	  unsigned long micro_sec;
 
@@ -4968,9 +4935,10 @@ double sdss_get_time()
           micro_sec = timer_read (1);
           return ((double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
 }
-double get_time()
+
+double
+get_time()
 {
-  extern timer_read(int timer);
   	  struct timespec tp;
   	  unsigned long micro_sec;
 

@@ -62,6 +62,9 @@ erase the screen etc.
 #include "cw.h"
 #include "io.h"
 #include "data_collection.h"
+#include "instruments.h"
+#include "mcpUtils.h"
+
 /*========================================================================
 **========================================================================
 **
@@ -208,7 +211,6 @@ int GetString(char *buf, int cnt)
 	This routine could be easly expanded to GetStringNoEcho if need be.
 */	 
 {
-  extern SEM_ID semMEIUPD;
   int i;
 
   semGive (semMEIUPD);
@@ -263,17 +265,17 @@ int GetString(char *buf, int cnt)
 **
 **=========================================================================
 */
-void TCC_check()
+void
+TCC_check()
 {
-  extern struct FRAME_QUEUE axis_queue[];
-  int i;
-
-  for (i=0;i<3;i++)
-    if (axis_queue[i].active!=NULL)
-    {
-      printf ("\r\n Axis %d: TCC is has active entries in queue",i);
-      taskDelay (2*60);
-    }
+   int i;
+   
+   for (i=0;i<3;i++) {
+      if (axis_queue[i].active!=NULL) {
+	 printf ("\r\n Axis %d: TCC is has active entries in queue",i);
+	 taskDelay (2*60);
+      }
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -356,7 +358,6 @@ static void PrintMenuBanner()
 */
 void PrintMenuMove()
 {
-  extern double sec_per_tick[];
   double arcsecond;
   long marcs,arcs,arcm,arcd;
 
@@ -401,19 +402,7 @@ void Menu()
 {
   int Running=TRUE;
   char buf[255];
-  extern struct SDSS_FRAME sdssdc;
-  extern struct TM_M68K *tmaxis[];
-  extern SEM_ID semMEI;
-  extern SEM_ID semMEIUPD;
-  extern void tm_az_brake_on(),tm_az_brake_off();
-  extern void tm_alt_brake_on(),tm_alt_brake_off();
-  extern void tm_set_pos(int axis, int pos);
-  extern void manTrg();
-  extern int cw_abort();
-  extern struct FIDUCIARY fiducial[3];
-  extern long fiducial_position[3];
-  extern double sec_per_tick[];
-  extern int monitor_on[3];
+  extern void manTrg(void);
   int cwpos;
   int cw;
   int inst;
@@ -426,28 +415,31 @@ void Menu()
   extern FILE *fidfp;
 
   TCC_check();
+  if(semTake (semMEIUPD,60) == ERROR) {
+     printf("\r\nCan't take semMEIUPD..."
+	    "DataCollection task probably at fault");
+     return;
+  }
+
   Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
   ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
-  if (semTake (semMEIUPD,60)!=ERROR)
-  {
-    refreshing=TRUE;
-    PrintMenuBanner();
-    PrintMenuMove();
-    semGive (semMEIUPD);
-  }
-  else
-  {
-    printf ("\r\nCan't take semMEIUPD...DataCollection task probably at fault");
-    return;
-  }
-  while(Running)
-  {
-    buf[0]=getchar();
- /*     gets(buf);  */
-    if (semTake (semMEIUPD,60)!=ERROR)
-    {
-     switch(buf[0])
-     {
+
+  refreshing=TRUE;
+  PrintMenuBanner();
+  PrintMenuMove();
+  semGive (semMEIUPD);
+
+   while(Running) {
+      buf[0]=getchar();
+
+    if(semTake (semMEIUPD,60) == ERROR) {
+       printf ("\r\nIgnored input...Can't take semMEIUPD..."
+	       "DataCollection task probably at fault");
+       taskDelay(5); /* 60/5 = 12Hz */
+       continue;
+    }
+    
+    switch(buf[0]) {
        case 'Z': case 'z': CursPos(1,19);
          printf("Azimuth Controls  ");
          Axis=0;
@@ -1355,20 +1347,12 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
            }
 	   break;
 	   
-         default:  
-	   refreshing=TRUE;
- 	   PrintMenuBanner(); PrintMenuMove();
-/*
-	   printf ("Illegal Char Input=%x, %x, %x\n",
-		buf[0],buf[1],buf[2]);
-*/
-	   break;
+       default:  
+	 refreshing=TRUE;
+	 PrintMenuBanner(); PrintMenuMove();
+	 break;
       }
       semGive (semMEIUPD);
-     }
-     else
-       printf ("\r\nIgnored input...Can't take semMEIUPD...DataCollection task probably at fault");
-     taskDelay(5); /* 60/5 = 12Hz */
    }
 }
 /*=========================================================================
@@ -1388,20 +1372,9 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 **
 **=========================================================================
 */
-void PrintMenuPos()
+void
+PrintMenuPos()
 {
-  extern struct SDSS_FRAME sdssdc;
-  extern SEM_ID semMEIUPD;
-  extern SEM_ID semMEI;
-  extern int rawtick;
-  extern struct TM_M68K *tmaxis[];
-  extern struct FIDUCIARY fiducial[3];
-  extern int fiducialidx[3];
-  extern struct FIDUCIALS az_fiducial[];
-  extern struct FIDUCIALS alt_fiducial[];
-  extern struct FIDUCIALS rot_fiducial[];
-  extern char *get_date();
-  extern double sec_per_tick[];
   int state;
   int fidsign;
   int i;
@@ -1411,8 +1384,6 @@ void PrintMenuPos()
   long marcs,arcs,arcm,arcd;
   short adc;
   int limidx;
-  extern unsigned char cwLimit;
-  extern int monitor_on[3];
 	
   lasttick=0;
   FOREVER
@@ -1743,7 +1714,6 @@ static void PrintInstBanner()
 }
 /****************************************************************************/
 char *inst_display=NULL;
-char *err_display=NULL;
 char inst_msg[71]={"INST MSG: "};
 int inst_answer=-1;
 
@@ -1752,11 +1722,7 @@ void Inst()
 {
   int Running=TRUE;
   char buf[255];
-  extern struct SDSS_FRAME sdssdc;
-  extern SEM_ID semMEIUPD;
-  extern void manTrg();
-  extern int cw_abort();
-  extern int fsm();
+  extern void manTrg(void);
   int cwpos;
   int cw;
   int inst;
@@ -2134,18 +2100,6 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 */
 void PrintInstPos()
 {
-  extern struct SDSS_FRAME sdssdc;
-  extern SEM_ID semMEIUPD;
-  extern SEM_ID semMEI;
-  extern int rawtick;
-  extern struct TM_M68K *tmaxis[];
-  extern struct FIDUCIARY fiducial[3];
-  extern int fiducialidx[3];
-  extern struct FIDUCIALS az_fiducial[];
-  extern struct FIDUCIALS alt_fiducial[];
-  extern struct FIDUCIALS rot_fiducial[];
-  extern char *get_date();
-  extern double sec_per_tick[];
   int fidsign;
   int state;
   int i;
@@ -2155,8 +2109,6 @@ void PrintInstPos()
   long marcs,arcs,arcm,arcd;
   short adc;
   int limidx;
-  extern unsigned char cwLimit;
-  extern int monitor_on[3];
   unsigned short ffs, ffl, ffc;
   char open[]={' ','O'};
   char close[]={' ','C'};
@@ -2166,7 +2118,6 @@ void PrintInstPos()
   char four[]={' ','4'};
   char *oo[]={"Off"," On"};
   short pos, force;
-  extern int il_ADC128F1;
 	
   lasttick=0;
   FOREVER

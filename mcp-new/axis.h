@@ -134,14 +134,16 @@ struct FIDUCIALS {
 	long last;
 	long poserr;
 	long err;
-};	
-struct SW_COEFFS {
-        short coeffs[COEFFICIENTS];
-        double uplimit_deg;
-        double dnlimit_deg;
-        long uplimit_cts;
-        long dnlimit_cts;
 };
+#if defined(COEFFICIENTS)
+   struct SW_COEFFS {
+      short coeffs[COEFFICIENTS];
+      double uplimit_deg;
+      double dnlimit_deg;
+      long uplimit_cts;
+      long dnlimit_cts;
+   };
+#endif
 void set_rot_coeffs (int state, int index, short val);
 void print_rot_coeffs (void);
 void set_rot_uplimit (int state, int val);
@@ -153,6 +155,33 @@ double sdss_get_time(void);
 double get_time(void);
 void amp_reset(int axis);
 const char *getCvsTagname(void);
+void restore_pos(void);
+extern double sdss_get_time(void);
+
+/*
+ * Semaphores
+ */
+extern SEM_ID semMEI;
+extern SEM_ID semMEIUPD;
+extern SEM_ID semSLC;
+
+/*
+ * extern declarations for globals
+ */
+extern double sec_per_tick[3];
+extern double ticks_per_degree[3];
+extern long fiducial_position[3];
+extern struct FIDUCIARY fiducial[3];
+extern int fiducialidx[3];
+extern struct FIDUCIALS az_fiducial[48];
+extern struct FIDUCIALS alt_fiducial[7];
+extern struct FIDUCIALS rot_fiducial[156];
+extern struct FRAME_QUEUE axis_queue[3];
+extern struct AXIS_STAT axis_stat[3];
+extern struct AXIS_STAT persistent_axis_stat[3];
+extern int axis_alive;
+extern int altclino_off;
+extern float altclino_sf;
 
 #define __AXIS_H__             /* do only once */
 

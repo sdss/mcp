@@ -26,6 +26,7 @@
 char *balance_weight(int inst);
 char *balance_cmd(char *cmd);
 void balance (int cw, int inst);
+int cw_abort(void);
 void cw_set_positionv(int inst, short p1, short p2, short p3, short p4);
 void cw_set_posv(int inst, short *p1, short *p2, short *p3, short *p4);
 void cw_pos(int cw, float *pos);
@@ -36,7 +37,16 @@ int cw_get_inst(char *cmd);
 int cw_select(int cw);
 int cw_rdselect();
 int cw_status();
+void cw_data_collection(void);
 
+/*
+ * global variables
+ */
+extern unsigned char cwLimit;
+extern int cw_DIO316;
+extern int cw_ADC128F1;
+extern int cw_DAC128V;
+extern char *inst_name[];
 
 #define __CW_H__             /* do only once */
 

@@ -7,6 +7,8 @@
 #include "intLib.h"
 #include "mv162.h"
 #include "vmechip2.h"
+#include "mcpUtils.h"
+
 #define SRAM_BASE_ADRS		0xFFE00000L
 
 unsigned long VMEC2_software_interrupt_init (int interrupt, 

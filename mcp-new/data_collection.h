@@ -958,3 +958,11 @@ struct AXIS_STAT {
 	unsigned pvt_time_late : 1;
 	unsigned pvt_empty : 1;
 };
+
+/*
+ * Global variables
+ */
+extern struct SDSS_FRAME sdssdc;
+extern struct TM_M68K *tmaxis[3];
+extern int rawtick;
+extern struct TM_M68K *tmaxis[];

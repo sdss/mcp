@@ -47,8 +47,8 @@
 #include "rebootLib.h"
 #include "mv162IndPackInit.h"
 #include "ipOctalSerial.h"
-
-
+#include "serial.h"
+#include "cmd.h"
 
 /*========================================================================
 **========================================================================
@@ -239,9 +239,9 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
 **
 **=========================================================================
 */
-void tcc_serial(int port)
+void
+tcc_serial(int port)
 {
-  extern char *cmd_handler(char *cmd);
   char *serial_port={"/tyCo/x"};
   FILE *stream;  
   int status;
@@ -303,7 +303,6 @@ void tcc_serial(int port)
 void barcode_init(unsigned char *ip_base, unsigned short model, 
 		unsigned int vec, short ch)
 {
-  extern int VME_IP_Interrupt_Enable();
   struct IPACK ip;
   char devName[32];
   OCT_SER_DEV *pOctSerDv;
@@ -430,7 +429,8 @@ void barcode_shutdown(int type)
 **
 **=========================================================================
 */
-int barcode_serial(int port)
+int
+barcode_serial(int port)
 {
   FILE *stream;  
   int status;

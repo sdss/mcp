@@ -1,43 +1,9 @@
 #include "copyright.h"
 /**************************************************************************
-***************************************************************************
-** FILE:
-**      data_colleciton.c
-**
 ** ABSTRACT:
 **	Collects data from MEI, AB, CW, and time.  Distributes to shared
 **	memory and broadcasts at 1 Hz.
-**
-** ENTRY POINT          SCOPE   DESCRIPTION
-** ----------------------------------------------------------------------
-** ipsdss_send		public	broadcast a datagram
-**
-** ENVIRONMENT:
-**      ANSI C.
-**
-** REQUIRED PRODUCTS:
-**
-** AUTHORS:
-**      Creation date:  Aug 30, 1999
-**      Charlie Briegel
-**
-***************************************************************************
 ***************************************************************************/
-/************************************************************************/
-/*   File:	data_collection.c							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	data collection (V1.00) : vxWorks			*/
-/*   Modules:	*/
-/*++ Version:
-  1.00 - initial version
---*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
-/************************************************************************/
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
@@ -70,6 +36,9 @@
 #include "io.h"
 #include "abdh.h"
 #include "ipcast.h"
+#include "axis.h"
+#include "cw.h"
+#include "instruments.h"
 
 /*========================================================================
 **========================================================================
@@ -135,9 +104,11 @@ long *axis5pos=NULL;
 float sdss_time_dc;
 
 struct SDSS_FRAME sdssdc={SDSS_FRAME_VERSION,DATA_TYPE};
-struct TM_M68K *tmaxis[]={(struct TM_M68K *)&sdssdc.axis[0],
-			(struct TM_M68K *)&sdssdc.axis[1],
-			(struct TM_M68K *)&sdssdc.axis[2]};
+struct TM_M68K *tmaxis[3]={
+   (struct TM_M68K *)&sdssdc.axis[0],
+   (struct TM_M68K *)&sdssdc.axis[1],
+   (struct TM_M68K *)&sdssdc.axis[2]
+};
 struct AXIS_STAT axis_stat[3]={0,0,0};
 struct AXIS_STAT persistent_axis_stat[3]={0,0,0};
 int meistatcnt=0;
@@ -212,11 +183,8 @@ void swapwords (register short *dp, register unsigned short len)
 */
 void mei_data_collection(unsigned long freq)
 {
-	extern SEM_ID semMEI;
 	int i;
 	int rotate;
-	extern void tm_data_collection();
-	extern double sdss_get_time();
         void restore_pos();
 	
 	/*  ****************************************************  **
@@ -428,16 +396,8 @@ void print_pos_dc (int axis)
 */
 void slc500_data_collection(unsigned long freq)
 {
-  extern SEM_ID semSLC;
-  extern SEM_ID semMEI;
   char status[168*2];
   int stat;
-  extern int check_stop_in();
-  extern int az_amp_ok();
-  extern int alt_amp_ok();
-  extern int rot_amp_ok();
-  extern void cw_data_collection();
-  extern void il_data_collection();
 
   semSLCDC = semBCreate (SEM_Q_FIFO,SEM_EMPTY);
   slc_freq=freq;
@@ -557,7 +517,6 @@ void DataCollectionTrigger()
 */
 int dc_interrupt()
 {
-  extern int cw_DIO316;
   unsigned char val;
   int ikey;
 
@@ -586,7 +545,8 @@ int dc_interrupt()
 **
 **=========================================================================
 */
-void restore_pos()
+void
+restore_pos()
 {
   struct SDSS_FRAME *save;
   struct TM_M68K *restore;

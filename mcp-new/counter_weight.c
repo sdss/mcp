@@ -159,6 +159,7 @@ ADC128F1
 #include "da128vrg.h"
 #include "ip480.h"
 #include "data_collection.h"
+#include "instruments.h"
 #include "io.h"
 
 /*========================================================================
@@ -1577,7 +1578,6 @@ void set_DAC (int chan)
 */
 void cw_data_collection()
 {
-  extern struct SDSS_FRAME sdssdc;
   short adc;
   int ii;
 
@@ -1617,15 +1617,11 @@ void cw_data_collection()
 */
 int cw_power_disengage()
 {
-  extern struct conf_blk sbrd;
-
   StopCounter (&sbrd,CW_WD);
   return 0;
 }
 int cw_power_engage()
 {
-  extern struct conf_blk sbrd;
-
   WriteCounterConstant (&sbrd,CW_WD);         /* 2 Sec */
   StartCounter (&sbrd,CW_WD);
   return 0;
@@ -1660,8 +1656,6 @@ int cw_power_engage()
 */
 int cw_setup_wd ()
 {
-  extern struct conf_blk sbrd;
-
   SetCounterSize (&sbrd,CW_WD,CtrSize32);
   SetCounterConstant (&sbrd,CW_WD,2000000);             /* 2 Sec */
   SetMode (&sbrd,CW_WD,Watchdog);

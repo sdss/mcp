@@ -2,19 +2,6 @@
 /************************************************************************/
 /* Project: 	SDSS - Sloan Digital Sky Survey				*/
 /* 		AXIS control						*/
-/*   File:	telescope_motion.c					*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:								*/
-/*   Modules:								*/
-/*									*/	
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
 /************************************************************************/
 
 /*------------------------------*/
@@ -46,6 +33,8 @@
 #include "frame.h"
 #include "data_collection.h"
 #include "tm.h"
+#include "cw.h"
+#include "instruments.h"
 
 /*========================================================================
 **========================================================================
@@ -112,9 +101,6 @@ int ilcacc[6]={10000,10000,10000,10000,10000,10000};
 */
 int tm_move_instchange ()
 {
-  extern SEM_ID semMEI;
-  extern double ticks_per_degree[];
-
   if (semTake (semMEI,60)!=ERROR)
   {
     sem_controller_run (0);
@@ -156,8 +142,6 @@ int tm_move_instchange ()
 */
 void tm_start_move (int axis, int vel, int accel, int pos)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	start_move(axis,(double)pos,(double)vel,(double)accel);
 	semGive (semMEI);
@@ -185,7 +169,6 @@ void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
 {
   int i;
   int status;
-  extern SEM_ID semMEI;
 
   printf ("\r\nPass ");
   for (i=0;i<times;i++)
@@ -233,7 +216,6 @@ void tm_bf (int axis, int vel, int accel, int pos1,int pos2, int times)
 void tm_print_coeffs(int axis)
 {
 	short coeff[COEFFICIENTS];
-	extern SEM_ID semMEI;
 	short mode;
 	short rate;
 
@@ -274,7 +256,6 @@ void tm_print_coeffs(int axis)
 void tm_set_coeffs(int axis, int index, int val)
 {
 	short coeff[COEFFICIENTS];
-	extern SEM_ID semMEI;
 
 	semTake(semMEI,WAIT_FOREVER);
 	get_filter (axis,(P_INT)coeff);
@@ -308,32 +289,24 @@ void tm_set_coeffs(int axis, int index, int val)
 */
 void tm_clear_pos (int axis)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_position (axis,0.0);
 	semGive(semMEI);
 }
 void tm_get_pos (int axis,double *position)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
         get_position(axis,position);
 	semGive(semMEI);
 }
 void tm_get_vel (int axis,double *velocity)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
         get_velocity(axis,velocity);
 	semGive(semMEI);
 }
 void tm_set_sample_rate (unsigned short rate)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_sample_rate (rate);
 	printf("\r\n Sample Rate=%d",(unsigned short)dsp_sample_rate());
@@ -341,32 +314,24 @@ void tm_set_sample_rate (unsigned short rate)
 }
 void tm_reset_integrator (int axis)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	reset_integrator (axis);
 	semGive(semMEI);
 }
 void tm_set_pos (int axis,int pos)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_position (axis,(double)pos);
 	semGive(semMEI);
 }
 void tm_set_encoder(int axis)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_feedback(axis,FB_ENCODER);
 	semGive(semMEI);
 }
 void tm_dual_loop (int axis, int dual)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_dual_loop (axis,axis+1,dual);
 	semGive(semMEI);
@@ -391,8 +356,6 @@ void tm_dual_loop (int axis, int dual)
 */
 void tm_set_analog_encoder(int axis, int channel)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_analog_channel(axis,channel,TRUE,TRUE);
 	set_axis_analog (axis,TRUE);
@@ -418,8 +381,6 @@ void tm_set_analog_encoder(int axis, int channel)
 */
 void tm_set_analog_channel(int axis, int channel)
 {
-	extern SEM_ID semMEI;
-
 	semTake(semMEI,WAIT_FOREVER);
 	set_analog_channel(axis,channel,TRUE,TRUE);
 	set_axis_analog (axis,TRUE);
@@ -449,7 +410,6 @@ void tm_set_analog_channel(int axis, int channel)
 */
 void tm_controller_run (int axis)
 {
-	extern SEM_ID semMEI;
 	int retry;
 
 	retry=12;
@@ -500,7 +460,6 @@ void sem_controller_run (int axis)
 */
 void tm_controller_idle (int axis)
 {
-	extern SEM_ID semMEI;
 	int retry;
 
 	retry=6;
@@ -537,7 +496,6 @@ void sem_controller_idle (int axis)
 void tm_set_boot_filter (int axis)
 {
 	short coeff[COEFFICIENTS];
-	extern SEM_ID semMEI;
 
 	semTake(semMEI,WAIT_FOREVER);
 	get_filter(axis,(P_INT)coeff);
@@ -679,7 +637,6 @@ int ADC128F1_initialize(unsigned char *addr, int occur)
 void tm_data_collection()
 {
   short adc;
-  extern int cw_ADC128F1;
 
   if (cw_ADC128F1!=-1)
   {
@@ -742,7 +699,6 @@ void tm_data_collection()
 void tm_read_all_adc(int cnt)
 {
   int i,ii;
-  extern int cw_ADC128F1;
   short adc;
 
   for (i=0;i<cnt;i++)
@@ -795,11 +751,6 @@ int tm_az_brake(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
-   extern SEM_ID semSLC;
-/*
-   extern struct SDSS_FRAME sdssdc;
-   int cnt;
-*/
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -930,11 +881,6 @@ int tm_alt_brake(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
-   extern SEM_ID semSLC;
-/*
-   extern struct SDSS_FRAME sdssdc;
-   int cnt;
-*/
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1057,8 +1003,6 @@ int tm_brake_status()
   int err;
   unsigned short ctrl;
   struct B10_0 tm_ctrl;   
-  extern SEM_ID semSLC;
-  extern struct SDSS_FRAME sdssdc;
 
   printf("\r\nAZ\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
     sdssdc.status.i9.il0.az_brake_en_stat,
@@ -1111,8 +1055,6 @@ tm_clamp(short val)
    unsigned short ctrl[2];
    struct B10_0 tm_ctrl;   
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
-   extern struct SDSS_FRAME sdssdc;
    int cnt;
              
    if(semTake(semSLC,60) == ERROR) {
@@ -1216,7 +1158,6 @@ int tm_clamp_status()
 {
    int err;
    unsigned short ctrl[2],sctrl[2];
-   extern SEM_ID semSLC;
    
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
@@ -1269,7 +1210,6 @@ int tm_slit(short val)
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1380,7 +1320,6 @@ int tm_cart(short val)
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1438,11 +1377,9 @@ void tm_sp_cart_unlatch(int door)
 }
 int tm_slit_status()
 {
-  extern struct SDSS_FRAME sdssdc;
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
 
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1513,7 +1450,6 @@ tm_ffs(short val)
    int cnt;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
    int wait_time = 30;			/* FF screen timeout (seconds) */
              
    if(semTake(semSLC,60) == ERROR) {
@@ -1608,8 +1544,6 @@ void tm_sp_ffs_close()
 }
 int tm_ffs_open_status()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   if ((sdssdc.status.i1.il13.leaf_1_open_stat)&&
 	(sdssdc.status.i1.il13.leaf_2_open_stat)&&
 	(sdssdc.status.i1.il13.leaf_3_open_stat)&&
@@ -1624,8 +1558,6 @@ int tm_ffs_open_status()
 }
 int tm_ffs_close_status()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   if ((sdssdc.status.i1.il13.leaf_1_closed_stat)&&
  	(sdssdc.status.i1.il13.leaf_2_closed_stat)&&
 	(sdssdc.status.i1.il13.leaf_3_closed_stat)&&
@@ -1667,7 +1599,6 @@ tm_ffl(short val)
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
@@ -1742,7 +1673,6 @@ tm_neon(short val)
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
@@ -1817,7 +1747,6 @@ tm_hgcd(short val)
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
-   extern SEM_ID semSLC;
              
    if(semTake(semSLC,60) == ERROR) {
       printf("Unable to take semaphore: %s", strerror(errno));
@@ -1884,7 +1813,6 @@ void tm_sp_hgcd_off()
 */
 int tm_ff_status()
 {
-  extern struct SDSS_FRAME sdssdc;
   char open[]={' ','O'};
   char close[]={' ','C'};
   char *oo[]={"Off"," On"};
@@ -1956,8 +1884,6 @@ int tm_ff_status()
 */
 int az_amp_ok()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   if ((sdssdc.status.i6.il0.az_mtr_ccw_perm_in) &&
 	(sdssdc.status.i6.il0.az_mtr_cw_perm_in) &&
 	(sdssdc.status.i6.il0.az_plc_perm_in))
@@ -1972,8 +1898,6 @@ int az_amp_ok()
 }
 int alt_amp_ok()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   if ((sdssdc.status.i6.il0.alt_mtr_dn_perm_in) &&
 	(sdssdc.status.i6.il0.alt_mtr_up_perm_in) &&
 	(sdssdc.status.i6.il0.alt_plc_perm_in))
@@ -1988,8 +1912,6 @@ int alt_amp_ok()
 }
 int rot_amp_ok()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   if ((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in) &&
         (sdssdc.status.i7.il0.rot_mtr_cw_perm_in) &&
 	(sdssdc.status.i7.il0.rot_plc_perm_in))
@@ -2036,7 +1958,6 @@ void mgt_shutdown(int type)
 }
 void tm_amp_mgt()
 {
-  extern struct SDSS_FRAME sdssdc;
   int state;
 
   monitor_axis[0]=monitor_axis[1]=monitor_axis[2]=FALSE;
@@ -2117,8 +2038,6 @@ void tm_amp_mgt()
 */
 void tm_print_amp_status()
 {
-  extern struct SDSS_FRAME sdssdc;
-
     if (!az_amp_ok())
       printf ("\r\nAz Amp Disengaged: az_mtr_ccw_perm=%d,az_mtr_cw_perm=%d",
 	sdssdc.status.o11.ol0.az_mtr_ccw_perm,
@@ -2161,14 +2080,10 @@ void tm_print_amp_status()
 */
 void tm_amp_disengage()
 {
-  extern struct conf_blk sbrd;
-
   StopCounter (&sbrd,TM_WD);
 }
 void tm_amp_engage()
 {
-  extern struct conf_blk sbrd;
-
   if ((axis_alive&0x7)==0x7)
   {
     WriteCounterConstant (&sbrd,TM_WD);		/* 2 Sec */
@@ -2178,8 +2093,6 @@ void tm_amp_engage()
 }
 void tm_setup_wd ()
 {
-  extern struct conf_blk sbrd;
-
   SetCounterSize (&sbrd,TM_WD,CtrSize32);
   SetCounterConstant (&sbrd,TM_WD,2000000);		/* 2 Sec */
   SetMode (&sbrd,TM_WD,Watchdog);
@@ -2213,7 +2126,6 @@ void tm_setup_wd ()
 */
 void tm_set_fiducial_pos(int axis)
 {
-  extern long fiducial_position[3];
   int negative;
   long pos, deg, min, arcsec, marcsec;
   char buf[16];
@@ -2286,8 +2198,6 @@ void tm_print_fiducial_all()
 }
 void tm_print_fiducial(int axis)
 {
-  extern struct FIDUCIARY fiducial[3];
-  extern long fiducial_position[3];
   long marcs,arcs,arcm,arcd;
   double arcsec, farcsec;
   int i;
@@ -2362,10 +2272,6 @@ void tm_print_fiducial(int axis)
 */
 void tm_set_pos_off_fiducials(int axis)
 {
-  extern long fiducial_position[3];
-  extern struct FIDUCIARY fiducial[3];
-  extern long fiducial_position[3];
-  extern struct TM_M68K *tmaxis[];
   double pos;
 
                         if (fiducial[axis/2].markvalid)
@@ -2413,7 +2319,6 @@ char const* const msg_axis_status[]=
 int  tm_axis_status(int axis)
 {
   int value;
-  extern SEM_ID semMEI;
 
   semTake(semMEI,WAIT_FOREVER);
   value=axis_status(axis);
@@ -2459,7 +2364,6 @@ char const* const msg_axis_state[]=
 int tm_axis_state(int axis)
 {
   int value;
-  extern SEM_ID semMEI;
 
   semTake(semMEI,WAIT_FOREVER);
   value=axis_state(axis);
@@ -2532,7 +2436,6 @@ char const* const msg_axis_source[]=
 void tm_print_axis_source(int axis)
 {
   int value;
-  extern SEM_ID semMEI;
 
   semTake(semMEI,WAIT_FOREVER);
   value=axis_source(axis);

@@ -149,6 +149,8 @@ ADC128F1
 #include "tm.h"
 #include "data_collection.h"
 #include "abdh.h"
+#include "instruments.h"
+#include "axis.h"
 
 /*========================================================================
 **========================================================================
@@ -574,9 +576,6 @@ int lift_initialize(unsigned char *addr)
   int i;
   short val;
   struct IPACK *ip;
-  extern int cw_DIO316;
-  extern int cw_ADC128F1;
-  extern int cw_DAC128V;
 
   ip = (struct IPACK *)malloc (sizeof(struct IPACK));
   if (ip==NULL) return ERROR;
@@ -991,27 +990,11 @@ struct IL_STATES fiberfsm[]={
 	  {{NULL},{NULL},{NULL},{NULL}}}
 };
 
-extern int tm_move_instchange();
-/*
-extern int instchange_status_msg();
-extern int is_instchange();
-extern int tm_alt_brake_on();
-extern int is_alt_brake_on();
-extern int cw_lower();
-extern int cw_status_msg();
-extern int is_cw_in_position();
-extern int tm_clamp_on();
-extern int is_clamp_on();
-extern int is_inst_id_empty();
-extern int operator_msg1();
-extern int is_stop_in();
-extern int operator_msg2();
-extern int is_query_TF();
-*/
 extern char *inst_display;
-extern char *err_display;
 extern int inst_answer;
-int instchange_status_msg()
+
+int
+instchange_status_msg()
 {
   inst_display = "Moving to instrument change position                                   ";
   return 0;
@@ -1030,7 +1013,6 @@ int is_instchange()
 }
 int is_alt_brake_on()
 {
-  extern struct SDSS_FRAME sdssdc;
    taskDelay (30);
   inst_display = "Checking alt brake status";
   taskDelay (30);
@@ -1048,8 +1030,6 @@ int is_alt_brake_on()
 }
 int cw_lower()
 {
-  extern char *balance_weight(int inst);
-
   if (taskIdFigure("cw")!=ERROR)
     printf("ERR: CW task still active...be patient  ");
   if (taskIdFigure("cwp")!=ERROR)
@@ -1082,8 +1062,6 @@ int is_cw_in_position()
 }
 int is_clamp_on()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   taskDelay (30);
   inst_display = "Checking clamp status";
   taskDelay (30);
@@ -1113,8 +1091,6 @@ int operator_msg1()
 }
 int is_stop_in()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   taskDelay (30);
   inst_display = "Checking stop buttons";
   taskDelay (30);
@@ -1179,8 +1155,6 @@ int is_stop_in()
 }
 int check_stop_in()
 {
-  extern struct SDSS_FRAME sdssdc;
-
   if ((sdssdc.status.i6.il0.w_lower_stop)&&
      (sdssdc.status.i6.il0.e_lower_stop)&&
      (sdssdc.status.i6.il0.s_lower_stop)&&
@@ -1433,7 +1407,6 @@ void il_print (int inst)
   SYM_TYPE symtype;
   int symval;
   struct IL_STATES *sm;
-  extern char *inst_name[];
   
     printf ("\r\nIL FSM for instrument %d, (%s)",inst,inst_name[inst]);
     printf (" HISTORY idx=%d, history=%p",
@@ -1491,33 +1464,28 @@ int is_at_zenith()
 }
 int is_cart_get_position()
 {
-  extern struct SDSS_FRAME sdssdc;
   return TRUE;
 	
   return (sdssdc.status.i1.il0.fiber_cart_pos1);
 }
 int is_cart_put_position()
 {
-  extern struct SDSS_FRAME sdssdc;
   return TRUE;
 	
   return (sdssdc.status.i1.il0.fiber_cart_pos2);
 }
 int is_pump_on()
 {	
-  extern struct SDSS_FRAME sdssdc;
   return (sdssdc.status.i1.il0.inst_lift_pump_on);
 }
 int is_plate_engage()
 {
-  extern struct SDSS_FRAME sdssdc;
   return TRUE;
 	
   return (sdssdc.status.i1.il0.inst_lift_sw1);
 }
 int is_plate_full()
 {
-  extern struct SDSS_FRAME sdssdc;
   return TRUE;
 	
   return (sdssdc.status.i1.il0.inst_lift_sw3||sdssdc.status.i1.il0.inst_lift_sw4);
@@ -1530,20 +1498,14 @@ int is_plate_empty()
 }
 int is_fiber_inst()
 {
-  extern struct SDSS_FRAME sdssdc;
-	
   return (sdssdc.status.i1.il0.inst_lift_sw4);
 }
 int is_dummy_inst()
 {
-  extern struct SDSS_FRAME sdssdc;
-	
   return (sdssdc.status.i1.il0.inst_lift_sw3);
 }
 int is_clamping_force()
 {
-  extern struct SDSS_FRAME sdssdc;
-	
   return (sdssdc.status.i1.il0.inst_lift_sw2);
 }
 
@@ -1566,7 +1528,6 @@ int lift_fsm (int inst, int motion, int new_state)
   short force,pos,delta,direction,abort_pos,abort_force;
   unsigned char vel,idxvel;
 #ifdef FAKE_IT
-  extern SEM_ID semSLC;
   short dstrain,dvel,dpos;
   struct B10_0 il_ctrl;   
 #endif
@@ -1882,7 +1843,6 @@ int il_umbilical_move(int val)
    int err;
    unsigned short ctrl;
    struct B10_1 il_ctrl;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1925,7 +1885,6 @@ int il_umbilical(int val)
    int err;
    unsigned short ctrl;
    struct B10_1 il_ctrl;   
-   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -1966,7 +1925,6 @@ int il_umbilical_off()
 short il_umbilical_position()
 {
   int err;
-  extern SEM_ID semSLC;
   short pos,position;
 
    if (semTake (semSLC,60)!=ERROR)
@@ -2049,9 +2007,6 @@ int il_umbilical_offset(int offset)
 }
 int il_umbilical_mgt()
 {
-  extern long *axis2pos;
-  extern long *axis4pos;
-  extern int umbil();
   short umbilical_pt;
   int umbpos;
 
@@ -2066,7 +2021,6 @@ int il_umbilical_mgt()
 }
 int test_umbilical_mgt(int alt, int rot)
 {
-  extern int umbilGet();
   short umbilical_pt;
   int umbpos;
 
@@ -2109,7 +2063,6 @@ int il_zenith_clamp(int val)
    unsigned short ctrl[2];
    struct B10_0 il_ctrl;   
    struct B10_1 il_ctrl_1;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -2202,7 +2155,6 @@ int il_pump(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -2249,7 +2201,6 @@ int il_force(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -2294,7 +2245,6 @@ int il_solenoid(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -2414,8 +2364,6 @@ UWORD i_stat;
 
 void il_status()
 {
-	extern struct SDSS_FRAME sdssdc;
-
         if (sdssdc.status.i1.il0.inst_lift_man)
 	  printf ("\r\nLOCAL/MANUAL:  ");
 	else 
@@ -2460,7 +2408,6 @@ int il_motion_up(char vel)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -2503,7 +2450,6 @@ int il_motion_dn(char vel)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -2546,7 +2492,6 @@ int il_motion_raw_up (char vel)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
 
    printf ("\r\n  Type any character to abort......");             
    il_disable_motion();
@@ -2589,7 +2534,6 @@ int il_motion_raw_dn (char vel)
    int err;
    unsigned short ctrl;
    struct B10_0 il_ctrl;   
-  extern SEM_ID semSLC;
              
    printf ("\r\n  Type any character to abort......");
    il_disable_motion();
@@ -2635,7 +2579,6 @@ int il_stop_motion()
 void il_list (int inst)
 {
   int i;
-  extern char *inst_name[];
 
   if ((inst>=0)&&(inst<(sizeof(il_inst)/(sizeof(struct IL_LOOP)*2))))
   {
@@ -2707,7 +2650,6 @@ void il_read_strain_gage (int cnt)
 }
 void il_data_collection()
 {
-  extern struct SDSS_FRAME sdssdc;
   short adc;
 
   if (il_ADC128F1!=-1)

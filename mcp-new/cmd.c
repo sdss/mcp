@@ -7,8 +7,8 @@
 ** ABSTRACT:
 **	TCC Command handler both receives, distributes, and answers on
 **	behalf of the action routines.
-**	cmd_handler can be invoked from the serial driver or the shell
-**	so access is arbitrated by a semaphore
+**	cmd_handler can be invoked from the serial driver, the TCP port,
+**      or the shell so access is arbitrated by a semaphore
 **
 ** ENTRY POINT          SCOPE   DESCRIPTION
 ** ----------------------------------------------------------------------
@@ -182,7 +182,8 @@ int CMD_verbose=FALSE;
 **
 **=========================================================================
 */
-int cmd_init()
+int
+cmd_init()
 {
   printf ("\r\n%s\r\n",sdss_version);
   if (semCMD==0)
@@ -207,54 +208,56 @@ int cmd_init()
 **
 **=========================================================================
 */
-char *cmd_handler(char *cmd)
+char *
+cmd_handler(char *cmd)
 {
   int i;
   struct COMMANDS *cmd_list;
   static char *cmd_error={"ERR: CMD ERROR"};
   char *ans;
 
-  if (CMD_verbose)
+  if (CMD_verbose) {
     printf ("cmd_handler:  SDSS Cmd>>%s<<\r\n",cmd);
-/*
-  if (CMD_verbose)
-  {
-    printf ("\r\n");
-    for (i=0;i<(strlen(cmd)+1);i++) printf ("0x%02x ",cmd[i]); printf ("\r\n");
+ }
+
+  for(i = 0;i < strlen(cmd); i++) {
+     cmd[i]=toupper(cmd[i]);		/* upper case the string */
   }
-*/
-  for (i=0;i<strlen(cmd);i++) cmd[i]=toupper(cmd[i]);/* upper case the string */
-  semTake (semCMD,WAIT_FOREVER);
-  ans=NULL;					/* ans is returned from function */
-  while ((cmd!=NULL)&&(*cmd!=NULL))
-  {
-/*    printf ("0x%x ",*cmd);*/
+  
+  semTake(semCMD, WAIT_FOREVER);
+  ans=NULL;				/* ans is returned from function */
+  
+  while (cmd != NULL && *cmd != '\0') {
     cmd_list = &axis_cmds[0];			/* top of search list */
-    while ((cmd_list->command!=NULL)&&		/* search until found or EOL */
-      strncmp(cmd,cmd_list->command,strlen(cmd_list->command)))
-    {
-        cmd_list++;
-/*	printf("\r\ncmd_list->command=%s, len=%d",
-		cmd_list->command,strlen(cmd_list->command));*/
+    while(cmd_list->command != NULL &&		/* search until found or EOL */
+	  strncmp(cmd,cmd_list->command,strlen(cmd_list->command)) != 0) {
+       cmd_list++;
     }
-    if (cmd_list->command==NULL)		/* not a valid command */
-    {
-      if (CMD_verbose)
-      {
-        printf ("cmd_handler: CMD ERROR %s %p\r\n",cmd,cmd);
-        for (i=0;i<strlen(cmd);i++) printf ("0x%02x ",cmd[i]);
+    
+    if(cmd_list->command == NULL) {	/* not a valid command */
+      if(CMD_verbose) {
+	 printf ("cmd_handler: CMD ERROR %s %p\r\n",cmd,cmd);
+	 for (i=0;i<strlen(cmd);i++) printf ("0x%02x ",cmd[i]);
       }
       semGive (semCMD);
       return cmd_error;				/* return some error string */
     }
-    cmd += strlen(cmd_list->command);		/* reposition around command */
-    ans=(*cmd_list->function)(cmd);		/* call function, pass remaining string */
-    if (*cmd!=NULL)
-      cmd = strpbrk(cmd,"ABCDEFGHIJKLMNOPQRSTUVWXYZ+");/* reposition to next command */
+    
+    cmd += strlen(cmd_list->command);	/* skip over command */
+    ans=(*cmd_list->function)(cmd);	/* call function, passing
+					   remaining string */
+/*
+ * Look for another command; this only works if the arguments passed
+ * to the previous command were numbers
+ */
+    cmd = strpbrk(cmd,"ABCDEFGHIJKLMNOPQRSTUVWXYZ+");
   }
-  semGive (semCMD);
-  if (CMD_verbose)
-    printf ("cmd_handler:       Ans>>%s \r\n",ans);
+  semGive(semCMD);
+  
+  if(CMD_verbose) {
+     printf("cmd_handler:       Ans>>%s \r\n",ans);
+  }
+  
   return ans;
 }
 
@@ -276,8 +279,9 @@ char *cmd_handler(char *cmd)
 **
 **=========================================================================
 */
-char *dummy_cmd(char *cmd)
+char *
+dummy_cmd(char *cmd)
 {
-  printf (" TERMINATION command fired\r\n");
-  return "ERR: Dummy command - no action rountine";
+  printf (" DUMMY command fired\r\n");
+  return "ERR: Dummy command - no action routine";
 }

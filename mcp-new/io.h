@@ -2,16 +2,6 @@
 /************************************************************************/
 /* Project: 	SDSS - Sloan Digital Sky Survey				*/
 /* 		AXIS control						*/
-/*   File:	cw.h							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
 /************************************************************************/
 
 #ifndef __IO_H__

@@ -1,22 +1,5 @@
 #include "copyright.h"
-/************************************************************************/
-/*   File:	bsym.c							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	Broadsym info (V1.00) : vxWorks			*/
-/*   Modules:	*/
-/*++ Version:
-  1.00 - initial version
---*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
-/************************************************************************/
-/*------------------------------*/
-/*	includes		*/
-/*------------------------------*/
+
 #include "vxWorks.h"
 #include "sysLib.h"
 #include "intLib.h"
@@ -36,6 +19,7 @@
 #include "timers.h"
 #include "time.h"
 #include "timerint.h"
+#include "mcpUtils.h"
 
 SEM_ID semsym_1Hz=0;
 struct sockaddr_in sym_sockaddr;
@@ -122,7 +106,6 @@ char *sym_addr[40];
 char sym_type[40];
 char sym_len[40];
 void serverData(int hz, void (*data_routine()));
-void serverDataCollection();
 int 	serverDummy();
 int	serverCancel();
 int	serverSetSym();
@@ -202,7 +185,7 @@ int	serverSetSym()
   int i,ii;
   char symtype;
   SYM_TYPE *bsym;
-  extern SYMTAB_ID sysSymTbl;
+  extern SYMTAB_ID sysSymTbl;		/* vxWorks symbol table */
   STATUS stat;
     
   serverDisable();
@@ -321,7 +304,6 @@ void serverData(int hz, void (*data_routine()))
   char *chardataptr;
   short *shortdataptr;
   double *doubledataptr;
-  extern void serverDataCollection();
 
   rebootHookAdd((FUNCPTR)server_shutdown);
   semDC = semBCreate (SEM_Q_FIFO,SEM_EMPTY);
@@ -790,8 +772,6 @@ int stsTrg()
 }
 void pollTrg()
 {
-  extern char *get_date();
-
   while (!stsTrg()) taskDelay (60);
   serverSDDSFile("sdds.dat",(char *)get_date());
 /*  serverMATLABFile("matlab.dat",(char *)get_date());*/
