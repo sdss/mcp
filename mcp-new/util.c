@@ -344,32 +344,33 @@ get_mjd(void)
    int status;
    double ldj;
    time_t t;
-   struct tm *Time;
+   struct tm Time;
 
    (void)time(&t);
-   Time = gmtime(&t);
-   assert(Time != NULL);
+   (void)gmtime_r(&t, &Time);
 
-   slaCldj(Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday,
+   slaCldj(Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday,
 	   &ldj, &status);
 
    if(status) {
       char buff[100];
       sprintf(buff, "%d %d %d",
-	      Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
+	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday);
       TRACE(2, "MJD: %d (%s)", status, buff);
    
       return(-1);
    } else {
       char buff[100];
       sprintf(buff, "%d %d %d %d:%d:%d",
-	      Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday,
-	      Time->tm_hour, Time->tm_min, Time->tm_sec);
-      TRACE(3, "MJD: %s", buff, 0);
+	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday,
+	      Time.tm_hour, Time.tm_min, Time.tm_sec);
 
-      ldj += (Time->tm_hour + (Time->tm_min + Time->tm_sec/60.0)/60.0)/24.0;
+      ldj += (Time.tm_hour + (Time.tm_min + Time.tm_sec/60.0)/60.0)/24.0;
+      ldj += 0.3;
+
+      TRACE(3, "MJD: %s  LDJ %d", buff, (int)ldj);
 	      
-      return((int)(ldj + 0.3));
+      return((int)ldj);
    }
 }
 
