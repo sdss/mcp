@@ -110,6 +110,14 @@ log_mcp_command(const char *cmd)	/* command, or NULL to flush file */
    }
 }
 
+char *
+flush_log_cmd(char *cmd)		/* NOTUSED */
+{
+   log_mcp_command(NULL);		/* flush the logfile to disk */
+   
+   return("");
+}
+
 /*****************************************************************************/
 /*
  * Set up the command interpreter
@@ -131,12 +139,13 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
  * log this reboot
  */
    log_mcp_command("rebooted");
-   log_mcp_command(version_cmd(NULL));
+   log_mcp_command(mcpVersion(NULL, 0));
 /*
- * Define some misc commands that done belong in any init function
+ * Define some misc commands that don't belong in any init function
  */
    define_cmd("IACK",         iack_cmd,      0, 0, 1);
    define_cmd("VERSION",      version_cmd,   0, 0, 1);
+   define_cmd("FLUSH.LOG",    flush_log_cmd, 0, 0, 1);
 
    return 0;
 }
