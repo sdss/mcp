@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <assert.h>
 #include <semLib.h>
 #include <taskLib.h>
 #include "instruments.h"
@@ -13,7 +14,101 @@
 #include "axis.h"
 #include "tm.h"
 #include "trace.h"
+#include "cw.h"
 #include "cmd.h"
+
+/*****************************************************************************/
+/*
+ * Return the ID number of the current instrument
+ */
+/*
+ * The camera ID switches aren't installed as of Jan 2001
+ *
+ * Use the state of the primary latches/spec corrector to guess what's
+ * installed?
+ */
+#define GUESS_INSTRUMENT 1
+   
+#define CAMERA_ID 14
+
+int
+instrument_id(void)
+{
+   int inst_id1, inst_id2, inst_id3;	/* values of the inst ID switches */
+#if GUESS_INSTRUMENT
+   int pri_latch_opn;			/* the primary latches are open */
+   int spec_lens;			/* the spec corrector in installed */
+#endif
+   
+   if(semTake(semSDSSDC, NO_WAIT) == ERROR) {
+      return(-1);			/* unknown */
+   }
+   
+   inst_id1 = ((sdssdc.status.i1.il8.inst_id1_1 << 3) + 
+	       (sdssdc.status.i1.il8.inst_id1_2 << 2) + 
+	       (sdssdc.status.i1.il8.inst_id1_3 << 1) + 
+	       (sdssdc.status.i1.il8.inst_id1_4 << 0));
+   inst_id2 = ((sdssdc.status.i1.il8.inst_id2_1 << 3) + 
+	       (sdssdc.status.i1.il8.inst_id2_2 << 2) + 
+	       (sdssdc.status.i1.il8.inst_id2_3 << 1) + 
+	       (sdssdc.status.i1.il8.inst_id2_4 << 0));
+   inst_id3 = ((sdssdc.status.i1.il8.inst_id3_1 << 3) + 
+	       (sdssdc.status.i1.il8.inst_id3_2 << 2) + 
+	       (sdssdc.status.i1.il8.inst_id3_3 << 1) + 
+	       (sdssdc.status.i1.il8.inst_id3_4 << 0));
+#if GUESS_INSTRUMENT
+   pri_latch_opn = (sdssdc.status.i1.il8.pri_latch1_opn &&
+		    sdssdc.status.i1.il8.pri_latch2_opn &&
+		    sdssdc.status.i1.il8.pri_latch3_opn);
+   spec_lens = (!sdssdc.status.i1.il8.spec_lens1 ||
+		 sdssdc.status.i1.il8.spec_lens2);
+#endif
+
+   semGive(semSDSSDC);
+
+   if(inst_id1 != inst_id2 || inst_id1 != inst_id3) {
+      static char buff[4];
+      sprintf(buff,"%1d%1d%1d", inst_id1, inst_id2, inst_id3);
+      TRACE(1, "Inconsistent instrument ID switches: %s", buff, 0);
+      return(-1);
+   }
+#if GUESS_INSTRUMENT
+   if(inst_id1 == 0 && !pri_latch_opn && !spec_lens) {
+      return(CAMERA_ID);
+   }
+#endif
+   
+   return(inst_id1);
+}
+
+/*****************************************************************************/
+/*
+ * Is the imager saddle on the telescope? Note that switch 1 is deliberately
+ * wired backwards
+ */
+int
+saddle_is_mounted(void)
+{
+   int saddle_is_on;			/* is the saddle mounted? */
+   int sad_mount1, sad_mount2;
+  
+   if(semTake(semSDSSDC, 10) == ERROR) {
+      return(-1);			/* unknown */
+   }
+   
+   sad_mount1 = (sdssdc.status.i1.il9.sad_mount1 == 0) ? 1 : 0; 
+   sad_mount2 = (sdssdc.status.i1.il9.sad_mount2 == 0) ? 0 : 1;
+
+   if(sad_mount1 == sad_mount2) {
+      saddle_is_on = sad_mount1;
+   } else {
+      saddle_is_on = -1;		/* inconsistent */
+   }
+   
+   semGive(semSDSSDC);
+
+   return(saddle_is_on);
+}
 
 /*****************************************************************************/
 /*
@@ -98,12 +193,14 @@
  * and the real parameters are sufficiently accurately calculated.   
  */
 /*
- * Convert inches to string-pot encoder counts, on the assumption
- * that the fully retracted position is 0 inches:tower_encoder0 counts,
- * and the fully extended one is 30 inches:30/tower_encoder_scale counts.
+ * Convert between inches and string-pot encoder counts
  */
-float tower_encoder0 = 600;
-float tower_encoder_scale = 33.3;
+#define tower_encoder0 1575		/* encoder reading at bottom */
+#define tower_encoder1 31928		/* encoder reading at top */
+#define tower_travel 28.75		/* travel in inches */
+
+float umbilical_clearance = 2.0;	/* minimum clearance (in) */
+float tower_encoder_scale = (tower_encoder1 - tower_encoder0)/tower_travel;
 
 /*****************************************************************************/
 /*
@@ -220,7 +317,7 @@ calc_tower_height(float alt,		/* altitude, degrees */
 /*
  * Convert to the encoder counts returned by the PLC
  */
-   return(tower_encoder0 + tower_encoder_scale*dht);
+   return(tower_encoder0 + tower_encoder_scale*(dht + umbilical_clearance));
 }
 
 #if 0
@@ -256,6 +353,18 @@ main(int ac, char *av[])
  */
 /*****************************************************************************/
 /*
+ * Globals to control monitoring of umbilical tower
+ */
+int active_umbilical_control = 0;	/* Are we controlling the tower? */
+int umbilical_abort = 0;		/* abort umbilical motion */
+int umbilical_delay = 1;		/* time (in seconds) between checks */
+int umbilical_set_position = 0;		/* desired umbilical position (Cnts) */
+
+int override_saddle_switches = 0;	/* allow tower to move even if saddle
+					   isn't mounted; for testing only */
+
+/*****************************************************************************/
+/*
  * Tell the motor to start moving
  */
 int
@@ -280,7 +389,7 @@ umbilical_move(int val)
    
    swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
    tm_ctrl.mcp_umbilical_up_dn = val;
-   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
+   swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
 
    err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
@@ -322,7 +431,7 @@ umbilical_onoff(int val)
       return(-1);
    }
 
-   err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(tm_ctrl)/2);
+   err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    if(err) {
       semGive(semSLC);
       TRACE(0, "umbilical: error reading slc: 0x%04x", err, 0);
@@ -331,7 +440,7 @@ umbilical_onoff(int val)
 
    swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
    tm_ctrl.mcp_umbilical_on_off = val;
-   swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
+   swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
    
    err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive(semSLC);
@@ -372,7 +481,7 @@ umbilical_position(void)
       return(-1);
    }
 
-   err = slc_read_blok(1,9,BIT_FILE,235,&pos,1);
+   err = slc_read_blok(1, 9, BIT_FILE, 139, &pos, sizeof(pos)/2);
    semGive(semSLC);
    
    if(err) {
@@ -397,16 +506,20 @@ print_umbilical_position(void)
 
 /*****************************************************************************/
 /*
- * Move the tower to a specified position
+ * Move the tower to a specified position (in encoder counts)
  */
 int
-umbilical_move_pos(int pos)		/* desired tower position */
+umbilical_move_pos(int pos)		/* desired tower position (counts) */
 {
+#if 0
+   float min_motion = 0.25;		/* minimum motion; inches */
    int position;
    int lastpos;
    
+   umbilical_abort = 0;
+   
    position = umbilical_position();
-   TRACE(4, "Umbilical Position %d move to %d", position, pos);
+   TRACE(6, "Umbilical Position %d move to %d", position, pos);
 
    if(pos < position) {			/* move down */
       umbilical_move_dn();
@@ -414,14 +527,23 @@ umbilical_move_pos(int pos)		/* desired tower position */
       taskDelay(4);
    
       lastpos = 32767;
-      while(position = umbilical_position(), position - pos > 60) {
-	 TRACE(4, "Umbilical Position %d moving down to %d",
+      while(position = umbilical_position(), position - pos >
+					      min_motion*tower_encoder_scale) {
+	 if(umbilical_abort) {
+	    break;
+	 }
+	    
+	 TRACE(6, "Umbilical Position %d moving down to %d",
 	       position, pos);
 	 if((lastpos - position) < 4) {
-	    umbilical_off();
-	    TRACE(1, "umbilical_move_pos: stopped moving down to %d (%d)",
-		  position, lastpos - position)
-	    return(-1);
+	    position = umbilical_position(); taskDelay(2);
+
+	    if((lastpos - position) < 4) {
+	       umbilical_off();
+	       TRACE(6, "umbilical_move_pos: stopped moving down to %d (%d)",
+		     position, lastpos - position)
+		 return(-1);
+	    }
 	 }
 	 lastpos = position;
 	 taskDelay(1);
@@ -431,16 +553,25 @@ umbilical_move_pos(int pos)		/* desired tower position */
       umbilical_on();
       taskDelay(4);
 
-      lastpos = 0;
-      while(position = umbilical_position(), pos - position > 30) {
-	 TRACE(4, "Umbilical Position %d moving up to %d",
+      lastpos = -1000;
+      while(position = umbilical_position(), pos - position >
+					      min_motion*tower_encoder_scale) {
+	 if(umbilical_abort) {
+	    break;
+	 }
+	    
+	 TRACE(6, "Umbilical Position %d moving up to %d",
 	       position, pos);
 	 
-	 if(position - lastpos < 4) {
-	    umbilical_off();
-	    TRACE(1, "umbilical_move_pos: stopped moving up to %d (%d)",
-		  position, position - lastpos)
-	    return(-1);
+	 position = umbilical_position(); taskDelay(2);
+	 
+	 if((lastpos - position) < 4) {
+	    if(position - lastpos < 4) {
+	       umbilical_off();
+	       TRACE(6, "umbilical_move_pos: stopped moving up to %d (%d)",
+		     position, position - lastpos)
+		 return(-1);
+	    }
 	 }
 	 lastpos = position;
 	 taskDelay(1);
@@ -448,8 +579,39 @@ umbilical_move_pos(int pos)		/* desired tower position */
    }
    
    umbilical_off();
+#else
+   umbilical_set_position = pos;
+#endif
 
    return 0;
+}
+
+/*
+ * Move umbilical tower to a given position (in inches)
+ */
+int
+umbilical_move_pos_in(int pos)		/* desired tower position (inches) */
+{
+   return(umbilical_move_pos(tower_encoder0 + tower_encoder_scale*pos));
+}
+
+/*
+ * IOP/TCC level command to move umbilical tower
+ */
+char *
+umbilical_pos_cmd(char *cmd)
+{
+   int pos;				/* true to turn on active control */
+
+   if(sscanf(cmd, "%d", &pos) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   if(umbilical_move_pos_in(pos) != 0) {
+      return("ERR: UMBILICAL.POS failed");
+   }
+
+   return("");
 }
 
 /*****************************************************************************/
@@ -458,136 +620,23 @@ umbilical_move_pos(int pos)		/* desired tower position */
  * altitude/instrument rotation
  */
 void
-umbilical_mgt()
+umbilical_mgt(void)
 {
    double alt, rot;			/* position in altitude/rotator */
-   int umbilical_pt;			/* current position of tower */
-   int umbpos;				/* desired position of tower */
-   
-   tm_get_position(2*ALTITUDE, &alt);
-   tm_get_position(2*INSTRUMENT, &rot);
 
-   umbpos = calc_tower_height(alt, rot);
-   umbilical_pt = umbilical_position();
-   if(umbpos < umbilical_pt - 60 || umbpos > umbilical_pt + 30) {
-      umbilical_move_pos(umbpos);
-   }
-}
-
-void
-test_umbilical_mgt(int alt, int rot)
-{
-   int umbilical_pt;			/* current position of tower */
-   int umbpos;				/* desired position of tower */
-   
-   umbpos = calc_tower_height(alt, rot);
-   umbilical_pt = umbilical_position();
-   printf("test_umbilical_mgt: move to %d from %d\n", umbpos, umbilical_pt);
-   
-   if(umbpos < umbilical_pt - 60 || umbpos > umbilical_pt + 30) {
-      umbilical_move_pos(umbpos);
-   }
-}
-
-/*****************************************************************************/
-/*
- * Return the ID number of the current instrument
- */
-/*
- * The camera ID switches aren't installed as of Jan 2001
- *
- * Use the state of the primary latches/spec corrector to guess what's
- * installed?
- */
-#define GUESS_INSTRUMENT 1
-   
-#define CAMERA_ID 14
-
-int
-instrument_id(void)
-{
-   int inst_id1, inst_id2, inst_id3;	/* values of the inst ID switches */
-#if GUESS_INSTRUMENT
-   int pri_latch_opn;			/* the primary latches are open */
-   int spec_lens;			/* the spec corrector in installed */
-#endif
-   
-   if(semTake(semSDSSDC, NO_WAIT) == ERROR) {
-      return(-1);			/* unknown */
-   }
-   
-   inst_id1 = ((sdssdc.status.i1.il8.inst_id1_1 << 3) + 
-	       (sdssdc.status.i1.il8.inst_id1_2 << 2) + 
-	       (sdssdc.status.i1.il8.inst_id1_3 << 1) + 
-	       (sdssdc.status.i1.il8.inst_id1_4 << 0));
-   inst_id2 = ((sdssdc.status.i1.il8.inst_id2_1 << 3) + 
-	       (sdssdc.status.i1.il8.inst_id2_2 << 2) + 
-	       (sdssdc.status.i1.il8.inst_id2_3 << 1) + 
-	       (sdssdc.status.i1.il8.inst_id2_4 << 0));
-   inst_id3 = ((sdssdc.status.i1.il8.inst_id3_1 << 3) + 
-	       (sdssdc.status.i1.il8.inst_id3_2 << 2) + 
-	       (sdssdc.status.i1.il8.inst_id3_3 << 1) + 
-	       (sdssdc.status.i1.il8.inst_id3_4 << 0));
-#if GUESS_INSTRUMENT
-   pri_latch_opn = (sdssdc.status.i1.il8.pri_latch1_opn &&
-		    sdssdc.status.i1.il8.pri_latch2_opn &&
-		    sdssdc.status.i1.il8.pri_latch3_opn);
-   spec_lens = (!sdssdc.status.i1.il8.spec_lens1 ||
-		 sdssdc.status.i1.il8.spec_lens2);
-#endif
-
-   semGive(semSDSSDC);
-
-   if(inst_id1 != inst_id2 || inst_id1 != inst_id3) {
-      static char buff[4];
-      sprintf(buff,"%1d%1d%1d", inst_id1, inst_id2, inst_id3);
-      TRACE(1, "Inconsistent instrument ID switches: %s", buff, 0);
-      return(-1);
-   }
-#if GUESS_INSTRUMENT
-   if(inst_id1 == 0 && !pri_latch_opn && !spec_lens) {
-      return(CAMERA_ID);
-   }
-#endif
-   
-   return(inst_id1);
-}
-
-/*****************************************************************************/
-/*
- * Is the imager saddle on the telescope? Note that switch 1 is deliberately
- * wired backwards
- */
-int
-saddle_is_mounted(void)
-{
-   int saddle_is_on;			/* is the saddle mounted? */
-   int sad_mount1, sad_mount2;
-  
-   if(semTake(semSDSSDC, 10) == ERROR) {
-      return(-1);			/* unknown */
-   }
-   
-   sad_mount1 = (sdssdc.status.i1.il9.sad_mount1 == 0) ? 1 : 0; 
-   sad_mount2 = (sdssdc.status.i1.il9.sad_mount2 == 0) ? 0 : 1;
-
-   if(sad_mount1 == sad_mount2) {
-      saddle_is_on = sad_mount1;
+   if(active_umbilical_control && saddle_is_mounted()) {
+      tm_get_position(2*ALTITUDE, &alt);
+      tm_get_position(2*INSTRUMENT, &rot);
+      alt /= ALT_TICKS_DEG;
+      rot /= ROT_TICKS_DEG;
+      
+      umbilical_move_pos(calc_tower_height(alt, rot));
    } else {
-      saddle_is_on = -1;		/* inconsistent */
+      if(!saddle_is_mounted() && !override_saddle_switches) {
+	 umbilical_move_pos(0);
+      }
    }
-   
-   semGive(semSDSSDC);
-
-   return(saddle_is_on);
 }
-
-/*****************************************************************************/
-/*
- * Globals to control monitoring of umbilical tower
- */
-int active_umbilical_control = 1;	/* Are we controlling the tower? */
-int umbilical_delay = 1;		/* time (in seconds) between checks */
 
 /*****************************************************************************/
 /*
@@ -596,13 +645,75 @@ int umbilical_delay = 1;		/* time (in seconds) between checks */
 int
 tUmbilical(void)
 {
+#if 0
    for(;;) {
       if(active_umbilical_control && saddle_is_mounted() == 1) {
 	 umbilical_mgt();
       }
-   
       taskDelay(60*umbilical_delay);
    }
+#else
+   float min_motion = 0.25;		/* minimum motion; inches */
+   int position;			/* current position */
+   int lastpos;
+   
+   for(;;) {
+      taskDelay(60*umbilical_delay);
+
+      umbilical_mgt();
+	 
+      position = umbilical_position();
+      TRACE(6, "Umbilical Position %d move to %d",
+	    position, umbilical_set_position);
+
+      if(abs(position - umbilical_set_position) <
+					      min_motion*tower_encoder_scale) {
+   	 umbilical_off();
+	 continue;
+      }
+/*
+ * We have to move
+ */
+      umbilical_on();
+      
+      if(umbilical_set_position < position) { /* move down */
+	 umbilical_move_dn();
+	 lastpos = 1000000;
+      } else {
+	 umbilical_move_up();
+	 lastpos = -1000000;
+      }
+      taskDelay(4);
+	 
+      for(;;) {
+	 position = umbilical_position();
+	 
+	 if(umbilical_abort) {
+	    umbilical_abort = 0;
+	    break;
+	 }
+
+	 if(umbilical_set_position < position) { /* move down */
+	    umbilical_move_dn();
+	 } else {
+	    umbilical_move_up();
+	 }
+	       
+	 TRACE(6, "Umbilical Position %d moving down to %d",
+	       position, umbilical_set_position);
+
+	 if(abs(lastpos - position) < 4) {
+	    umbilical_off();
+	    TRACE(6, "umbilical_move_pos: stopped moving down to %d (%d)",
+		  position, lastpos - position)
+	      break;
+	 }
+
+	 lastpos = position;
+	 taskDelay(1);
+      }
+   }
+#endif
 }
 
 char *
@@ -610,7 +721,11 @@ umbilical_cmd(char *cmd)
 {
    int on_off;				/* true to turn on active control */
 
-   if(sscanf(cmd, "%d", &on_off) != 1) {
+   if(strcmp(cmd, "ON") == 0 || strcmp(cmd, "on") == 0) {
+      on_off = 1;
+   } else if(strcmp(cmd, "OFF") == 0 || strcmp(cmd, "off") == 0) {
+      on_off = 0;
+   } else {
       return("ERR: malformed command argument");
    }
 
@@ -624,13 +739,56 @@ umbilical_cmd(char *cmd)
 
 /*****************************************************************************/
 /*
+ * Report status of umbilical tower
+ */
+int
+get_umbilstatus(char *status_ans,
+		int size)			/* dimen of status_ans */
+{
+   int len;
+   const short position = umbilical_position();
+
+   sprintf(status_ans, "Umbil: %d  %d %2.2f  %d %d\n",
+	   active_umbilical_control,
+	   position, (position - tower_encoder0)/tower_encoder_scale,
+	   saddle_is_mounted(), instrument_id());
+   
+   len = strlen(status_ans);
+   assert(len < size);
+   
+   return(len);
+}
+
+char *
+umbilical_status_cmd(char *cmd)		/* NOTUSED */
+{
+   (void)get_umbilstatus(ublock->buff, UBLOCK_SIZE);
+
+   return(ublock->buff);
+}
+
+/*****************************************************************************/
+/*
+ * Abort an umbilical tower motion
+ */
+char *
+umbilical_abort_cmd(char *cmd)		/* NOTUSED */
+{
+   umbilical_abort = 1;
+   umbilical_set_position = umbilical_position();
+
+   return("");
+}
+
+/*****************************************************************************/
+/*
  * Initialise the umbilical control task
  */
 int
 tUmbilicalInit(int dsec)		/* interval, in seconds, between
 					   checks on tower position */
 {
-   active_umbilical_control = 1;
+   active_umbilical_control = 0;
    umbilical_delay = dsec;
 /*
  * Spawn the task that controls the umbilical
@@ -642,7 +800,10 @@ tUmbilicalInit(int dsec)		/* interval, in seconds, between
  * Declare command that controls whether the umbilical tower control
  * is active
  */
-   define_cmd("UMBILICAL",    umbilical_cmd,    1, 0, 1);
-   
+   define_cmd("UMBILICAL",     umbilical_cmd,           1, 0, 1);
+   define_cmd("UMBILICAL.ABORT", umbilical_abort_cmd,   0, 0, 1);
+   define_cmd("UMBILICAL.POS", umbilical_pos_cmd,       1, 0, 1);
+   define_cmd("UMBILICAL.STATUS", umbilical_status_cmd, 0, 0, 1);
+
    return 0;
 }
