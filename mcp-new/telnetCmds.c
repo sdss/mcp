@@ -39,6 +39,20 @@ SEM_ID semPleaseGiveCmdPort = NULL;	/* semaphore to request its owner
 
 /*****************************************************************************/
 /*
+ * Return the task ID of the process holding a semaphore
+ */
+long
+getSemTaskId(SEM_ID sem)
+{
+   if(sem == NULL) {
+      return(0);
+   } else {
+      return((long)sem->state.owner);
+   }
+}
+
+/*****************************************************************************/
+/*
  * The task that does the work of reading commands and executing them
  */
 int client_pid = -1;			/* Process ID of connected process */
@@ -49,7 +63,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 {
    char buff[MSG_SIZE];			/* buffer to reply to messages */
    char cmd[MSG_SIZE];			/* buffer to read messages */
-   int took_semCmdPort = 0;		/* did we take semCmdPort? */
    int n;				/* number of bytes read */
    int nerr;				/* number of consecutive errors seen */
    const int port = ntohs(client->sin_port); /* the port they connected on */
@@ -91,13 +104,11 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  * See if we can take semPleaseGiveCmdPort; if we cannot someone else
  * has taken it, so give the semCmdPort if we have it
  */
-      if(took_semCmdPort) {
+      if(getSemTaskId(semCmdPort) == taskIdSelf()) {
 	 if(semTake(semPleaseGiveCmdPort, 0) == OK) { /* nothing to do */
 	    semGive(semPleaseGiveCmdPort);
 	 } else {			/* give up the semCmdPort semaphore */
-	    if(semGive(semCmdPort) == OK) {
-	       took_semCmdPort = 0;
-	    } else {
+	    if(semGive(semCmdPort) == ERROR) {
 	       fprintf(stderr,"Unable to give semCmdPort semaphore: %s",
 		       strerror(errno));
 	    }
@@ -129,11 +140,9 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
 	 TRACE(5, "PID %d: command SEM.TAKE", client_pid, 0);
 
-	 if(!took_semCmdPort && semTake(semCmdPort,60) == OK) {
-	    took_semCmdPort = 1;
-	 }
+	 (void)semTake(semCmdPort,60);
 
-	 if(took_semCmdPort) {
+	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
 	    reply = "took semaphore";
 	 } else {
 	    sprintf(buff, "Unable to take semaphore: %s",
@@ -144,18 +153,14 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 TRACE(5, "PID %d: command SEM.STEAL", client_pid, 0);
 	 reply = NULL;
 	 
-	 if(!took_semCmdPort) {
-	    if(semTake(semCmdPort,60) == OK) {
-	       took_semCmdPort = 1;
-	    } else {
+	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+	    if(semTake(semCmdPort,60) != OK) {
 	       if(semTake(semPleaseGiveCmdPort, 60) == ERROR) {
 		  sprintf(buff, "Unable to take semCmdPort semaphore: %s",
 			  strerror(errno));
 		  reply = buff;
 	       } else {
-		  if(semTake(semCmdPort,5*60) == OK) {
-		     took_semCmdPort = 1;
-		  } else {
+		  if(semTake(semCmdPort,5*60) != OK) {
 		     reply = "unable to steal semCmdPort semaphore";
 		  }
 		     
@@ -164,7 +169,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    }
 	 }
 
-	 if(took_semCmdPort) {
+	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
 	    reply = "took semaphore";
 	 } else {
 	    if(reply == NULL) {
@@ -180,22 +185,21 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
 	 (void)sscanf(cmd, "SEM.GIVE %d", &force);
 
-	 if(took_semCmdPort && semGive(semCmdPort) == OK) {
-	    took_semCmdPort = 0;
-	 }
+	 (void)semGive(semCmdPort);
 
-	 if(!took_semCmdPort) {
+	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
 	    reply = "gave semaphore";
 	 } else {
 	    if(force) {
-	       if(semMGiveForce(semCmdPort) == OK) {
-		  took_semCmdPort = 0;
-	       }
+	       (void)semMGiveForce(semCmdPort);
 	       (void)semMGiveForce(semMEIUPD);
 	    }
-	    
-	    sprintf(buff, "Unable to give semaphore: %s",
-		    strerror(errno));
+
+	    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+	       reply = "gave semaphore";
+	    } else {
+	       sprintf(buff, "Unable to give semaphore: %s", strerror(errno));
+	    }
 	    reply = buff;
 	 }
       } else if(strncmp(cmd, "SEM.SHOW", 8) == 0) {
@@ -204,7 +208,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    semShow(semCmdPort, 1);
 	 }
 
-	 if(took_semCmdPort) {
+	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
 	    reply = "semCmdPort=1";
 	 } else {
  	    reply = "semCmdPort=0";
@@ -220,7 +224,8 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "restarted the tTelnetd";
 	 }
       } else {
-	 reply = cmd_handler(took_semCmdPort, cmd);
+	 reply =
+	   cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),cmd);
       }
 
       if(reply == NULL) {
@@ -252,11 +257,12 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
    }
 
-   if(took_semCmdPort) {
-      semGive(semCmdPort); took_semCmdPort = 0;
-   }
+   (void)semGive(semCmdPort);
+   (void)semGive(semMEIUPD);
 
    close(fd);
+
+   return;
 }
 
 STATUS
