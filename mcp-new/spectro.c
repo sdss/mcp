@@ -511,38 +511,58 @@ ffs_enable(int val)
 }
 
 /*
- * Return status of flat field screen
+ * Return status of flat field screen.  Only 6 of the 8 petals need have moved
  */
 int
 ffs_open_status(void)
 {
-  if ((sdssdc.status.i1.il13.leaf_1_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_2_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_3_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_4_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_5_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_6_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_7_open_stat)&&
-	(sdssdc.status.i1.il13.leaf_8_open_stat))
-    return TRUE;
-  else 
-    return FALSE;
+   int nopen =
+     (sdssdc.status.i1.il13.leaf_1_open_stat ? 1 : 0) + 
+       (sdssdc.status.i1.il13.leaf_2_open_stat ? 1 : 0) +
+	 (sdssdc.status.i1.il13.leaf_3_open_stat ? 1 : 0) +
+	   (sdssdc.status.i1.il13.leaf_4_open_stat ? 1 : 0) +
+	     (sdssdc.status.i1.il13.leaf_5_open_stat ? 1 : 0) +
+	       (sdssdc.status.i1.il13.leaf_6_open_stat ? 1 : 0) +
+		 (sdssdc.status.i1.il13.leaf_7_open_stat ? 1 : 0) +
+		   (sdssdc.status.i1.il13.leaf_8_open_stat ? 1 : 0);
+   
+   if(nopen >= 6) {
+      if(nopen != 8) {
+	 TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
+      }
+      return(TRUE);
+   } else {
+      if(nopen != 0) {
+	 TRACE(0, "%d flat field screen petals are still open", nopen, 0);
+      }
+      return(FALSE);
+   }
 }
 
 int
 ffs_close_status(void)
 {
-  if ((sdssdc.status.i1.il13.leaf_1_closed_stat)&&
- 	(sdssdc.status.i1.il13.leaf_2_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_3_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_4_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_5_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_6_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_7_closed_stat)&&
-	(sdssdc.status.i1.il13.leaf_8_closed_stat)) 
-    return TRUE;
-  else 
-    return FALSE;
+   int nclosed =
+     (sdssdc.status.i1.il13.leaf_1_closed_stat ? 1 : 0) + 
+       (sdssdc.status.i1.il13.leaf_2_closed_stat ? 1 : 0) +
+	 (sdssdc.status.i1.il13.leaf_3_closed_stat ? 1 : 0) +
+	   (sdssdc.status.i1.il13.leaf_4_closed_stat ? 1 : 0) +
+	     (sdssdc.status.i1.il13.leaf_5_closed_stat ? 1 : 0) +
+	       (sdssdc.status.i1.il13.leaf_6_closed_stat ? 1 : 0) +
+		 (sdssdc.status.i1.il13.leaf_7_closed_stat ? 1 : 0) +
+		   (sdssdc.status.i1.il13.leaf_8_closed_stat ? 1 : 0);
+   
+   if(nclosed >= 6) {
+      if(nclosed != 8) {
+	 TRACE(0, "Only %d flat field screen petals are closed", nclosed, 0);
+      }
+      return(TRUE);
+   } else {
+      if(nclosed != 0) {
+	 TRACE(0, "%d flat field screen petals are still closed", nclosed, 0);
+      }
+      return(FALSE);
+   }
 }
 
 /*****************************************************************************/
