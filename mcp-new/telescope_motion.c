@@ -599,8 +599,12 @@ void tm_read_all_adc(int cnt)
 **=========================================================================
 */
 int
-az_amp_ok(void)
+az_amp_ok(int update)			/* update status before reporting? */
 {
+   if(update) {
+      update_sdssdc_status_i6();
+   }
+
    if((sdssdc.status.i6.il0.az_mtr_ccw_perm_in ||
 				     sdssdc.status.i6.il0.az_mtr_cw_perm_in) &&
       sdssdc.status.i6.il0.az_plc_perm_in) {
@@ -611,8 +615,12 @@ az_amp_ok(void)
 }
 
 int
-alt_amp_ok(void)
+alt_amp_ok(int update)			/* update status before reporting? */
 {
+   if(update) {
+      update_sdssdc_status_i6();
+   }
+   
    if((sdssdc.status.i6.il0.alt_mtr_dn_perm_in ||
 				    sdssdc.status.i6.il0.alt_mtr_up_perm_in) &&
        sdssdc.status.i6.il0.alt_plc_perm_in) {
@@ -623,8 +631,29 @@ alt_amp_ok(void)
 }
 
 int
-rot_amp_ok(void)
+rot_amp_ok(int update)			/* update status before reporting? */
 {
+   if(update) {
+      unsigned short ctrl[2];
+
+      if(semTake(semSLC,60) == ERROR) {
+	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+      } else {
+	 const int offset = (char *)&sdssdc.status.i7 - (char *)&sdssdc.status;
+	 int err = slc_read_blok(1, 9, BIT_FILE, offset/2,
+						      &ctrl[0],sizeof(ctrl)/2);
+	 if(err) {
+	    TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
+	 }
+	 semGive(semSLC);
+
+	 if(!err) {
+	    swab((char *)&ctrl[0], (char *)&sdssdc.status.i7,
+						     sizeof(sdssdc.status.i7));
+	 }
+      }
+   }
+
    if((sdssdc.status.i7.il0.rot_mtr_ccw_perm_in ||
 				    sdssdc.status.i7.il0.rot_mtr_cw_perm_in) &&
       sdssdc.status.i7.il0.rot_plc_perm_in) {
@@ -682,7 +711,7 @@ tm_amp_mgt(void)
 	       mcp_set_brake(AZIMUTH);
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
-	    if(!az_amp_ok()) {
+	    if(!az_amp_ok(0)) {
 	       TRACE(0, "MGT: bad az amp", 0, 0);
 	       tm_sem_controller_idle(2*AZIMUTH);
 	       mcp_set_brake(AZIMUTH);
@@ -701,7 +730,7 @@ tm_amp_mgt(void)
 	       mcp_set_brake(ALTITUDE);
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
-	    if(!alt_amp_ok()) {
+	    if(!alt_amp_ok(0)) {
 	       TRACE(0, "MGT: bad alt amp", 0, 0);
 	       tm_sem_controller_idle(2*ALTITUDE);
 	       mcp_set_brake(ALTITUDE);
@@ -719,7 +748,7 @@ tm_amp_mgt(void)
 		     axis_source_str(2*INSTRUMENT));
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
-	    if(!rot_amp_ok()) {
+	    if(!rot_amp_ok(0)) {
 	       TRACE(0, "MGT: bad rot amp", 0, 0);
 	       tm_sem_controller_idle(2*INSTRUMENT);
 	       monitor_axis[INSTRUMENT] = FALSE;
@@ -737,7 +766,7 @@ tm_amp_mgt(void)
 void
 tm_print_amp_status(void)
 {
-    if(az_amp_ok()) {
+    if(az_amp_ok(1)) {
        printf("AZ Amp OK\n");
     } else {
        printf ("Az Amp Disengaged: az_mtr_ccw_perm=%d,az_mtr_cw_perm=%d\n",
@@ -745,7 +774,7 @@ tm_print_amp_status(void)
 	       sdssdc.status.o11.ol0.az_mtr_cw_perm);
     }
 
-    if(alt_amp_ok()) {
+    if(alt_amp_ok(1)) {
        printf("ALT Amp OK\n");
     } else {
        printf("Alt Amp Disengaged: alt_mtr_dn_perm=%d,alt_mtr_up_perm=%d\n",
@@ -753,7 +782,7 @@ tm_print_amp_status(void)
 	      sdssdc.status.o11.ol0.alt_mtr_up_perm);
     }
 
-    if(rot_amp_ok()) {
+    if(rot_amp_ok(1)) {
        printf("ROT Amp OK\n");
     } else {
        printf("Rot Amp Disengaged: "
@@ -1046,13 +1075,13 @@ show_bump(void)
    printf("\n");
 
    printf("Altitude:");
-   if(sdssdc.status.i1.il6.alt_bump_up) {
+   if(sdssdc.status.i1.il10.alt_bump_up) {
       printf(" in contact UP");
    } else if(axis_stat[ALTITUDE][0].bump_up_ccw_sticky) {
       printf(" touched UP   ");
    }
 
-   if(sdssdc.status.i1.il6.alt_bump_dn) {
+   if(sdssdc.status.i1.il10.alt_bump_dn) {
       printf(" in contact DOWN");
    } else if(axis_stat[ALTITUDE][0].bump_dn_cw_sticky) {
       printf(" touched DOWN   ");
