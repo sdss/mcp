@@ -14,6 +14,7 @@
 #include <ioLib.h>
 #include <sockLib.h>
 #include <taskLib.h>
+#include <taskVarLib.h>
 #include "pcdsp.h"
 #include "axis.h"
 #include "cmd.h"
@@ -114,6 +115,8 @@ locked_command(const char *cmd)
 /*
  * The task that does the work of reading commands and executing them
  */
+int client_pid = -1;			/* Process ID of connected process */
+
 void
 cpsWorkTask(int fd,			/* as returned by accept() */
 	    struct sockaddr_in *client) /* the client's socket address */
@@ -125,6 +128,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    const int port = ntohs(client->sin_port); /* the port they connected on */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
+   char uname[20] = "";			/* user name of connected process */
 
    sprintf(buff, "connected\n");
    if(write(fd, buff, strlen(buff)) == -1) {
@@ -134,20 +138,25 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       return;
    }
    
-   TRACE(16, "Above fioRdString", 0, 0);
+   taskVarAdd(0, &client_pid);
+
+   TRACE(16, "PID %d: Above fioRdString", client_pid, 0);
    for(;;) {
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
-	 fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
-	 if(errno != S_taskLib_NAME_NOT_FOUND) {
+	 if(errno != 0) {
+	    fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
+	 }
+	 if(errno != S_taskLib_NAME_NOT_FOUND &&
+	    errno != S_objLib_OBJ_TIMEOUT) {
 	    break;
 	 }
       } else if(n == 0) {
-	 fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
+	 if(errno != 0) {
+	    fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
+	 }
       }
       
       cmd[n] = '\0';
-      TRACE(16, "read %d bytes", n, 0);
-      TRACE(16, "cmd: cccc = 0x%x%x", *(int *)&cmd[0], *(int *)&cmd[4]);
 /*
  * uppercase all commands
  */
@@ -159,7 +168,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  * has taken it, so give the semCmdPort if we have it
  */
       if(took_semCmdPort) {
-	 TRACE(16, "in took_semCmdPort", 0, 0)
 	 if(semTake(semPleaseGiveCmdPort, 0) == OK) { /* nothing to do */
 	    semGive(semPleaseGiveCmdPort);
 	 } else {			/* give up the semCmdPort semaphore */
@@ -175,14 +183,27 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  * Take the sem that display.c used to take; XXX
  */
       if(semTake(semMEIUPD, 60) == ERROR) {
- 	 TRACE(5, "Cannot take semMEIUPD to process cmd %s ($d)", cmd, errno);
+ 	 TRACE(0, "Cannot take semMEIUPD to process cmd %s ($d)", cmd, errno);
 	 continue;
       }
 /*
  * Maybe execute command
  */
-      if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
-	 TRACE(5, "command SEM.TAKE", 0, 0);
+      if(strncmp(cmd, "USER.ID", 7) == 0) {
+	 if(strcmp(cmd, "USER.ID") == 0) {
+	    sprintf(buff, "User %s PID %d", uname, client_pid);
+	    reply = buff;
+	 } else if(sscanf(cmd, "USER.ID %s %d", uname, &client_pid) == 2) {
+	    for(ptr = uname; *ptr != '\0'; ptr++) {
+	       if(isupper(*ptr)) { *ptr = tolower(*ptr); }
+	    }
+	    
+	    reply = "Read userid/pid";
+	 } else {
+	    reply = "Garbled USER.ID command";
+	 }
+      } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
+	 TRACE(5, "PID %d: command SEM.TAKE", client_pid, 0);
 
 	 if(!took_semCmdPort && semTake(semCmdPort,60) == OK) {
 	    took_semCmdPort = 1;
@@ -196,7 +217,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = buff;
 	 }
       } else if(strncmp(cmd, "SEM.STEAL", 8) == 0) {
-	 TRACE(5, "command SEM.STEAL", 0, 0);
+	 TRACE(5, "PID %d: command SEM.STEAL", client_pid, 0);
 	 reply = NULL;
 	 
 	 if(!took_semCmdPort) {
@@ -229,7 +250,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    }
 	 }
       } else if(strncmp(cmd, "SEM.GIVE", 8) == 0) {
-	 TRACE(5, "command SEM.GIVE", 0, 0);
+	 TRACE(5, "PID %d: command SEM.GIVE", client_pid, 0);
 
 	 if(took_semCmdPort && semGive(semCmdPort) == OK) {
 	    took_semCmdPort = 0;
@@ -254,10 +275,8 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "semCmdPort=0";
 	 }
       } else if(!locked_command(cmd)) {
-	 TRACE(16, "!locked_command", 0, 0)
 	 reply = cmd_handler(cmd);
       } else {
-	 TRACE(16, "locked_command", 0, 0)
 	 if(took_semCmdPort) {
 	    reply = cmd_handler(cmd);
 	 } else {
@@ -266,7 +285,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       }
 
       assert(reply != NULL);
-      TRACE(16, "reply = %s", reply, 0)
+      TRACE(16, "PID %d: reply = %s", client_pid, reply)
 
       ptr = reply + strlen(reply) - 1;	/* strip trailing white space */
       while(ptr >= reply && isspace(*ptr)) {
@@ -274,7 +293,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       }
       
       sprintf(buff, "%s ok\n", reply);	/* OK even if buff == reply */
-      TRACE(16, "reply2 = %s", reply, 0)
       if(write(fd, buff, strlen(buff)) == -1) {
 	 fprintf(stderr,"Sending reply %s to command %s: %s",
 		 buff, cmd, strerror(errno));
