@@ -23,6 +23,10 @@
 #define ALTITUDE_INT		0x4
 #define INSTRUMENT_INT		0x8
 
+char *set_time_cmd(char *cmd);
+char *ticklost_cmd(char *cmd);
+char *time_cmd(char *cmd);
+
 int DIO316_initialize(unsigned char *addr, unsigned short vecnum);
 void DIO316_interrupt(int type);
 void axis_DIO316_shutdown(int type);
@@ -32,7 +36,6 @@ extern long SDSStime;
 
 extern int tm_DIO316;
 extern int DIO316_Init;
-extern unsigned char dio316int_bit;
 extern SEM_ID semLATCH;
 
 #endif
