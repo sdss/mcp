@@ -199,3 +199,8 @@ Mon Nov 25 01:29:29 MST 2002
 
 	Fixed, and some buffers with only c. 20by overhead expanded;
 	otherwise the same as v5_15_0
+
+Fri Dec  6 15:08:28 MST 2002
+	cvs rtag v5_17_0 mcp
+
+	Changed severity of MJD-debugging murmur messages
