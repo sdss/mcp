@@ -132,18 +132,6 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "typedef struct {\n");
    fprintf(fd, "   int time;\n");
    fprintf(fd, "   AXIS axis;\n");
-   fprintf(fd, "   int fididx;\n");
-   fprintf(fd, "   int true1;\n");
-   fprintf(fd, "   int true2;\n");
-   fprintf(fd, "   int pos;\n");
-   fprintf(fd, "   float deg;\n");
-   fprintf(fd, "   int correction;\n");
-   fprintf(fd, "} SET_FIDUCIAL;\n");
-   fprintf(fd, "\n");
-      
-   fprintf(fd, "typedef struct {\n");
-   fprintf(fd, "   int time;\n");
-   fprintf(fd, "   AXIS axis;\n");
    fprintf(fd, "   int encoder;\n");
    fprintf(fd, "   int error;\n");
    fprintf(fd, "} SET_FIDUCIAL_ERROR;\n");
@@ -258,12 +246,6 @@ write_fiducial_log(const char *type,	/* type of entry */
    } else if(strcmp(type, "START_FIDUCIAL") == 0) {
       char buff[100];
       fprintf(fd, "%s %d \"%s\"\n", type, time(NULL), mcpVersion(buff, 100));
-   } else if(strcmp(type, "SET_FIDUCIAL") == 0) {
-      int correction = arg0 + (arg0 > 0 ? 0.5 : -0.5);
-
-      fprintf(fd, "%s %d %s  %3d %9d %9d  %9d %9.3f  %d\n", type, time(NULL),
-	      axis_name(axis), fididx, true1, true2,
-	      pos1, deg, correction);
    } else if(strcmp(type, "SET_FIDUCIAL_ERROR") == 0) {
       int error = arg0 + (arg0 > 0 ? 0.5 : -0.5);
       int encoder = arg1 + (arg1 > 0 ? 0.5 : -0.5);
