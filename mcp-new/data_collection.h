@@ -949,7 +949,9 @@ struct SDSS_FRAME {
 struct AXIS_STAT {
 	unsigned always_zero : 1;
 
-	unsigned  : 6;
+	unsigned bump_up_ccw_sticky : 1;
+	unsigned bump_dn_cw_sticky : 1;
+	unsigned  : 4;
 	unsigned ms_on_correction_too_large : 1;
 
 	unsigned  : 6;
