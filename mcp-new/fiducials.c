@@ -11,6 +11,7 @@
 #include <vxWorks.h>
 #include <semLib.h>
 #include <taskLib.h>
+#include "tod_prototypes.h"
 #include "pcdsp.h"
 #include "tm.h"
 #include "gendefs.h"
@@ -190,6 +191,25 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "   int error;\n");
    fprintf(fd, "} UPDATE_ENCODER;\n");
    fprintf(fd, "\n");
+
+   fprintf(fd, "typedef struct {\n");
+   fprintf(fd, "   int time;\n");
+   fprintf(fd, "   AXIS axis;\n");
+   fprintf(fd, "   int correction;\n");
+   fprintf(fd, "} DISABLE_MS_CORRECTION;\n");
+   fprintf(fd, "\n");
+
+   fprintf(fd, "typedef struct {\n");
+   fprintf(fd, "   int time;\n");
+   fprintf(fd, "   AXIS axis;\n");
+   fprintf(fd, "} MS_ON;\n");
+   fprintf(fd, "\n");
+
+   fprintf(fd, "typedef struct {\n");
+   fprintf(fd, "   int time;\n");
+   fprintf(fd, "   AXIS axis;\n");
+   fprintf(fd, "} MS_OFF;\n");
+   fprintf(fd, "\n");
 }
 
 /*****************************************************************************/
@@ -271,6 +291,15 @@ write_fiducial_log(const char *type,	/* type of entry */
       
       fprintf(fd, "%s %d %s  %d  %d\n", type, time(NULL),
 	      axis_name(axis), pos1, offset);
+   } else if(strcmp(type, "DISABLE_MS_CORRECTION") == 0) {
+      int correction = arg0;
+      
+      fprintf(fd, "%s %d %s  %d\n", type, time(NULL),
+	      axis_name(axis), correction);
+   } else if(strcmp(type, "MS_ON") == 0) {
+      fprintf(fd, "%s %d %s\n", type, time(NULL), axis_name(axis));
+   } else if(strcmp(type, "MS_OFF") == 0) {
+      fprintf(fd, "%s %d %s\n", type, time(NULL), axis_name(axis));
    } else {
       TRACE(0, "Unknown entry type for fiducial log: %s", type, 0);
    }
@@ -352,6 +381,10 @@ set_max_fiducial_correction(int axis,	/* the axis in question */
  * Given an axis and an error in that axis based on the last fiducial
  * crossing consider updating the position of that axis
  */
+int allow_disable_ms_on = 0;		/* available from vxWorks;
+					   if true disable MS.ON if
+					   correction's too large. RHL XXX */
+
 static void
 maybe_reset_axis_pos(int axis,		/* the axis */
 		     int pos_is_valid,	/* is the poserr correct? */
@@ -399,11 +432,20 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 		     axis_name(axis), correction);
 	    }
 	    
-	    if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
-	       TRACE(0, "couldn't take semSLCDC semahore.", 0, 0);
+	    if(allow_disable_ms_on) {
+	       if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
+		  TRACE(0, "couldn't take semSLCDC semaphore.", 0, 0);
+	       } else {
+		  axis_stat[axis].ms_on_correction_too_large = 1;
+		  semGive(semSLCDC);
+
+		  write_fiducial_log("DISABLE_MS_CORRECTION", axis,
+				     0, 0, 0, 0, correction);
+	       }
 	    } else {
-	       axis_stat[axis].ms_on_correction_too_large = 1;
-	       semGive(semSLCDC);
+	       TRACE(2, "Not disabling MS.ON even with error of %d "
+		     "(max allowed: %d)",
+		     correction, fiducial[axis].max_correction);
 	    }
 	    
 	    return;
@@ -632,6 +674,8 @@ tLatch(const char *name)
 	 maybe_reset_axis_pos(axis, 0, 0, 0);
 	 
 	 semGive(semLatch);
+
+	 write_fiducial_log("MS_ON", axis, 0, 0, 0, 0, 0);
 	 continue;
        case ms_off_az_type:		/* an MS.OFF command; maybe sent by */
        case ms_off_alt_type:		/* timerTask hence the various types */
@@ -653,6 +697,8 @@ tLatch(const char *name)
 	 fiducial[axis].ms_on = 0;
 	 
 	 semGive(semLatch);
+
+	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0);
 	 continue;
        default:
 	 TRACE(0, "Impossible message type: %d", msg.type, 0);
@@ -741,7 +787,9 @@ tLatch(const char *name)
 		 az_fiducial[fididx].mark - az_fiducial[fididx].last;
 	       az_fiducial[fididx].poserr =
 		 az_fiducial[fididx].mark - az_fiducial_position[fididx];
-	       az_fiducial[fididx].markvalid = TRUE;
+	       if(!az_fiducial[fididx].disabled) {
+		  az_fiducial[fididx].markvalid = TRUE;
+	       }
 	       fiducial[AZIMUTH].seen_fiducial = TRUE;
 	       
 	       TRACE(4, "az fiducial %.2f deg",
@@ -811,7 +859,9 @@ tLatch(const char *name)
 	      alt_fiducial[fididx].mark - alt_fiducial[fididx].last;
 	    alt_fiducial[fididx].poserr =
 	      alt_fiducial[fididx].mark - alt_fiducial_position[fididx];
-	    alt_fiducial[fididx].markvalid = TRUE;
+	    if(!alt_fiducial[fididx].disabled) {
+	       alt_fiducial[fididx].markvalid = TRUE;
+	    }
 	    fiducial[ALTITUDE].seen_fiducial = TRUE;
 	    
 	    TRACE(4, "alt fiducial %.2f deg",
@@ -916,7 +966,9 @@ tLatch(const char *name)
 	 }
 	 
 	 if(fididx > 0) {
-	    rot_fiducial[fididx].markvalid = TRUE;
+	    if(!rot_fiducial[fididx].disabled) {
+	       rot_fiducial[fididx].markvalid = TRUE;
+	    }
 	    fiducial[INSTRUMENT].seen_fiducial = TRUE;
 	    fiducialidx[INSTRUMENT] = fididx;
 
@@ -1261,19 +1313,25 @@ ms_get_cmd(char *cmd)			/* NOTUSED */
     case AZIMUTH:
       for(i = 0; i < N_AZ_FIDUCIALS; i++) {
 	 az_fiducial[i].mark = az_fiducial_position[i];
-	 az_fiducial[i].markvalid = 1;
+	 if(!az_fiducial[i].disabled) {
+	    az_fiducial[i].markvalid = TRUE;
+	 }
       }
       break;
     case ALTITUDE:
       for(i = 0; i < N_ALT_FIDUCIALS; i++) {
 	 alt_fiducial[i].mark = alt_fiducial_position[i];
-	 alt_fiducial[i].markvalid = 1;
+	 if(!alt_fiducial[i].disabled) {
+	    alt_fiducial[i].markvalid = TRUE;
+	 }
       }
       break;
     case INSTRUMENT:
       for(i = 0; i < N_ROT_FIDUCIALS; i++) {
 	 rot_fiducial[i].mark = rot_fiducial_position[i];
-	 rot_fiducial[i].markvalid = (i >= 6 && i <= 123) ? 1 : 0; /* real fiducials */
+	 if(!rot_fiducial[i].disabled) {
+	    rot_fiducial[i].markvalid = TRUE;
+	 }
       }
       break;
     default:
@@ -1345,20 +1403,27 @@ set_ms_on(int axis)			/* the axis in question */
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 /*
- * abort any pending MS.OFFs 
- */
-   (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
-   (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, 0, 0);
-   (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, 0, 0);
-/*
- * and request the MS.ON
+ * Abort any pending MS.OFFs and request the MS.ON
  */
    switch (axis_select) {
-    case AZIMUTH:    msg.type = ms_on_az_type; break;
-    case ALTITUDE:   msg.type = ms_on_alt_type; break;
-    case INSTRUMENT: msg.type = ms_on_inst_type; break;
+    case AZIMUTH:
+      (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
+      msg.type = ms_on_az_type;
+      break;
+    case ALTITUDE:
+      (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, 0, 0);
+      msg.type = ms_on_alt_type;
+      break;
+    case INSTRUMENT:
+      (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, 0, 0);
+      msg.type = ms_on_inst_type;
+      break;
    }
-   
+
+#if 0
+   fprintf(stderr,"RHL: %s MS.ON\n", axis_name(axis_select));
+   TRACE(6, "RHL: %s MS.ON\n", axis_name(axis_select), 0);
+#endif
    ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
    if(ret != OK) {
@@ -1379,9 +1444,18 @@ set_ms_off(int axis,			/* the desired axis */
  * abort any pending MS.OFFs 
  */
    TRACE(6, "Aborting old MS.OFFs", 0, 0);
-   (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
-   (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, 0, 0);
-   (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, 0, 0);
+
+   switch (axis_select) {
+    case AZIMUTH:
+      (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
+      break;
+    case ALTITUDE:
+      (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, 0, 0);
+      break;
+    case INSTRUMENT:
+      (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, 0, 0);
+      break;
+   }
    taskDelay(1);			/* give the timerTask a chance */
 /*
  * and send one that's active _now_, if MS.ON is currently true
@@ -1407,6 +1481,11 @@ set_ms_off(int axis,			/* the desired axis */
 /*
  * Time to actually set MS.OFF
  */
+#if 0
+   fprintf(stderr,"RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
+   TRACE(6, "RHL: %s MS.OFF %f\n", axis_name(axis_select), delay);
+#endif
+   
    switch (axis_select) {
     case AZIMUTH:    msg.type = ms_off_az_type; break;
     case ALTITUDE:   msg.type = ms_off_alt_type; break;
@@ -1528,8 +1607,16 @@ correct_cmd(char *cmd)			/* NOTUSED */
 
       return("ERR: no fiducials have been crossed");
    }
+
+   if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
+      TRACE(0, "couldn't take semSLCDC semaphore; failed to CORRECT axis %s",
+	    axis_name(axis_select), 0);
+   } else {
+      axis_stat[axis_select].ms_on_correction_too_large = 0;
+      semGive(semSLCDC);
    
-   maybe_reset_axis_pos(axis_select, 0, 0, 1);
+      maybe_reset_axis_pos(axis_select, 0, 0, 1);
+   }
 
    semGive(semLatch);
 
@@ -1653,7 +1740,8 @@ read_fiducials(const char *file,	/* file to read from */
    float error;				/* error in mark */
    int fid;				/* fiducial number from file */
    char fid_str[40];			/* buffer to read string "fiducials" */
-   long *fiducials;			/* array to set */
+   struct FIDUCIALS *fiducial;		/* fiducials data structure */
+   long *fiducial_position;		/* array to set */
    FILE *fil;				/* F.D. for file */
    char line[200];			/* buffer to read lines of file */
    char *lptr;				/* pointer to line[] */
@@ -1664,17 +1752,20 @@ read_fiducials(const char *file,	/* file to read from */
    switch (axis) {
     case AZIMUTH:
       n_fiducials = N_AZ_FIDUCIALS;
-      fiducials = az_fiducial_position;
+      fiducial = az_fiducial;
+      fiducial_position = az_fiducial_position;
       bias = 0;
       break;
     case ALTITUDE:
       n_fiducials = N_ALT_FIDUCIALS;
-      fiducials = alt_fiducial_position;
+      fiducial = alt_fiducial;
+      fiducial_position = alt_fiducial_position;
       bias = 0;
       break;
     case INSTRUMENT:
       n_fiducials = N_ROT_FIDUCIALS;
-      fiducials = rot_fiducial_position;
+      fiducial = rot_fiducial;
+      fiducial_position = rot_fiducial_position;
       bias = ROT_FID_BIAS;
       break;
     default:
@@ -1721,8 +1812,10 @@ read_fiducials(const char *file,	/* file to read from */
 	    continue;
 	 }
 
-	 if(error >= 0) {		/* invalid position */
-	    fiducials[fid] = mark + bias;
+	 if(error >= 0) {		/* valid position */
+	    fiducial_position[fid] = mark + bias;
+	 } else {
+	    fiducial[fid].disabled = TRUE;
 	 }
       } else {
 	 TRACE(0, "Corrupt line: %s", line, 0);
@@ -2020,7 +2113,8 @@ tLatchInit(void)
  * Initialise arrays
  */
    for(i = 0; i < sizeof(az_fiducial)/sizeof(struct FIDUCIALS); i++) {
-      az_fiducial[i].markvalid=FALSE;
+      az_fiducial[i].markvalid = FALSE;
+      az_fiducial[i].disabled = FALSE;
       az_fiducial[i].last = 0;
       az_fiducial[i].err=0;
       az_fiducial[i].poserr=0;
@@ -2029,16 +2123,20 @@ tLatchInit(void)
    }
    
    for(i = 0; i < sizeof(alt_fiducial)/sizeof(struct FIDUCIALS); i++) {
-      alt_fiducial[i].markvalid=FALSE;
+      alt_fiducial[i].markvalid = FALSE;
+      alt_fiducial[i].disabled = FALSE;
       alt_fiducial[i].last=0;
       alt_fiducial[i].err=0;
       alt_fiducial[i].poserr=0;
       alt_fiducial[i].mark=0;
       alt_fiducial_position[i]=0;
    }
-   
+/*
+ * n.b. disable non-existent fiducials
+ */
    for(i = 0; i < sizeof(rot_fiducial)/sizeof(struct FIDUCIALS); i++) {
-      rot_fiducial[i].markvalid=FALSE;
+      rot_fiducial[i].markvalid = FALSE;
+      rot_fiducial[i].disabled = (i < 6 || i > 123) ? TRUE : FALSE;      
       rot_fiducial[i].last=0;
       rot_fiducial[i].err=0;
       rot_fiducial[i].poserr=0;
