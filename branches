@@ -63,3 +63,7 @@ Fri Sep  7 14:23:50 MDT 2001
 	Created v5_4 branch
 	cvs rtag v5_4_0 mcp
 	cvs rtag -b -r v5_4_0 v5_4 mcp
+
+Wed Sep 19 13:11:42 MDT 2001
+	cvs update -j v5_4_0 -j v5_4_3
+	cvs ci -m "merged from v5_4 branch at point v5_4_3"

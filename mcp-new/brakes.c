@@ -31,7 +31,7 @@ tBrakes(void)
    MCP_MSG msg;				/* message to pass around */
    int ret;				/* return code */
    int set_brake;			/* true if the brake should go on */
-   B10_W0 tm_ctrl;			/* the bits we want */
+   B10_L0 tm_ctrl;			/* the bits we want */
 
    for(;;) {
       ret = msgQReceive(msgBrakes, (char *)&msg, sizeof(msg),

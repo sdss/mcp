@@ -380,7 +380,7 @@ umbilical_move(int val)
 {
    int err;
    unsigned short ctrl[2];
-   B10_W0 tm_ctrl;
+   B10_L0 tm_ctrl;
    
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical_move: failed to get semSLC: %s (%d)",
@@ -431,7 +431,7 @@ umbilical_onoff(int val)
 {
    int err;
    unsigned short ctrl[2];
-   B10_W0 tm_ctrl;
+   B10_L0 tm_ctrl;
              
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical: failed to get semSLC: %s (%d)",

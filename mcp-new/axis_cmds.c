@@ -690,7 +690,9 @@ int
 check_stop_in(int update)
 {
    if(update) {
+#if ALLOW_AMP_UPDATE
       update_sdssdc_status_i6();
+#endif
    }
 
    if(sdssdc.status.i6.il0.w_lower_stop &&

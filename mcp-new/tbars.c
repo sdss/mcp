@@ -28,7 +28,7 @@ tBars(void)
 {
    int err;
    unsigned short ctrl[2];
-   B10_W1 tm_ctrl;
+   B10_L1 tm_ctrl;
    int latch_status;			/* latched status from ABs */
    int latch_tbars;			/* should we latch the tbars? */
    MCP_MSG msg;				/* message to pass around */
@@ -57,8 +57,8 @@ tBars(void)
 	 break;
        case TbarsLatchCheck_type:
        case TbarsUnlatchCheck_type:
-	 unlatch_status = sdssdc.status.i9.il0.t_bar_unlatch_stat;
-	 latch_status = sdssdc.status.i8.il0.t_bar_latch_stat;
+	 unlatch_status = sdssdc.status.i9.il0.t_bar_tel_stat;
+	 latch_status = sdssdc.status.i8.il0.t_bar_xport_stat;
 
 	 if(msg.type == TbarsLatchCheck_type) {
 	    latch_tbars = 1;
@@ -101,10 +101,10 @@ tBars(void)
       swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
       
       if(latch_tbars < 0) {
-	 tm_ctrl.mcp_t_bar_latch = tm_ctrl.mcp_t_bar_unlatch = 0;
+	 tm_ctrl.mcp_t_bar_xport = tm_ctrl.mcp_t_bar_tel = 0;
       } else {
-	 tm_ctrl.mcp_t_bar_latch = latch_tbars;
-	 tm_ctrl.mcp_t_bar_unlatch = !latch_tbars;
+	 tm_ctrl.mcp_t_bar_xport = latch_tbars;
+	 tm_ctrl.mcp_t_bar_tel = !latch_tbars;
       }
       
       swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
