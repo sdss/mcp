@@ -1542,7 +1542,7 @@ read_fiducials(const char *file,	/* file to read from */
 					   (encoders 1,2) */
    int n_fiducials;			/* max number of fiducials */
    int nread;				/* number of values read from a line */
-   float scale1, scale2;		/* scales for encoder 1 and 2 */
+   double scale1, scale2;		/* scales for encoder 1 and 2 */
 
    switch (axis) {
     case AZIMUTH:
@@ -1599,7 +1599,7 @@ read_fiducials(const char *file,	/* file to read from */
 		     axis_name(axis), axis_str);
 	    }
 	 } else if((nread =
-		    sscanf(lptr, "Scales: %f %f", &scale1, &scale2)) > 1) {
+		    sscanf(lptr, "Scales: %lf %lf", &scale1, &scale2)) > 1) {
 	    fiducial[axis].scale[1] = scale1;
 	    if(nread > 1) {
 	       fiducial[axis].scale[2] = scale2;
