@@ -6,7 +6,7 @@ tyBackspaceSet(0x7F)
 memOptionsSet 0x1ff
 #
 hostAdd "sdsshost.apo.nmsu.edu", "192.41.211.171"
-hostAdd "tcc25m.apo.nmsu.edu",   "192.41.211.156"
+hostAdd "tai-time.apo.nmsu.edu", "192.41.211.156"
 hostAdd "utc-time.apo.nmsu.edu", "192.41.211.40"
 #
 routeAdd("0", "192.41.211.1")
