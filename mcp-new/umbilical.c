@@ -46,18 +46,18 @@ instrument_id(void)
       return(-1);			/* unknown */
    }
    
-   inst_id1 = ((sdssdc.status.i1.il8.inst_id1_1 << 3) + 
-	       (sdssdc.status.i1.il8.inst_id1_2 << 2) + 
-	       (sdssdc.status.i1.il8.inst_id1_3 << 1) + 
-	       (sdssdc.status.i1.il8.inst_id1_4 << 0));
-   inst_id2 = ((sdssdc.status.i1.il8.inst_id2_1 << 3) + 
-	       (sdssdc.status.i1.il8.inst_id2_2 << 2) + 
-	       (sdssdc.status.i1.il8.inst_id2_3 << 1) + 
-	       (sdssdc.status.i1.il8.inst_id2_4 << 0));
-   inst_id3 = ((sdssdc.status.i1.il8.inst_id3_1 << 3) + 
-	       (sdssdc.status.i1.il8.inst_id3_2 << 2) + 
-	       (sdssdc.status.i1.il8.inst_id3_3 << 1) + 
-	       (sdssdc.status.i1.il8.inst_id3_4 << 0));
+   inst_id1 = (((sdssdc.status.i1.il8.inst_id1_1 ? 0 : 1) << 3) + 
+	       ((sdssdc.status.i1.il8.inst_id1_2 ? 0 : 1) << 2) +
+	       ((sdssdc.status.i1.il8.inst_id1_3 ? 0 : 1) << 1) +
+	       ((sdssdc.status.i1.il8.inst_id1_4 ? 0 : 1) << 0));
+   inst_id2 = (((sdssdc.status.i1.il8.inst_id2_1 ? 0 : 1) << 3) + 
+	       ((sdssdc.status.i1.il8.inst_id2_2 ? 0 : 1) << 2) +
+	       ((sdssdc.status.i1.il8.inst_id2_3 ? 0 : 1) << 1) +
+	       ((sdssdc.status.i1.il8.inst_id2_4 ? 0 : 1) << 0));
+   inst_id3 = (((sdssdc.status.i1.il8.inst_id3_1 ? 0 : 1) << 3) + 
+	       ((sdssdc.status.i1.il8.inst_id3_2 ? 0 : 1) << 2) +
+	       ((sdssdc.status.i1.il8.inst_id3_3 ? 0 : 1) << 1) +
+	       ((sdssdc.status.i1.il8.inst_id3_4 ? 0 : 1) << 0));
 #if GUESS_INSTRUMENT
    pri_latch_opn = (sdssdc.status.i1.il8.pri_latch1_opn &&
 		    sdssdc.status.i1.il8.pri_latch2_opn &&
