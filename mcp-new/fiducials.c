@@ -33,6 +33,9 @@ struct LATCH_POS {
    double pos2;				/* second encoder position */
 };
 
+#define LATCH_ALL_AXES 0		/* if true, latch all axes if any
+					   are seen */
+
 void DIO316ClearISR_delay(void);
 static void restore_fiducials(int axis);
 static void tm_print_fiducial(int axis);
@@ -183,6 +186,7 @@ init_fiducial_log(FILE *fd)		/* file descriptor for file */
    fprintf(fd, "typedef struct {\n");
    fprintf(fd, "   int time;\n");
    fprintf(fd, "   AXIS axis;\n");
+   fprintf(fd, "   int pos1;\n");
    fprintf(fd, "   int error;\n");
    fprintf(fd, "} UPDATE_ENCODER;\n");
    fprintf(fd, "\n");
@@ -543,6 +547,10 @@ get_rot_fididx(const struct LATCH_POS *latchpos, /* the most recent pos. */
 **
 **=========================================================================
 */
+#if LATCH_ALL_AXES
+   int print_all_latches = 0;
+#endif
+
 void
 tLatch(const char *name)
 {
@@ -560,6 +568,9 @@ tLatch(const char *name)
    int ret;				/* a return code */
    long rot_latch = 0;			/* position of last rotary latch seen*/
    int status;
+#if LATCH_ALL_AXES
+   unsigned char true_dio316int_bit;	/* original value of dio316int_bit */
+#endif
    
    for(latchidx = -1;; latchidx = (latchidx + 1)%MAX_LATCHED) {
       if(latchidx < 0) {
@@ -683,6 +694,11 @@ tLatch(const char *name)
       assert(latchidx >= 0 && latchidx < MAX_LATCHED); 
       latchpos[latchidx].axis = -9;
 
+#if LATCH_ALL_AXES
+      true_dio316int_bit = dio316int_bit;
+      dio316int_bit |= AZIMUTH_INT | ALTITUDE_INT | INSTRUMENT_INT;
+#endif
+  
       if(dio316int_bit & AZIMUTH_INT) {
 	 latchpos[latchidx].axis = AZIMUTH;
 	 ret = semTake(semMEI,WAIT_FOREVER);
@@ -692,6 +708,14 @@ tLatch(const char *name)
 	 get_latched_position_corr(1, &latchpos[latchidx].pos2);
 	 semGive(semMEI);
 
+#if LATCH_ALL_AXES
+	 if(print_all_latches) {
+	    printf("Time: %d  Az: %.0f %.0f ", time(NULL), 
+		   latchpos[latchidx].pos1, latchpos[latchidx].pos2);
+	 }
+	 if(true_dio316int_bit & AZIMUTH_INT) {
+#endif
+	 
 	 fididx1 = barcode_serial(3); /* backwards from what you'd think */
 	 fididx = barcode_serial(3);	/* read twice...not reliable */
 	 if(fididx <= 0 || fididx > 24) {
@@ -739,7 +763,11 @@ tLatch(const char *name)
 	       maybe_reset_axis_pos(AZIMUTH, 1, az_fiducial[fididx].poserr, 0);
 	    }
 	 }
+#if LATCH_ALL_AXES
       }
+#endif
+      }
+
       
       if(dio316int_bit & ALTITUDE_INT) {
 	 latchpos[latchidx].axis = ALTITUDE;
@@ -750,6 +778,13 @@ tLatch(const char *name)
 	 get_latched_position_corr(3,&latchpos[latchidx].pos2);
 	 semGive(semMEI);
 
+#if LATCH_ALL_AXES
+	 if(print_all_latches) {
+	    printf("Alt: %.0f %.0f ",
+		   latchpos[latchidx].pos1, latchpos[latchidx].pos2);
+	 }
+	 if(true_dio316int_bit & ALTITUDE_INT) {
+#endif
 /*
  * turned off (failed hardware)
  * clinometer does a better job
@@ -796,6 +831,9 @@ tLatch(const char *name)
 	    fiducialidx[ALTITUDE] = fididx;
 	    maybe_reset_axis_pos(ALTITUDE, 1, alt_fiducial[fididx].poserr, 0);
 	 }
+#if LATCH_ALL_AXES
+      }
+#endif
       }
       
       if(dio316int_bit & INSTRUMENT_INT) {
@@ -816,6 +854,13 @@ tLatch(const char *name)
 #endif
 	 semGive(semMEI);
 	 
+#if LATCH_ALL_AXES
+	 if(print_all_latches) {
+	    printf("Rot: %.0f %.0f\n",
+		   latchpos[latchidx].pos1, latchpos[latchidx].pos2);
+	 }
+	 if(true_dio316int_bit & INSTRUMENT_INT) {
+#endif
 /*
  * have we already seen a rotator fiducial? If so, we know where we are on
  * the tape as the position of every other fiducial is dithered a little
@@ -917,6 +962,9 @@ tLatch(const char *name)
 	 }
       
 	 fiducial[INSTRUMENT].last_latch = rot_latch = latchpos[latchidx].pos1;
+#if LATCH_ALL_AXES
+      }
+#endif
       }
 
       semGive(semLatch);
