@@ -183,11 +183,11 @@ void swapwords (register short *dp, register unsigned short len)
 **
 **=========================================================================
 */
-void mei_data_collection(unsigned long freq)
+void
+mei_data_collection(unsigned long freq)
 {
 	int i;
 	int rotate;
-        void restore_pos();
 	
 	/*  ****************************************************  **
 		put whatever type of motion you want to sample here.
@@ -561,30 +561,26 @@ void DataCollectionTrigger()
 **
 **=========================================================================
 */
-int dc_interrupt()
+int
+dc_interrupt(void)
 {
-  unsigned char val;
-  int ikey;
+   unsigned char val;
+   int ikey;
+   
+   ikey = intLock();
 
-  ikey=intLock();
-  DIO316_Read_Port (cw_DIO316,DC_INTERRUPT,&val);
-  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val|DC_INTPULSE);
-  DIO316_Write_Port (cw_DIO316,DC_INTERRUPT,val);
-  intUnlock(ikey);
-  return 0;
+   DIO316_Read_Port(cw_DIO316,DC_INTERRUPT,&val);
+   DIO316_Write_Port(cw_DIO316,DC_INTERRUPT,val|DC_INTPULSE);
+   DIO316_Write_Port(cw_DIO316,DC_INTERRUPT,val);
+
+   intUnlock(ikey);
+
+   return 0;
 }
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: restore_pos
-**
-** DESCRIPTION:
 **	Restore positions after a boot from shared memory
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
 **
 ** GLOBALS REFERENCED:
 **	sdssdc
@@ -592,22 +588,19 @@ int dc_interrupt()
 **=========================================================================
 */
 void
-restore_pos()
+restore_pos(void)
 {
-  struct SDSS_FRAME *save;
-  struct TM_M68K *restore;
-  int i;
-
-  if (SM_COPY)
-  {
-    save=(struct SDSS_FRAME *)(SHARE_MEMORY+2);
-    for (i=0;i<3;i++)
-    { 
-      restore=(struct TM_M68K *) &save->axis[i];
-      tm_set_pos(i*2,restore->actual_position);
-/*      if (i==2) tm_set_pos((i*2)+1,restore->actual_position2);*/
-      if (i==2) tm_set_pos(3,restore->actual_position2);
-      if (i==2) tm_set_pos(5,restore->actual_position2);
-    }
-  }
+   struct SDSS_FRAME *save;
+   struct TM_M68K *restore;
+   int i;
+   
+   if(SM_COPY) {
+      save = (struct SDSS_FRAME *)(SHARE_MEMORY + 2);
+      for(i = 0; i < NAXIS; i++) { 
+	 restore = (struct TM_M68K *)&save->axis[i];
+	 
+	 tm_set_pos(2*i, restore->actual_position);
+	 tm_set_pos(2*i + 1,restore->actual_position2);
+      }
+   }
 }
