@@ -17,15 +17,18 @@
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
-#include "vxWorks.h"
-#include "stdio.h"
-#include "ctype.h"
-#include "semLib.h"
-#include "sigLib.h"
-#include "tickLib.h"
-#include "inetLib.h"
+#include <vxWorks.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <semLib.h>
+#include <sigLib.h>
+#include <tickLib.h>
+#include <inetLib.h>
+#include <symLib.h>
+#include <sysSymTbl.h>
 #include "in.h"
-#include "string.h"
 #include "frame.h"
 #include "ms.h"
 #include "idsp.h"
@@ -33,6 +36,7 @@
 #include "axis.h"
 #include "cmd.h"
 #include "dscTrace.h"
+#include "mcpFiducials.h"
 
 /*****************************************************************************/
 /*
@@ -46,6 +50,7 @@ static int spectograph_select = -1;	/* -1 == ERROR  */
  */
 static char *
 amp_reset_cmd(char *cmd)		/* NOTUSED */
+	   
 {
    mcp_amp_reset(axis_select);
 
@@ -54,6 +59,7 @@ amp_reset_cmd(char *cmd)		/* NOTUSED */
 
 static char *
 hold_cmd(char *cmd)			/* NOTUSED */
+
 {
    mcp_hold(axis_select);
 
@@ -238,82 +244,77 @@ tbar_latch_cmd(char *cmd)
 /*****************************************************************************/
 
 struct COMMANDS axis_cmds[] = {
-	{"\033",reboot_cmd},
-	{"AMP.RESET",amp_reset_cmd},
-	{"AXIS.STATUS",axis_status_cmd},
-	{"SYSTEM.STATUS", system_status_cmd},
-	{"CORRECT",correct_cmd},
-	{"DRIFT",drift_cmd},
-	{"HALT",hold_cmd},
-	{"HOLD",hold_cmd},
-	{"ID",id_cmd},
-	{"INIT",init_cmd},
-	{"MAXACC",maxacc_cmd},
-	{"MAXVEL",maxvel_cmd},
-	{"MC.DUMP",mc_dump_cmd},
-	{"MC.MAXACC",mc_maxacc_cmd},
-	{"MC.MAXPOS",mc_maxpos_cmd},
-	{"MC.MAXVEL",mc_maxvel_cmd},
-	{"MC.MINPOS",mc_minpos_cmd},
-	{"MOVE",move_cmd},
-	{"+MOVE",plus_move_cmd},
-	{"SET.POS.VA",set_pos_va_cmd},
-	{"MR.DUMP",mr_dump_cmd},
-	{"MS.DUMP",ms_dump_cmd},
-	{"MS.MAP.DUMP",ms_map_dump_cmd},
-	{"MS.MAP.LOAD",ms_map_load_cmd},
-	{"MS.OFF",ms_off_cmd},
-	{"MS.ON",ms_on_cmd},
-	{"MS.POS.DUMP",ms_pos_dump_cmd},
-	{"SET.MONITOR", set_monitor_cmd},
-	{"REMAP",remap_cmd},
-	{"IR",rot_cmd},
-	{"SET.LIMITS",set_limits_cmd},
-	{"SET.TIME",set_time_cmd},
-	{"STATS",stats_cmd},
-	{"STATUS.LONG",status_long_cmd},
-	{"STATUS",status_cmd},
-	{"STOP",stop_cmd},
-	{"TEL1",tel1_cmd},
-	{"TEL2",tel2_cmd},
-	{"TICKLOST @ .",ticklost_cmd},
-	{"TIME?",time_cmd},
-	{"BRAKE.ON",brakeon_cmd},
-	{"BRAKE.OFF",brakeoff_cmd},
-	{"CLAMP.ON",clampon_cmd},
-	{"CLAMP.OFF",clampoff_cmd},
-	{"CWMOV",cwmov_cmd},
-	{"CWINST",cwinst_cmd},
-	{"CWABORT",cwabort_cmd},
-	{"SET.FIDUCIAL",set_fiducial_cmd},
-	{"SET.POSITION",set_pos_cmd},
-	{"SET.VELOCITY",set_vel_cmd},
-	{"CW.STATUS",cwstatus_cmd},
-	{"SP1",sp1_cmd},
-	{"SP2",sp2_cmd},
-	{"SLITDOOR.CLEAR",slitdoor_clear_cmd},
-	{"SLITDOOR.CLOSE",slitdoor_close_cmd},
-	{"SLITDOOR.OPEN",slitdoor_open_cmd},
-	{"SLITHEADLATCH.CLOSE",slithead_latch_close_cmd},
-	{"SLITHEADLATCH.OPEN",slithead_latch_open_cmd},
-	{"SLITHEADLATCH.RET",slithead_latch_close_cmd},
-	{"SLITHEADLATCH.EXT",slithead_latch_open_cmd},
-	{"SLIT.STATUS",slitstatus_cmd},
-	{"FFS.CLOSE",ffsclose_cmd},
-	{"FFS.OPEN",ffsopen_cmd},
-	{"FF.ON",fflon_cmd},
-	{"FF.OFF",ffloff_cmd},
-	{"FFL.ON",fflon_cmd},
-	{"FFL.OFF",ffloff_cmd},
-	{"NE.ON",neon_cmd},
-	{"NE.OFF",neoff_cmd},
-	{"HGCD.ON",hgcdon_cmd},
-	{"HGCD.OFF",hgcdoff_cmd},
-	{"FF.STATUS",ffstatus_cmd},
-	{"AB.STATUS",abstatus_cmd},
-	{"TBAR.LATCH",tbar_latch_cmd},
-	{"VERSION",version_cmd},
-	{NULL,dummy_cmd}		/* termination */
+	{"AMP.RESET", amp_reset_cmd, 0, 1, 1},
+	{"AXIS.STATUS", axis_status_cmd, 0, 0, 0},
+	{"SYSTEM.STATUS", system_status_cmd, 0, 0, 0},
+	{"CORRECT", correct_cmd, 0, 1, 1},
+	{"DRIFT", drift_cmd, 0, 1, 1},
+	{"HALT", hold_cmd, 0, 1, 1},
+	{"HOLD", hold_cmd, 0, 1, 1},
+	{"ID", id_cmd, 0, 0, 1},
+	{"INIT", init_cmd, 0, 1, 1},
+	{"MAXACC", maxacc_cmd, 1},
+	{"MAXVEL", maxvel_cmd, 1},
+	{"MC.DUMP", mc_dump_cmd, 0, 0, 1},
+	{"MC.MAXACC", mc_maxacc_cmd, 0, 0, 1},
+	{"MC.MAXPOS", mc_maxpos_cmd, 0, 0, 1},
+	{"MC.MAXVEL", mc_maxvel_cmd, 0, 0, 1},
+	{"MC.MINPOS", mc_minpos_cmd, 0, 0, 1},
+	{"MOVE", move_cmd, -1, 1, 1},
+	{"+MOVE", plus_move_cmd, -1, 1, 1},
+	{"SET.POS.VA", set_pos_va_cmd, 3, 1, 1},
+	{"MS.MAP.DUMP", ms_map_dump_cmd, 0, 0, 1},
+	{"MS.MAP.LOAD", ms_map_load_cmd, 0, 1, 1},
+	{"MS.OFF", ms_off_cmd, 0, 1, 1},
+	{"MS.ON", ms_on_cmd, 0, 1, 1},
+	{"SET.MONITOR", set_monitor_cmd, 1},
+	{"IR", rot_cmd, 0, 0, 0},
+	{"SET.LIMITS", set_limits_cmd, 2, 1, 1},
+	{"SET.TIME", set_time_cmd, -1, 1, 1},
+	{"STATS", stats_cmd, 0, 0, 1},
+	{"STATUS.LONG", status_long_cmd, 0, 0, 1},
+	{"STATUS", status_cmd, 0, 0, 1},
+	{"STOP", stop_cmd, 0, 1, 1},
+	{"TEL1", tel1_cmd, 0, 0, 0},
+	{"TEL2",tel2_cmd, 0, 0, 0},
+	{"TICKLOST @ .", ticklost_cmd, 0, 0, 1},
+	{"TIME?", time_cmd, 0, 0, 1},
+	{"BRAKE.ON", brakeon_cmd, 0, 1, 1},
+	{"BRAKE.OFF", brakeoff_cmd, 0, 1, 1},
+	{"CLAMP.ON", clampon_cmd, 0, 1, 1},
+	{"CLAMP.OFF", clampoff_cmd, 0, 1, 1},
+	{"CWMOV", cwmov_cmd, 2, 1, 1},
+	{"CWINST", cwinst_cmd, 1, 1, 1},
+	{"CWABORT", cwabort_cmd, 0, 1, 1},
+	{"SET.FIDUCIAL", set_fiducial_cmd, 0, 1, 1},
+	{"SET.POSITION", set_pos_cmd, 1, 1, 1},
+	{"SET.VELOCITY", set_vel_cmd, 1, 1, 1},
+	{"CW.STATUS", cwstatus_cmd, 0, 0, 1},
+	{"SP1", sp1_cmd, 0, 0, 0},
+	{"SP2", sp2_cmd, 0, 0, 0},
+	{"SLITDOOR.CLEAR", slitdoor_clear_cmd, 0, 1, 1},
+	{"SLITDOOR.CLOSE", slitdoor_close_cmd, 0, 1, 1},
+	{"SLITDOOR.OPEN", slitdoor_open_cmd, 0, 1, 1},
+	{"SLITHEADLATCH.CLOSE", slithead_latch_close_cmd, 0, 1, 1},
+	{"SLITHEADLATCH.OPEN", slithead_latch_open_cmd, 0, 1, 1},
+	{"SLITHEADLATCH.RET", slithead_latch_close_cmd, 0, 1, 1},
+	{"SLITHEADLATCH.EXT", slithead_latch_open_cmd, 0, 1, 1},
+	{"SLIT.STATUS", slitstatus_cmd, 0, 0, 1},
+	{"FFS.CLOSE", ffsclose_cmd, 0, 0, 1},
+	{"FFS.OPEN", ffsopen_cmd, 0, 0, 1},
+	{"FF.ON", fflon_cmd, 0, 0, 1},
+	{"FF.OFF", ffloff_cmd, 0, 0, 1},
+	{"FFL.ON", fflon_cmd, 0, 0, 1},
+	{"FFL.OFF", ffloff_cmd, 0, 0, 1},
+	{"NE.ON", neon_cmd, 0, 0, 1},
+	{"NE.OFF", neoff_cmd, 0, 0, 1},
+	{"HGCD.ON", hgcdon_cmd, 0, 0, 1},
+	{"HGCD.OFF", hgcdoff_cmd, 0, 0, 1},
+	{"FF.STATUS", ffstatus_cmd, 0, 0, 1},
+	{"AB.STATUS", abstatus_cmd, 2, 0, 1},
+	{"TBAR.LATCH", tbar_latch_cmd, 1, 1, 1},
+	{"VERSION", version_cmd, 0, 0, 1},
+	{NULL, dummy_cmd, 0, 1, 1}	/* termination */
 };
 
 /*========================================================================
@@ -327,7 +328,7 @@ struct COMMANDS axis_cmds[] = {
 **
 ** LOCAL DEFINITIONS
 */
-static SEM_ID semCMD=0;
+static SEM_ID semCMD = NULL;
 /*-------------------------------------------------------------------------
 **
 ** GLOBAL VARIABLES
@@ -340,34 +341,85 @@ static SEM_ID semCMD=0;
 /* test message buffer  */
 char sdss_version[100];
 int CMD_verbose=FALSE;
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cmd_init
-**
-** DESCRIPTION:
-**      Initializes the semaphore
-**
-** RETURN VALUES:
-**      int 	always zero
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-int
-cmd_init()
-{
-  printf ("\r\n%s\r\n",sdss_version);
-  if(semCMD == 0) {
-     semCMD = semMCreate (SEM_Q_FIFO);
-  }
 
-  return 0;
+#define USE_VX_SYMBOL_TBL 1
+#if USE_VX_SYMBOL_TBL
+   SYMTAB_ID cmdSymTbl = NULL;
+#endif
+
+/*
+ * Set up the command interpreter
+ */
+int
+cmd_init(void)
+{
+   struct COMMANDS *cmd;
+     
+   if(semCMD == NULL) {
+      semCMD = semMCreate (SEM_Q_FIFO);
+   }
+#if USE_VX_SYMBOL_TBL
+   if(cmdSymTbl == NULL) {
+      cmdSymTbl = symTblCreate(256, FALSE, memSysPartId);
+      assert(cmdSymTbl != NULL);
+   }
+
+   for(cmd = &axis_cmds[0]; cmd->command != NULL; cmd++) {
+      define_cmd(cmd->command, cmd->function,
+		 cmd->narg, cmd->locked, cmd->murmur);
+   }
+#endif
+   return 0;
 }
+
+/*
+ * Define a command that can be executed via the serial or TCP interface;
+ * both upper and lower case is allowed (but not mixed)
+ */
+void
+define_cmd(char *name,			/* name of command */
+	   char *(*addr)(char *),	/* function to call */
+	   int narg,			/* number of arguments */
+	   int locked,			/* does this cmd require semCmdPort? */
+	   int murmur)			/* should cmd be echoed to murmur? */
+{
+   int i, j;
+   int status;
+   SYM_TYPE type;			/* type for this symbol */
+
+   if(narg < 0) {
+      narg = 0;
+      type = CMD_TYPE_VARARG;
+   } else {
+      assert(narg == (narg & CMD_TYPE_NARG)); /*there are enough bits in mask*/
+      type = narg;
+   }
+   if(locked) type |= CMD_TYPE_LOCKED;
+   if(murmur) type |= CMD_TYPE_MURMUR;
+
+   for(j = 0; j < 2; j++) {
+      if(j == 0) {			/* upper case the string */
+         for(i = 0;i < strlen(name); i++) {
+	    if(islower(name[i])) {
+	       name[i] = toupper(name[i]);
+	    }
+	 }
+      } else {				/* lower case the string */
+         for(i = 0;i < strlen(name); i++) {
+	    if(isupper(name[i])) {
+	       name[i] = tolower(name[i]);
+	    }
+	 }
+      }
+
+      status = symAdd(cmdSymTbl, name, (char *)addr, type, 0);
+      
+      if(status != OK) {
+	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg);
+      }
+   }
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -386,23 +438,94 @@ cmd_init()
 **=========================================================================
 */
 char *
-cmd_handler(char *cmd)
+cmd_handler(int have_sem,		/* we have semCmdPort */
+	    char *cmd)			/* command to execute */
 {
-  int i;
-  struct COMMANDS *cmd_list;
-  static char *cmd_error={"ERR: CMD ERROR"};
-  char *ans;
+   char *ans;
+#if !USE_VX_SYMBOL_TBL
+   int i;
+   struct COMMANDS *cmd_list;
+#endif
+   static char *cmd_error = "ERR: CMD ERROR";
+   static char *sem_error = "ERR: I don't have the semCmdPort semaphore";
+   int varargs;				/* we don't know how many arguments
+					   to expect */
 
-  if (CMD_verbose) {
-    printf ("cmd_handler:  SDSS Cmd>>%s<<\r\n",cmd);
- }
+   if (CMD_verbose) {
+      printf ("cmd_handler:  SDSS Cmd>>%s<<\r\n",cmd);
+   }
+   
+   semTake(semCMD, WAIT_FOREVER);
+   ans=NULL;				/* ans is returned from function */
+   
+#if USE_VX_SYMBOL_TBL
+  {
+     char *(*addr)(char *);		/* function pointer */
+     char *args;			/* arguments for this command */
+     char *cmd_str = cmd;		/* pointer to cmd; or NULL */
+     int lvl;				/* level for TRACE */
+     int nskip;				/* number of tokens to skip */
+     char *tok;				/* a token from cmd */
+     SYM_TYPE type;			/* actually number of arguments */
+
+     nskip = varargs = 0;
+     while((tok = strtok(cmd_str, " \t")) != NULL) {
+	cmd_str = NULL;
+
+	if(*tok == '\0') {		/* more than one separator char */
+	   continue;
+	}
+
+	if(nskip > 0) {			/* skipping arguments to last cmd */
+	   nskip--;
+	   continue;
+	} else if(varargs) {		/* unknown number of arguments */
+	   if(*tok != '+' && !isalpha(*tok)) {
+	      continue;
+	   }
+	}
+     
+	if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
+	   TRACE(1, "Unknown command %s", tok, 0);
+
+	   semGive(semCMD);
+	   return(cmd_error);
+	} else {
+	   lvl = 5;
+	   if(!(type & CMD_TYPE_MURMUR)) {
+	      lvl += 2;
+	   }
+	   if(client_pid <= 0) {
+	      lvl += 2;
+	   }
+
+	   TRACE((lvl + 2), "PID %d: command %s", client_pid, tok);
+
+	   if((type & CMD_TYPE_LOCKED) && !have_sem) {
+	      semGive(semCMD);
+	      return(sem_error);
+	   }
+
+	   nskip = type & CMD_TYPE_NARG;
+	   if(type & CMD_TYPE_VARARG) {
+	      varargs = 1;
+	   }
+	   if(nskip == 0) {
+	      args = "";
+	   } else {
+	      args = strtok(cmd_str, "");
+	   }
+	   TRACE(lvl, "Command %s: %s\n", tok, args);
+	}
+    
+	ans = (*addr)(args);		/* actually do the work */
+     }
+  }
+#else
 
   for(i = 0;i < strlen(cmd); i++) {
      cmd[i]=toupper(cmd[i]);		/* upper case the string */
   }
-  
-  semTake(semCMD, WAIT_FOREVER);
-  ans=NULL;				/* ans is returned from function */
   
   while (cmd != NULL && *cmd != '\0') {
     cmd_list = &axis_cmds[0];			/* top of search list */
@@ -423,6 +546,9 @@ cmd_handler(char *cmd)
 	  strcmp(cmd_list->command, "SYSTEM.STATUS") == 0) {
 	  lvl += 2;
        }
+       if(client_pid <= 0) {
+	  lvl += 2;
+       } 
        TRACE(lvl, "PID %d: command %s", client_pid, cmd_list->command);
     }
     
@@ -444,6 +570,7 @@ cmd_handler(char *cmd)
  */
     cmd = strpbrk(cmd,"ABCDEFGHIJKLMNOPQRSTUVWXYZ+");
   }
+#endif
   semGive(semCMD);
   
   if(CMD_verbose) {
@@ -452,7 +579,58 @@ cmd_handler(char *cmd)
   
   return ans;
 }
-
+
+/*****************************************************************************/
+/*
+ * List all available commands
+ */
+#if USE_VX_SYMBOL_TBL
+
+BOOL
+print_a_cmd(char *name,			/* name of command */
+	    int val,			/* value of entry */
+	    SYM_TYPE type,		/* type of entry */
+	    int ipattern,		/* pattern to match commands, or 0 */
+	    UINT16 group)		/* NOTUSED */
+{
+   char funcname[50] = "";		/* name of function called */
+   int funcval = 0;			/* value of funcname */
+   SYM_TYPE functype = 0;		/* type of function called */
+   char *pattern = (ipattern == 0) ? NULL : (char *)ipattern;
+   
+   if(!isupper(name[1])) {		/* lower case only; +move starts '+' */
+      return(TRUE);
+   }
+
+   if(pattern != NULL && strstr(name, pattern) == NULL) {
+      return(TRUE);			/* pattern doesn't match */
+   }
+
+   symFindByValue(sysSymTbl, val, funcname, &funcval, &functype);
+   if(val != funcval) {
+      strcpy(funcname, "(static)");
+   }
+   
+   printf("%-20s %-20s  %-4d %-6d %-10d %d\n", name, funcname,
+	  (type & CMD_TYPE_NARG),
+	  (type & CMD_TYPE_VARARG ? 1 : 0),
+	  (type & CMD_TYPE_LOCKED ? 1 : 0),
+	  (type & CMD_TYPE_MURMUR ? 1 : 0));
+
+
+   return(TRUE);
+}
+
+void
+cmdList(char *pattern)
+{
+   printf("%-20s %-20s  %-4s %-6s %-10s %s\n\n",
+	  "Name", " Function", "Narg", "Vararg", "Restricted", "Print");
+
+   symEach(cmdSymTbl, (FUNCPTR)print_a_cmd, (int)pattern);
+}
+#endif
+
 /*=========================================================================
 **=========================================================================
 **
@@ -472,7 +650,7 @@ cmd_handler(char *cmd)
 **=========================================================================
 */
 char *
-dummy_cmd(char *cmd)
+dummy_cmd(char *cmd)			/* NOTUSED */
 {
   printf (" DUMMY command fired\r\n");
   return "ERR: Dummy command - no action routine";
