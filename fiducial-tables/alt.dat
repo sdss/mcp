@@ -1,16 +1,16 @@
 #
 # altitude fiducials
 #
-# Time:    Thu May 10 22:23:52 MDT 2001
-# File:    /home/neilsen/mcptpm/52040/mcpFiducials-52040.dat
+# Time:    Sat Jun 09 01:54:47 MDT 2001
+# File:    /mcptpm/52069/mcpFiducials-52069.dat
 # Encoder: pos1
 # Scale:   0
-# Arguments: -mjd 52040 -dir /home/neilsen/mcptpm/52040 -time0 989545957 -time1 989546914 -alt -y pos1 -canon -reset -table /home/neilsen/mcptpm/52040/alt.dat
+# Arguments: -mjd 52069 -alt -y pos1 -canon -reset -scale -time0 992065491 -time1 992066460 -table alt.dat
 #
 # Fiducial Mark +- error  npoint
-1      3825222 +-      12.6 5
-2      7433863 +-       5.7 6
-3     11772410 +-       3.0 7
-4     15433220 +-       0.0 7
-5     19322925 +-       4.2 7
-6     23091759 +-      26.8 7
+1      3825222 +-      11.5 6
+2      7433867 +-      24.6 6
+3     11772479 +-      24.2 7
+4     15433324 +-       0.0 7
+5     19323039 +-      16.7 7
+6     23091850 +-      15.8 7

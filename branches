@@ -42,3 +42,10 @@ Tue May 29 15:18:00 MDT 2001
 
 	cvs rtag v5_1_0 mcp
 	cvs rtag -r v5_1_0 -b v5_1 mcp
+
+??? Created v5_2 branch
+
+Mon Jun 25 09:48:40 MDT 2001		RHL
+	cvs update -j v5_2_0 -j v5_2_1
+	cvs ci -m "Merged back from v5_2 branch at point v5_2_1"
+	
