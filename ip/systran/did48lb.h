@@ -20,6 +20,9 @@
 #include "types.h"
 #include "did48ld.h"
 
+/* initialization - FNAL */
+int DID48Init(struct DID48 *addr, int vecno);
+
 /* hardware dependent routines */
 int DID48_Read_Reg(int, int, u_int16 *);
 int DID48_Read_ID_PROM(int, u_int8 *);

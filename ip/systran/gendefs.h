@@ -36,7 +36,9 @@
 /*                                                                          */
 /****************************************************************************/
 
+#ifndef ERROR
 #define ERROR -1
+#endif
 #define E_ILLARG	-2
 #define E_BUSERR	-3
 #define NULL 		0
@@ -75,5 +77,15 @@ struct ADC128F1 {
 		}REG;
 	unsigned short reserved;
 	unsigned short unused[0x35];
+	unsigned short ID[12];                                                       
+};
+#define MAX_DID48	8
+struct DID48 {
+	union {
+		unsigned short rg16[8];
+		unsigned char rg8[16];
+		}REG;
+	unsigned short reserved;
+	unsigned short unused[0x37];
 	unsigned short ID[12];                                                       
 };

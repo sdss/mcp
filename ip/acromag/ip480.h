@@ -177,3 +177,35 @@ struct handler_data {
    int h_pid;
    char* hd_ptr;
    };
+
+/* function protypes - FNAL */
+IPSTAT GetInterruptVector(struct conf_blk *c_blk, BYTE *vector);
+IPSTAT SetInterruptVector(struct conf_blk *c_blk, BYTE *vector);
+IPSTAT ReadCounter(struct conf_blk *c_blk, int counter, ULONG val);
+IPSTAT GetCounterConstant(struct conf_blk *c_blk, int counter, ULONG val);
+IPSTAT SetCounterConstant(struct conf_blk *c_blk, int counter, ULONG val);
+IPSTAT WriteCounterConstant(struct conf_blk *c_blk, int counter);
+IPSTAT GetMode(struct conf_blk *c_blk, int counter, BYTE *mode);
+IPSTAT SetMode(struct conf_blk *c_blk, int counter,  BYTE mode);
+IPSTAT GetDebounce(struct conf_blk *c_blk, int counter, BOOL *debounce);
+IPSTAT SetDebounce(struct conf_blk *c_blk, int counter, BOOL debounce);
+IPSTAT GetInterruptEnable(struct conf_blk *c_blk, int counter, BOOL *enable);
+IPSTAT SetInterruptEnable(struct conf_blk *c_blk, int counter, BOOL enable);
+IPSTAT GetCounterSize(struct conf_blk *c_blk, int counter, BOOL *size);
+IPSTAT SetCounterSize(struct conf_blk *c_blk, int counter, BOOL size);
+IPSTAT GetClockSource(struct conf_blk *c_blk, int counter, BYTE *source);
+IPSTAT SetClockSource(struct conf_blk *c_blk, int counter, BYTE source);
+IPSTAT GetTriggerSource(struct conf_blk *c_blk, int counter, BYTE *trigger);
+IPSTAT SetTriggerSource(struct conf_blk *c_blk, int counter, BYTE trigger);
+IPSTAT GetWatchdogLoad(struct conf_blk *c_blk, int counter, BOOL *load);
+IPSTAT SetWatchdogLoad(struct conf_blk *c_blk, int counter, BOOL load);
+IPSTAT GetOutputPolarity(struct conf_blk *c_blk, int counter, BYTE *polarity);
+IPSTAT SetOutputPolarity(struct conf_blk *c_blk, int counter, BYTE polarity);
+IPSTAT GetInputPolarity(struct conf_blk *c_blk, int counter, BYTE *polarity);
+IPSTAT SetInputPolarity(struct conf_blk *c_blk, int counter, BYTE polarity);
+IPSTAT StopCounter(struct conf_blk *c_blk, int counter);
+IPSTAT DisableInterrupt(struct conf_blk *c_blk, int counter);
+IPSTAT StartCounter(struct conf_blk *c_blk, int counter);
+IPSTAT StopCounter(struct conf_blk *c_blk, int counter);
+IPSTAT StartSimultaneousCounters(struct conf_blk *c_blk, BYTE mask);
+IPSTAT ConfigureCounterTimer(struct conf_blk *c_blk, int counter);

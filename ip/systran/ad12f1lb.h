@@ -38,14 +38,15 @@
 /*                                                                          */
 /****************************************************************************/
 
-#include <types.h>
 #include "ad12f1ld.h"
 
+/* initialization - FNAL */
+int ADC128F1Init(struct ADC128F1 *addr);
 
 /* hardware dependent routines */
-int ADC128F1_Read_Reg(int, int, u_int16 *);
-int ADC128F1_Read_ID_PROM(int, u_int8 *);
-int ADC128F1_Write_Reg(int, int, u_int16);
+int ADC128F1_Read_Reg(int, int, unsigned short *);
+int ADC128F1_Read_ID_PROM(int, unsigned char *);
+int ADC128F1_Write_Reg(int, int, unsigned short);
 
 /* operation routines */
 int ADC128F1_Read_Volts(int, int, float *);

@@ -40,6 +40,9 @@
 
 #include <types.h>
 
+/* initialization - FNAL */
+int DAC128VInit(struct DAC128V *addr);
+
 /* hardware dependent routines */
 int DAC128V_Read_Reg(int, int, u_int16 *);
 int DAC128V_Read_ID_PROM(int, u_int8 *);

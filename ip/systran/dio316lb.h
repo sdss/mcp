@@ -41,6 +41,9 @@
 #include "types.h"
 #include "dio316ld.h"
 
+/* initialization - FNAL */
+int DIO316Init(struct DIO316 *addr, int vecno);
+
 /* hardware dependent routines */
 int DIO316_Read_Reg(int, int, u_int16 *);
 int DIO316_Read_ID_PROM(int, u_int8 *);

@@ -1,8 +1,17 @@
 * text=auto !eol
+ab/Makefile -text
+ab/abdh.h -text
+ab/dhpd.c -text
+ab/diag.c -text
+ab/diag.h -text
+ab/rdslc.c -text
+ab/sbslc.c -text
 ab/sddhp.bin -text svneol=unset#unset
 ab/sdhdhp.bin -text svneol=unset#unset
 ab/sdssabb3.dat -text
 ab/sdudhp.bin -text
+ab/std_dhp.c -text
+ab/std_dhp.h -text
 ip/Makefile -text
 ip/acromag/carrier.c -text
 ip/acromag/cnfg480.c -text
