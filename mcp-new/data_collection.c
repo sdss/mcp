@@ -37,7 +37,8 @@
 #include "io.h"
 #include "abdh.h"
 #include "ipcast.h"
-#include "axis.h"
+#include "axis.h"			/* needed, also checks SHARE_MEMORY's
+					   definition is consistent */
 #include "cw.h"
 #include "instruments.h"
 #include "dscTrace.h"
@@ -51,7 +52,7 @@
 */
 /*------------------------------------------------------------------------
 **
-** LOCAL DEFINITIONS
+** LOCAL DEFINITIONS. This one is repeated in axix_cmds.c
 */
 #define SHARE_MEMORY	0x02800000
  
@@ -71,38 +72,7 @@ unsigned long DC_freq=0;
 unsigned long mei_freq=1;
 unsigned long slc_freq=100;
 int BCAST_Enable=TRUE;
-long *axis0pos=NULL;		/* AZ axis */
-long *axis0cmd=NULL;
-short *dac0out=NULL;
-short *axis0err=NULL;
-short *axis0velf=NULL;
-long *axis0vel=NULL;
-short *axis0accelf=NULL;
-long *axis0accel=NULL;
-long *axis0tim=NULL;
-long *axis1pos=NULL;
 
-long *axis2pos=NULL;		/* AL axis */
-long *axis2cmd=NULL;
-short *dac2out=NULL;
-short *axis2err=NULL;
-short *axis2velf=NULL;
-long *axis2vel=NULL;
-short *axis2accelf=NULL;
-long *axis2accel=NULL;
-long *axis2tim=NULL;
-long *axis3pos=NULL;
-
-long *axis4pos=NULL;		/* IR axis */
-long *axis4cmd=NULL;
-short *dac4out=NULL;
-short *axis4err=NULL;
-short *axis4velf=NULL;
-long *axis4vel=NULL;
-short *axis4accelf=NULL;
-long *axis4accel=NULL;
-long *axis4tim=NULL;
-long *axis5pos=NULL;
 float sdss_time_dc;
 
 struct SDSS_FRAME sdssdc={SDSS_FRAME_VERSION,DATA_TYPE};
@@ -186,96 +156,82 @@ void swapwords (register short *dp, register unsigned short len)
 void
 mei_data_collection(unsigned long freq)
 {
-	int i;
-	int rotate;
-	
-	/*  ****************************************************  **
-		put whatever type of motion you want to sample here.
-	**  ****************************************************  */
-  	if (semMEIDC==NULL) semMEIDC = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
-  	if (semMEIUPD==NULL) semMEIUPD = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-        restore_pos();
-	mei_freq=freq;
-	axis0pos=&tmaxis[0]->actual_position;
-	axis0cmd=&tmaxis[0]->position;
-	dac0out=&tmaxis[0]->voltage;
-	axis0err=&tmaxis[0]->error;
-	axis0velf=&tmaxis[0]->velocity_fractional;
-	axis0vel=&tmaxis[0]->velocity;
-	axis0accelf=&tmaxis[0]->acceleration_fractional;
-	axis0accel=&tmaxis[0]->acceleration;
-	axis0tim=&tmaxis[0]->time;
-	axis1pos=&tmaxis[0]->actual_position2;
+   int i;
+   int rotate;
+   
+   /*  ****************************************************  **
+       put whatever type of motion you want to sample here.
+       **  ****************************************************  */
+   if(semMEIDC == NULL) {
+      semMEIDC = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
+   }
+   if(semMEIUPD == NULL) {
+      semMEIUPD = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+   }
+   
+   mei_freq = freq;
 
-	axis2pos=&tmaxis[1]->actual_position;
-	axis2cmd=&tmaxis[1]->position;
-	dac2out=&tmaxis[1]->voltage;
-	axis2err=&tmaxis[1]->error;
-	axis2velf=&tmaxis[1]->velocity_fractional;
-	axis2vel=&tmaxis[1]->velocity;
-	axis2accelf=&tmaxis[1]->acceleration_fractional;
-	axis2accel=&tmaxis[1]->acceleration;
-	axis2tim=&tmaxis[1]->time;
-	axis3pos=&tmaxis[1]->actual_position2;
-	
-	axis4pos=&tmaxis[2]->actual_position;
-	axis4cmd=&tmaxis[2]->position;
-	dac4out=&tmaxis[2]->voltage;
-	axis4err=&tmaxis[2]->error;
-	axis4velf=&tmaxis[2]->velocity_fractional;
-	axis4vel=&tmaxis[2]->velocity;
-	axis4accelf=&tmaxis[2]->acceleration_fractional;
-	axis4accel=&tmaxis[2]->acceleration;
-	axis4tim=&tmaxis[2]->time;
-	axis5pos=&tmaxis[2]->actual_position2;
-	
-	FOREVER
-	{
-  	 if (semTake (semMEIDC,WAIT_FOREVER)!=ERROR)
-  	 {
-  	  if (semTake (semMEIUPD,60)!=ERROR)
-          {
-  	   if (semTake (semMEI,NO_WAIT)!=ERROR)
-           {
-	    sdss_time_dc=(float)sdss_get_time();
-            time (&sdssdc.ctime);
-            sdssdc.sdsstime=(long)(sdss_time_dc*1000);
-            i=MEIDC_Rotate;
-	    if (MEIDC_Enable[i])
-            {
-	      pcdsp_transfer_block(dspPtr,TRUE,FALSE,DATA_STRUCT(dspPtr,
-	        i*2,DS_PREV_ENCODER) ,DS_SIZE+4,
-	        (short *)tmaxis[i]);
-	      if (dsp_error) 
-	      {
-	        tmaxis[i]->status = dsp_error;
-	        tmaxis[i]->errcnt++;
-	      }
-	      else
-	        meistatcnt++;
-	      semGive(semMEI);
-	      swapwords ((short *)(&tmaxis[i]->actual_position),1);
-	      swapwords ((short *)(&tmaxis[i]->position),1);
-	      swapwords ((short *)(&tmaxis[i]->time),1);
-	      swapwords ((short *)(&tmaxis[i]->velocity),1);
-	      swapwords ((short *)(&tmaxis[i]->acceleration),1);
-	      swapwords ((short *)(&tmaxis[i]->actual_position2),1);
-	    }
-    	    for(i = 1; i < 4; i++)	/* find next enabled data collection */
-	    {
-	      rotate = (MEIDC_Rotate+i)%3;
-	      if (MEIDC_Enable[rotate]) 
-	      {
-                 MEIDC_Rotate=rotate;
-	         break;
-	      }
-	    }
-	    tm_data_collection();
-	   }
-	   semGive(semMEIUPD);
-          }
+   for(;;) {
+      if(semTake(semMEIDC, WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "failed to take semMEIDC: %s", strerror(errno), 0);
+	 continue;
+      }
+      
+      if(semTake(semMEIUPD, 60) == ERROR) {
+	 continue;
+      }
+      
+      if(semTake(semMEI, NO_WAIT) == ERROR) {
+	 semGive(semMEIUPD);
+	 continue;
+      }
+      
+      sdss_time_dc = (float)sdss_get_time();
+      time(&sdssdc.ctime);
+      sdssdc.sdsstime = (long)(sdss_time_dc*1000);
+      
+      i = MEIDC_Rotate;
+      if(!MEIDC_Enable[i]) {
+	 semGive(semMEI);
+      } else {
+	 pcdsp_transfer_block(dspPtr,TRUE,FALSE,
+			      DATA_STRUCT(dspPtr, i*2,DS_PREV_ENCODER),
+			      DS_SIZE+4, (short *)tmaxis[i]);
+	 if(dsp_error) {
+	    tmaxis[i]->status = dsp_error;
+	    tmaxis[i]->errcnt++;
+	 } else {
+	    meistatcnt++;
 	 }
-	}
+	 
+	 semGive(semMEI);
+	 
+	 swapwords((short *)(&tmaxis[i]->actual_position), 1);
+	 swapwords((short *)(&tmaxis[i]->position), 1);
+	 swapwords((short *)(&tmaxis[i]->time), 1);
+	 swapwords((short *)(&tmaxis[i]->velocity), 1);
+	 swapwords((short *)(&tmaxis[i]->acceleration), 1);
+	 swapwords((short *)(&tmaxis[i]->actual_position2), 1);
+	 
+	 tmaxis[i]->position =
+	   convert_mei_to_mcp(i, tmaxis[i]->position);
+	 tmaxis[i]->actual_position =
+	   convert_mei_to_mcp(i, tmaxis[i]->actual_position);
+	 tmaxis[i]->actual_position2 =
+	   convert_mei_to_mcp(i, tmaxis[i]->actual_position2);
+      }
+      
+      for(i = 1; i < 4; i++) {	/* find next enabled data collection */
+	 rotate = (MEIDC_Rotate + i)%3;
+	 if(MEIDC_Enable[rotate]) {
+	    MEIDC_Rotate = rotate;
+	    break;
+	 }
+      }
+      tm_data_collection();
+
+      semGive(semMEIUPD);
+   }
 }
 
 /*=========================================================================
@@ -493,31 +449,4 @@ dc_interrupt(void)
    intUnlock(ikey);
 
    return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
-**	Restore positions after a boot from shared memory
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**
-**=========================================================================
-*/
-void
-restore_pos(void)
-{
-   struct SDSS_FRAME *save;
-   struct TM_M68K *restore;
-   int i;
-   
-   if(SM_COPY) {
-      save = (struct SDSS_FRAME *)(SHARE_MEMORY + 2);
-      for(i = 0; i < NAXIS; i++) { 
-	 restore = (struct TM_M68K *)&save->axis[i];
-	 
-	 tm_set_pos(2*i, restore->actual_position);
-	 tm_set_pos(2*i + 1,restore->actual_position2);
-      }
-   }
 }
