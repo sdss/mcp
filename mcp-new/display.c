@@ -24,6 +24,7 @@
 #include "data_collection.h"
 #include "instruments.h"
 #include "mcpUtils.h"
+#include "cw.h"
 
 /*------------------------------------------------------------------------
 **
@@ -40,7 +41,7 @@ static int last_ffs;
 static int last_ffl;
 static int last_ffc;
 static int refreshing=FALSE;
-static char *limitstatus[]={"LU","L "," U","  "};
+static char *limitstatus[]={"LU", "L.", ".U", ".."};
 /*-------------------------------------------------------------------------
 **
 ** GLOBAL VARIABLES
@@ -656,7 +657,7 @@ Menu(void)
 
          case ')':
 	   CursPos(20,24);
-	   printf("SP2 Slit Door Toggled           ");
+	   printf("SP2 Slit Door Toggled          ");
 	   if ((sdssdc.status.o1.ol9.slit_dr2_opn_perm)&&
 	       (!sdssdc.status.i1.il9.slit_head_door2_cls))
 	   {
@@ -676,7 +677,7 @@ Menu(void)
          case '{':
 	   CursPos(20,24);
 	   printf("SP1 Latch Toggled               ");
-	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+	   if (sdssdc.status.o1.ol9.slit_latch1_ext_perm)
 	     tm_cart_unlatch(SPECTOGRAPH1);
 	   else
 	     tm_cart_latch(SPECTOGRAPH1);
@@ -685,7 +686,7 @@ Menu(void)
          case '}':
 	   CursPos(20,24);
 	   printf("SP2 Latch Toggled               ");
-	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+	   if (sdssdc.status.o1.ol9.slit_latch2_ext_perm)
 	     tm_cart_unlatch(SPECTOGRAPH2);
 	   else
 	     tm_cart_latch(SPECTOGRAPH2);
@@ -768,8 +769,9 @@ Menu(void)
 	      
 	      if(isdigit(buf[0])) {
 		 (void)sscanf(buf, "%d", &inst); /* must succeed */
-		 if(inst < 0 || inst > 16) {
-		    printf("ERR: Inst Out of Range (0-16)           ");
+		 if(inst < 0 || inst >= NUMBER_INST) {
+		    printf("ERR: Inst Out of Range (0-%d)           ",
+			   NUMBER_INST - 1);
 		    break;
 		 }
 	      } else {
@@ -780,7 +782,7 @@ Menu(void)
 		 }
 	      }
 
-	      mcp_set_cw(inst, 0, &ans);
+	      mcp_set_cw(inst, ALL_CW, 0, &ans);
 	      if(*ans != '\0') {
 		 printf("%s", ans);
 	      }
@@ -790,7 +792,7 @@ Menu(void)
          case '^':			/* RHL */
          case '!': case '@': case '#': case '$':
 	   switch (buf[0]) {
-	    case '^': cw = INST_DEFAULT; break;
+	    case '^': cw = ALL_CW; break;
 	    case '!': cw = 0; break;
 	    case '@': cw = 1; break;
 	    case '#': cw = 2; break;
@@ -798,7 +800,7 @@ Menu(void)
 	   }
 
 	   CursPos(20,24);
-           if(cw == INST_DEFAULT) {
+           if(cw == ALL_CW) {
 	      printf("All CW vvv                             ");
 	   } else {
 	      printf("CW %d vvv                              ",cw + 1);
@@ -815,7 +817,7 @@ Menu(void)
 		 break;
 	      }
 
-	      mcp_set_cw(cw, cwpos, &ans);
+	      mcp_set_cw(INST_DEFAULT, cw, cwpos, &ans);
 	      if(*ans != '\0') {
 		 printf("%s", ans);
 	      }
@@ -830,17 +832,10 @@ Menu(void)
 
          case '&':
 	   CursPos(20,24);
-           printf ("Toggle the axis monitor_on to ");
-	   if (monitor_on[Axis/2]) 
-	   {
-	     monitor_on[Axis/2]=FALSE;
-             printf ("FALSE ");
-	   }
-           else 
-	   {
-	     monitor_on[Axis/2]=TRUE;
-             printf ("TRUE ");
-	   }
+	   mcp_set_monitor(Axis/2, -1);
+	   printf("Toggle the axis monitor_on to %s",
+		  (monitor_on[Axis/2] ? "TRUE " : "FALSE "));
+
 	   break;
 
          case '*':			/* RHL */
@@ -1231,8 +1226,8 @@ PrintMenuPos()
 
       if (last_door1!=(int)((sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2))
-/*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2))*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch1_ext_perm<<2))
+/*		      (sdssdc.status.i1.il9.slit_head_latch1_ext<<2))*/ 
 								)
       {
       CursPos(33,13);
@@ -1242,20 +1237,20 @@ PrintMenuPos()
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door1_cls)
         printf("Closed ");
-      if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
-/*      if (sdssdc.status.i1.il9.slit_head_latch1_opn)*/
+      if (sdssdc.status.o1.ol9.slit_latch1_ext_perm)
+/*      if (sdssdc.status.i1.il9.slit_head_latch1_ext)*/
         printf("LatchCmd   ");
       else
         printf("UnLatchCmd ");
       last_door1=(sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2);
-/*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2);*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch1_ext_perm<<2);
+/*		      (sdssdc.status.i1.il9.slit_head_latch1_ext<<2);*/ 
       }
       if (last_door2!=(int)((sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2))
-/*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2))*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch2_ext_perm<<2))
+/*		      (sdssdc.status.i1.il9.slit_head_latch2_ext<<2))*/ 
 		      						)
       {
       CursPos(62,13);
@@ -1265,15 +1260,15 @@ PrintMenuPos()
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door2_cls)
         printf("Closed ");
-      if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
-/*      if (sdssdc.status.i1.il9.slit_head_latch2_opn)*/
+      if (sdssdc.status.o1.ol9.slit_latch2_ext_perm)
+/*      if (sdssdc.status.i1.il9.slit_head_latch2_ext)*/
         printf("LatchCmd ");
       else
         printf("UnLatchCmd ");
       last_door2=(sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
-/*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2);*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch2_ext_perm<<2);
+/*		      (sdssdc.status.i1.il9.slit_head_latch2_ext<<2);*/ 
       }
       if (last_azbrake!=(int)((sdssdc.status.i9.il0.az_brake_en_stat)|
 		      (sdssdc.status.i9.il0.az_brake_dis_stat<<1)|
@@ -1540,7 +1535,7 @@ void Inst()
          case '{':
 	   CursPos(20,24);
 	   printf("SP1 Latch Toggled               ");
-	   if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
+	   if (sdssdc.status.o1.ol9.slit_latch1_ext_perm)
 	     tm_cart_unlatch(SPECTOGRAPH1);
 	   else
 	     tm_cart_latch(SPECTOGRAPH1);
@@ -1549,7 +1544,7 @@ void Inst()
          case '}':
 	   CursPos(20,24);
 	   printf("SP2 Latch Toggled               ");
-	   if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
+	   if (sdssdc.status.o1.ol9.slit_latch2_ext_perm)
 	     tm_cart_unlatch(SPECTOGRAPH2);
 	   else
 	     tm_cart_latch(SPECTOGRAPH2);
@@ -1563,6 +1558,7 @@ void Inst()
 	   EraseDisplayAll();
 	   break;
 	   
+#if 0					/* RHL */
          case 'I': case 'i':
 	   CursPos(20,24);
 	   printf("Instrument FSM dd; 0=FIBER; 1=CorLens 2=TEST   ");
@@ -1580,7 +1576,7 @@ void Inst()
 			  (int)inst,0,0,0,0,0,0,0,0,0);
 	   }
 	   break;
-
+#endif
          case 'W': case 'w':
 	   CursPos(20,24);
 	   printf("dd|c..c; 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI");
@@ -1657,6 +1653,7 @@ void Inst()
 	       printf("ERR: CWP task still active..be patient  ");
 	       break;
 	     }
+#if 0
 	     if (sdssdc.status.i9.il0.alt_brake_en_stat)
 	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
 			  (int)cw,(int)cwpos,0,0,0,0,0,0,0,0);
@@ -1665,6 +1662,7 @@ void Inst()
 	       printf ("Alt Brake NOT Engaged                  ");
 	       break;
 	     }
+#endif
 	   }
 	   CursPos(20,24);
 	   printf("                                        ");
@@ -1694,7 +1692,9 @@ void Inst()
 	       printf("ERR: CWP task still active..be patient  ");
 	       break;
 	     }
+#if 0
 	     cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
+#endif
 	     if (sdssdc.status.i9.il0.alt_brake_en_stat)
 	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
@@ -1966,8 +1966,8 @@ PrintInstPos(void)
 
       if (last_door1!=(int)((sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2))
-/*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2))*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch1_ext_perm<<2))
+/*		      (sdssdc.status.i1.il9.slit_head_latch1_ext<<2))*/ 
 								)
       {
       CursPos(33,13);
@@ -1977,20 +1977,20 @@ PrintInstPos(void)
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door1_cls)
         printf("Closed ");
-      if (sdssdc.status.o1.ol9.slit_latch1_opn_perm)
-/*      if (sdssdc.status.i1.il9.slit_head_latch1_opn)*/
+      if (sdssdc.status.o1.ol9.slit_latch1_ext_perm)
+/*      if (sdssdc.status.i1.il9.slit_head_latch1_ext)*/
         printf("LatchCmd   ");
       else
         printf("UnLatchCmd ");
       last_door1=(sdssdc.status.i1.il9.slit_head_door1_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door1_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch1_opn_perm<<2);
-/*		      (sdssdc.status.i1.il9.slit_head_latch1_opn<<2);*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch1_ext_perm<<2);
+/*		      (sdssdc.status.i1.il9.slit_head_latch1_ext<<2);*/ 
       }
       if (last_door2!=(int)((sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2))
-/*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2))*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch2_ext_perm<<2))
+/*		      (sdssdc.status.i1.il9.slit_head_latch2_ext<<2))*/ 
 		      						)
       {
       CursPos(62,13);
@@ -2000,15 +2000,15 @@ PrintInstPos(void)
         printf("Open ");
       if (sdssdc.status.i1.il9.slit_head_door2_cls)
         printf("Closed ");
-      if (sdssdc.status.o1.ol9.slit_latch2_opn_perm)
-/*      if (sdssdc.status.i1.il9.slit_head_latch2_opn)*/
+      if (sdssdc.status.o1.ol9.slit_latch2_ext_perm)
+/*      if (sdssdc.status.i1.il9.slit_head_latch2_ext)*/
         printf("LatchCmd ");
       else
         printf("UnLatchCmd ");
       last_door2=(sdssdc.status.i1.il9.slit_head_door2_opn)|
 		      (sdssdc.status.i1.il9.slit_head_door2_cls<<1)|
-      		      (sdssdc.status.o1.ol9.slit_latch2_opn_perm<<2);
-/*		      (sdssdc.status.i1.il9.slit_head_latch2_opn<<2);*/ 
+      		      (sdssdc.status.o1.ol9.slit_latch2_ext_perm<<2);
+/*		      (sdssdc.status.i1.il9.slit_head_latch2_ext<<2);*/ 
       }
 
       ffs=(int)((sdssdc.status.i1.il13.leaf_1_open_stat)|
