@@ -1578,10 +1578,9 @@ void tm_latch()
            *fididx = barcode_serial(2);
 	   *fididx = barcode_serial(2);
 	   */
-	  if(flag) {
-	    fididx=1;
-	    flag=0;
-	  } 
+	    fididx=2;
+
+
 	  if (fididx!=-1)
 	  {
 	    fididx--;
