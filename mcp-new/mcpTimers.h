@@ -26,6 +26,7 @@
 int DIO316_initialize(unsigned char *addr, unsigned short vecnum);
 void DIO316_interrupt(int type);
 void axis_DIO316_shutdown(int type);
+double sdss_delta_time(double t2, double t1);
 
 extern long SDSStime;
 
