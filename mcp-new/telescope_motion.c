@@ -85,7 +85,7 @@ int monitor_axis[3];	/* provides mechanism to prevent deadlocks for startup */
 int monitor_on[3];	/* overrides monitoring of axis...possible disable */
 /* keep watch dog alive based on all axis software active */
 int axis_alive=0;
-double ilcpos[6]={90,0,120.6,0,0,0};
+double ilcpos[6]={120.6,0,90.0,0,0,0};
 int ilcvel[6]={200000,0,200000,0,500000,0};
 int ilcacc[6]={10000,10000,10000,10000,10000,10000};
 
@@ -120,9 +120,9 @@ int tm_move_instchange ()
     sem_controller_run (4);
     start_move(0,(double)(ilcpos[0]*ticks_per_degree[0]),
 		(double)ilcvel[0],(double)ilcacc[0]);
-    start_move(2,(double)(ilcpos[2]*ticks_per_degree[2]),
+    start_move(2,(double)(ilcpos[2]*ticks_per_degree[1]),
 		(double)ilcvel[2],(double)ilcacc[2]);
-    start_move(4,(double)(ilcpos[4]*ticks_per_degree[4]),
+    start_move(4,(double)(ilcpos[4]*ticks_per_degree[2]),
 		(double)ilcvel[4],(double)ilcacc[4]);
     semGive (semMEI); 
   }

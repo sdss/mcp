@@ -170,14 +170,14 @@ int frame_break[3]={FALSE,FALSE,FALSE};
 int drift_break[3]={FALSE,FALSE,FALSE};
 int DRIFT_verbose=FALSE;
 int drift_modify_enable=FALSE;
-#define OFF_MAX	8		/* upto 8 offsets at one time */
-struct FRAME offset[3][OFF_MAX][2];
-struct FRAME *offset_queue_end[3][OFF_MAX]={
+#define OFF_MAX	6		/* upto 8 offsets at one time */
+struct FRAME offset[3][OFF_MAX+2][2];
+struct FRAME *offset_queue_end[3][OFF_MAX+2]={
 				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL},
 				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL},
 				{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL}
 				};
-int offset_idx[3][OFF_MAX]={
+int offset_idx[3][OFF_MAX+2]={
 			{0,0,0,0,0,0,0,0},
 			{0,0,0,0,0,0,0,0},
 			{0,0,0,0,0,0,0,0}
@@ -760,6 +760,7 @@ char *move_cmd(char *cmd)
   double position,velocity,pos;
   struct FRAME *frame,*nxtque;
   struct FRAME_QUEUE *queue;
+  int i;
   int cnt;
   double dt;
 
@@ -849,6 +850,18 @@ char *move_cmd(char *cmd)
   nxtque->nxt = frame;
   if (queue->active==NULL)/* end of queue, and becomes active frame */
     queue->active=frame;
+  for (i=0;i<OFF_MAX;i++)
+  {
+    if (offset_queue_end[axis_select][i]!=NULL)
+    {
+/* still correcting offset , reduce new specifications */
+      offset_queue_end[axis_select][i]=frame;
+      frame->position-=offset[axis_select][i][1].position;
+      frame->velocity-=offset[axis_select][i][1].velocity;
+/*      printf ("\r\nreduce offset end=%p, pos=%lf,idx=%d",frame,
+	frame->position,offset_idx[axis_select][i]);*/
+    }
+  }
   queue->end=frame;
   queue->cnt++;
   taskUnlock();
@@ -1949,7 +1962,7 @@ char *slitstatus_cmd(char *cmd)
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
   slitstatus_ans[2]=0x31+spectograph_select;
-  sprintf (&slitstatus_ans[4],"%s %s %s",
+  sprintf (&slitstatus_ans[4],"%s %s %s %s %s %s",
 	slitstatus[sdssdc.status.i1.il9.slit_head_door1_opn],
 	slitstatus[sdssdc.status.i1.il9.slit_head_door1_cls+2],
 	slitstatus[sdssdc.status.i1.il9.slit_head_latch1_opn+4],
@@ -2388,7 +2401,7 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
     printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
     printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, ",ai,j,t,start);
   }
-  for (i=0;i<(int)min(MAX_CALC,
+  for (i=0;i<(int)min(cnt,
 		(int)(dt*FRMHZ)-start);i++)
   {
     t=(i+start+1)/FLTFRMHZ;
@@ -3062,6 +3075,7 @@ void tm_TCC(int axis)
 {
   int cnt, lcnt, cntoff;
   struct FRAME *frame;
+  struct FRAME *frmoff;
   int i;
   int frame_cnt, frame_idx;
   double position;
@@ -3159,56 +3173,53 @@ void tm_TCC(int axis)
         frame_cnt=get_frame_cnt(axis,frame);
 /*        printf ("\r\n frames_cnt=%d",frame_cnt);*/
         frame_idx=0;
-        for (i=0;i<OFF_MAX;i++)
-	{
-	  if (offset_queue_end[axis][i]==frame)
-	  {
-/*	    printf ("\r\nShutdown offset");*/
-	    if (frame->end_time>offset[axis][i][1].end_time)
-	    {   /* find last offset position and include any velocity */
-              frame->position+=(offset[axis][i][1].position+
-               (offset[axis][i][1].velocity*(offset_idx[axis][i]/20.-
-		offset[axis][i][1].end_time)));
-	      frame->velocity+=offset[axis][i][1].velocity;
-	      offset_idx[axis][i]=0;
-	      offset_queue_end[axis][i]=NULL;
-	    }
-	    else
-	    {	/* still correcting offset */
-	      offset_queue_end[axis][i]=frame->nxt;
-	      offset_queue_end[axis][i]->position-=offset[axis][i][1].position;
-	      offset_queue_end[axis][i]->velocity-=offset[axis][i][1].velocity;
-	      printf ("\r\noffset end=%p, pos=%lf,idx=%d",offset_queue_end[axis][i],
-		offset_queue_end[axis][i]->position,offset_idx[axis][i]);
-/*	      clroffset(axis,1);
-	      cntoff=calc_offset(axis,&offset[axis][i][0],offset_idx[axis][i],1);
-	      frame->position+=(poff[axis][0]);
-               +(voff[axis][0]*(offset[axis][i][1].end_time/20.-
-		frame->end_time)) );
-	      frame->velocity+=voff[axis][0];*/
-	    }
-	  }
-	}
 	while (frame_cnt>0)
         {
           while ( ((cnt=calc_frames(axis,frame,frame_idx))==ERROR)&&
             ((lcnt=tm_frames_to_execute(axis))>4) ) taskDelay (1);
-	  if (cnt==ERROR) frame_break[axis]=TRUE;
-/* OFFSET */
-          for (i=0;i<OFF_MAX;i++)
+	  if (cnt==ERROR)
 	  {
-	    clroffset(axis,cnt);
-	    if (offset_queue_end[axis][i]!=NULL)
-	    {
-	      cntoff=calc_offset(axis,&offset[axis][i][0],
-					offset_idx[axis][i],cnt);
-	      offset_idx[axis][i]+=cnt;
-	    }
-	    addoffset(axis,cnt);
+            frame_break[axis]=TRUE;
+            printf ("\r\n frame=%p, nxt=%p, nxt=%p, frame_cnt=%d",
+	      frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
 	  }
-
-          frame_idx += cnt;
-          frame_cnt -= cnt;
+	  else
+	  {
+/* OFFSET */
+            for (i=0;i<OFF_MAX;i++)
+  	    {
+	      clroffset(axis,cnt);
+	      if (offset_queue_end[axis][i]!=NULL)
+	      {
+	        cntoff=calc_offset(axis,&offset[axis][i][0],
+					offset_idx[axis][i],cnt);
+	        offset_idx[axis][i]+=cnt;
+  	        if ((offset_idx[axis][i]/20.)>offset[axis][i][1].end_time)
+	        {
+/*	          printf ("\r\nShutdown offset");*/
+                  frmoff=frame;
+	          taskLock();
+                  while (frmoff!=offset_queue_end[axis][i])
+                  {
+	            frmoff->position+=offset[axis][i][1].position;
+	            frmoff->velocity+=offset[axis][i][1].velocity;
+	            frmoff=frmoff->nxt;
+/*	            printf ("\r\noffset end=%p, pos=%lf,idx=%d",frmoff,
+		      frmoff->position,offset_idx[axis][i]);*/
+	          }
+                  frmoff->position+=offset[axis][i][1].position;
+	          frmoff->velocity+=offset[axis][i][1].velocity;
+                  printf ("\r\noffset end=%p, pos=%lf,idx=%d",frmoff,
+		      frmoff->position,offset_idx[axis][i]);
+	          offset_queue_end[axis][i]=NULL;
+	          taskUnlock();
+	        }
+	      }
+	      addoffset(axis,cnt);
+	    }
+            frame_idx += cnt;
+            frame_cnt -= cnt;
+	  }
 
 	  if (frame_break[axis]) 
 	  {
