@@ -1621,8 +1621,6 @@ mcp_move(int axis,			/* the axis to move */
       tm_get_position(2*axis, &stop_position[axis]);
       frame_break[axis] = TRUE;
 
-      (void)give_semCmdPort(0);
-
       if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
 	 sdssdc.tccmove[axis].position = 0;
 	 sdssdc.tccmove[axis].velocity = 0;
@@ -1632,6 +1630,23 @@ mcp_move(int axis,			/* the axis to move */
 
       if(frame != NULL) free(frame);
       
+      taskDelay(5);			/* give frame_break a chance to work */
+
+      if((axis == AZIMUTH || axis_queue[AZIMUTH].active == NULL) &&
+	 (axis == ALTITUDE || axis_queue[ALTITUDE].active == NULL) &&
+	 (axis == INSTRUMENT || axis_queue[INSTRUMENT].active == NULL)) {
+	 (void)give_semCmdPort(0);
+	 TRACE(3, "%s MOVE: gave up semaphore: %s", axis_name(axis), 0);
+      } else {
+	 char buff[50];
+	 sprintf(buff, "AzAltRot: %d %d %d",
+		 (axis_queue[AZIMUTH].active != NULL),
+		 (axis_queue[ALTITUDE].active != NULL),
+		 (axis_queue[INSTRUMENT].active != NULL));
+	 TRACE(3, "%s MOVE: didn't give up semaphore: %s",
+							axis_name(axis), buff);
+      }
+
       return(0);
     case 1:
       position = params[0];
