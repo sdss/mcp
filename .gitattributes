@@ -26,6 +26,7 @@ bin/switchMCP -text
 doc/Makefile -text
 doc/www/index.html -text
 doc/www/ms.html -text
+doc/www/semaphores.html -text
 doc/www/status.html -text
 etc/Makefile -text
 etc/mcp.login -text

@@ -1,0 +1,222 @@
+<HTML>
+<TITLE>The MCP's Semaphores</TITLE>
+
+<H1>The MCP's Semaphores</H1>
+
+The MCP uses semaphores for two different purposes:
+<NL>
+<LI> Synchronising events such as data collection
+<LI> Controlling access to resources
+</NL>
+
+<H2>Semaphores used to control access to the hardware (MEI, PLC, etc.)</H2>
+
+<DT> semMEI
+<DD>
+Mediate access to the MEI board itself.
+<UL>
+  <LI> Mutex semaphore
+  <LI> Created SEM_Q_PRIORITY|SEM_INVERSION_SAFE in axisMotionInit()
+  <LI> Taken in axisMotionInit() during initialisation
+  <LI> Taken/given after semMEIDC is taken in mei_data_collection()
+  <LI> Taken/given in init_cmd(), mcp_move_va(), mcp_set_vel(), mcp_hold(),
+  mcp_stop_axis(), tBrakes(), slc500_data_collection(), tLatch(),
+  DIO316ClearISR_delay(), tm_move_instchange(), tm_start_move(),
+  tm_print_coeffs(), tm_set_filter_coeff(), tm_get_position(),
+  tm_get_velocity(), tm_reset_integrator(), tm_set_position(),
+  tm_adjust_position(), tm_sem_controller_run(), tm_sem_controller_idle(),
+  tm_axis_status(), tm_print_axis_status(), tm_axis_state(),
+   tm_print_axis_state(), tm_print_axis_source(), tm_show_axis()
+  <LI> Taken/Given in PVT code: start_frame(), load_frames(), stop_frame(),
+  stp_frame(), drift_frame(), end_frame(), tm_frames_to_execute(), tm_TCC(),
+  mcp_drift()
+  <LI> Taken/Given in unused code:
+  tm_bf(), tm_set_encoder(), tm_set_analog_encoder(), tm_set_analog_channel(),
+  tm_set_boot_filter()
+  <LI> Used in old menu's Menu() and PrintMenuPos() routines
+
+</UL>
+
+<DT> semSLC
+<DD>
+Mediate access to the PLC
+<UL>
+  <LI> Mutex semaphore
+  <LI> Created SEM_Q_PRIORITY|SEM_INVERSION_SAFE in axisMotionInit()
+  <LI> Taken/Given in tBrakes(), slc500_data_collection(), tAlgnClmp(),
+  tSpecDoor(), tm_slithead(), tm_slit_status(), set_mcp_ffs_bits(), tLamps(),
+  tBars()
+</UL>
+
+
+<DT> semMoveCWBusy
+<DD>
+Mediate access to the counter weights
+<UL>
+  <LI> Binary semaphore
+  <LI> Created SEM_Q_PRIORITY, SEM_FULL in tMoveCWInit()
+  <LI> Deleted by tMoveCWFini()
+  <LI> Taken by tMoveCW() when counterweights are active; given on completion
+  <LI> Used by mcp_cw_abort(), mcp_set_cw() to see if counterweights are active
+</UL>
+
+<DT> semLatch
+<DD>
+Mediate access to the fiducials (`latches' to the MEI)
+<UL>
+  <LI> Binary semaphore
+  <LI> Created SEM_Q_FIFO, SEM_FULL in tLatchInit()
+  <LI> Taken/Given by init_cmd(), tLatch(), correct_cmd()
+  <LI> Used to be used in set_ms_off()
+</UL>
+</DL>
+
+<H2>Semaphores used to handle Data Collection</H2>
+
+<DL>
+<DT> semDC
+<DD>
+Used to trigger data collection
+<UL>
+  <LI> Binary semaphore
+  <LI> Created SEM_Q_FIFO, SEM_EMPTY in tLatchInit()
+  <LI> Given by serverDCStart() which is called from timer routine
+  <LI> Waited for forever by serverData(), waiting to call
+  data_routine == DataCollectionTrigger()
+</UL>
+
+<DT> semMEIDC
+<DD>
+Used to trigger collection of MEI data
+<UL>
+  <LI> Binary Semaphore
+  <LI> Created SEM_Q_FIFO, SEM_EMPTY in mei_data_collection()
+  <LI> Infinite loop in mei_data_collection() waits to take it, then
+  proceeds with data collection from MEI and amplifiers
+  <LI> Is given by DataCollectionTrigger() just before copying the
+  contents of sdssdc to shared memory, thus allowing mei_data_collection()
+  to collect data.
+</UL>
+
+<DT> semSLCDC
+<DD>
+Used to trigger collection of SLC data
+<UL>
+  <LI> Binary semaphore
+  <LI> Created SEM_Q_FIFO, SEM_EMPTY by slc500_data_collection()
+  <LI> Infinite loop in slc500_data_collection() waits on it
+  <LI> Is given by DataCollectionTrigger() just before copying the
+  contents of sdssdc to shared memory, thus allowing slc500_data_collection()
+  to collect data.
+</UL>
+
+<DT> semSDSSDC
+<DD>
+Used to control access to struct sdssdc
+<UL>
+   <LI> Mutex semaphore
+   <LI> Created SEM_Q_PRIORITY|SEM_INVERSION_SAFE in mei_data_collection()
+   <LI> Taken/given in DataCollectionTrigger() to write shared memory
+   <LI> Taken/given in cw_data_collection(), mei_data_collection(),
+   slc500_data_collection(), il_data_collection()
+   <LI> Taken/given by PVT code in mcp_move(), mcp_plus_move()
+</UL>
+
+</DL>
+
+<DL>
+<DT> semMEIUPD
+<DD>
+<UL>
+  <LI> Mutex semaphore
+  <LI> Created SEM_Q_PRIORITY|SEM_INVERSION_SAFE in mei_data_collection()
+  <LI> Taken/given in status_cmd(), axis_status_cmd(), system_status_cmd(),
+  cwstatus_cmd() while accumulating information to return to requester
+  <LI> Taken/Given by init_cmd(), maybe_reset_axis_pos(), correct_cmd()
+  to control access to axis_stat[]
+  <LI> Used in old menu's Menu(), PrintMenuPos(), GetString()
+</UL>
+</DL>
+
+<H2>Semaphores used to control access to the MCP</H2>
+
+These control access by external processes (TCC, Menu) to the MCP 
+and ensure that no more than one command is active at a time.
+
+<DL>
+<DT> semCMD
+<DD>
+<UL>
+  <LI> Mutex semaphore
+  <LI> Created SEM_Q_FIFO in cmdInit()
+  <LI> Taken/Given by cmd_handler()
+</UL>
+
+<DT> semCmdPort
+<DD>
+<UL>
+  <LI> Mutex semaphore
+  <LI> Created SEM_Q_PRIORITY|SEM_INVERSION_SAFE in cmdPortServer()
+  <LI> Controls permission to use restricted commands in cmd_handler()
+  <LI> Used to set axis_stat[].semCmdPort_taken in slc500_data_collection()
+  <LI> Given up if held by cpsWorkTask() in response to SEM.GIVE
+  <LI> GiveForced by cpsWorkTask() in response to SEM.GIVE 1
+  <LI> Given up if held by cpsWorkTask() if can take semPleaseGiveCmdPort
+  <LI> Taken in response to SEM.TAKE/SEM.STEAL command in cpsWorkTask()
+</UL>
+
+<DT> semPleaseGiveCmdPort
+<DD>
+<UL>
+  <LI> Binary semaphore
+  <LI> Created SEM_Q_PRIORITY, SEM_FULL in cmdPortServer()
+  <LI> Taken by cpsWorkTask() to request that semCmdPort be given
+</UL>
+
+</DL>
+
+<H1>Controlling Access to Data Structures</H1>
+
+The main shared data structures are:
+<DL>
+<DT> The sdssdc struct (== tmaxis)
+<DD>
+Modified in:
+<DL>
+  <DT> vers, type
+  <DD> unmodified
+
+  <DT> ctime, sdsstime, axis[] == tmaxis[]
+  <DD> mei_data_collection(), protected by semSDSSDC
+
+  <DT> axis[] == tmaxis[], axis_state[]
+  <DD> mei_data_collection(), protected by semMEI and semSDSSDC 
+
+  <DT> inst.pos, inst.strain_gage
+  <DD> il_data_collection(), protected by semSDSSDC
+
+  <DT> weight[].pos
+  <DD> cw_data_collection(), protected by semSDSSDC
+
+  <DT> status, b10
+  <DD> slc500_data_collection(), protected by semSLC and semSDSSDC
+  
+  <DT> tccmove[]
+  <DD> mcp_move(), protected by semSDSSDC
+  
+  <DT> tccpmove[]
+  <DD> mcp_plus_move(), protected by semSDSSDC
+
+  <DT> pvt[]
+  <DD> load_frames(), protected by semSDSSDC
+</DL>
+
+<DT> The MEI
+<DD>
+
+<DT> the PLC
+<DD>
+
+</DL>
+
+</HTML>
