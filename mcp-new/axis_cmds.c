@@ -170,8 +170,10 @@ char *drift_cmd(char *cmd)
   taskDelay(3);
   if (semTake (semMEI,60)!=ERROR)
   {
-    get_position(axis_select<<1,&position);
-    time=sdss_get_time();
+    taskLock();
+      get_position(axis_select<<1,&position);
+      time=sdss_get_time();
+    taskUnlock();
     semGive (semMEI);
   }
   veldeg=(sec_per_tick[axis_select]*velocity)/3600.;
@@ -215,15 +217,16 @@ char *init_cmd(char *cmd)
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
   state=tm_axis_state(axis_select<<1);
-  if (state>2)		/* normal...NOEVENT,running, or NEW_FRAME */
-  {
-    printf ("\r\n  INIT axis %d: not running, state=%x",axis_select<<1,state);
+/*  if (state>2)*/		/* normal...NOEVENT,running, or NEW_FRAME */
+/*  {*/
+    if (state>2)		/* normal...NOEVENT,running, or NEW_FRAME */
+      printf ("\r\n  INIT axis %d: not running, state=%x",axis_select<<1,state);
     tm_controller_idle (axis_select<<1);
     tm_controller_idle (axis_select<<1);
     tm_controller_idle (axis_select<<1);
     tm_reset_integrator(axis_select<<1);
     taskDelay(1);
-  }
+/*  }*/
   drift_break[axis_select]=FALSE;
   frame_break[axis_select]=FALSE;
   if (axis_select==2)
@@ -386,13 +389,16 @@ char *move_cmd(char *cmd)
 	  if (DRIFT_verbose)
             printf("\r\nDRIFT pvt %lf %lf %lf",
 		position,velocity,frame->end_time);
-          tm_get_pos(axis_select<<1,&pos);
-	  dt=frame->end_time-sdss_get_time();
+	  taskLock();
+            tm_get_pos(axis_select<<1,&pos);
+	    dt=frame->end_time-sdss_get_time();
+	  taskUnlock();
+	  dt -=.04;
 	  pos=(pos+
 	    (drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
 	  if (DRIFT_verbose)
             printf("\r\nDRIFT modified pvt %lf %lf %lf, difference=%lf, dt=%lf",
-		position,velocity,frame->end_time,position-pos,dt);
+		pos,velocity,frame->end_time,position-pos,dt);
 	  if (drift_modify_enable)
 	    position=pos;
 	  drift_break[axis_select]=FALSE;
