@@ -38,8 +38,10 @@
 #include "io.h"
 #include "abdh.h"
 #include "ipcast.h"
+#include "frame.h"
 #include "axis.h"			/* needed, also checks SHARE_MEMORY's
 					   definition is consistent */
+#include "serial.h"
 #include "cw.h"
 #include "instruments.h"
 #include "dscTrace.h"
@@ -326,6 +328,22 @@ mei_data_collection(unsigned long freq)
 	       }
 	    }
 	 }
+/*
+ * If all the axes are idle, make the TCC give up the semaphore if
+ * if currently holds it.  If grabbed_semCmdPort is true don't allow
+ * this -- otherwise a task (well, only the TCC) may lose the semaphore
+ * before being able to execute a command.
+ */
+	 if(getSemTaskId(semCmdPort) == tcc_taskId &&
+						  tcc_may_release_semCmdPort &&
+	    axis_queue[AZIMUTH].active == NULL &&
+	    axis_queue[ALTITUDE].active == NULL &&
+	    axis_queue[INSTRUMENT].active == NULL) {
+
+	    (void)give_semCmdPort(1);
+	    tcc_may_release_semCmdPort = 0;
+	    TRACE(3, "All axes idle: TCC gave up semaphore", 0, 0);
+	 }
       }
       
       for(i = 1; i < 4; i++) {	/* find next enabled data collection */
@@ -426,7 +444,7 @@ slc500_data_collection(unsigned long freq)
 	     axis_stat[INSTRUMENT][1].semCmdPort_taken =
 	       (cmdPortTask == ERROR ||
 		cmdPortTask == 0 ||
-		cmdPortTask == taskNameToId("TCC")) ? 0 : 1;
+		cmdPortTask == tcc_taskId) ? 0 : 1;
       }
       
       axis_stat[AZIMUTH][1].amp_bad = az_amp_ok(0)  ? 0 : 1;
