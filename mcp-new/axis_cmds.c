@@ -825,6 +825,7 @@ system_status_cmd(char *cmd)
    i += get_ffstatus(&ublock->buff[i], UBLOCK_SIZE - i);
    i += get_slitstatus(&ublock->buff[i], UBLOCK_SIZE - i);
    i += get_miscstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+   i += get_umbilstatus(&ublock->buff[i], UBLOCK_SIZE - i);
 
    TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
