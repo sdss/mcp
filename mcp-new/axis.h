@@ -23,20 +23,32 @@
  * This one is repeated in data_collection.c --- they MUST agree
  */
 #define SHARE_MEMORY	0x02800000
-
-#if 1
+/*
+ * Which encoders are plugged into the MEI
+ */
+#define AZ_ENCODER 1
+#define ALT_ENCODER 1
+#define ROT_ENCODER 1
+/*
+ * Default scales for encoders
+ */
+#if AZ_ENCODER == 1
 #  define AZ_TICK0	0.014016690731950178 /* encoder 1 */
 #else
 #  define AZ_TICK0	0.014025846229286947 /* encoder 2 */
 #endif
 
-#if 1
+#if ALT_ENCODER == 1
 #  define ALT_TICK0	0.01400002855	/* encoder 1 */
 #else
 #  define ALT_TICK0 	0.01400914486	/* encoder 2 */
 #endif
 
-#define ROT_TICK0	0.021315787526207226 /* optical encoder */
+#if ROT_ENCODER == 1
+#  define ROT_TICK0	0.021315787526207226 /* optical encoder */
+#else
+#  error There is only one optical encoder; please use it
+#endif
 /*
  * Dynamically switch PID coefficients?
  */
