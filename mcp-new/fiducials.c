@@ -451,7 +451,7 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 	       }
 	    } else {
 	       if(fiducial[axis].max_correction > 0) {
-		  TRACE(2, "Not disabling MS.ON even with error of %d "
+		  TRACE(2, "Not disabling MS.ON; error %d "
 			"(max allowed: %d)",
 			correction, fiducial[axis].max_correction);
 	       }
@@ -818,8 +818,10 @@ tLatch(const char *name)
 		  fiducial[AZIMUTH].seen_index = TRUE;
 	       }
 	       fiducialidx[AZIMUTH] = fididx;
-	 
-	       maybe_reset_axis_pos(AZIMUTH, 1, az_fiducial[fididx].poserr, 0);
+	       if(az_fiducial[fididx].markvalid) {
+		  maybe_reset_axis_pos(AZIMUTH, 1,
+				       az_fiducial[fididx].poserr, 0);
+	       }
 	    }
 	 }
 #if LATCH_ALL_AXES
@@ -891,7 +893,11 @@ tLatch(const char *name)
 	       fiducial[ALTITUDE].seen_index = TRUE;
 	    }
 	    fiducialidx[ALTITUDE] = fididx;
-	    maybe_reset_axis_pos(ALTITUDE, 1, alt_fiducial[fididx].poserr, 0);
+
+	    if(alt_fiducial[fididx].markvalid) {
+	       maybe_reset_axis_pos(ALTITUDE, 1,
+				    alt_fiducial[fididx].poserr, 0);
+	    }
 	 }
 #if LATCH_ALL_AXES
       }
@@ -1020,7 +1026,7 @@ tLatch(const char *name)
 	       fiducial[INSTRUMENT].seen_index = TRUE;
 	    }
 
-	    if(pos_is_mark) {
+	    if(pos_is_mark && rot_fiducial[fididx].markvalid) {
 	       maybe_reset_axis_pos(INSTRUMENT, 1,
 				    rot_fiducial[fididx].poserr,0);
 	    }
@@ -1821,6 +1827,7 @@ read_fiducials(const char *file,	/* file to read from */
 
       if(sscanf(lptr, "%d %f +- %f %d", &fid, &mark, &error, &npt) == 4) {
 	 if(fid < 0 || fid >= n_fiducials) {
+	    fprintf(stderr,"Invalid fiducial %d in file %s\n", fid, file);
 	    TRACE(0, "Invalid fiducial %d in file %s", fid, file);
 	    continue;
 	 }
