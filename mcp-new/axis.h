@@ -73,6 +73,7 @@ char *set_time_cmd(char *cmd);
 char *stats_cmd(char *cmd);
 char *status_cmd(char *cmd);
 char *status_long_cmd(char *cmd);
+char *system_status_cmd(char *cmd);
 char *tel1_cmd(char *cmd);
 char *tel2_cmd(char *cmd);
 char *ticklost_cmd(char *cmd);
@@ -88,11 +89,6 @@ char *cwabort_cmd(char *cmd);
 char *cwstatus_cmd(char *cmd);
 char *sp1_cmd(char *cmd);
 char *sp2_cmd(char *cmd);
-char *slitclear_cmd(char *cmd);
-char *slitopen_cmd(char *cmd);
-char *slitclose_cmd(char *cmd);
-char *cartlatch_cmd(char *cmd);
-char *cartunlatch_cmd(char *cmd);
 char *slitstatus_cmd(char *cmd);
 char *ffsopen_cmd(char *cmd);
 char *ffsclose_cmd(char *cmd);
@@ -159,6 +155,7 @@ const char *getCvsTagname(void);
 void restore_pos(void);
 extern double sdss_get_time(void);
 
+int mcp_set_monitor(int axis, int on_off);
 int mcp_set_pos(int axis, double pos);
 int mcp_set_vel(int axis, double vel);
 int mcp_set_fiducial(int axis);
@@ -167,9 +164,16 @@ int mcp_unset_brake(int axis);
 int mcp_halt(int axis);
 int mcp_amp_reset(int axis);
 int mcp_cw_abort(void);
-int mcp_set_cw(int cw, int cwpos, const char **ans);
+int mcp_set_cw(int inst, int cw, int cwpos, const char **ans);
 int mcp_stop_axis(int axis);
 int mcp_move_va(int axis, long pos, long vel, long acc);
+int mcp_set_tbars(int val);
+
+int mcp_slit_clear(int spec);
+int mcp_slit_open(int spec);
+int mcp_slit_close(int spec);
+int mcp_slithead_latch_open(int spec);
+int mcp_slithead_latch_close(int spec);
 
 /*
  * Semaphores
