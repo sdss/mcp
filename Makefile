@@ -59,6 +59,13 @@ tags :
 		fi; \
 	done
 
+make :
+	@for d in $(DIRS); do \
+		if [ $$d = "mcp-new" ]; then \
+			(cd $$d; $(MAKE) $(MFLAGS) make ); \
+		fi; \
+	done
+
 clean :
 	- rm *.o core *~
 	@-for d in $(DIRS); do \
