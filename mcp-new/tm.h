@@ -78,7 +78,6 @@ void tm_hgcd_on(void);
 void tm_hgcd_off(void);
 void tm_sp_hgcd_on(void);
 void tm_sp_hgcd_off(void);
-int tm_ff_status(void);
 int az_amp_ok(void);
 int alt_amp_ok(void);
 int rot_amp_ok(void);
