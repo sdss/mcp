@@ -710,7 +710,7 @@ struct SDSS_FRAME {
 	  struct PVT_M68K pvt[3];	/* AZMCPPOS, ALMCPPOS, ROMCPPOS,
 					   AZMCPVEL, ALMCPVEL, ROMCPVEL,
 					   AZMCPTIM, ALMCPTIM, ROMCPTIM */
-	unsigned long axis_state[3];
+	unsigned long axis_state[3];	/* AZSTATE, ALSTATE, ROSTATE */
 	unsigned long sdsstime;
 	unsigned long ascii_len;
 #define ASCII_LEN	80
