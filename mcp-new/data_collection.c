@@ -483,15 +483,8 @@ DataCollectionTrigger(void)
       } else {
 	 const int offset = offsetof(struct SDSS_FRAME, ctime);
 
-#if 0
-	 if(sdssdc.status.i1.il6.sec_mir_force_limits) {
-	    printf("RHL XXX sec_mir_force_limits is true\n");
-	 }
-#endif
-
 	 sdssdc.CRC = phCrcCalc(0, (char *)&sdssdc + offset,
 				(int)sizeof(sdssdc) - offset) & 0xFFFF;
-
 	 taskLock();
 	 
 	 *(short *)SHARE_MEMORY = 0;
@@ -518,8 +511,8 @@ DataCollectionTrigger(void)
 			    (signed)sizeof(sdssdc) - offset) & 0xFFFF;
 	    
 	    if(sdssdc.CRC != CRC) {
-	       printf("RHL: CRC has changed: 0x%x v. 0x%x",
-		      sdssdc.CRC, CRC);
+	       TRACE(0, "data_collection CRC has changed: 0x%x v. 0x%x",
+		     sdssdc.CRC, CRC);
 	    }
 	 }
 #endif
