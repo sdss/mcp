@@ -1081,10 +1081,10 @@ PrintMenuPos()
 	{
           case AZIMUTH:
             farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
-	    if (az_amp_ok()) printf ("*");
+	    if (az_amp_ok(0)) printf ("*");
 	    else
 	    {
-	      if (check_stop_in()) printf ("S");
+	      if (check_stop_in(0)) printf ("S");
               else if (sdssdc.status.i9.il0.az_brake_en_stat) printf ("B");
 	        else printf ("?");
 	    }
@@ -1096,10 +1096,10 @@ PrintMenuPos()
 
           case ALTITUDE:
             farcsec=(sec_per_tick[i]*abs(alt_fiducial[fiducialidx[i]].mark));
-	    if (alt_amp_ok()) printf ("*");
+	    if (alt_amp_ok(0)) printf ("*");
 	    else
 	    {
-	      if (check_stop_in()) printf ("S");
+	      if (check_stop_in(0)) printf ("S");
               else if (sdssdc.status.i9.il0.alt_brake_en_stat) printf ("B");
 	        else printf ("?");
 	    }
@@ -1112,10 +1112,10 @@ PrintMenuPos()
           case INSTRUMENT:
             farcsec=(sec_per_tick[i]*
 		     abs(rot_fiducial[fiducialidx[i]].mark - ROT_FID_BIAS));
-	    if(rot_amp_ok()) {
+	    if(rot_amp_ok(0)) {
 	       printf ("*");
 	    } else {
-	       if(check_stop_in()) printf ("S");
+	       if(check_stop_in(0)) printf ("S");
 	       else printf ("?");
 	    }
 	    
