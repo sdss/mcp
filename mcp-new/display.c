@@ -19,7 +19,7 @@ static void PrintMenu();
 static void PrintBanner();
 void PrintMove();
 void PrintPos();
-#define SoftwareVersion_	6
+#define SoftwareVersion_	7
 /* INCLUDES */
 #include "display.h"
 #include <stdio.h>
@@ -153,6 +153,7 @@ int incvel[6]={1000,0,1000,0,1000,0};
 float altclino_sf=.0049016925256;/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
 int altclino_off=8857;/*9048;*/         /*9500*/
 double tickperarcs[3]={AZ_TICK,ALT_TICK,ROT_TICK};
+static int refreshing=FALSE;
 /****************************************************************************/
 static void PrintMenu()
 {
@@ -165,10 +166,8 @@ static void PrintMenu()
 /****************************************************************************/
 static void PrintBanner()
 {
-int Mins;
 float Days;
 time_t CurrentTime;
-int i;
 
    CursPos(1,1);
    MenuInput[21]=NULL;
@@ -261,18 +260,16 @@ int Axis_vel_pos[6]={200000,0,200000,0,500000,0};
 void Menu()
 /* This services the display terminal.  */
 {
-char ch;
 int Running=TRUE;
 char buf[255];
-int i;
 extern struct SDSS_FRAME sdssdc;
 extern struct TM_M68K *tmaxis[];
 extern SEM_ID semMEI;
+extern SEM_ID semMEIDC;
 extern void tm_az_brake_on(),tm_az_brake_off();
 extern void tm_alt_brake_on(),tm_alt_brake_off();
 extern void tm_set_pos(int axis, int pos);
 extern void manTrg();
-extern char *inst_name[];
 extern char *balance_weight(int inst);
 extern int cw_pos(int cw, float pos);
 extern int cw_abort();
@@ -284,24 +281,21 @@ extern struct FIDUCIARY fiducial[3];
 extern long fiducial_position[3];
 int Options;
 long pos, deg, min, arcsec, marcsec;
-long pos2;
-long fiducialpos;
 double arcsecond;
 long marcs,arcs,arcm,arcd;
-long ap;
 int negative;
 
    Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
    ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
-   if (semTake (semMEI,60)!=ERROR)
+   if (semTake (semMEIDC,60)!=ERROR)
    {
      PrintBanner();
      PrintMove();
-     semGive (semMEI);
+     semGive (semMEIDC);
    }
    else
    {
-     printf ("\r\nCan't take semMEI...DataCollection task probably at fault");
+     printf ("\r\nCan't take semMEIDC...DataCollection task probably at fault");
      return;
    }
    while(Running)
@@ -311,77 +305,89 @@ int negative;
       switch(buf[0])
       {
          case 'Z': case 'z': CursPos(1,19);
-				printf("Azimuth Controls  ");
-				Axis=0;
-   				printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
-					Axis_vel[Axis],incvel[Axis]);
-				PrintMove();
-				break;
+	   printf("Azimuth Controls  ");
+	   Axis=0;
+	   printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
+	   Axis_vel[Axis],incvel[Axis]);
+           if (semTake (semMEIDC,60)!=ERROR)
+           {
+	     PrintMove();
+             semGive (semMEIDC);
+	   }
+	   break;
          case 'L': case 'l': CursPos(1,19);
-				printf("Altitude Controls ");
-				Axis=2;
-   				printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
-					Axis_vel[Axis],incvel[Axis]);
-				PrintMove();
-				break;
+	   printf("Altitude Controls ");
+	   Axis=2;
+	   printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
+	   Axis_vel[Axis],incvel[Axis]);
+           if (semTake (semMEIDC,60)!=ERROR)
+           {
+	     PrintMove();
+             semGive (semMEIDC);
+	   }
+	   break;
          case 'R': case 'r': CursPos(1,19);
-		  		printf("Rotator Controls  ");
-				Axis=4;
-   				printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
-					Axis_vel[Axis],incvel[Axis]);
-				PrintMove();
-				break;
-
+	   printf("Rotator Controls  ");
+	   Axis=4;
+	   printf ("<--J-- %6ld --K--> Increment=%d Cts\n",
+	   Axis_vel[Axis],incvel[Axis]);
+           if (semTake (semMEIDC,60)!=ERROR)
+           {
+	     PrintMove();
+             semGive (semMEIDC);
+	   }
+	   break;
          case 'P': case 'p': CursPos(20,24);
-  			printf("Set Position    xxx:xx:xx:xxx           ");
-				/*sscanf (buf,"%d",&pos);*/
-			if (GetString(&MenuInput[0],20))
-			{
-				memcpy(&buf[0],&MenuInput[0],21);
-				memset(&MenuInput[0],' ',20);
-				if (buf[0]=='-') 
-				{
-				  sscanf (&buf[1],"%ld:%ld:%ld:%ld",
-					&deg,&min,&arcsec,&marcsec);
-				  negative=TRUE;
-				}
-				else
-				{
-				  sscanf (buf,"%ld:%ld:%ld:%ld",
-					&deg,&min,&arcsec,&marcsec);
-				  negative=FALSE;
-				}
-				if (Axis==0)
-				  pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+	   printf("Set Position    xxx:xx:xx:xxx           ");
+		/*sscanf (buf,"%d",&pos);*/
+	   if (GetString(&MenuInput[0],20))
+	   {
+	     memcpy(&buf[0],&MenuInput[0],21);
+	     memset(&MenuInput[0],' ',20);
+             min=0; arcsec=0; marcsec=0;
+	     if (buf[0]=='-') 
+	     {
+	       sscanf (&buf[1],"%ld:%ld:%ld:%ld",
+			&deg,&min,&arcsec,&marcsec);
+	       negative=TRUE;
+	     }
+	     else
+	     {
+	       sscanf (buf,"%ld:%ld:%ld:%ld",
+			&deg,&min,&arcsec,&marcsec);
+	       negative=FALSE;
+	     }
+	     if (Axis==0)
+	       pos=(long)((abs(deg)*3600000.)+(min*60000.)+
 				    (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-				if (Axis==2)
-				  pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     if (Axis==2)
+	       pos=(long)((abs(deg)*3600000.)+(min*60000.)+
 				    (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-				if (Axis/2==2)
-				{
-				  pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     if (Axis/2==2)
+	     {
+	       pos=(long)((abs(deg)*3600000.)+(min*60000.)+
                                     (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
-			  	}
-				if (negative) pos = -pos;
-				tm_set_pos(Axis,pos);
-				if (Axis==0) tm_set_pos(Axis+1,pos);
-				if (Axis==4) 
-				{
-				  tm_set_pos(Axis+1,pos);
-				  tm_set_pos(Axis-1,pos);
-				}
-				fiducial[Axis/2].markvalid=FALSE;
-			}
-                        CursPos(20,24);
-                        printf("                                        ");
-			break;
+   	     }
+	     if (negative) pos = -pos;
+	     tm_set_pos(Axis,pos);
+	     if (Axis==0) tm_set_pos(Axis+1,pos);
+	     if (Axis==4) 
+	     {
+	       tm_set_pos(Axis+1,pos);
+	       tm_set_pos(Axis-1,pos);
+	     }
+	     fiducial[Axis/2].markvalid=FALSE;
+	   }
+           CursPos(20,24);
+           printf("                                        ");
+	   break;
          case 'F': case 'f': CursPos(20,24);
 		  	printf("Set Fiducial Position                    ");
 			if (fiducial[Axis/2].markvalid)
 			{
 			  pos=fiducial_position[Axis/2];
 /* use optical encoder for axis 4 */
-    			  if (semTake (semMEI,60)!=ERROR)
+    			  if (semTake (semMEIDC,60)!=ERROR)
      			  {
 			    if (Axis/2==2) 
 	  		    { 
@@ -398,10 +404,10 @@ int negative;
 				fiducial[Axis/2].mark);
 			      tm_set_pos(Axis&0x6,pos);
 			    }
-     			    semGive (semMEI);
+     			    semGive (semMEIDC);
 			  }
 			  else
-                            printf("ERR: can't take MEI semaphore          ");
+                            printf("ERR: can't take MEIDC semaphore          ");
 			  fiducial[Axis/2].mark=fiducial_position[Axis/2];
 			}
 			else
@@ -481,10 +487,10 @@ int negative;
 				 adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
                                   (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
 				if (negative) adjpos[Axis] = -adjpos[Axis];
-  				if (semTake (semMEI,60)!=ERROR)
+  				if (semTake (semMEIDC,60)!=ERROR)
   				{
 			          adjpos[Axis] += (*tmaxis[Axis/2]).actual_position;
-	  			  semGive (semMEI);
+	  			  semGive (semMEIDC);
         			}
 				else break;
        				if (Axis==0)
@@ -518,10 +524,10 @@ int negative;
 				/*sscanf (buf,"%d",&pos);*/
 				sscanf (buf,"%ld",
 					&adjpos[Axis]);
-  				if (semTake (semMEI,60)!=ERROR)
+  				if (semTake (semMEIDC,60)!=ERROR)
   				{
 			          adjpos[Axis] += (*tmaxis[Axis/2]).actual_position;
-	  			  semGive (semMEI);
+	  			  semGive (semMEIDC);
         			}
 				else break;
 		            	if (Axis==0)
@@ -632,7 +638,6 @@ int negative;
                     controller_run (Axis);
                     if (Axis==4)
                       while (coeffs_state_cts (Axis,0));
-/*                      dsp_set_filter (Axis,(P_INT)coeff_rot_slow);*/
                     v_move(Axis,(double)0,(double)5000);
                   }
                   else
@@ -640,7 +645,6 @@ int negative;
                     set_velocity(Axis,(double)(Axis_vel[Axis]));
                     if (Axis==4)
                       while (coeffs_state_cts (Axis,(long)Axis_vel[Axis]));
-/*                      dsp_set_filter (Axis,(P_INT)coeff_rot_slow);*/
                   }
                   semGive (semMEI);
 		  break;
@@ -655,9 +659,9 @@ int negative;
 				break;
          case 'X': case 'x': Running=FALSE;
 				ioctl(0,FIOOPTIONS,Options); /* back to normal */
-				semTake (semMEI,WAIT_FOREVER);
+				semTake (semMEIDC,WAIT_FOREVER);
  			        taskDelete(taskIdFigure("menuPos"));
-				semGive (semMEI);
+				semGive (semMEIDC);
 				taskDelay (10);
 				EraseDisplayAll();
 	 			break;
@@ -771,7 +775,6 @@ int negative;
                     controller_run (Axis);
                     controller_run (Axis);
 	            if (Axis==4)
-/*		      dsp_set_filter (Axis,(P_INT)coeff_rot_slow);*/
                       while (coeffs_state_cts (Axis,0));
 	            v_move(Axis,(double)0,(double)5000);
 		  }
@@ -800,19 +803,23 @@ int negative;
 		break;
 
           case '?': 
- 		CursPos(1,1);
+		if (semTake (semMEIDC,60)!=ERROR)
+	        {
+ 		  CursPos(1,1);
 printf("Extended Help...*=AMP Reset; +|-=Align Close|Open; B|C=Brake Enable|Disable   \n");
-		CursPos(1,2);
+		  CursPos(1,2);
 printf(" D=Dest Position; O=Offset Position V=Set Velocity; A=AdjCnt Position;        \n");
-		CursPos(1,3);
+		  CursPos(1,3);
 printf(" M=Move to Position G=Gang Az+Alt Move                                        \n");
-		CursPos(1,4);
+		  CursPos(1,4);
 printf(" K=pos; J=neg; S=Stop Motion; H=Hold Motion I=Set Velocity Increment;         \n");
-		CursPos(1,5);
+		  CursPos(1,5);
 printf(" P=SetPosition; F=SetFiducial; sp=RstScrn X=eXit                                     \n");
-		CursPos(1,6);
+		  CursPos(1,6);
 printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                                \n");
-			break;
+		  semGive (semMEIDC);
+	        }
+		break;
 
 	 case 'S': case 's':	     
 	   Axis_vel[Axis]=0;
@@ -1075,10 +1082,11 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 
 	   
          default:  
-           if (semTake (semMEI,60)!=ERROR)
+           if (semTake (semMEIDC,60)!=ERROR)
            {
+	     refreshing=TRUE;
  	     PrintBanner(); PrintMove();
-             semGive (semMEI);
+             semGive (semMEIDC);
            }
            else break;
 /*
@@ -1087,7 +1095,12 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 */
                    		break;
       }
-      CursPos(74,23);
+      if (semTake (semMEIDC,60)!=ERROR)
+      {
+/*        CursPos(74,23);*/
+	taskDelay(1);
+        semGive (semMEIDC);
+      }
       taskDelay(5); /* 60/5 = 12Hz */
    }
 }
@@ -1095,7 +1108,7 @@ static char *limitstatus[]={"  "," U"," L","UL"};
 void PrintPos()
 {
 	extern struct SDSS_FRAME sdssdc;
-	extern SEM_ID semMEI;
+	extern SEM_ID semMEIDC;
 	extern int rawtick;
 	extern struct TM_M68K *tmaxis[];
 	extern struct FIDUCIARY fiducial[3];
@@ -1116,8 +1129,13 @@ void PrintPos()
 	
 	FOREVER
 	{  
-  	if (semTake (semMEI,60)!=ERROR)
+  	if (semTake (semMEIDC,60)!=ERROR)
   	{
+	  if (refreshing) 
+	  {
+            taskDelay(60);
+	    refreshing=FALSE;
+          }
           if (rawtick>(50+lasttick))
 	  {
 	    lasttick=rawtick;
@@ -1224,11 +1242,11 @@ void PrintPos()
             printf ("%4.2f\" %4.2fv%s\t",
 		(24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
 	  }
-	  semGive (semMEI);
 	}
 	CursPos (60,24);
 	printf ("%s",&MenuInput[0]);
 	CursPos (74,23);
+	semGive (semMEIDC);
 	taskDelay (60);
 	}
 }

@@ -65,7 +65,7 @@ int sdss_transmit ( FILE *output_stream, unsigned char * const cmd,
    if (buffer==NULL)	/* if string is null, "\r\n%s" outputs "\r(null)" */
      status=fprintf ( output_stream, "%s  OK\n\r",  cmd );
    else
-     status=fprintf ( output_stream, "%s\r\n%s  OK\n\r",  cmd,buffer );
+     status=fprintf ( output_stream, "%s\n\r%s  OK\n\r",  cmd,buffer );
 
    fflush ( output_stream);
    return 0;
@@ -165,7 +165,6 @@ void tcc_serial(int port)
    }
   }                                             
 }                                             
-char barcode_buffer[256];
 struct BARCODE {
 	short axis;
 	short fiducial;
@@ -253,7 +252,7 @@ int barcode_serial(int port)
 {
   FILE *stream;  
   int status;
-  char command_buffer[120];
+  char barcode_buffer[256];
   int c;
   unsigned char *ptr;
   char *bf;
@@ -263,7 +262,7 @@ int barcode_serial(int port)
     stream=barcode_open(port);
   else
     stream=cancel[port].stream;
-  if (stream!=NULL) return ERROR;
+  if (stream==NULL) return ERROR;
    taskLock();
    cancel[port].cancel=FALSE;
    cancel[port].active=TRUE;
@@ -281,7 +280,7 @@ int barcode_serial(int port)
      printf (" BARCODE **NOT** accepting response (status=%d)\r\n",status);
    else
    {
-     command_buffer[0]=NULL;
+     barcode_buffer[0]=NULL;
      ptr    = &barcode_buffer[0];
      while ( ( c = getc ( stream ) ) != EOF )  
      {

@@ -429,7 +429,7 @@ void print_pos_dc (int axis)
 	    cp=(long *)&tmaxis[i]->position;
 	    ap2=(long *)&tmaxis[i]->actual_position2;
 	    logMsg("\r\naxis %d:\tap=%ld\tcp=%ld\tap2=%ld\t",i,
-	      *ap, *cp,*ap2);
+	      *ap, *cp,*ap2,0,0);
 	  semGive (semMEI);
 	 }
 }

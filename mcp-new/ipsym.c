@@ -32,6 +32,7 @@
 #include "symbol.h"
 #include "ioLib.h"
 #include "stdio.h"
+#include "rebootLib.h"
 #include "timers.h"
 #include "time.h"
 #include "timerint.h"
@@ -302,7 +303,11 @@ SEM_ID semDC=NULL;
 SEM_ID semTRG=NULL;
 void serverDCStart()
 {
+  extern SEM_ID semLOADFRAME;
+
   freqtick++;
+  if ((freqtick%5)==0) 
+    if (semLOADFRAME!=NULL) semGive (semLOADFRAME);
   if ((dh.frequency==0) || ((freqtick%dh.frequency)==0))
     if (semDC!=NULL) semGive (semDC);
 }
@@ -321,7 +326,7 @@ void serverData(int hz, void (*data_routine()))
   double *doubledataptr;
   extern void serverDataCollection();
 
-  rebootHookAdd(server_shutdown);
+  rebootHookAdd((FUNCPTR)server_shutdown);
   semDC = semBCreate (0,SEM_Q_FIFO);
 /*  Timer4Start (hz,5,serverDCStart); */
   for (;;)

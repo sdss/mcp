@@ -335,7 +335,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
   DIO316_Interrupt_Configuration (cw_DIO316,0,DIO316_INT_FALL_EDGE);
   sysIntEnable(DIO316_IRQ);
   DIO316_Write_Reg(cw_DIO316,6,0xF);
-  DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);
+/*  DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);*/
   cw_power_off();
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
 

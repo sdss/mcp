@@ -20,12 +20,14 @@
 /*	includes		*/
 /*------------------------------*/
 #include "vxWorks.h"                            
+#include "wdLib.h"
 #include "semLib.h"
 #include "sigLib.h"
 #include "stdio.h"
 #include "tickLib.h"
 #include "inetLib.h"
 #include "taskLib.h"
+#include "rebootLib.h"
 #include "in.h"
 #include "timers.h"
 #include "time.h"
@@ -70,6 +72,8 @@ int init_coeffs(int axis);
 int sdss_error(int error_code);
 float sdss_get_time();
 float get_time();
+void stop_frame(int axis,double pos,double sf);
+void end_frame(int axis,int index,double sf);
 void start_tm_TCC();
 void start_tm_TCC_test();
 void test_rotfiducials_idx (int axis, double pos, int fididx);
@@ -80,6 +84,9 @@ void latchstart ();
 void latchprint (char *description);
 void latchexcel (int axis);
 void print_max ();
+void tm_load_frame();
+void load_frames_trigger(int axisnum);
+void lfStart();
 
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
@@ -102,6 +109,7 @@ struct LATCH_POS latchpos[MAX_LATCHED];
 SEM_ID semMEI=NULL;
 SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
+SEM_ID semLOADFRAME=NULL;
 int tm_DIO316,tm_DID48;
 int axis_select=0;		/* 0=AZ,1=ALT,2=ROT */
 int MEI_interrupt=FALSE;
@@ -221,11 +229,13 @@ int CALCFINAL_verbose=FALSE;
 int FRAME_verbose=FALSE;
 #define FRMHZ	20
 #define FLTFRMHZ	20.
-#define MAX_CALC 50
+#define MAX_CALC 20
 double tim[3][MAX_CALC],p[3][MAX_CALC],v[3][MAX_CALC],a[3][MAX_CALC],ji[3][MAX_CALC];
 float time_off[3]={0.0,0.0,0.0};
 double stop_position[3]={0.0,0.0,0.0};
+double drift_velocity[3]={0.0,0.0,0.0};
 int frame_break[3]={FALSE,FALSE,FALSE};
+int drift_break[3]={FALSE,FALSE,FALSE};
 
 char *correct_cmd(char *cmd)
 {
@@ -243,23 +253,28 @@ char *drift_cmd(char *cmd)
   long ap,vel;
   double position,velocity;
   double arcdeg, veldeg;
+  float time;
 /*  extern struct TM_M68K *tmaxis[];*/
 
-/*  printf (" DRIFT command fired\r\n");*/
+  printf (" DRIFT command fired\r\n");
   if (semTake (semMEI,60)!=ERROR)
   {
 /*    ap=(*tmaxis[axis_select]).actual_position;*/
 /*    vel=(*tmaxis[axis_select]).velocity;*/
     get_position(axis_select<<1,&position);
     get_velocity(axis_select<<1,&velocity);
+    time=sdss_get_time();
+    drift_velocity[axis_select]=velocity;
+    drift_break[axis_select]=TRUE;
     semGive (semMEI);
-    ap=(long)position;
-    vel=(long)velocity;
-    veldeg=(sec_per_tick[axis_select]*vel)/3600.;
-    arcdeg=(sec_per_tick[axis_select]*ap)/3600.;
-    sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,sdss_get_time());
-    return drift_ans;
   }
+  taskDelay(15);
+  ap=(long)position;
+  vel=(long)velocity;
+  veldeg=(sec_per_tick[axis_select]*vel)/3600.;
+  arcdeg=(sec_per_tick[axis_select]*ap)/3600.;
+  sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,time);
+  return drift_ans;
   return 0;
 }
 
@@ -305,6 +320,8 @@ char *init_cmd(char *cmd)
     tm_controller_idle (axis_select<<1);
     taskDelay(1);
   }
+  drift_break[axis_select]=FALSE;
+  frame_break[axis_select]=FALSE;
   if (axis_select==2)
     amp_reset(axis_select<<1);
   else
@@ -400,6 +417,7 @@ char *move_cmd(char *cmd)
 /*  struct FRAME *nframe;*/
   struct FRAME_QUEUE *queue;
   int cnt;
+  double dt;
 
 /*  printf (" MOVE command fired\r\n");*/
   queue = &axis_queue[axis_select];
@@ -442,16 +460,29 @@ char *move_cmd(char *cmd)
 	velocity = (double).10;
 	frame->end_time = sdss_get_time()+
 		(abs(pos/ticks_per_degree[axis_select]-position)/velocity);
+	velocity=0.0;
         break;
     case 2:
         tm_get_pos(axis_select<<1,&pos);
-	frame->end_time = sdss_get_time()+(abs(pos-position)/velocity);
+	frame->end_time = sdss_get_time()+
+		abs((pos/ticks_per_degree[axis_select])-position)/velocity;
         break;
     case 3:
         if (frame->end_time<sdss_get_time())
 	{
 	  free (frame);
 	  return 0;
+	}
+  	if (drift_break[axis_select])
+	{
+          printf("\r\nDRIFT pvt %lf %lf %lf",
+		position,velocity,frame->end_time);
+          tm_get_pos(axis_select<<1,&pos);
+	  dt=frame->end_time-sdss_get_time();
+	  position=(pos+(drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
+          printf("\r\nDRIFT modified pvt %lf %lf %lf",
+		position,velocity,frame->end_time);
+	  drift_break[axis_select]=FALSE;
 	}
 	break;
   }
@@ -502,7 +533,7 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   struct FRAME *lframe;
   int i;
   
-  while (iframe->nxt==NULL) taskDelay (10);
+  while (iframe->nxt==NULL) taskDelay (3);
   fframe=iframe->nxt;
   dx=fframe->position-iframe->position;
   dv=fframe->velocity-iframe->velocity;
@@ -583,16 +614,20 @@ void start_frame(int axis,double time)
   FRAME frame;
   
   time_off[axis]=0.0;
-  printf ("\r\nSTART axis=%d: time=%lf",axis<<1,time);
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
+     time-=(sdss_get_time()-.0065);
+     dsp_dwell (axis<<1,time);
+/*
      set_gate(axis<<1);
      e=frame_m(&frame,"0l t un d",axis<<1,
 	time,
 	FTRG_TIME,NEW_FRAME);    
      reset_gate(axis<<1);
+*/
      semGive (semMEI);
   }
+  printf ("\r\nSTART axis=%d: time=%lf",axis<<1,time);
 }
 int get_frame_cnt(int axis, struct FRAME *iframe)
 {
@@ -732,7 +767,7 @@ int coeffs_state_cts (int axis, int cts)
         }
         return FALSE;
  }
-void load_frames(int axis, int cnt, double sf)
+void load_frames(int axis, int cnt, int idx, double sf)
 {
   int e;
   int i;
@@ -740,7 +775,7 @@ void load_frames(int axis, int cnt, double sf)
   
   if (FRAME_verbose)
     printf("\r\n Load %d Frames, sf=%lf",cnt,sf);
-  for (i=0;i<cnt;i++)
+  for (i=0+idx;i<(cnt+idx);i++)
   {
     if (fabs(a[axis][i])>fabs(max_acceleration[axis+3])) 
       max_acceleration[axis+3]=a[axis][i];
@@ -795,6 +830,64 @@ void load_frames_test(int axis, int cnt, double sf)
     }
 }
 
+void stop_frame(int axis,double pos,double sf)
+{
+  int stopped;
+
+  printf ("\r\nSTOP axis=%d: p=%12.8lf",
+	axis<<1,(double)pos);
+  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+  {
+    set_stop(axis<<1);
+    stopped=motion_done(axis<<1);
+    semGive (semMEI);
+  }
+  while(!stopped)
+  {  
+    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+    {
+      stopped=motion_done(axis<<1);
+      semGive (semMEI);
+    }
+    printf("\r\nStopping");
+    taskDelay(1);
+  }
+  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+  {
+    clear_status(axis<<1);
+    semGive (semMEI);
+  }
+  printf("\r\nStopped");
+  tm_start_move (axis<<1,1*sf,.8*sf,pos);
+}
+void drift_frame(int axis,double vel,double sf)
+{
+  int e;
+  FRAME frame;
+  int lcnt;
+  
+  printf ("\r\nDRIFT axis=%d: v=%12.8lf",
+	axis<<1,
+	(double)vel);
+  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+  {
+/*  this should work but instaneously to velocity */
+    set_accel(axis<<1,(double)0.0);
+    set_velocity(axis<<1,(double)vel);
+
+/*
+      e=frame_m(&frame,"0l vaj un d",axis<<1,
+	(double)vel,(double).8*sf,
+	(double)0.0,
+	FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY,NEW_FRAME);
+      e=frame_m(&frame,"0l va u d",axis<<1,
+	(double)vel,(double)0.0,
+	FUPD_ACCEL|FUPD_VELOCITY,0);
+*/
+/*      dsp_set_last_command(dspPtr,axis<<1,(double)p[axis][index]*sf);*/
+      semGive (semMEI);
+  }
+}
 void end_frame(int axis,int index,double sf)
 {
   int e;
@@ -829,7 +922,7 @@ int tm_frames_to_execute(int axis)
   }
   return ERROR;    
 }
-#define LOAD_MAX        50
+#define LOAD_MAX        20
 void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 {
   int cnt;
@@ -872,42 +965,66 @@ void tm_TCC(int axis)
   int frame_cnt, frame_idx;
 /*  extern struct TM_M68K *tmaxis[];*/
   double position;
+  double velocity;
   long pos;
+  int idx;
   
   tm_controller_run (axis<<1);
   printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
 	ticks_per_degree[axis]);
   FOREVER
   {
-    while (axis_queue[axis].active==NULL)taskDelay (10);
+    while (axis_queue[axis].active==NULL)
+    {
+      if (frame_break[axis])
+      {
+        stop_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
+	frame_break[axis]=FALSE;
+      }
+      taskDelay (3);
+    }
     frame=axis_queue[axis].active;
+    drift_break[axis]=FALSE;
 /* reposition if neccessary */
     if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
     {
       get_position(axis<<1,&position);
+      get_velocity(axis_select<<1,&velocity);
       semGive (semMEI);
       pos=(long)position;
     }
-    if (abs((frame->position*ticks_per_degree[axis])-pos)>
-		(.001*ticks_per_degree[axis]))
+    if ( (abs((frame->position*ticks_per_degree[axis])-position)>
+		(.01*ticks_per_degree[axis])) && (fabs(velocity)==0) )
     {
+      while ((lcnt=tm_frames_to_execute(axis))>1)
+      {
+/*       printf ("\r\n frames left=%d",lcnt);*/
+        taskDelay(1);
+      }
       tm_start_move (axis<<1,
 		1*(double)ticks_per_degree[axis],
 		.5*(double)ticks_per_degree[axis],
 		frame->position*(double)ticks_per_degree[axis]);
-      printf ("\r\n Repositioning");
-    }
-    while (abs((frame->position*ticks_per_degree[axis])-pos)>
-		(.0005*ticks_per_degree[axis]))
-    {
-      if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+        printf ("\r\n Repositioning TCC cmd to position=%lf from pos=%ld, diff=%ld>%ld",
+		frame->position*ticks_per_degree[axis],pos,
+		abs((frame->position*ticks_per_degree[axis])-position),
+		(long)(.01*ticks_per_degree[axis]) );
+      while (abs((frame->position*ticks_per_degree[axis])-pos)>
+		(.01*ticks_per_degree[axis]))
       {
-        get_position(axis<<1,&position);
-        semGive (semMEI);
-        pos=(long)position;
+        if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+        {
+          get_position(axis<<1,&position);
+          semGive (semMEI);
+          pos=(long)position;
+        }
+        taskDelay (1);
+        printf("\r\nStill repositioning");
       }
-      taskDelay (1);
     }
+/*    else
+      printf("\r\n nonzero vel=%lf",velocity);
+*/
 /* check for time */
     while ((frame!=NULL)&&((frame->end_time-sdss_get_time())<.0))
     {
@@ -917,22 +1034,25 @@ void tm_TCC(int axis)
     }
     if (frame!=NULL)
     {
-      while ((frame->end_time-sdss_get_time())>4.0)taskDelay (2*60);
-      start_frame (axis,frame->end_time-sdss_get_time());
+/*      while ((frame->end_time-sdss_get_time())>4.0)taskDelay (2*60);*/
+      start_frame (axis,frame->end_time);
       while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>0.02))
-        taskDelay (1);
+      {
+/*        printf ("\r\n waiting for second frame");*/
+        taskDelay (3);
+      }
+/*    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+    {
+      get_velocity(axis_select<<1,&velocity);
+      semGive (semMEI);
+    }
+      printf("\r\nAfter dwell vel=%lf",velocity);
+*/
       while ((frame->nxt!=NULL) || (axis_queue[axis].active!=NULL))
       {
-        while ((lcnt=tm_frames_to_execute(axis))>100)
-        {
-/*         printf ("\r\n frames left=%d",lcnt);*/
-          taskDelay(30);
-        }
         frame_cnt=get_frame_cnt(axis,frame);
 /*      printf ("\r\n frames_cnt=%d",frame_cnt);*/
         frame_idx=0;
-	frame_break[axis]=FALSE;
-/*        for (i=0;i<((frame_cnt-1)/(LOAD_MAX-1))+1;i++)*/
 	while (frame_cnt>0)
         {
           cnt=calc_frames(axis,frame,frame_idx);
@@ -946,12 +1066,22 @@ void tm_TCC(int axis)
 	    cnt=1;
             break;
 	  }
-	  if (cnt>0)
-            load_frames(axis,cnt,(double)ticks_per_degree[axis]);
-	  else
-	    taskDelay(4);
-          while ((lcnt=tm_frames_to_execute(axis))>100) taskDelay (30);
-          if (lcnt<10) 
+	  if (drift_break[axis]) 
+	  {
+            axis_queue[axis].active=NULL;
+	    cnt=1;
+            break;
+	  }
+          if (cnt==0) taskDelay(15);	/* calc is probably waiting on the next frame due to offset */
+	  idx=0;
+	  while (cnt>0)
+          {
+            load_frames(axis,min(cnt,5),idx,(double)ticks_per_degree[axis]);
+            while ((lcnt=tm_frames_to_execute(axis))>10) taskDelay (3);
+	    idx+=5;
+	    cnt -=5;
+          }
+          if (lcnt<1)
 	  {
 	    printf ("\r\n frames left=%d, frame cnt=%d, cnt=%d",
 		lcnt,frame_cnt,cnt);
@@ -959,7 +1089,6 @@ void tm_TCC(int axis)
 		axis,frame->end_time,sdss_get_time());
 	  }
         }
-	frame_break[axis]=FALSE;
         if (axis_queue[axis].active==NULL) 
         {
 	  frame=axis_queue[axis].end;
@@ -969,12 +1098,27 @@ void tm_TCC(int axis)
         axis_queue[axis].active=frame;    
         while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>.02))
           taskDelay (1);
-        while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1));
+        while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1)) taskDelay(1);
       }
       printf ("\r\n Ran out: frames left=%d",lcnt);
       axis_queue[axis].active=NULL;    
       if (cnt==0) cnt=1;
-      end_frame(axis,cnt-1,(double)ticks_per_degree[axis]);
+      if (frame_break[axis])
+      {
+        stop_frame(axis,stop_position[axis],(double)ticks_per_degree[axis]);
+	frame_break[axis]=FALSE;
+      }
+      else
+      {
+        if (drift_break[axis])
+        {
+          drift_frame(axis,drift_velocity[axis],(double)ticks_per_degree[axis]);
+        }
+        else
+	{
+          end_frame(axis,cnt-1,(double)ticks_per_degree[axis]);
+	}
+      }
     }
     else
       printf ("\r\nRestart no frames to process");
@@ -982,11 +1126,11 @@ void tm_TCC(int axis)
 }
 void start_tm_TCC()
 {
-  taskSpawn("tmAz",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
+  taskSpawn("tmAz",47,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
 		0,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmAlt",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
+  taskSpawn("tmAlt",47,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
 		1,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmRot",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
+  taskSpawn("tmRot",47,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,
 		2,0,0,0,0,0,0,0,0,0);
 }
 void start_tm_TCC_test()
@@ -1445,6 +1589,7 @@ void tm_latch()
   int i;
   extern int barcode_serial();
   int fididx;
+  int status;
 /*  unsigned char int_bit;
 */
   init_fiducial();
@@ -1453,21 +1598,29 @@ void tm_latch()
   {
     if (semTake(semLATCH,WAIT_FOREVER)!=ERROR)
     {
-      if (semTake (semMEI,60)!=ERROR)
+      i=15;
+      status=FALSE;
+      while ((!status)&&(i>0))
       {
-/*        latch();*/
-        i=0x1000;
-	while ((!latch_status())&&(i>0))i--;
-/*        printf ("\r\nlatch_status TRUE after %d tries; %x",0x1000-i,int_bit);*/
-/*        DIO316ReadISR (tm_DIO316,&int_bit);*/
-/*        printf ("; %x",int_bit);*/
-	if (i!=0)
+        if (semTake (semMEI,60)!=ERROR)
         {
+          status=latch_status;
+          semGive (semMEI);
+        }
+        taskDelay(1);
+        i--;
+      }
+      if (i!=0)
+      {
         if (int_bit&AZIMUTH_INT)
         {
 	  latchpos[latchidx].axis=AZIMUTH;
-	  get_latched_position(0,&latchpos[latchidx].pos1);
-	  get_latched_position(1,&latchpos[latchidx].pos2);
+          if (semTake (semMEI,60)!=ERROR)
+          {
+	    get_latched_position(0,&latchpos[latchidx].pos1);
+	    get_latched_position(1,&latchpos[latchidx].pos2);
+	    semGive (semMEI);
+	  }
           if (LATCH_verbose)
             printf ("\r\nAXIS %d: latched pos0=%f,pos1=%f",latchpos[latchidx].axis,
 	    (float)latchpos[latchidx].pos1,
@@ -1499,8 +1652,12 @@ void tm_latch()
         if (int_bit&ALTITUDE_INT)
         {
 	  latchpos[latchidx].axis=ALTITUDE;
-	  get_latched_position(2,&latchpos[latchidx].pos1);
-	  get_latched_position(3,&latchpos[latchidx].pos2);
+          if (semTake (semMEI,60)!=ERROR)
+          {
+	    get_latched_position(2,&latchpos[latchidx].pos1);
+	    get_latched_position(3,&latchpos[latchidx].pos2);
+            semGive (semMEI);
+          }
 /*          printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",latchpos[latchidx].axis,
 	    (float)latchpos[latchidx].pos1,
 	    (float)latchpos[latchidx].pos2);*/
@@ -1531,8 +1688,12 @@ void tm_latch()
         {
 	  latchpos[latchidx].axis=INSTRUMENT;
 /* switch to 5 for optical encoder */
-	  get_latched_position(5,&latchpos[latchidx].pos1);
-	  get_latched_position(4,&latchpos[latchidx].pos2);
+          if (semTake (semMEI,60)!=ERROR)
+          {
+	    get_latched_position(5,&latchpos[latchidx].pos1);
+	    get_latched_position(4,&latchpos[latchidx].pos2);
+            semGive (semMEI);
+          }
           if (LATCH_verbose)
             printf ("\r\nAXIS %d: latched pos4=%f,pos5=%f",
 	      latchpos[latchidx].axis,
@@ -1617,27 +1778,29 @@ void tm_latch()
               fiducial[2].markvalid=TRUE;
           }
 	}
-	}
-        else
-        {
-          if (int_bit&AZIMUTH_INT)
-            latchpos[latchidx].axis=-(AZIMUTH+1);
-          if (int_bit&ALTITUDE_INT)
-            latchpos[latchidx].axis=-(ALTITUDE+1);
-          if (int_bit&INSTRUMENT_INT)
-	    latchpos[latchidx].axis=-(INSTRUMENT+1);
-          printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
-        }
-        arm_latch(TRUE);
-	semGive (semMEI);
       }
-      if (latchidx<MAX_LATCHED)
-	latchidx++;
       else
-        latchidx=0;
-/*      taskDelay(60);  *//* slow the rate of interrupts */
-      DIO316ClearISR (tm_DIO316);
+      {
+        if (int_bit&AZIMUTH_INT)
+          latchpos[latchidx].axis=-(AZIMUTH+1);
+        if (int_bit&ALTITUDE_INT)
+          latchpos[latchidx].axis=-(ALTITUDE+1);
+        if (int_bit&INSTRUMENT_INT)
+          latchpos[latchidx].axis=-(INSTRUMENT+1);
+        printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
+      }
+      if (semTake (semMEI,60)!=ERROR)
+      {
+        arm_latch(TRUE);
+        semGive (semMEI);
+      }
     }
+    if (latchidx<MAX_LATCHED)
+      latchidx++;
+    else
+      latchidx=0;
+/*      taskDelay(60);  *//* slow the rate of interrupts */
+    DIO316ClearISR (tm_DIO316);
   }
 }
 void test_rotfiducials_idx (int axis, double pos, int fididx)
@@ -1921,7 +2084,7 @@ int DIO316_initialize(unsigned char *addr, unsigned short vecnum)
                                 DIO316_TYPE);
   printf ("DIO316 vector = %d, interrupt address = %p, result = %8x\r\n",
               vecnum,DIO316_interrupt,stat);
-  rebootHookAdd(axis_DIO316_shutdown);
+  rebootHookAdd((FUNCPTR)axis_DIO316_shutdown);
 
 /*
   DIO316_Interrupt_Configuration (tm_DIO316,0,DIO316_INT_HIGH_LVL);           
@@ -1967,7 +2130,7 @@ int DID48_initialize(unsigned char *addr, unsigned short vecnum)
                                 DID48_TYPE);
   printf ("DID48 vector = %d, interrupt address = %p, result = %8x\r\n",
                 vecnum,DID48_interrupt,stat);
-  rebootHookAdd(axis_DID48_shutdown);
+  rebootHookAdd((FUNCPTR)axis_DID48_shutdown);
 
   IP_Interrupt_Enable(&ip,DID48_IRQ);
   sysIntEnable(DID48_IRQ);                                
@@ -2061,7 +2224,7 @@ int sdss_init()
   arm_latch(TRUE);
   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-  taskSpawn ("tmLatch",0,VX_FP_TASK,10000,(FUNCPTR)tm_latch,0,0,0,0,0,0,0,0,0,0);
+  taskSpawn ("tmLatch",49,VX_FP_TASK,10000,(FUNCPTR)tm_latch,0,0,0,0,0,0,0,0,0,0);
   return 0;
 }
 
@@ -2183,14 +2346,16 @@ float sdss_get_time()
 {
   	  unsigned long micro_sec;
 
-          micro_sec = timer_read (1);
+          micro_sec = (unsigned long)(1.0312733648*timer_read (1));
+/*          micro_sec = timer_read (1);*/
           return (float)(SDSStime+((micro_sec%1000000)/1000000.));
 }
 float get_time()
 {
   	  unsigned long micro_sec;
 
-          micro_sec = timer_read (1);
+          micro_sec = (unsigned long)(1.0312733648*timer_read (1));
+/*          micro_sec = timer_read (1);*/
 	  printf ("\r\nSDSS time=%f",
 		(float)(SDSStime+((micro_sec%1000000)/1000000.)));
           return (float)(SDSStime+((micro_sec%1000000)/1000000.));
@@ -2352,4 +2517,35 @@ void print_max ()
   for (i=0;i<3;i++)
     printf ("\r\nAXIS %d: MAX VEL limit %lf deg/sec current max %lf",
 	  i,max_velocity[i],max_velocity[i+3]);
+}
+unsigned long loadframecnt=0;
+unsigned long loadframemissed=0;
+void tm_load_frame()
+{
+  if (semLOADFRAME==NULL) semLOADFRAME = semBCreate(0,SEM_Q_FIFO);
+  for (;;)
+  {
+    if (semTake(semLOADFRAME,WAIT_FOREVER)!=ERROR)
+    {
+      if (semTake (semMEI,1)!=ERROR)
+      {
+	 loadframecnt++;
+	 semGive (semMEI);
+      }
+      else
+	 loadframemissed++;
+    }
+  }
+
+}
+void load_frames_trigger(int axisnum)
+{
+  semGive(semLOADFRAME);
+}
+WDOG_ID LFid;
+void lfStart()
+{
+  taskSpawn ("tmLoadFrame",0,VX_FP_TASK,10000,(FUNCPTR)tm_load_frame,0,0,0,0,0,0,0,0,0,0);
+/*  LFid=wdCreate();
+  wdStart (LFid,3,(FUNCPTR)load_frames_trigger,3);*/
 }

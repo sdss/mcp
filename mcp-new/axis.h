@@ -16,11 +16,13 @@
 
 #ifndef __AXIS_H__
 
+#define NAXIS			3
 #define AZIMUTH			0
 #define ALTITUDE		1
 #define	INSTRUMENT		2
-#define SDSS_STOP_RATE		10000.0
-#define SDSS_E_STOP_RATE	10000.0
+
+#define SDSS_STOP_RATE		200000.0
+#define SDSS_E_STOP_RATE	200000.0
 #define AZ_TICK		(.0140167104063)   /* (.0035053554041*4)*/
 /*#define ALT_TICK	(.0134507065233)   *//* (.0035022862146*4)*/
 #define ALT_TICK 	(.0035022862146*4)
@@ -34,6 +36,7 @@
 #define AZ_TICKS_DEG	(3600/AZ_TICK)
 #define ALT_TICKS_DEG	(3600/ALT_TICK)
 #define ROT_TICKS_DEG	(3600/ROT_TICK)
+
 /* function prototypes */
 char *correct_cmd(char *cmd);
 char *drift_cmd(char *cmd);
