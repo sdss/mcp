@@ -48,6 +48,7 @@
 #include "cmd.h"
 #include "mcpUtils.h"
 #include "mcpFiducials.h"
+#include "mcpSpectro.h"
 
 /*========================================================================
 **========================================================================
@@ -375,14 +376,16 @@ slc500_data_collection(unsigned long freq)
    int i;
    static int plc_version_id = -1;	/* plc version in data_collection.h */
    static int plc_version_mismatch = 0;	/* version_id != plc_version_id? */
-   char status[184*2 + 1];
+   char status[192*2 + 1];		/* == sizeof(struct AB_SLC500) + 1 */
    int stat;
-/*
- * gcc complains about this assertion if I don't introduce tmp.
- */
+
    {
-      volatile int tmp;
-      tmp = sizeof(struct AB_SLC500) + 1; assert(sizeof(status) == tmp);
+      const int tmp = sizeof(struct AB_SLC500) + 1;
+      if(sizeof(status) != tmp) {
+	 TRACE(0, "slc500_data_collection: buffer has wrong size (%d v %d)",
+	       sizeof(status), tmp);
+	 taskSuspend(NULL);
+      }
    }
    status[sizeof(status) - 1] = '\a';
    
@@ -407,14 +410,32 @@ slc500_data_collection(unsigned long freq)
       } else {
 	 const int nbyte = (int)sizeof(struct AB_SLC500) -
 	   ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status);
+	 int base = 0;
+	 const int n0 = 64;
+	 const int n1 = 64;
+	 const int n2 = 62;
 	 
-	 stat  = slc_read_blok(1,9,BIT_FILE, 0, (uint *)&status[0], 64);
-	 stat |= slc_read_blok(1,9,BIT_FILE, 64, (uint *)&status[128], 64);
-	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 54);
+	 stat  = slc_read_blok(1, 9, BIT_FILE, base,
+			       (uint *)&status[base*sizeof(short)], n0);
+	 base += n0;
+	 stat |= slc_read_blok(1, 9, BIT_FILE, base,
+			       (uint *)&status[base*sizeof(short)], n1);
+	 base += n1;
+	 stat |= slc_read_blok(1, 9, BIT_FILE, base,
+			       (uint *)&status[base*sizeof(short)], n2);
+	 base += n2;
 	 semGive (semSLC);
 
-	 assert(nbyte == (64 + 64 + 54)*sizeof(short));
-	 assert(status[sizeof(status) - 1] == '\a');
+	 if(nbyte != base*sizeof(short)) {
+	    TRACE(0,
+		"slc500_data_collection: nbyte is wrong (%d v %d)",
+		  base*(int)sizeof(short), nbyte);
+	    taskSuspend(NULL);
+	 }
+	 if(status[sizeof(status) - 1] != '\a') {
+	    TRACE(0, "slc500_data_collection: overwrote buffer marker", 0, 0);
+	    taskSuspend(NULL);
+	 }
 	 
 	 if(stat == 0) {
 /*
@@ -542,6 +563,24 @@ slc500_data_collection(unsigned long freq)
 	 semGive(semStatusCmd);
       }
 /*
+ * Did someone push a button on the manual latch control box?
+ */
+      if(sdssdc.status.i1.il4.open_slit_doors) {
+	 sp1_cmd(NULL); slitdoor_open_cmd(NULL);
+	 sp2_cmd(NULL); slitdoor_open_cmd(NULL);
+      } else if(sdssdc.status.i1.il4.close_slit_doors) {
+	 sp1_cmd(NULL); slitdoor_close_cmd(NULL);
+	 sp2_cmd(NULL); slitdoor_close_cmd(NULL);
+      }
+      
+      if(sdssdc.status.i1.il4.slit_latch_lth_cmd) {
+	 sp1_cmd(NULL); slithead_latch_close_cmd(NULL);
+	 sp2_cmd(NULL); slithead_latch_close_cmd(NULL);
+      } else if(sdssdc.status.i1.il4.slit_latch_unlth_cmd) {
+	 sp1_cmd(NULL); slithead_latch_open_cmd(NULL);
+	 sp2_cmd(NULL); slithead_latch_open_cmd(NULL);
+      }
+/*
  * check that the correct version of the PLC's installed
  */
       if(plc_version_id < 0) {
@@ -551,12 +590,16 @@ slc500_data_collection(unsigned long freq)
       if(sdssdc.status.b3.w1.version_id == plc_version_id) {
 	 plc_version_mismatch = 0;
       } else {
-	 if(plc_version_mismatch%100 == 0) {
-	    TRACE(0, "Saw PLC version %d; expected \"%s\"",
-		  sdssdc.status.b3.w1.version_id, plcVersion);
+	 if(*(short *)&sdssdc.status.b3.w1.version_id < 0) {
+	    ;				/* a devel version; don't complain */
+	 } else {
+	    if(plc_version_mismatch%100 == 0) {
+	       TRACE(0, "Saw PLC version %d; expected \"%s\"",
+		     sdssdc.status.b3.w1.version_id, plcVersion);
+	    }
+	    
+	    plc_version_mismatch++;
 	 }
-
-	 plc_version_mismatch++;
       }
    }
 }
