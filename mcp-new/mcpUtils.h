@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <semLib.h>
 
+void sysReset(int);			/* really in vx_dsc */
+
 char *get_date(void);
 int mjd(void);
 FILE *fopen_logfile(const char *file, const char *mode);
