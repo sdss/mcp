@@ -385,6 +385,7 @@ mcpVersion(char *version,		/* string to fill out, or NULL */
 {
    static char buff[100 + 1];		/* buffer if version == NULL */
    int i;
+   int print = (version == NULL) ? 1 : 0; /* should I print the version? */
    const char *ptr;			/* scratch pointer */
    const char *tag = version_cmd("");	/* CVS tagname + compilation time */
 
@@ -416,7 +417,7 @@ mcpVersion(char *version,		/* string to fill out, or NULL */
    }
 
    assert(version[len - 1] == '\a');	/* no overrun */
-   if(version != buff) {
+   if(print) {
       printf("mcpVersion: %s\n", version);
    }
 
