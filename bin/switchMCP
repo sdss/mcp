@@ -16,11 +16,17 @@ umask 002
 cd /p/mcpbase
 
 #
-# Desired MCP directories
+# Make the links for the MCP directories
 #
-dirs="ab bin etc ip mcp-new util"
+for d in ab bin etc ip mcp-new util; do
+    if [ -l $d ]; then 
+	rm $d
+    fi
+
+    ln -s $MCP_DIR/$d $d
+done
 #
-# Required products
+# And for required products
 #
 for d in ASTRODA MURMUR_CLIENT_VX VX_TOOLS; do
     ld=`echo $d | tr A-Z a-z`
@@ -28,17 +34,12 @@ for d in ASTRODA MURMUR_CLIENT_VX VX_TOOLS; do
 	echo "Please setup $ld and try again" >&2
 	exit 1
     fi
-    dirs="$dirs $ld"
-done
-#
-# Make the links
-#
-for d in $dirs; do
-    if [ -l $d ]; then 
-	rm $d
+
+    if [ -l $ld ]; then 
+	rm $ld
     fi
 
-    ln -s $MCP_DIR/$d $d
+    eval ln -s \$''${d}_DIR ./$ld
 done
 
 exit 0
