@@ -1,3 +1,5 @@
 ab/dhp.map
 ab/dhp.out
+ip/systran/*.map
+ip/systran/*.out
 util/utiltim.map
