@@ -8,6 +8,7 @@
 #include <timers.h>
 #include <time.h>
 #include <errno.h>
+#include "mcpNtp.h"
 #include "iv.h"
 #include "gendefs.h"
 #include "mcpTimers.h"
