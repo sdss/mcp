@@ -373,7 +373,7 @@ typedef struct {
 struct I2 {
 	IF2_L0 il0;
 	short az_lvdt_error;
-	short alt_lvdt_error;			/* ALWSPOS	*/
+	short alt_lvdt_error;				/* ALWSPOS	*/
 	short az_primary_drv;
 	short az_feed_forward_drv;
 	short alt_primary_drv;
@@ -392,19 +392,19 @@ struct I2 {
 	unsigned long undefined15;
 };
 struct I3 {
-	short az_1_voltage;			/* AZMTRV1      */
-	short az_1_current;			/* AZMTRC1      */
-	short az_2_voltage;			/* AZMTRV2      */
-	short az_2_current;			/* AZMTRC2      */
-	short alt_1_voltage;			/* ALMTRV1	*/
-	short alt_1_current;			/* ALMTRC1	*/
-	short alt_2_voltage;			/* ALMTRV2	*/
-	short alt_2_current;			/* ALMTRC2	*/
+	short az_1_voltage;					/* AZMTRV1  */
+	short az_1_current;					/* AZMTRC1  */
+	short az_2_voltage;					/* AZMTRV2  */
+	short az_2_current;					/* AZMTRC2  */
+	short alt_1_voltage;				/* ALMTRV1	*/
+	short alt_1_current;				/* ALMTRC1	*/
+	short alt_2_voltage;				/* ALMTRV2	*/
+	short alt_2_current;				/* ALMTRC2	*/
 };
 struct I4 {
 	short alt_position;
-	short rot_1_voltage;			/* ROMTRV	*/
-	short rot_1_current;			/* ROMTRC	*/
+	short rot_1_voltage;				/* ROMTRV	*/
+	short rot_1_current;				/* ROMTRC	*/
 	short umbilical_dist;
 	short inst_lift_force;
 	short inst_lift_dist;
@@ -462,14 +462,14 @@ struct I6 {
 typedef struct {
 	unsigned az_stow_1b : 1;
 	unsigned az_stow_1a : 1;
-	unsigned alt_grt_18d6_limit_1 : 1;		/* AZCWHL */
+	unsigned alt_grt_18d6_limit_1 : 1;		/* ALP20 */
 	unsigned az_109_131_limit_1 : 1;
-	unsigned bldg_on_alt : 1;			/* AZCWHL */
-	unsigned alt_les_90d5_limit : 1;		/* AZCWHL */
-	unsigned alt_locking_pin_out : 1;		/* AZCCWHL */
-	unsigned alt_grt_0d3_limit : 1;			/* AZCWHL */
+	unsigned bldg_on_alt : 1;				/* AZCWHL */
+	unsigned alt_les_90d5_limit : 1;		/* ALP100 */
+	unsigned alt_locking_pin_out : 1;		/* ALSTOW */
+	unsigned alt_grt_0d3_limit : 1;			/* ALP_2 */
 	unsigned alt_les_2d5_limit : 1;			/* AZCWHL */
-	unsigned hatch_cls : 1;				/* AZCCWSL */
+	unsigned hatch_cls : 1;					/* AZCCWSL */
 	unsigned rot_plc_perm_in : 1;			/* AZCWSL */
 	unsigned bldg_perm_in : 1;
 	unsigned spare_s5_c3 : 1;
@@ -479,40 +479,40 @@ typedef struct {
 
 	unsigned spare_s8_c7 : 1;
 	unsigned spare_s8_c6 : 1;
-	unsigned az_pos_410b_ccw : 1;
-	unsigned az_neg_170b_cw : 1;
-	unsigned az_pos_410a_ccw : 1;
-	unsigned az_neg_170a_cw : 1;
+	unsigned az_pos_410b_ccw : 1;			/* AZCCWHL	*/
+	unsigned az_neg_170b_cw : 1;			/* AZCWHL	*/
+	unsigned az_pos_410a_ccw : 1;			/* AZCCWSL	*/
+	unsigned az_neg_170a_cw : 1;			/* AZCWSL	*/
 	unsigned az_dir_ccw : 1;
 	unsigned az_dir_cw : 1;
 	unsigned alt_velocity_limit : 1;
 	unsigned alt_slip : 1;
-	unsigned alt_grt_18d6_limit_2 : 1;			/* AZCWHL */
+	unsigned alt_grt_18d6_limit_2 : 1;		/* AZCWHL */
 	unsigned alt_15_deg_stop_ext : 1;
 	unsigned az_stow_2b : 1;
 	unsigned az_stow_2a : 1;
 	unsigned bldg_clear_alt : 1;
-	unsigned alt_grt_83_limit_1 : 1;			/* AZCWHL */
+	unsigned alt_grt_83_limit_1 : 1;		/* AZCWHL */
 } IF7_L0;
 struct I7 {
 	IF7_L0	il0;
 };
 typedef struct {
-	unsigned rot_velocity_limit : 1;			/* ALSTOW	*/
+	unsigned rot_velocity_limit : 1;
 	unsigned rot_slip : 1;
-	unsigned rot_pos_380b_ccw : 1;
-	unsigned rot_neg_200b_cw : 1;
-	unsigned rot_pos_380a_ccw : 1;
-	unsigned rot_neg_200a_cw : 1;
+	unsigned rot_pos_380b_ccw : 1;			/* ROCCWHL	*/
+	unsigned rot_neg_200b_cw : 1;			/* ROCWHL	*/
+	unsigned rot_pos_380a_ccw : 1;			/* ROCCWSL	*/
+	unsigned rot_neg_200a_cw : 1;			/* ROCWSL	*/
 	unsigned rot_dir_ccw : 1;
 	unsigned rot_dir_cw : 1;
 	unsigned az_velocity_limit : 1;
 	unsigned az_slip : 1;
 	unsigned spare_s9_c5 : 1;
-	unsigned bldg_clear_az : 1;		/* ALP100	*/
+	unsigned bldg_clear_az : 1;
 	unsigned alt_grt_83_limit_2 : 1;		/* ALP-2	*/
 	unsigned az_109_131_limit_2 : 1;		/* ALP-2	*/
-	unsigned bldg_on_az : 1;		/* ALP20	*/
+	unsigned bldg_on_az : 1;
 	unsigned alt_grt_18d6_limit_3 : 1;		/* ALP-2	*/
 	
 	unsigned tbar_latch_stat : 1;
