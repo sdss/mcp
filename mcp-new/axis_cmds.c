@@ -1594,13 +1594,13 @@ axis_status_cmd(char *cmd)
    long fid_mark = 0;			/* position of fiducial mark */
    static char reply_str[200 + 1];	/* desired values */
 
-   TRACE(5, "Setting reply_str[200] axis == %d", axis, 0);
+   TRACE(8, "Setting reply_str[200] axis == %d", axis, 0);
    reply_str[200] = '\a';
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
 
-   TRACE(5, "taking semMEIUPD", 0, 0);
+   TRACE(8, "taking semMEIUPD", 0, 0);
    if (semTake(semMEIUPD, 60) == ERROR) { 
       TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
       sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
@@ -1628,7 +1628,7 @@ axis_status_cmd(char *cmd)
       break;				/* NOTREACHED */
    }
 
-   TRACE(5, "setting reply_str", 0, 0);
+   TRACE(8, "setting reply_str", 0, 0);
    sprintf(reply_str,
 	   "%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d %d 0x%lx  %.4f",
 	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
@@ -1638,10 +1638,10 @@ axis_status_cmd(char *cmd)
 	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis],
 	   abs(sdssdc.status.i4.alt_position-altclino_off)*altclino_sf);
 
-   TRACE(5, "giving semMEIUPD", 0, 0);
+   TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
 
-   TRACE(5, "Checking reply_str[200]: %d", reply_str[200], 0);
+   TRACE(8, "Checking reply_str[200]: %d", reply_str[200], 0);
    assert(reply_str[200] == '\a');	/* check for overflow */
 
    return(reply_str);
@@ -1874,7 +1874,9 @@ mcp_set_tbars(int val)
       printf ("W Err=0x%x\n",err);
       return err;
    }
-
+/*
+ * XXX check that the (un)latch command worked, and revert if it failed
+ */
    return(0);
 }
 
@@ -1904,7 +1906,7 @@ mcp_set_tbars(int val)
 */
 char *brakeon_cmd(char *cmd)
 {
-  printf (" BRAKEON command fired\r\n");
+  printf("BRAKE.ON command fired\r\n");
 
   mcp_set_brake(axis_select);
   
@@ -1941,15 +1943,18 @@ char *brakeoff_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *clampon_cmd(char *cmd)
+char *
+clampon_cmd(char *cmd)
 {
-  printf (" CLAMPON command fired\r\n");
+  printf("CLAMP.ON command fired\n");
   tm_sp_clamp_on();
   return "";
 }
-char *clampoff_cmd(char *cmd)
+
+char *
+clampoff_cmd(char *cmd)
 {
-  printf (" CLAMPOFF command fired\r\n");
+  printf("CLAMP.OFF command fired\n");
   tm_sp_clamp_off();
   return "";
 }
@@ -2011,17 +2016,23 @@ slitstatus_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *ffsopen_cmd(char *cmd)
+char *
+ffsopen_cmd(char *cmd)
 {
-  printf (" FFS.OPEN command fired\r\n");
-  tm_sp_ffs_open();
-  return "";
+   TRACE(1, "FFS.OPEN command fired", 0, 0);
+   printf (" FFS.OPEN command fired\r\n");
+   tm_sp_ffs_move(FFS_OPEN);
+   return "";
 }
-char *ffsclose_cmd(char *cmd)
+
+char *
+ffsclose_cmd(char *cmd)
 {
-  printf (" FFS.CLOSE command fired\r\n");
-  tm_sp_ffs_close();
-  return "";
+   TRACE(1, "FFS.CLOSE command fired", 0, 0);
+   printf (" FFS.CLOSE command fired\r\n");
+   tm_sp_ffs_move(FFS_CLOSE);
+
+   return "";
 }
 
 /*=========================================================================
@@ -2192,6 +2203,26 @@ ffstatus_cmd(char *cmd)			/* NOTUSED */
 
 /*****************************************************************************/
 /*
+ * Return the status of misc things
+ */
+static int
+get_miscstatus(char *status,
+	       int size)			/* dimen of status[] */
+{
+  int len;
+
+  sprintf(status,"Misc: %d %d\n",
+	  sdssdc.status.i9.il0.clamp_en_stat, /* alignment clamp */
+	  sdssdc.status.i9.il0.clamp_dis_stat);
+  
+  len = strlen(status);
+  assert(len < size);
+
+  return(len);
+}
+
+/*****************************************************************************/
+/*
  * An status command that can be used by IOP to get enough information
  * to update the MCP Menu. Returns everything except the axis status and
  * the state of the semCmdPort
@@ -2205,7 +2236,7 @@ system_status_cmd(char *cmd)
 
    reply_str[size] = '\a';
 
-   TRACE(5, "taking semMEIUPD", 0, 0);
+   TRACE(8, "taking semMEIUPD", 0, 0);
    if (semTake(semMEIUPD, 60) == ERROR) { 
       TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
       sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
@@ -2216,11 +2247,12 @@ system_status_cmd(char *cmd)
    i += get_cwstatus(&reply_str[i], size - i);
    i += get_ffstatus(&reply_str[i], size - i);
    i += get_slitstatus(&reply_str[i], size - i);
+   i += get_miscstatus(&reply_str[i], size - i);
 
-   TRACE(5, "giving semMEIUPD", 0, 0);
+   TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
 
-   TRACE(5, "Checking reply_str[end]: %d", reply_str[size], 0);
+   TRACE(8, "Checking reply_str[end]: %d", reply_str[size], 0);
    assert(reply_str[size] == '\a');	/* check for overflow */
 
    return(reply_str);
@@ -2617,12 +2649,13 @@ int get_frame_cnt(int axis, struct FRAME *iframe)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: set_rot_coeffs
+** ROUTINE:
+**	    set_rot_state (int state)
+**
+**	    set_rot_coeffs
 **	    print_rot_coeffs
 **	    set_rot_uplimit
 **	    set_rot_dnlimit
-**	    set_rot_state (int state)
-**	    coeffs_state_deg	modify the state based on velocity in deg
 **	    coeffs_state_cts	modify the state based on velocity in raw counts
 **
 ** DESCRIPTION:
@@ -2633,6 +2666,9 @@ int get_frame_cnt(int axis, struct FRAME *iframe)
 **	rotator and thus increasing the gain of the system.  I want to maintain
 **	these functions.
 **
+**      N.b. These routines are only compiled/called if SWITCH_PID_COEFFS
+**      is true, with the exception of set_rot_state()
+**
 ** RETURN VALUES:
 **	number of MEI frames
 **
@@ -2642,6 +2678,16 @@ int get_frame_cnt(int axis, struct FRAME *iframe)
 **
 **=========================================================================
 */
+#if !SWITCH_PID_COEFFS
+
+void
+set_rot_state(int state)
+{
+   assert(state == -1);			/* called from mcp.login */
+}
+
+#else
+
 int axis_coeffs_state[]={-1,-1,-1,-1,-1,-1};
 int *rotcoeffs=&axis_coeffs_state[4];
 struct SW_COEFFS rot_coeffs[]={
@@ -2662,107 +2708,93 @@ struct SW_COEFFS rot_coeffs[]={
         {{140, 3,600,0,0,32767,0,15000,-6,3900},7000/ROT_TICKS_DEG,5000/ROT_TICKS_DEG,7000,5000},
         {{100, 2,300,0,0,32767,0,15000,-6,4000},-1.0              ,5000/ROT_TICKS_DEG,   -1,5000}
 };
-void set_rot_coeffs (int state, int index, short val)
+
+void
+set_rot_coeffs (int state, int index, short val)
 {
   rot_coeffs[state].coeffs[index]=val;
 }
-void print_rot_coeffs ()
-{
-  int i;
 
-  printf ("\r\nState %d Active",axis_coeffs_state[4]);
-  for (i=0;i<sizeof(rot_coeffs)/sizeof(struct SW_COEFFS);i++)
-  {
-    printf ("\r\n  rot_coeffs state %d: uplimit=%d, dnlimit=%d",i,rot_coeffs[i].uplimit_cts,rot_coeffs[i].dnlimit_cts);
-    printf ("\r\nP=%d,I=%d,D=%d,AFF=%d,VFF=%d,ILIM=%d,OFF=%d,OLIM=%d,S=%d,FFF=%d",
-        rot_coeffs[i].coeffs[0],      /* P */
-        rot_coeffs[i].coeffs[1],      /* I */
-        rot_coeffs[i].coeffs[2],      /* D */
-        rot_coeffs[i].coeffs[3],      /* AFF */
-        rot_coeffs[i].coeffs[4],      /* VFF */
-        rot_coeffs[i].coeffs[5],      /* ILIM */
-        rot_coeffs[i].coeffs[6],      /* OFF */
-        rot_coeffs[i].coeffs[7],      /* OLIM */
-        rot_coeffs[i].coeffs[8],      /* S */
-        rot_coeffs[i].coeffs[9]);     /* FFF */
-  }
+void
+print_rot_coeffs(void)
+{
+   int i;
+  
+   printf ("State %d Active\n",axis_coeffs_state[4]);
+   for (i=0;i<sizeof(rot_coeffs)/sizeof(struct SW_COEFFS);i++) {
+      printf ("rot_coeffs state %d: uplimit=%d, dnlimit=%d\n",
+	      i,rot_coeffs[i].uplimit_cts,rot_coeffs[i].dnlimit_cts);
+      printf("P=%d,I=%d,D=%d,AFF=%d,VFF=%d,ILIM=%d,OFF=%d,OLIM=%d,S=%d,FFF=%d\n",
+	     rot_coeffs[i].coeffs[0],      /* P */
+	     rot_coeffs[i].coeffs[1],      /* I */
+	     rot_coeffs[i].coeffs[2],      /* D */
+	     rot_coeffs[i].coeffs[3],      /* AFF */
+	     rot_coeffs[i].coeffs[4],      /* VFF */
+	     rot_coeffs[i].coeffs[5],      /* ILIM */
+	     rot_coeffs[i].coeffs[6],      /* OFF */
+	     rot_coeffs[i].coeffs[7],      /* OLIM */
+	     rot_coeffs[i].coeffs[8],      /* S */
+	     rot_coeffs[i].coeffs[9]);     /* FFF */
+   }
 }
-void set_rot_uplimit (int state, int val)
-{
-  rot_coeffs[state].uplimit_cts=val;
-  rot_coeffs[state].uplimit_deg=val/ROT_TICKS_DEG;
-}
-void set_rot_dnlimit (int state, int val)
-{
-  rot_coeffs[state].dnlimit_cts=val;
-  rot_coeffs[state].dnlimit_deg=val/ROT_TICKS_DEG;
-}
-void set_rot_state (int state)
-{
-  axis_coeffs_state[4]=state;
-}
-int coeffs_state_deg (int axis, double degs)
-{
-	int state;
-	struct SW_COEFFS *coeff;
-        
-	state = axis_coeffs_state[axis];
-	if (state==-1) return FALSE;
-	taskDelay(1);
-        coeff=(struct SW_COEFFS *)&rot_coeffs[state];
-/*        printf ("\r\nAXIS %d: state=%d coeff=%p",axis,state,coeff);*/
-        if ((coeff->uplimit_deg>0.0)&&(fabs(degs)>coeff->uplimit_deg))
-        {
-          state++; coeff++;
-          dsp_set_filter (axis,(P_INT)&coeff->coeffs[0]);
-          axis_coeffs_state[axis]=state;
-          return TRUE;
-	}
-        else
-        {
-          if  (fabs(degs)<coeff->dnlimit_deg)
-          {
-            state--; coeff--;
-            dsp_set_filter (axis,(P_INT)&coeff->coeffs[0]);
-            axis_coeffs_state[axis]=state;
-	    return TRUE;
-          }
-        }
-	return FALSE;
- }
-int coeffs_state_cts (int axis, int cts)
-{
-        int state;
-        struct SW_COEFFS *coeff;
 
-        state = axis_coeffs_state[axis];
-        if (state==-1) return FALSE;
-	taskDelay(1);
-        coeff=(struct SW_COEFFS *)&rot_coeffs[state];
-/*        printf ("\r\nAXIS %d: state=%d coeff=%p",axis,state,coeff);*/
-        if ((coeff->uplimit_cts>0)&&(abs(cts)>coeff->uplimit_cts))
-        {
-/*	  printf ("\r\nUP cts=%d, uplimit=%d",cts,coeff->uplimit_cts);*/
-          state++; coeff++;
-          dsp_set_filter (axis,(P_INT)&coeff->coeffs[0]);
-          axis_coeffs_state[axis]=state;
-          return TRUE;
-        }
-        else
-        {
-          if  (abs(cts)<coeff->dnlimit_cts)
-          {
-/*            printf ("\r\nDN cts=%d, dnlimit=%d",cts,coeff->dnlimit_cts);*/
-            if (state==0) return FALSE;
-            state--; coeff--;
-            dsp_set_filter (axis,(P_INT)&coeff->coeffs[0]);
-            axis_coeffs_state[axis]=state;
-            return TRUE;
-          }
-        }
-        return FALSE;
+void
+set_rot_uplimit (int state, int val)
+{
+   rot_coeffs[state].uplimit_cts=val;
+   rot_coeffs[state].uplimit_deg=val/ROT_TICKS_DEG;
 }
-
+
+void
+set_rot_dnlimit (int state, int val)
+{
+   rot_coeffs[state].dnlimit_cts=val;
+   rot_coeffs[state].dnlimit_deg=val/ROT_TICKS_DEG;
+}
+
+void
+set_rot_state(int state)
+{
+   axis_coeffs_state[4]=state;
+}
+
+int
+coeffs_state_cts(int axis,
+		 int cts)
+{
+   int state;
+   struct SW_COEFFS *coeff;
+   
+   state = axis_coeffs_state[axis];
+   if(state == -1) return FALSE;
+
+   taskDelay(1);
+   coeff = &rot_coeffs[state];
+#if 0
+   printf ("\r\nAXIS %d: state=%d coeff=%p",axis,state,coeff);
+#endif
+   
+   if(coeff->uplimit_cts > 0 && abs(cts) > coeff->uplimit_cts) {
+#if 0
+      printf ("UP cts=%d, uplimit=%d",cts,coeff->uplimit_cts);
+#endif
+      state++; coeff++;
+   } else if(abs(cts) < coeff->dnlimit_cts) {
+#if 0
+      printf("DN cts=%d, dnlimit=%d", cts, coeff->dnlimit_cts);
+#endif
+      if(state == 0) return FALSE;
+      state--; coeff--;
+   } else {
+      return FALSE;
+   }
+
+   dsp_set_filter(axis, (P_INT)&coeff->coeffs[0]);
+   axis_coeffs_state[axis] = state;
+   return TRUE;
+}
+#endif
+
 /*=========================================================================
 **=========================================================================
 **
@@ -2811,8 +2843,6 @@ void load_frames(int axis, int cnt, int idx, double sf)
 	  axis,v[axis][i],max_velocity[axis]);
     if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
     {
-/*      if (axis==2)
-        if (coeffs_state_deg (axis<<1,v[axis][i]));*/
       taskLock();
       e=frame_m(&frame,"0l xvajt un d",axis<<1,
 	(double)p[axis][i]*sf,(double)v[axis][i]*sf,
@@ -3551,7 +3581,7 @@ DIO316_interrupt(int type)
       }
 
       semGive (semLATCH);
-      TRACE0(5, "Gave semLATCH", 0, 0);
+      TRACE0(8, "Gave semLATCH", 0, 0);
    }
 }
 /*=========================================================================
@@ -3874,7 +3904,7 @@ tm_latch(char *name)
  */
       ret = semTake(semLATCH, WAIT_FOREVER);
       assert(ret != ERROR);
-      TRACE(5, "Took semLATCH", 0, 0);
+      TRACE(8, "Took semLATCH", 0, 0);
 
       for(i = 15, status = FALSE; status == FALSE && i > 0; i--) {
 	 ret = semTake(semMEI, WAIT_FOREVER);
@@ -4889,9 +4919,11 @@ int DID48_initialize(unsigned char *addr, unsigned short vecnum)
 */
 void amp_reset(int axis)
 {
-	DIO316_Write_Port (cw_DIO316,AMP_RESET,1<<axis);
-        taskDelay (2);
-	DIO316_Write_Port (cw_DIO316,AMP_RESET,0);
+   TRACE(1, "Resetting amp for axis %s: %d", axis_name(axis/2), axis);
+   
+   DIO316_Write_Port (cw_DIO316,AMP_RESET,1<<axis);
+   taskDelay (2);
+   DIO316_Write_Port (cw_DIO316,AMP_RESET,0);
 }
 /*=========================================================================
 **=========================================================================
@@ -5340,11 +5372,13 @@ mcp_move_va(int axis,			/* the axis to move */
    
    sem_controller_run(2*axis);
    
+#if SWITCH_PID_COEFFS
    if(axis == INSTRUMENT) {
       while(coeffs_state_cts(2*axis, vel) == TRUE) {
 	 continue;
       }	     
    }
+#endif
    
    start_move(2*axis, pos, vel, acc);
    semGive(semMEI);
@@ -5378,11 +5412,13 @@ mcp_set_vel(int axis,			/* the axis to set */
       return(-1);
    }
 	 
+#if SWITCH_PID_COEFFS
    if(axis == INSTRUMENT) {
       while(coeffs_state_cts(2*axis, vel) == TRUE) {
 	 ;
       }
    }
+#endif
    set_velocity (2*axis, vel);
    semGive (semMEI); 
 
@@ -5446,6 +5482,8 @@ mcp_set_brake(int axis)
       return(-1);
    }
 
+   TRACE(1, "Setting brake for axis %s", axis_name(axis), 0);
+
    if(axis == AZIMUTH) {
       tm_sp_az_brake_on();
    } else if(axis == ALTITUDE) {
@@ -5470,6 +5508,8 @@ mcp_unset_brake(int axis)		/* axis to set */
       return(-1);
    }
 
+   TRACE(1, "Clearing brake for axis %s", axis_name(axis), 0);
+
    if(axis == AZIMUTH) {
       tm_sp_az_brake_off();
    } else if(axis == ALTITUDE) {
@@ -5482,12 +5522,18 @@ mcp_unset_brake(int axis)		/* axis to set */
       return(-1);
    }
 
+   TRACE(3, "Putting axis %s into closed loop", axis_name(axis), 0);
    sem_controller_run(2*axis);
+
+#if SWITCH_PID_COEFFS
    if(axis == INSTRUMENT) {
       while(coeffs_state_cts(2*axis, 0) == TRUE) {
 	 ;
       }
    }
+#endif
+
+   TRACE(3, "Stopping axis %s", axis_name(axis), 0);
    v_move(2*axis,(double)0,(double)5000);
 
    semGive(semMEI);
@@ -5497,10 +5543,10 @@ mcp_unset_brake(int axis)		/* axis to set */
 
 /*****************************************************************************/
 /*
- * Halt an axis
+ * Hold an axis
  */
 int
-mcp_halt(int axis)			/* desired axis */
+mcp_hold(int axis)			/* desired axis */
 {
    double vel;				/* velocity of axis */
 
@@ -5510,38 +5556,51 @@ mcp_halt(int axis)			/* desired axis */
       return(-1);
    }
 
+   TRACE(1, "Holding axis %s", axis_name(axis), 0);
+
    if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "Holding axis %s: couldn't take semMEI: %d",
+	    axis_name(axis), errno);
       fprintf(stderr,"mcp_halt: could not take semMEI semphore: %s",
 	      strerror(errno));
       return(-1);
    }
    
    if(get_velocity(2*axis, &vel) != DSP_OK) {
+      TRACE(0, "Holding axis %s: failed to read velocity",
+	    axis_name(axis), errno);
       fprintf(stderr,"mcp_halt: Failed to read velocity for %s\n",
 	      axis_name(axis));
       vel = 0;
    }
 
+   TRACE(5, "Holding axis %s: back into closed loop", axis_name(axis), 0);
    sem_controller_run(2*axis);		/* back into closed loop */
    
    while(fabs(vel) > 5000) {
       vel -= (vel > 0) ? 5000 : -5000;
+      TRACE(5, "Velocity = %g", vel, 0);
       set_velocity(2*axis, vel);
       
+#if SWITCH_PID_COEFFS
       if(axis == INSTRUMENT) {
 	 while(coeffs_state_cts(2*axis, vel) == TRUE) {
 	    ;
 	 }
       }
+#endif
       
       taskDelay (15);
    }
    
    vel = 0;
    set_velocity(2*axis, vel);
+#if SWITCH_PID_COEFFS
    while(coeffs_state_cts(2*axis, vel) == TRUE) {
       ;
    }
+#endif
+   TRACE(5, "Velocity = %g", vel, 0);
    
    semGive (semMEI);
 
@@ -5656,14 +5715,20 @@ mcp_stop_axis(int axis)
       return(-1);
    }
 
+   TRACE(1, "Stopping axis %s", axis_name(axis), 0);
+
    if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "Stopping axis %s: couldn't take semMEI: %d",
+	    axis_name(axis), errno);
       fprintf(stderr,"mcp_stop_axis: could not take semMEI semphore: %s",
 	      strerror(errno));
+
       return(-1);
    }
 
    sem_controller_idle(2*axis);
    reset_integrator(2*axis);
+   
    semGive (semMEI);
 
    return(0);
