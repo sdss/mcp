@@ -40,16 +40,6 @@ static int last_azbrake;
 static int last_altbrake;
 static int refreshing=FALSE;
 static char *limitstatus[]={"LU", "L.", ".U", ".."};
-/*-------------------------------------------------------------------------
-**
-** GLOBAL VARIABLES
-*/
-/* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
-/* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
-float altclino_sf=.0048683116163;/*.0049016925256;*/
-/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
-int altclino_off=8937;/*8857;*/
-/*9048;*/         /*9500*/
 
 static int Axis=4;
 static long adjpos[6]={0,0,0,0,0,0};
@@ -1185,8 +1175,7 @@ PrintMenuPos()
             printf("  No Crossing\n");
         }
       }
-      printf("\t\t%4.2f",
-        abs(sdssdc.status.i4.alt_position-altclino_off)*altclino_sf);
+      printf("\t\t%4.2f", read_clinometer());
       ap=(*tmaxis[0]).actual_position2;
       ap1=(*tmaxis[1]).actual_position2;
       ap2=(*tmaxis[2]).actual_position2;
