@@ -88,4 +88,11 @@ Wed Oct 31 08:39:01 MST 2001
 	cvs co mcp
 	cvs update -j v5_6_0 -j v5_6_5
 	cvs ci -m "merged from v5_6 branch at point v5_6_5"
-	
+
+Fri Nov  2 ???
+	cvs tag v4_7_0
+
+Mon Nov  5 07:58:36 MST 2001
+	cvs rdiff -r v5_7_0  mcp
+	(no changes; safe to branch at that point)
+	cvs tag -b -r v4_7_0 v4_7
