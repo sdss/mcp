@@ -81,3 +81,11 @@ Wed Oct 10 16:20:23 MDT 2001
 	(no conflicts, hence no commits beyond v5_5_0)
 	cvs -q tag v5_6_0
 	cvs -q tag -b -r v5_6_0 v5_6
+
+Wed Oct 31 08:39:01 MST 2001
+	cvs rtag -r v5_6 v5_6_5 mcp
+	(no conflicts, hence to commits beyond v5_6_5)
+	cvs co mcp
+	cvs update -j v5_6_0 -j v5_6_5
+	cvs ci -m "merged from v5_6 branch at point v5_6_5"
+	
