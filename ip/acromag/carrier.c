@@ -222,7 +222,7 @@ UWORD i_stat;
 
 
 
-  i_stat = inpw(cblk->brd_ptr + InterruptPending);
+  i_stat = inpw((UWORD *)(cblk->brd_ptr + InterruptPending));
   if(cblk->num_chan == 2)                  /* check if it's a 2 or 6 channel board */
    {
     i_stat &= 0x0300;                      /* and off the unused upper bits */
@@ -249,7 +249,7 @@ UWORD i_stat;
 	  else
 		  i_stat |= (1 << (i + 8));				/* set bit to ignore */
 	}
-   outpw(cblk->brd_ptr + InterruptPending, i_stat);       /* write interrupt pending */
+   outpw((UWORD *)(cblk->brd_ptr + InterruptPending), i_stat);       /* write interrupt pending */
   }
 
 }
