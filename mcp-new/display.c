@@ -1,48 +1,8 @@
 #include "copyright.h"
-/**************************************************************************
-***************************************************************************
-** FILE:
-**      display.c
-**
-** ABSTRACT:
-**	Menu and Inst
-**
-** ENTRY POINT          SCOPE   DESCRIPTION
-** ----------------------------------------------------------------------
-**
-** ENVIRONMENT:
-**      ANSI C.
-**
-** REQUIRED PRODUCTS:
-**
-** AUTHORS:
-**      Creation date:  Aug 30, 1999
-**      Charlie Briegel
-**
-***************************************************************************
-***************************************************************************/
-/******************************************************************************/
-/*
-Copyright (C) Fermi National Accelerator Laboratory
-Filename: display.c
-Revision: 1.1
-Date and Time: 04/04/96 13:46:57
-*/
-/******************************************************************************
-display.c
-by Charlie Briegel 
-Origination 4/22/98 
-
-Routines to control the display screen for Menu
-These functions can be used with a Vt220 terminal to position the cursor,
-erase the screen etc.
-******************************************************************************/
-
-/*------------------------------*/
-/*	includes		*/
-/*------------------------------*/
+/**************************************************************************/
+#include <stdio.h>
+#include <ctype.h>
 #include "display.h"
-#include "stdio.h"
 #include "tickLib.h"
 #include "usrLib.h"
 #include "time.h"
@@ -65,13 +25,6 @@ erase the screen etc.
 #include "instruments.h"
 #include "mcpUtils.h"
 
-/*========================================================================
-**========================================================================
-**
-** LOCAL MACROS, DEFINITIONS, ETC.
-**
-**========================================================================
-*/
 /*------------------------------------------------------------------------
 **
 ** LOCAL DEFINITIONS
@@ -92,33 +45,34 @@ static char *limitstatus[]={"LU","L "," U","  "};
 **
 ** GLOBAL VARIABLES
 */
-int question_mark=0;
-int Axis=4;
-long adjpos[6]={0,0,0,0,0,0};
-long adjvel[6]={0,0,0,0,0,0};
-long adjacc[6]={70000,10000,10000,10000,10000,10000};
-long incvel[6]={1000,0,1000,0,1000,0};
-long Axis_vel[6]={0,0,0,0,0,0};
-long Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
-long Axis_vel_pos[6]={700000,0,600000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
 float altclino_sf=.0048683116163;/*.0049016925256;*/
 /*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
 int altclino_off=8937;/*8857;*/
 /*9048;*/         /*9500*/
-char MenuInput[21];
+
+static int Axis=4;
+static long adjpos[6]={0,0,0,0,0,0};
+static long adjvel[6]={0,0,0,0,0,0};
+static long adjacc[6]={70000,10000,10000,10000,10000,10000};
+static long incvel[6]={1000,0,1000,0,1000,0};
+static long Axis_vel[6]={0,0,0,0,0,0};
+static long Axis_vel_neg[6]={-700000,0,-600000,0,-250000,0};
+static long Axis_vel_pos[6]={700000,0,600000,0,250000,0};
+static char MenuInput[21];
 
 /* prototypes */
-void Menu();
-static void PrintMenuBanner();
-void PrintMenuMove();
-void PrintMenuPos();
+void Inst(void);			/* runnable at MCP prompt, */
+void Menu(void);			/* and thus not static */
 
-void Inst();
-static void PrintInstBanner();
-void PrintInstPos();
-int check_stop_in();
+static void PrintMenuBanner(void);
+static void PrintMenuMove(void);
+static void PrintMenuPos(void);
+
+static void PrintInstBanner(void);
+static void PrintInstPos(void);
+
 /*=========================================================================
 **=========================================================================
 **
@@ -294,7 +248,8 @@ TCC_check()
 **
 **=========================================================================
 */
-static void PrintMenuBanner()
+static void
+PrintMenuBanner(void)
 {
   CursPos(1,1);
   MenuInput[21]=NULL;
@@ -356,7 +311,8 @@ static void PrintMenuBanner()
 **
 **=========================================================================
 */
-void PrintMenuMove()
+static void
+PrintMenuMove(void)
 {
   double arcsecond;
   long marcs,arcs,arcm,arcd;
@@ -397,22 +353,22 @@ void PrintMenuMove()
 **
 **=========================================================================
 */
-void Menu()
-/* This services the display terminal.  */
+void
+Menu(void)
 {
-  int Running=TRUE;
+  const char *ans;			/* answer string from a command */
+  int Running = TRUE;
   char buf[255];
+  int cw = -1;				/* desired counter weight */
   extern void manTrg(void);
   int cwpos;
-  int cw;
   int inst;
   int Options;
   long pos, deg, min, arcsec, marcsec;
   double arcsecond;
   long marcs,arcs,arcm,arcd;
+  int question_mark = 0;
   int negative;
-  time_t fidtim;
-  extern FILE *fidfp;
 
   TCC_check();
   if(semTake (semMEIUPD,60) == ERROR) {
@@ -440,125 +396,65 @@ void Menu()
     }
     
     switch(buf[0]) {
-       case 'Z': case 'z': CursPos(1,19);
+       case 'Z': case 'z': CursPos(1,19); /* RHL */
          printf("Azimuth Controls  ");
          Axis=0;
          printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
-         Axis_vel[Axis],incvel[Axis]);
+		 Axis_vel[Axis], incvel[Axis]);
          PrintMenuMove();
          break;
 
-       case 'L': case 'l': CursPos(1,19);
+       case 'L': case 'l': CursPos(1,19); /* RHL */
          printf("Altitude Controls ");
          Axis=2;
          printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
-         Axis_vel[Axis],incvel[Axis]);
+		 Axis_vel[Axis], incvel[Axis]);
          PrintMenuMove();
          break;
 
-       case 'R': case 'r': CursPos(1,19);
+       case 'R': case 'r': CursPos(1,19); /* RHL */
          printf("Rotator Controls  ");
          Axis=4;
          printf ("<--J-- %6ld --K--> Increment=%ld Cts\n",
-         Axis_vel[Axis],incvel[Axis]);
+		 Axis_vel[Axis], incvel[Axis]);
          PrintMenuMove();
          break;
 
-       case 'P': case 'p': CursPos(20,24);
+       case 'P': case 'p': CursPos(20,24); /* RHL */
          printf("Set Position    xxx:xx:xx:xxx           ");
-         if (GetString(&MenuInput[0],20))
-         {
+         if(GetString(&MenuInput[0],20)) {
            memcpy(&buf[0],&MenuInput[0],21);
            memset(&MenuInput[0],' ',20);
+
            min=0; arcsec=0; marcsec=0;
-           if (buf[0]=='-') 
-           {
+           if (buf[0]=='-') {
              sscanf (&buf[1],"%ld:%ld:%ld:%ld",
 			&deg,&min,&arcsec,&marcsec);
              negative=TRUE;
-           }
-           else
-           {
+           } else {
              sscanf (buf,"%ld:%ld:%ld:%ld",
 			&deg,&min,&arcsec,&marcsec);
              negative=FALSE;
            }
 	   pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-	     (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
+		      (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
+	   
            if (negative) pos = -pos;
-           switch (Axis>>1)
-           {
-             case AZIMUTH:
-               tm_set_pos(Axis,pos);
-	       tm_set_pos(Axis+1,pos);
-               fiducial[Axis/2].markvalid=FALSE;
-               break;
 
-             case ALTITUDE:
-               tm_set_pos(Axis,pos);
-	       tm_set_pos(Axis+1,pos);
-               fiducial[Axis/2].markvalid=FALSE;
-               break;
-
-             case INSTRUMENT:
-               tm_set_pos(Axis,pos);
-	       tm_set_pos(Axis+1,pos);
-               fiducial[Axis/2].markvalid=FALSE;
-               break;
-
-             default:
-               break;
-	   }
+	   (void)mcp_set_pos(Axis/2, pos);
          }
          CursPos(20,24);
          printf("                                        ");
          break;
 
-       case 'F': case 'f': CursPos(20,24);
+       case 'F': case 'f': CursPos(20,24); /* RHL */
      	 printf("Set Fiducial Position                    ");
-	 if (fiducial[Axis/2].markvalid)
-	 {
-/*	   pos=fiducial_position[Axis/2];*/
-/*         pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);*/
-/* use optical encoder for axis 4 */
-           pos = (*tmaxis[Axis/2]).actual_position+
-	     (fiducial_position[Axis/2]-fiducial[Axis/2].mark);
-           switch (Axis>>1)
-           {
-             case INSTRUMENT:
-	       tm_set_pos(Axis+1,pos);
-               tm_set_pos(Axis,pos);
-	       break;
-
-             case ALTITUDE:
-	       tm_set_pos(Axis&0x6,pos);
-	       tm_set_pos(Axis+1,pos);
-	       break;
-
-             case AZIMUTH:
-	       tm_set_pos(Axis&0x6,pos);
-	       tm_set_pos(Axis+1,pos);
-	       break;
-
-             default:
-               break;
-           }
-           if (fidfp!=NULL)
-	   {
-	     time (&fidtim);
-             fprintf (fidfp,"\n#Menu %d\t%d\t%.25s:%f\t%ld\t%ld",
-	          Axis,fiducial[Axis/2].index,
-	          ctime(&fidtim),sdss_get_time(),
-	          (long)fiducial_position[Axis/2]-fiducial[Axis/2].mark,
-                  (long)(*tmaxis[Axis/2]).actual_position);
-           }
-	   fiducial[Axis/2].mark=fiducial_position[Axis/2];
+	 if(mcp_set_fiducial(Axis/2) < 0) {
+	    printf("ERR: fiducial for axis not crossed      ");
 	 }
-	 else
-           printf("ERR: fiducial for axis not crossed      ");
 	 break;
 
-       case 'D': case 'd': CursPos(20,24);
+       case 'D': case 'd': CursPos(20,24); /* RHL */
 	 printf("Dest.  Position xxx:xx:xx:xxx           ");
 	 if (GetString(&MenuInput[0],20))
 	 {
@@ -594,7 +490,7 @@ void Menu()
 	 printf("                                        ");
 	 break;
 
-       case 'O': case 'o': CursPos(20,24);
+       case 'O': case 'o': CursPos(20,24); /* RHL */
 	 printf("Offset Position xxx:xx:xx:xxx           ");
 	 if (GetString(&MenuInput[0],20))
 	 {
@@ -633,7 +529,7 @@ void Menu()
 	 printf("                                        ");
 	 break;
 
-       case 'A': case 'a': CursPos(20,24);
+       case 'A': case 'a': CursPos(20,24); /* RHL */
 	 printf("AdjCnt Position dddddd                  ");
 	 if (GetString(&MenuInput[0],20))
 	 {
@@ -658,7 +554,7 @@ void Menu()
 	 printf("                                        ");
 	 break;
 
-       case 'V': case 'v': CursPos(20,24);
+       case 'V': case 'v': CursPos(20,24); /* RHL */
 	 printf("   Set Velocity                         ");
 	 if (GetString(&MenuInput[0],20))
 	 {
@@ -675,7 +571,7 @@ void Menu()
 	 printf("                                        ");
 	 break;
 
-         case 'I': case 'i': CursPos(20,24);
+         case 'I': case 'i': CursPos(20,24); /* RHL */
  	   printf("   Set Velocity Increment               ");
 	   if (GetString(&MenuInput[0],20))
 	   {
@@ -696,66 +592,44 @@ void Menu()
 	   manTrg();
 	   break;
 
-         case 'B': case 'b': CursPos(20,24);
-	   if (Axis==0)
-	   {
+         case 'B': case 'b': CursPos(20,24); /* RHL */
+	   if(Axis==0) {
 	     printf("Azimuth Brake Turned On                 ");
-	     tm_sp_az_brake_on();
-	   }
-	   if (Axis==2)
-	   {
+	   } else if(Axis==2) {
 	     printf("Altitude Brake Turned On                ");
-	     tm_sp_alt_brake_on();
 	   }
+           mcp_set_brake(Axis/2);
+
            STOPed[Axis]=TRUE;
-           tm_controller_idle (Axis);
-           tm_reset_integrator(Axis);
 	   break;
 
-         case 'C': case 'c': CursPos(20,24);
-	   if (Axis==0)
-	   {
-	     printf("Azimuth Brake Turned Off                ");
-	     tm_sp_az_brake_off();
+         case 'C': case 'c': CursPos(20,24); /* RHL */
+	   if(Axis == 0) {
+	      printf("Azimuth Brake Turned Off                ");
+	   } else if(Axis == 2) {
+	      printf("Altitude Brake Turned Off               ");
 	   }
-	   if (Axis==2)
-	   {
-	     printf("Altitude Brake Turned Off               ");
-	     tm_sp_alt_brake_off();
-	   }
+
            Axis_vel[Axis]=0;
            CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-           if (semTake (semMEI,60)!=ERROR)
-	   {
-             if (STOPed[Axis])
-             {
-               STOPed[Axis]=FALSE;
-               sem_controller_run (Axis);
-               if (Axis==4)
-               while (coeffs_state_cts (Axis,0));
-                 v_move(Axis,(double)0,(double)5000);
-             }
-             else
-             {
-               set_velocity(Axis,(double)(Axis_vel[Axis]));
-               if (Axis==4)
-               while (coeffs_state_cts (Axis,(long)Axis_vel[Axis]));
-             }
-             semGive (semMEI);
-           }
-           else
-           {
-	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+
+	   if(mcp_unset_brake(Axis/2) < 0) {
+	      CursPos(20,24);
+	      printf("Err: Could not take semMEI semphore     ");
+	      break;
 	   }
+
+	   STOPed[Axis] = FALSE;
+      
  	   break;
 
-         case '+': case '=':
+         case '+': case '=':		/* RHL */
 	   CursPos(20,24);
 	   printf("ALIGNment Clamp Turned On               ");
 	   tm_clamp_on();
 	   break;
 
-         case '_': case '-':
+         case '_': case '-':		/* RHL */
            CursPos(20,24);
 	   printf("ALIGNment Clamp Turned Off              ");
 	   tm_clamp_off();
@@ -817,7 +691,7 @@ void Menu()
 	     tm_cart_latch(SPECTOGRAPH2);
 	   break;
 
-         case '~':
+         case '~':			/* RHL */
 	   CursPos(20,24);
 	   printf("Flat Field Screen Toggled ");
 	   if (sdssdc.status.o1.ol14.ff_screen_open_pmt)
@@ -832,7 +706,7 @@ void Menu()
 	   }
 	   break;
 
-         case '|':
+         case '|':			/* RHL */
 	   CursPos(20,24);
 	   printf("Flat Field Lamps Toggled ");
 	   if (sdssdc.status.o1.ol14.ff_lamps_on_pmt)
@@ -847,7 +721,7 @@ void Menu()
 	   }
 	   break;
 
-         case '"':
+         case '"':			/* RHL */
 	   CursPos(20,24);
 	   printf("Flat Field Neon Toggled ");
 	   if (sdssdc.status.o1.ol14.ne_lamps_on_pmt)
@@ -862,7 +736,7 @@ void Menu()
 	   }
 	   break;
 
-         case ':':
+         case ':':			/* RHL */
 	   CursPos(20,24);
 	   printf("Flat Field HgCd Toggled ");
 	   if (sdssdc.status.o1.ol14.hgcd_lamps_on_pmt)
@@ -877,7 +751,7 @@ void Menu()
 	   }
 	   break;
 
-         case 'X': case 'x':
+         case 'X': case 'x':		/* RHL */
 	   Running=FALSE;
 	   ioctl(0,FIOOPTIONS,Options); /* back to normal */
            taskDelete(taskIdFigure("menuPos"));
@@ -885,139 +759,73 @@ void Menu()
 	   EraseDisplayAll();
 	   break;
 
-         case 'W': case 'w':
+         case 'W': case 'w':		/* RHL */
 	   CursPos(20,24);
 	   printf("dd|c..c; 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI");
-	   if (GetString(&MenuInput[0],20))
-	   {
-	     memcpy(&buf[0],&MenuInput[0],21);
-	     memset(&MenuInput[0],' ',20);
-	     if ((buf[0]>='0')&&(buf[0]<='9'))
-	     {
-	       sscanf (buf,"%d",&inst);
-	       if ((inst<0)||(inst>16)) 
-	       {
-	         printf("ERR: Inst Out of Range (0-16)           ");
-	         break;
-	       }
-             }
-             else
-             {
-               inst=cw_get_inst (&buf[0]);
-	       if (inst==ERROR)
-               {
-                 printf("ERR: Inst Name Incorrect               ");
-                 break;
-               }
-             }
-	     CursPos(20,24);
-             if (taskIdFigure("cw")!=ERROR)
-	     {
-	       printf("ERR: CW task still active...be patient  ");
-	       break;
-	     }
-             if (taskIdFigure("cwp")!=ERROR)
-	     {
-	       printf("ERR: CWP task still active..be patient  ");
-	       break;
-	     }
-	     if (sdssdc.status.i9.il0.alt_brake_en_stat)
-	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
-			  (int)inst,0,0,0,0,0,0,0,0,0);
-	     else
-	     {
-	       printf("ERR: Altitude Brake NOT Engaged         ");
-	       break;
-	     }
+	   if (GetString(&MenuInput[0],20)) {
+	      memcpy(&buf[0],&MenuInput[0],21);
+	      memset(&MenuInput[0],' ',20);
+	      
+	      if(isdigit(buf[0])) {
+		 (void)sscanf(buf, "%d", &inst); /* must succeed */
+		 if(inst < 0 || inst > 16) {
+		    printf("ERR: Inst Out of Range (0-16)           ");
+		    break;
+		 }
+	      } else {
+		 inst = cw_get_inst(&buf[0]);
+		 if(inst == ERROR) {
+		    printf("ERR: Inst Name %s Incorrect               ", buf);
+		    break;
+		 }
+	      }
+
+	      mcp_set_cw(inst, 0, &ans);
+	      if(*ans != '\0') {
+		 printf("%s", ans);
+	      }
 	   }
-	   CursPos(20,24);
-	   printf("                                        ");
 	   break;
 
+         case '^':			/* RHL */
          case '!': case '@': case '#': case '$':
-	   CursPos(20,24);
-	   if (buf[0]=='@') cw = 2;
-	   else cw = buf[0]-0x20;
-	   printf("CW %d vvv                              ",cw);
-	   cw--;
-	   if (GetString(&MenuInput[0],20))
-	   {
-	     memcpy(&buf[0],&MenuInput[0],21);
-	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%d",&cwpos);
-	     CursPos(20,24);
-	     if ((cwpos<10)||(cwpos>800))
-	     {
-	       printf("ERR: Position out of Range (10-800)    ");
-	       break;
-	     }
-             if (taskIdFigure("cw")!=ERROR)
-	     {
-	       printf("ERR: CW task still active...be patient  ");
-	       break;
-	     }
-             if (taskIdFigure("cwp")!=ERROR)
-	     {
-	       printf("ERR: CWP task still active..be patient  ");
-	       break;
-	     }
-	     if (sdssdc.status.i9.il0.alt_brake_en_stat)
-	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
-			  (int)cw,(int)cwpos,0,0,0,0,0,0,0,0);
-	     else
-             {
-	       printf ("Alt Brake NOT Engaged                  ");
-	       break;
-	     }
+	   switch (buf[0]) {
+	    case '^': cw = INST_DEFAULT; break;
+	    case '!': cw = 0; break;
+	    case '@': cw = 1; break;
+	    case '#': cw = 2; break;
+	    case '$': cw = 3; break;
 	   }
+
 	   CursPos(20,24);
-	   printf("                                        ");
+           if(cw == INST_DEFAULT) {
+	      printf("All CW vvv                             ");
+	   } else {
+	      printf("CW %d vvv                              ",cw + 1);
+	   }
+      
+	   if(GetString(&MenuInput[0],20)) {
+	      memcpy(&buf[0],&MenuInput[0],21);
+	      memset(&MenuInput[0],' ',20);
+
+	      CursPos(20,24);
+
+	      if(sscanf(buf,"%d",&cwpos) != 1) {
+		 printf("ERR: unable to read CW position");
+		 break;
+	      }
+
+	      mcp_set_cw(cw, cwpos, &ans);
+	      if(*ans != '\0') {
+		 printf("%s", ans);
+	      }
+	   }
 	   break;
 
-         case '^': 
-	   CursPos(20,24);
-	   printf("All CW vvv                             ");
-	   if (GetString(&MenuInput[0],20))
-	   {
-	     memcpy(&buf[0],&MenuInput[0],21);
-	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%d",&cwpos);
-	     CursPos(20,24);
-	     if ((cwpos<10)||(cwpos>800))
-	     {
-	       printf("ERR: Position out of Range (10-800)    ");
-	       break;
-	     }
-             if (taskIdFigure("cw")!=ERROR)
-	     {
-	       printf("ERR: CW task still active...be patient  ");
-	       break;
-	     }
-             if (taskIdFigure("cwp")!=ERROR)
-	     {
-	       printf("ERR: CWP task still active..be patient  ");
-	       break;
-	     }
-	     cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
-	     if (sdssdc.status.i9.il0.alt_brake_en_stat)
-	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
-			  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
-	     else
-	     {
-	       printf("ERR: Altitude Brake NOT Engaged         ");
-	       break;
-	     }
-	   }
-	   CursPos(20,24);
-	   printf("                                        ");
-	   break;
-
-         case '%':
+         case '%':			/* RHL */
 	   CursPos(20,24);
            printf ("CW ABORT                               ");
-           taskDelete(taskIdFigure("cw"));
-           taskDelete(taskIdFigure("cwp"));
-	   cw_abort();
+           mcp_cw_abort();
 	   break;
 
          case '&':
@@ -1035,57 +843,24 @@ void Menu()
 	   }
 	   break;
 
-         case '*':
+         case '*':			/* RHL */
 	   CursPos(20,24);
            printf ("AMP RESET                              ");
-           if (Axis==4)
-	     amp_reset(Axis);
-	   else
-	   {
-	     amp_reset(Axis);
-	     amp_reset(Axis+1);
-	   }
+           mcp_amp_reset(Axis/2);
 	   break;
 
-         case 'H': case 'h':
-           if (semTake (semMEI,60)!=ERROR)
-	   {
-	     if (STOPed[Axis])
-	     {
-	       Axis_vel[Axis]=0;
-               STOPed[Axis]=FALSE;
-               sem_controller_run (Axis);
-               if (Axis==4)
-                 while (coeffs_state_cts (Axis,0));
-               v_move(Axis,(double)0,(double)5000);
-  	     }
-  	     else
-	     {
-               while (abs(Axis_vel[Axis])>5000)
-	       {
-	         if (Axis_vel[Axis]>0) Axis_vel[Axis]-=5000;
-	         else Axis_vel[Axis]+=5000;
- 	         set_velocity(Axis,(double)(Axis_vel[Axis]));
-                 if (Axis==4)
-                   while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-                 CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-	         taskDelay (15);
-	       }
-	       Axis_vel[Axis]=0;
-  	       set_velocity(Axis,(double)(Axis_vel[Axis]));
-               if (Axis==4)
-                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-	     }
-	     semGive (semMEI);
-             CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-           }
-           else
-	   {
-	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+         case 'H': case 'h':		/* RHL */
+	   if(mcp_halt(Axis/2) < 0) {
+	      CursPos(20,24);
+	      printf("Err: Could not take semMEI semphore     ");
 	   }
+
+	   Axis_vel[Axis] = 0;
+	   STOPed[Axis] = FALSE;
+
 	   break;
 
-         case '?': 
+         case '?':			/* RHL */
 	   if (question_mark==0)
 	   {
 	     CursPos(1,1);
@@ -1123,15 +898,9 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 	   Axis_vel[Axis]=0;
 	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
            STOPed[Axis]=TRUE;
-           if (semTake (semMEI,60)!=ERROR)
-	   {
-             sem_controller_idle (Axis);
-             reset_integrator(Axis);
-	     semGive (semMEI); 
-           }
-           else
-           {
-	     CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
+	   if(mcp_stop_axis(Axis/2) < 0) {
+	      CursPos(20,24);
+	      printf("Err: stopping axes");
 	   }
            break;
 	   
@@ -1180,171 +949,83 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 	   break;
 
          case 'M': case 'm':  CursPos(20,24);
-	   if (adjvel[Axis]==0)
-	   {
-                  printf("ERR: Velocity is Zero                   ");
-	     break;
+	   if (adjvel[Axis]==0) {
+	      printf("ERR: Velocity is Zero                   ");
+	      break;
 	   }
-           if (STOPed[Axis])
-           {
-	     if ((Axis==0)&&(sdssdc.status.i9.il0.az_brake_en_stat))
-	     {
-	       CursPos(20,24);
-	       printf("ERR: AZ Brake is Engaged                ");
-	       break;
-	     }
-	     if ((Axis==2)&&(sdssdc.status.i9.il0.alt_brake_en_stat))
-	     {
-	       CursPos(20,24);
-	       printf("ERR: ALT Brake is Engaged               ");
-	       break;
-	     }
-	     if (Axis==4)
-	     {
-               while (coeffs_state_cts(Axis,(long)adjvel[Axis]));
-	     }
-             STOPed[Axis]=FALSE;
-             if (semTake (semMEI,60)!=ERROR)
-	     {
-               sem_controller_run (Axis);
-  	       Axis_vel[Axis]=0;
-	       start_move(Axis,(double)(adjpos[Axis]),
-		 (double)adjvel[Axis],(double)adjacc[Axis]);
-	       semGive (semMEI); 
-             }
-             else
-             {
-	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-	     }
-           }
-           else
-           {
-             if (semTake (semMEI,60)!=ERROR)
-	     {
-	       if (Axis==4)
-	       {
-                 while (coeffs_state_cts(Axis,(long)adjvel[Axis]));
-	       }
-               Axis_vel[Axis]=0;
-	       start_move(Axis,(double)(adjpos[Axis]),
-		 (double)adjvel[Axis],(double)adjacc[Axis]);
-	       semGive (semMEI); 
-             }
-             else
-             {
-	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-	     }
-           }
-	   break;
+	 
+           if(STOPed[Axis]) {
+	      if (Axis==0 && sdssdc.status.i9.il0.az_brake_en_stat) {
+		 CursPos(20,24);
+		 printf("ERR: AZ Brake is Engaged                ");
+		 break;
+	      }
+	      if(Axis == 2 && sdssdc.status.i9.il0.alt_brake_en_stat) {
+		 CursPos(20,24);
+		 printf("ERR: ALT Brake is Engaged               ");
+		 break;
+	      }
+	      STOPed[Axis]=FALSE;
+	   }
+
+	   if(mcp_move_va(Axis/2, adjpos[Axis], adjvel[Axis], adjacc[Axis])
+									 < 0) {
+	      CursPos(20,24);
+	      printf("Err: Could not take semMEI semphore     ");
+	   } else {
+	      Axis_vel[Axis] = 0;
+	   }
+
+	 break;
 
          case 'J': case 'j':
-	   Axis_vel[Axis] -= incvel[Axis];
-           if (Axis_vel[Axis]<Axis_vel_neg[Axis]) Axis_vel[Axis]=Axis_vel_neg[Axis];
-	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-           if (STOPed[Axis])
-           {
-             if ((Axis==0)&&(sdssdc.status.i9.il0.az_brake_en_stat)&&
-		(Axis_vel[Axis]!=0))
-             {
-               CursPos(20,24);
-	       printf("ERR: AZ Brake is Engaged                ");
-	       break;
-             }
-             if ((Axis==2)&&(sdssdc.status.i9.il0.alt_brake_en_stat)&&
-		(Axis_vel[Axis]!=0))
-             {
-	       CursPos(20,24);
-	       printf("ERR: ALT Brake is Engaged               ");
-	       break;
-	     }
-             STOPed[Axis]=FALSE;
-             if (semTake (semMEI,60)!=ERROR)
-	     {
-               sem_controller_run (Axis);
-	       v_move(Axis,(double)0,(double)5000);
-               taskDelay (10);
-	       if (Axis==4)
-	       {
-                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-	       }
-               set_velocity(Axis,(double)(Axis_vel[Axis]));
-               semGive (semMEI); 
-             }
-             else
-             {
-	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-	     }
-           }
-           else
-           {
-             if (semTake (semMEI,60)!=ERROR)
-	     {
-	       if (Axis==4)
-	       {
-                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-	       }
-               set_velocity (Axis,(double)(Axis_vel[Axis])); 
-               semGive (semMEI); 
-             }
-             else
-             {
-	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-	     }
-           }
-	   break;
-
          case 'K': case 'k':
-	   Axis_vel[Axis] += incvel[Axis];
-           if (Axis_vel[Axis]>Axis_vel_pos[Axis]) Axis_vel[Axis]=Axis_vel_pos[Axis];
-	   CursPos(19,19);  printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
-           if (STOPed[Axis])
-           {
-             if ((Axis==0)&&(sdssdc.status.i9.il0.az_brake_en_stat))
-             {
-               CursPos(20,24);
-	       printf("ERR: AZ Brake is Engaged");
-	       break;
-             }
-             if ((Axis==2)&&(sdssdc.status.i9.il0.alt_brake_en_stat))
-             {
-               CursPos(20,24);
-	       printf("ERR: ALT Brake is Engaged");
-	       break;
-             }
-             STOPed[Axis]=FALSE;
-             if (semTake (semMEI,60)!=ERROR)
-	     {
-               sem_controller_run (Axis);
-               v_move(Axis,(double)0,(double)5000);
-               taskDelay(10);
-	       if (Axis==4)
-	       {
-                  while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-	       }
-               set_velocity (Axis,(double)(Axis_vel[Axis]));
- 	       semGive (semMEI); 
-             }
-             else
-             {
-	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-	     }
-           }
-           else
-           {
-             if (semTake (semMEI,60)!=ERROR)
-	     {
-	       if (Axis==4)
-	       {
-                 while (coeffs_state_cts(Axis,(long)Axis_vel[Axis]));
-	       }
-               set_velocity (Axis,(double)(Axis_vel[Axis]));
- 	       semGive (semMEI); 
-             }
-             else
-             {
-	       CursPos(20,24); printf("Err: Could not take semMEI semphore     ");
-             }
-           }
+	   if(buf[0] == 'J' || buf[0] == 'j') {
+	      Axis_vel[Axis] -= incvel[Axis];
+	      if(Axis_vel[Axis] < Axis_vel_neg[Axis]) {
+		 Axis_vel[Axis] = Axis_vel_neg[Axis];
+	      }
+	   } else {
+	      Axis_vel[Axis] += incvel[Axis];
+	      if(Axis_vel[Axis] > Axis_vel_pos[Axis]) {
+		 Axis_vel[Axis] = Axis_vel_pos[Axis];
+	      }
+	   }
+	 
+	 CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
+
+	 CursPos(20,24);
+	 if(Axis == 0 && sdssdc.status.i9.il0.az_brake_en_stat &&
+							 Axis_vel[Axis] != 0) {
+	    printf("ERR: AZ Brake is Engaged                ");
+	    break;
+	 }
+	 if(Axis == 2 && sdssdc.status.i9.il0.alt_brake_en_stat &&
+							 Axis_vel[Axis] != 0) {
+	    printf("ERR: ALT Brake is Engaged               ");
+	    break;
+	 }
+
+	 if(STOPed[Axis]) {
+	    if(mcp_unset_brake(Axis/2) < 0) {
+	       printf("Err: Could not take semMEI semphore     ");
+	    }
+
+	    STOPed[Axis]=FALSE;
+	 }
+
+	 if(semTake (semMEI,60) == ERROR) {
+	    printf("Err: Could not take semMEI semphore     ");
+	 }
+	 
+	 if(Axis == 4) {
+	    while(coeffs_state_cts(Axis, Axis_vel[Axis]) == TRUE) {
+	       ;
+	    }
+	 }
+	 set_velocity (Axis, Axis_vel[Axis]);
+	 semGive (semMEI); 
+
 	   break;
 	   
        default:  
@@ -1355,6 +1036,7 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
       semGive (semMEIUPD);
    }
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1672,7 +1354,8 @@ PrintMenuPos()
   }
 }
 /****************************************************************************/
-static void PrintInstBanner()
+static void
+PrintInstBanner(void)
 {
   CursPos(1,1);
   MenuInput[21]=NULL;
@@ -1727,6 +1410,7 @@ void Inst()
   int cw;
   int inst;
   int Options;
+  int question_mark = 0;
 
   Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
   ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
@@ -2098,7 +1782,8 @@ printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                      
 **
 **=========================================================================
 */
-void PrintInstPos()
+static void
+PrintInstPos(void)
 {
   int fidsign;
   int state;
