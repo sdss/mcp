@@ -284,8 +284,8 @@ mei_data_collection(unsigned long freq)
 			      DATA_STRUCT(dspPtr, i*2, DS_PREV_ENCODER),
 			      DS_SIZE+4, (unsigned short *)tmaxis[i]);
 	 if(dsp_error != DSP_OK) {
-	    TRACE(0, "Failed to read MEI data for %s: %d",
-		  axis_name(i), dsp_error);
+	    TRACE(0, "Failed to read MEI data for %s: %s",
+		  axis_name(i), _error_msg(dsp_error));
 	    tmaxis[i]->status = dsp_error;
 	    tmaxis[i]->errcnt++;
 	 } else {
