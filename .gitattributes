@@ -96,13 +96,16 @@ mcp-new/display.c -text
 mcp-new/display.h -text
 mcp-new/frame.h -text
 mcp-new/instrument_lift.c -text
+mcp-new/instruments.h -text
 mcp-new/io.h -text
 mcp-new/ipcast.c -text
 mcp-new/ipcast.h -text
 mcp-new/ipsym.c -text
+mcp-new/mcpUtils.h -text
 mcp-new/ms.h -text
 mcp-new/mv162.h -text
 mcp-new/serial.c -text
+mcp-new/serial.h -text
 mcp-new/telescope_motion.c -text
 mcp-new/telnetCmds.c -text
 mcp-new/timerint.h -text
