@@ -179,8 +179,9 @@ tm_print_coeffs(int mei_axis)
    
    printf("AXIS %d: P=%d, I=%d, D=%d\n", mei_axis,
 	  coeff[0], coeff[1], coeff[2]);
-   printf("         AFF=%d, VFF=%d, FFF=%d\n", coeff[3], coeff[4], coeff[9]);
-   printf("         ILIMIT=%d, OFFSET=%d, OLIMIT=%d, SHIFT=%d\n",
+   printf("        ACCEL_FF=%d, VEL_FF=%d, FRICT_FF=%d\n",
+	  coeff[3], coeff[4], coeff[9]);
+   printf("        I_LIMIT=%d, OFFSET=%d, DAC_LIMIT=%d, SHIFT=%d\n",
 	   coeff[5], coeff[6], coeff[7], coeff[8]);
    printf("integration mode is %d and sample is %d Hz\n", mode, rate);
 }
