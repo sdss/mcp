@@ -555,6 +555,28 @@ instrument_id(void)
 
 /*****************************************************************************/
 /*
+ * Is the imager saddle on the telescope?
+ */
+int
+saddle_is_mounted(void)
+{
+   int saddle_is_mounted;		/* is the saddle mounted? */
+   
+   if(semTake(semSDSSDC, NO_WAIT) == ERROR) {
+      return(-1);			/* unknown */
+   }
+   
+   saddle_is_mounted =
+     (sdssdc.status.i1.il9.sad_mount1 == 1 &&
+      sdssdc.status.i1.il9.sad_mount2 == 1) ? 1 : 0;
+   
+   semGive(semSDSSDC);
+
+   return(saddle_is_mounted);
+}
+
+/*****************************************************************************/
+/*
  * Globals to control monitoring of umbilical tower
  */
 int active_umbilical_control = 1;	/* Are we controlling the tower? */
@@ -568,7 +590,7 @@ int
 tUmbilical(void)
 {
    for(;;) {
-      if(active_umbilical_control && instrument_id() == CAMERA_ID) {
+      if(active_umbilical_control && saddle_is_mounted() == 1) {
 	 umbilical_mgt();
       }
    
