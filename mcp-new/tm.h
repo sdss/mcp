@@ -15,7 +15,6 @@ void sem_controller_idle(int mei_axis);
 void tm_sem_controller_idle(int mei_axis);
 int ADC128F1_initialize(unsigned char *addr, int occur);
 void tm_data_collection(void);
-void tm_read_all_adc(int cnt);
 void tm_jog_axis(void);
 void tm_slit_clear(int door);
 void tm_slit_open(int door);
