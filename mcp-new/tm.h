@@ -2,7 +2,7 @@ int tm_move_instchange (void);
 void tm_bf(int axis, int vel, int accel, int pos1,int pos2, int times);
 void tm_start_move(int mei_axis, int pos, int vel, int accel);
 void tm_print_coeffs(int mei_axis);
-void tm_set_filter_coeff(int mei_axis, int index, int val);
+void tm_set_filter_coeff(int mei_axis, int ind, int val);
 void tm_reset_integrator(int mei_axis);
 void tm_get_position(int mei_axis, double *position);
 void tm_get_velocity(int mei_axis, double *velocity);
