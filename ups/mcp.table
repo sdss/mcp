@@ -1,0 +1,20 @@
+File=Table
+Product=watcher
+
+#*************************************************
+
+Group:
+  Flavor=IRIX
+  Flavor=IRIX+6
+  Flavor=Linux+2
+  Qualifiers=""
+
+Common:
+   Action=setup
+      proddir()
+      setupenv()
+      pathAppend(PATH, ${UPS_PROD_DIR}/bin)
+End:
+
+#*************************************************
+
