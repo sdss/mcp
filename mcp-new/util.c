@@ -396,6 +396,9 @@ s_slaCldj ( int iy, int im, int id, double *djm, int *j )
         + ( 306L * ( ( imL + 9L ) % 12L ) + 5L ) / 10L
         - ( 3L * ( ( iyL - ( 12L - imL ) / 10L + 4900L ) / 100L ) ) / 4L
         + (long) id - 2399904L );
+
+   TRACE(2, "MJD      iy = %d im = %d", iy, im);
+   TRACE(2, "MJD CONT id = %d djm = %d", id, (int)*djm);
 }
 
 int
@@ -420,11 +423,12 @@ get_mjd(void)
    
       return(-1);
    } else {
+#if 1
       static char buff[100];
       sprintf(buff, "%d %d %d %d:%d:%d",
 	      Time.tm_year + 1900, Time.tm_mon + 1, Time.tm_mday,
 	      Time.tm_hour, Time.tm_min, Time.tm_sec);
-
+#endif
       ldj += (Time.tm_hour + (Time.tm_min + Time.tm_sec/60.0)/60.0)/24.0;
       ldj += 0.3;
 
