@@ -182,10 +182,6 @@ tBrakesInit
 #rebootHookAdd ip_shutdown
 DID48_initialize(0xFFF58000,0xB8)
 lift_initialize(0xFFFF4000)
-# What is this doing?? RHL
-#cmd_handler("init")
-taskSpawn "TCC",46,8,10000,tcc_serial,1
-taskSpawn "tCPS",100,0,2000,cmdPortServer,31011
 taskPrioritySet (taskIdFigure("tExcTask"),1)
 #
 # Get the current time from the NTP server
@@ -237,6 +233,12 @@ ms_max_cmd "600"
 rot_cmd				/* ROT */
 ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"; ms_define_cmd
 ms_max_cmd "600"
+#
+# Now that we're up, listen to the TCC and mcpMenu. They may have been trying
+# to talk to us all of this time
+#
+taskSpawn "tCPS",100,0,2000,cmdPortServer,31011
+taskSpawn "TCC",46,8,10000,tcc_serial,1
 #
 # Adjust tracing now that we're up
 #
