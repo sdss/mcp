@@ -387,7 +387,7 @@ char *drift_cmd(char *cmd)
     return "ERR: semMEI";
   veldeg=(sec_per_tick[axis_select]*drift_velocity[axis_select])/3600.;
   arcdeg=(sec_per_tick[axis_select]*position)/3600.;
-  sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,time);
+  sprintf (drift_ans,"%f %f %f",arcdeg,veldeg,time);
   return drift_ans;
 }
 
@@ -417,12 +417,19 @@ char *id_cmd(char *cmd)
 /*  printf (" ID command fired\r\n");*/
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (id_ans,"%d %s %s\r\n%s\r\nDSP Firmware=V%f R%d S%d, Option=%d, Axes=%d",
+  sprintf (id_ans,"%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
 		axis_select,axis_name[axis_select+1],__DATE__,
 		"$Name$",
 		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
 		dsp_option()&0xFFF,dsp_axes());
   return id_ans;
+}
+
+
+char *
+version_cmd(char *cmd)			/* NOTUSED */
+{
+   return "mcpVersion=\"$Name$\"\r\n";
 }
 
 /*=========================================================================
@@ -633,7 +640,7 @@ char *mc_maxacc_cmd(char *cmd)
   printf (" MC.MAX.ACC command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12lf",&max_acceleration[axis_select]);
+  sprintf (max_ans,"F@ F. %12f",&max_acceleration[axis_select]);
   return max_ans;
 }
 
@@ -661,7 +668,7 @@ char *mc_maxpos_cmd(char *cmd)
   printf (" MC.MAX.POS command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12lf",&max_position[axis_select]);
+  sprintf (max_ans,"F@ F. %12f",&max_position[axis_select]);
   return max_ans;
 }
 
@@ -689,7 +696,7 @@ char *mc_maxvel_cmd(char *cmd)
   printf (" MC.MAX.VEL command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12lf",&max_velocity[axis_select]);
+  sprintf (max_ans,"F@ F. %12f",&max_velocity[axis_select]);
   return max_ans;
 }
 
@@ -717,7 +724,7 @@ char *mc_minpos_cmd(char *cmd)
   printf (" MC.MIN.POS command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12lf",&min_position[axis_select]);
+  sprintf (max_ans,"F@ F. %12f",&min_position[axis_select]);
   return max_ans;
 }
 
@@ -805,14 +812,14 @@ char *move_cmd(char *cmd)
         if (sdss_delta_time(frame->end_time,sdss_get_time())<0.0)
 	{
 	  free (frame);
-	  printf("\r\n MOVE CMD: bad time=%lf real time=%lf",frame->end_time,
+	  printf("\r\n MOVE CMD: bad time=%f real time=%f",frame->end_time,
 		sdss_get_time());
 	  return "ERR: BAD TIME";
 	}
   	if (drift_break[axis_select])
 	{
 	  if (DRIFT_verbose)
-            printf("\r\nDRIFT pvt %lf %lf %lf",
+            printf("\r\nDRIFT pvt %f %f %f",
 		position,velocity,frame->end_time);
 	  taskLock();
           tm_get_pos(axis_select<<1,&pos);
@@ -823,7 +830,7 @@ char *move_cmd(char *cmd)
 	  pos=(pos+
 	    (drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
 	  if (DRIFT_verbose)
-            printf("\r\nDRIFT modified pvt %lf %lf %lf, difference=%lf, dt=%lf",
+            printf("\r\nDRIFT modified pvt %f %f %f, difference=%f, dt=%f",
 		pos,velocity,frame->end_time,position-pos,dt);
 	  if (drift_modify_enable)
 	    position=pos;
@@ -859,7 +866,7 @@ char *move_cmd(char *cmd)
       offset_queue_end[axis_select][i]=frame;
       frame->position-=offset[axis_select][i][1].position;
       frame->velocity-=offset[axis_select][i][1].velocity;
-/*      printf ("\r\nreduce offset end=%p, pos=%lf,idx=%d",frame,
+/*      printf ("\r\nreduce offset end=%p, pos=%f,idx=%d",frame,
 	frame->position,offset_idx[axis_select][i]);*/
     }
   }
@@ -982,7 +989,7 @@ are spread over a time period averaging .4 degs per second */
 */
         break;
   }
-	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
+	printf("\r\n%p: queue_end=%p, position=%f, velocity=%f, end_time=%f",
 		&offset[axis_select][i],offset_queue_end[axis_select][i],
 		offset[axis_select][i][1].position,
 		offset[axis_select][i][1].velocity,
@@ -1373,7 +1380,7 @@ void print_time_changes()
   int i;
 
   for (i=0;i<3;i++)
-    printf ("\r\nSDSS axis %d:  time1=%lf time2=%lf",i,time1[i],time2[i]);
+    printf ("\r\nSDSS axis %d:  time1=%f time2=%f",i,time1[i],time2[i]);
 }
 
 /*=========================================================================
@@ -1442,11 +1449,11 @@ char *status_cmd(char *cmd)
   {
    if (semTake (semMEIUPD,60)!=ERROR)
    {
-    sprintf (status_ans,"%lf %lf %f %ld %lf",
+    sprintf (status_ans,"%f %f %f 0x%lx %f",
 	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
 	(*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
 	sdss_get_time()+1.0,
-	axis_stat[axis_select],
+	     *(long *)&axis_stat[axis_select],
 	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
     semGive (semMEIUPD);
     return status_ans;
@@ -1456,11 +1463,11 @@ char *status_cmd(char *cmd)
   {
    if (semTake (semMEIUPD,60)!=ERROR)
    {
-    sprintf (status_ans,"%lf %lf %f %ld %lf",
+    sprintf (status_ans,"%f %f %f %ld %f",
 	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
 	(*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
 	sdss_get_time(),
-	axis_stat[axis_select],
+	*(long *)&axis_stat[axis_select],
 	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
     semGive (semMEIUPD);
     return status_ans;
@@ -1997,13 +2004,13 @@ char *slitstatus_cmd(char *cmd)
 char *ffsopen_cmd(char *cmd)
 {
   printf (" FFS.OPEN command fired\r\n");
-  tm_ffs_open();
+  tm_sp_ffs_open();
   return "";
 }
 char *ffsclose_cmd(char *cmd)
 {
   printf (" FFS.CLOSE command fired\r\n");
-  tm_ffs_close();
+  tm_sp_ffs_close();
   return "";
 }
 
@@ -2289,10 +2296,10 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   if (CALC_verbose)
   {
     printf ("\r\n iframe=%p, fframe=%p",iframe,fframe);
-    printf ("\r\n iframe->end_time=%lf, fframe->end_time=%lf",
+    printf ("\r\n iframe->end_time=%f, fframe->end_time=%f",
 		iframe->end_time,fframe->end_time);
-    printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
-    printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, time_off=%f",ai,j,t,start,time_off[axis]);
+    printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f",dx,dv,dt,vdot);
+    printf("\r\n ai=%12.8f, j=%12.8f, t=%f, start=%d, time_off=%f",ai,j,t,start,time_off[axis]);
   }
   for (i=0;i<(int)min(MAX_CALC-1,
 		(int)((dt-time_off[axis])*FRMHZ)-start);i++)
@@ -2305,7 +2312,7 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
     a[axis][i]=ai+(j*t);
     ji[axis][i]=j;
     if (CALC_verbose)
-      printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
+      printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
  	i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
   }
 /* last one with a portion remaining; needs portion of next one */
@@ -2336,7 +2343,7 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
     if (CALCFINAL_verbose)
     {
       printf ("\r\n time_off=%f, ldt=%f, lt=%f, t=%f",time_off[axis],ldt,lt,t);
-      printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%12.8lf",dx,dv,dt,vdot);
+      printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%12.8f",dx,dv,dt,vdot);
     }
     ai=(2/dt)*((3*vdot)-(2*lframe->velocity)-fframe->velocity);
     j=(6/(dt*dt))*(lframe->velocity+fframe->velocity-(2*vdot));
@@ -2347,7 +2354,7 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
     a[axis][i]=(FLTFRMHZ*t*(ai+(j*t)))+(FLTFRMHZ*ldt*(lai+(lj*lt)));
     ji[axis][i]=(FLTFRMHZ*t*j)+(FLTFRMHZ*ldt*lj);
     if (CALCFINAL_verbose)
-      printf ("\r\nFinal %d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
+      printf ("\r\nFinal %d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
 	i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
     if ((i+1)>MAX_CALC) printf ("\r\n calc_frames has problems %d",i+1);
     return (i+1);
@@ -2399,8 +2406,8 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
   t=(start+1)/FLTFRMHZ;	/* for end condition */
   if (CALCOFF_verbose)
   {
-    printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
-    printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, ",ai,j,t,start);
+    printf("\r\n dx=%12.8f, dv=%12.8f, dt=%12.8f, vdot=%f",dx,dv,dt,vdot);
+    printf("\r\n ai=%12.8f, j=%12.8f, t=%f, start=%d, ",ai,j,t,start);
   }
   for (i=0;i<(int)min(cnt,
 		(int)(dt*FRMHZ)-start);i++)
@@ -2413,7 +2420,7 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
     aoff[axis][i]+=ai+(j*t);
     jioff[axis][i]+=j;
     if (CALCOFF_verbose)
-      printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
+      printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
  	i,t,timoff[axis][i],poff[axis][i],voff[axis][i],aoff[axis][i]);
   }
   for (ii=i;ii<cnt;ii++)
@@ -2423,7 +2430,7 @@ int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
     poff[axis][ii]+=fframe->position+(fframe->velocity*(t-dt));
     voff[axis][ii]+=fframe->velocity;
     if (CALCOFF_verbose)
-      printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
+      printf ("\r\n%d @%f Secs: ti=%f, p=%12.8f, v=%12.8f, a=%12.8f",
         ii,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],aoff[axis][ii]);
   }
   return i;
@@ -2491,7 +2498,7 @@ int addoffset(int axis,int cnt)
     a[axis][i]+=aoff[axis][i];
     ji[axis][i]+=jioff[axis][i];
     if (CALCADDOFF_verbose)
-      printf ("\r\n%d:  p=%12.8lf, v=%12.8lf, a=%12.8lf",
+      printf ("\r\n%d:  p=%12.8f, v=%12.8f, a=%12.8f",
         i,p[axis][i],v[axis][i],a[axis][i]);
   }
   return cnt;
@@ -2532,11 +2539,11 @@ void start_frame(int axis,double time)
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
      time = sdss_delta_time(time,sdss_get_time());
-/*     printf("\r\ntime to dwell=%lf",time);*/
+/*     printf("\r\ntime to dwell=%f",time);*/
      dsp_dwell (axis<<1,time);
      semGive (semMEI);
   }
-  printf ("\r\nSTART axis=%d: time=%lf",axis<<1,time);
+  printf ("\r\nSTART axis=%d: time=%f",axis<<1,time);
 }
 
 /*=========================================================================
@@ -2566,7 +2573,7 @@ int get_frame_cnt(int axis, struct FRAME *iframe)
   fframe=iframe->nxt;
   dt=fframe->end_time-iframe->end_time;
   cnt=(int)((dt-time_off[axis])*FLTFRMHZ);
-/*  printf("\r\nfirst cnt=%d,%lf,%lf",cnt,dt,(dt-time_off[axis])*FLTFRMHZ);*/
+/*  printf("\r\nfirst cnt=%d,%f,%f",cnt,dt,(dt-time_off[axis])*FLTFRMHZ);*/
   if ( ((dt-time_off[axis])*FLTFRMHZ)>(int)((dt-time_off[axis])*FLTFRMHZ) )
   {
     cnt++;
@@ -2758,18 +2765,18 @@ void load_frames(int axis, int cnt, int idx, double sf)
   FRAME frame;
   
   if (FRAME_verbose)
-    printf("\r\n Load %d Frames, sf=%lf",cnt,sf);
+    printf("\r\n Load %d Frames, sf=%f",cnt,sf);
   for (i=idx;i<(cnt+idx);i++)
   {
     if (fabs(a[axis][i])>fabs(max_acceleration[axis+3])) 
       max_acceleration[axis+3]=a[axis][i];
     if (fabs(a[axis][i])>max_acceleration[axis]) 
-      printf ("\r\nAXIS %d: MAX ACC %lf exceeded by %lf",
+      printf ("\r\nAXIS %d: MAX ACC %f exceeded by %f",
 	  axis,a[axis][i],max_acceleration[axis]);
     if (fabs(v[axis][i])>fabs(max_velocity[axis+3])) 
       max_velocity[axis+3]=v[axis][i];
     if (fabs(v[axis][i])>max_velocity[axis]) 
-      printf ("\r\nAXIS %d: MAX VEL %lf exceeded by %lf",
+      printf ("\r\nAXIS %d: MAX VEL %f exceeded by %f",
 	  axis,v[axis][i],max_velocity[axis]);
     if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
     {
@@ -2800,7 +2807,7 @@ void load_frames(int axis, int cnt, int idx, double sf)
       }
     }
     if (FRAME_verbose)
-        printf ("\r\n axis=%d (%d): p=%12.8lf, v=%12.8lf, a=%12.8lf, \r\nj=%12.8lf,t=%12.8lf",
+        printf ("\r\n axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, \r\nj=%12.8f,t=%12.8f",
 	axis<<1,i,
 	(double)p[axis][i]*sf,(double)v[axis][i]*sf,
 	(double)a[axis][i]*sf,ji[axis][i]*sf,
@@ -2811,10 +2818,10 @@ void load_frames_test(int axis, int cnt, double sf)
 {
   int i;
    
-    printf("\r\n Load %d Frames, sf=%lf",cnt,sf);
+    printf("\r\n Load %d Frames, sf=%f",cnt,sf);
     for (i=0;i<cnt;i++)
     {
-      printf ("\r\n axis=%d (%d): p=%12.8lf, v=%12.8lf, a=%12.8lf, j=%12.8lf,t=%12.8lf",
+      printf ("\r\n axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f",
 	axis<<1,i,
 	(double)p[axis][i]*sf,(double)v[axis][i]*sf,
 	(double)a[axis][i]*sf,ji[axis][i]*sf,
@@ -2843,9 +2850,9 @@ void stop_frame(int axis,double pos,double sf)
   int stopped;
   int state;
 
-  printf ("\r\nSTOP axis=%d: p=%12.8lf",
+  printf ("\r\nSTOP axis=%d: p=%12.8f",
 	axis<<1,(double)pos);
-  stopped=FALSE;	/* ...gets rid of warning */
+  stopped=FALSE; state = 0;		/* get rid of warnings */
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
     set_stop(axis<<1);
@@ -2898,14 +2905,14 @@ void stp_frame(int axis,double pos,double sf)
   double position;
   double velocity;
 
-/*  printf ("\r\nSTP axis=%d: p=%12.8lf,sf=%lf",
+/*  printf ("\r\nSTP axis=%d: p=%12.8f,sf=%f",
 	axis<<1,(double)pos,sf);*/
 
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
     get_position(axis<<1,&position);
     get_velocity(axis<<1,&velocity);
-    printf ("\r\npos=%lf, vel=%lf",position,velocity);
+    printf ("\r\npos=%f, vel=%f",position,velocity);
     if (velocity>0.0)
       e=frame_m(&frame,"0l avj un d",axis<<1,
 	(double)(-.5*sf),(double)0.0,(double)0.0,
@@ -2963,7 +2970,7 @@ void drift_frame(int axis,double vel,double sf)
   int e;
   FRAME frame;
   
-  printf ("\r\nDRIFT axis=%d: v=%12.8lf",
+  printf ("\r\nDRIFT axis=%d: v=%12.8f",
 	axis<<1,
 	(double)vel);
 /*  printf("\r\nDrift frames left=%d",tm_frames_to_execute(axis));*/
@@ -3012,7 +3019,7 @@ void end_frame(int axis,int index,double sf)
 	FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,0);
       dsp_set_last_command(dspPtr,axis<<1,(double)p[axis][index]*sf);
       semGive (semMEI);
-      printf ("\r\nEND axis=%d (%d): p=%12.8lf, v=%12.8lf, a=%12.8lf, j=%12.8lf,t=%12.8lf",
+      printf ("\r\nEND axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f",
 	axis<<1,index,
 	(double)p[axis][index]*sf,(double)v[axis][index]*sf,(double)a[axis][index]*sf,
 	(double)ji[axis][index]*sf,
@@ -3087,7 +3094,7 @@ void tm_TCC(int axis)
   
   tm_controller_run (axis<<1);
   idx=0;
-  printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
+  printf ("\r\n Axis=%d;  Ticks per degree=%f",axis,
 	ticks_per_degree[axis]);
   FOREVER
   {
@@ -3125,7 +3132,7 @@ void tm_TCC(int axis)
 		1*(double)ticks_per_degree[axis],
 		.05*(double)ticks_per_degree[axis],
 		frame->position*(double)ticks_per_degree[axis]);
-      printf ("\r\nAxis %d Repositioning TCC cmd to pos=%lf from pos=%lf\r\n diff=%ld>%ld",
+      printf ("\r\nAxis %d Repositioning TCC cmd to pos=%f from pos=%f\r\n diff=%ld>%ld",
 		axis,frame->position*ticks_per_degree[axis],position,
 		abs((frame->position*ticks_per_degree[axis])-position),
 		(long)(.01*ticks_per_degree[axis]) );
@@ -3141,12 +3148,12 @@ void tm_TCC(int axis)
           semGive (semMEI);
           pos=(long)position;
         }
-/*        printf("\r\nrepositioning to %lf, status=%d",position,status);*/
+/*        printf("\r\nrepositioning to %f, status=%d",position,status);*/
       }
-      printf("\r\nDone repositioning to %lf",position);
+      printf("\r\nDone repositioning to %f",position);
     }
 /*    else
-      printf("\r\n nonzero vel=%lf",velocity);*/
+      printf("\r\n nonzero vel=%f",velocity);*/
 
 /* check for time */
     while ((frame!=NULL)&&
@@ -3166,9 +3173,14 @@ void tm_TCC(int axis)
 /*        printf ("\r\n waiting for second frame");*/
         taskDelay (3);
       }
+#if 1					/* Charlie's version */
       while ( (frame->nxt!=NULL) || (axis_queue[axis].active!=NULL) &&
-	((!frame_break)&&(!drift_break)) )
-      {
+	     ((!frame_break)&&(!drift_break)) )
+#else  /* re-written for clarity */
+      while(frame->nxt != NULL ||
+	    (axis_queue[axis].active != NULL && !frame_break && !drift_break))
+#endif
+	{
         frame_cnt=get_frame_cnt(axis,frame);
 /*        printf ("\r\n frames_cnt=%d",frame_cnt);*/
         frame_idx=0;
@@ -3203,12 +3215,12 @@ void tm_TCC(int axis)
 	            frmoff->position+=offset[axis][i][1].position;
 	            frmoff->velocity+=offset[axis][i][1].velocity;
 	            frmoff=frmoff->nxt;
-/*	            printf ("\r\noffset end=%p, pos=%lf,idx=%d",frmoff,
+/*	            printf ("\r\noffset end=%p, pos=%f,idx=%d",frmoff,
 		      frmoff->position,offset_idx[axis][i]);*/
 	          }
                   frmoff->position+=offset[axis][i][1].position;
 	          frmoff->velocity+=offset[axis][i][1].velocity;
-/*                  printf ("\r\noffset end=%p, pos=%lf,idx=%d",frmoff,
+/*                  printf ("\r\noffset end=%p, pos=%f,idx=%d",frmoff,
 		      frmoff->position,offset_idx[axis][i]);*/
 	          offset_queue_end[axis][i]=NULL;
 	          taskUnlock();
@@ -3257,7 +3269,7 @@ void tm_TCC(int axis)
 	    if (cnt>0)
 	    {
               load_frames(axis,min(cnt,5),idx,(double)ticks_per_degree[axis]);
-	      if ((idx==15)&&(cnt==5)) printf ("\r\n p=%lf",p[axis][19]);
+	      if ((idx==15)&&(cnt==5)) printf ("\r\n p=%f",p[axis][19]);
               while ((lcnt=tm_frames_to_execute(axis))>10) taskDelay (3);
 	      idx+=5;
 	      cnt -=5;
@@ -3347,7 +3359,7 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
   int i;
   int frame_cnt, frame_idx;
 
-  printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
+  printf ("\r\n Axis=%d;  Ticks per degree=%f",axis,
         ticks_per_degree[axis]);
   CALC_verbose=TRUE;
     frame=iframe;
@@ -3414,13 +3426,13 @@ int print_axis_queue(int axis)
     if (frame==queue->top) printf ("\r\nTOP, cnt=%d",queue->cnt);
     if (frame==queue->active) printf ("\r\nACTIVE");
     if (frame==queue->end) printf ("\r\nEND");
-    printf ("\r\n %p: position=%12.8lf, velocity=%12.8lf, end_time=%12.8f",frame,
+    printf ("\r\n %p: position=%12.8f, velocity=%12.8f, end_time=%12.8f",frame,
     		frame->position,
   		frame->velocity,
 		frame->end_time);
     if (frame->nxt!=NULL)
     {
-      printf ("\r\n      deltas position=%12.8lf, velocity=%12.8lf, end_time=%12.8f",
+      printf ("\r\n      deltas position=%12.8f, velocity=%12.8f, end_time=%12.8f",
                 frame->nxt->position-frame->position,
                 frame->nxt->velocity-frame->velocity,
                 frame->nxt->end_time-frame->end_time);
@@ -4786,16 +4798,16 @@ int sdss_init()
   for (axis=0;axis<dsp_axes();axis++)
   {
     get_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set stop rate=%lf\r\n",axis,rate);
+    printf ("AXIS %d:  set stop rate=%f\r\n",axis,rate);
     set_stop_rate(axis,(double)SDSS_STOP_RATE);
     get_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set stop rate=%lf\r\n",axis,rate);
+    printf ("AXIS %d:  set stop rate=%f\r\n",axis,rate);
 
     get_e_stop_rate(axis,&rate);
-    printf ("AXIS %d: old e_stop rate=%lf\r\n",axis,rate);
+    printf ("AXIS %d: old e_stop rate=%f\r\n",axis,rate);
     set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
     get_e_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set e_stop rate=%lf\r\n",axis,rate);
+    printf ("AXIS %d:  set e_stop rate=%f\r\n",axis,rate);
 
     get_error_limit(axis,&limit,&action);
     printf ("AXIS %d: error limit=%ld, action=%d\r\n",axis,(long)limit,action);
@@ -4887,7 +4899,7 @@ double get_time()
 /*          micro_sec = (unsigned long)(1.0312733648*timer_read (1));*/
           micro_sec = timer_read (1);
 	  if (micro_sec>1000000) micro_sec=999999;
-	  printf ("\r\nSDSS time=%lf",
+	  printf ("\r\nSDSS time=%f",
 		(double)(SDSStime+((micro_sec%1000000)/1000000.)));
           return (double)(SDSStime+((micro_sec%1000000)/1000000.));
 }
@@ -4910,7 +4922,7 @@ double get_time()
 
   	  clock_gettime(CLOCK_REALTIME,&tp);
           micro_sec = timer_read (1);
-	  printf ("\r\nsec=%d, day_sec=%d, micro_sec=%d, time=%lf",
+	  printf ("\r\nsec=%d, day_sec=%d, micro_sec=%d, time=%f",
 		tp.tv_sec,tp.tv_sec%ONE_DAY,micro_sec,
 		(double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
           return ((double)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
@@ -4999,7 +5011,7 @@ void latchprint (char *description)
   {
     if (i>0) ratio=(latchpos[i].pos2-latchpos[i-1].pos2)/
 		(latchpos[i].data-latchpos[i-1].data);
-    printf ("\r\n%d\t%d\t%d\t%12.0lf\t%12.0lf\t%f",latchpos[i].axis,
+    printf ("\r\n%d\t%d\t%d\t%12.0f\t%12.0f\t%f",latchpos[i].axis,
 			latchpos[i].ref,latchpos[i].data,
     		(float)latchpos[i].pos1,(float)latchpos[i].pos2,ratio);
   }
@@ -5014,7 +5026,7 @@ void latchexcel (int axis)
   for (i=0;i<latchidx;i++)
   {
     if (axis==latchpos[i].axis)
-      printf ("\r\n%d\t%12.0lf\t%12.0lf",latchpos[i].axis,
+      printf ("\r\n%d\t%12.0f\t%12.0f",latchpos[i].axis,
                 (float)latchpos[i].pos1,(float)latchpos[i].pos2);
   }
   printf ("\r\n");
@@ -5042,10 +5054,10 @@ void print_max ()
   int i;
 
   for (i=0;i<3;i++)
-    printf ("\r\nAXIS %d: MAX ACC limit %lf deg/sec/sec current max %lf",
+    printf ("\r\nAXIS %d: MAX ACC limit %f deg/sec/sec current max %f",
 	  i,max_acceleration[i],max_acceleration[i+3]);
   for (i=0;i<3;i++)
-    printf ("\r\nAXIS %d: MAX VEL limit %lf deg/sec current max %lf",
+    printf ("\r\nAXIS %d: MAX VEL limit %f deg/sec current max %f",
 	  i,max_velocity[i],max_velocity[i+3]);
 }
 
@@ -5083,8 +5095,8 @@ int print_diagq()
   printf ("\r\ni=%d",diagq_i);
   for (i=0;i<diagq_siz;i++)
   {
-	printf ("\r\n%d: p=%lf tim=%lf",i,(diagq+i)->p,(diagq+i)->tim);
-	printf (" v=%lf a=%lf ji=%lf",(diagq+i)->v,(diagq+i)->a,
+	printf ("\r\n%d: p=%f tim=%f",i,(diagq+i)->p,(diagq+i)->tim);
+	printf (" v=%f a=%f ji=%f",(diagq+i)->v,(diagq+i)->a,
 		(diagq+i)->ji);
   }
   return 0;
