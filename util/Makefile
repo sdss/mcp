@@ -44,9 +44,9 @@ LFLAGS = -r
 
 ## actions
 
-all default : $(LIBFILE) $(EXTRA_OBJS)
+all default : $(LIBFILE) utiltim.out $(EXTRA_OBJS)
 
-$(LIBFILE): $(OBJECTS)
+$(LIBFILE) utiltim.out : $(OBJECTS)
 	$(RM) $(LIBFILE)
 	$(AR) cru $(LIBFILE) $(OBJECTS)
 	$(RANLIB) $(LIBFILE)
