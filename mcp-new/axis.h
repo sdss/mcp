@@ -22,9 +22,10 @@
  * Charlie says:
  *   multiply AZ times 2000 for FNAL test setup
  * Does this refer to old ticksize of (.0035053554041*4)? RHL.
+ * Old AZ_TICK 0.01401671040630 20-Sep-00 DL
+ * New AZ_TICK 0.01401678528201 12-Dec-00 DL
  */
-#define AZ_TICK		0.0140167104063
-
+#define AZ_TICK		0.0140167852820
 #if 1
 #  define ALT_TICK	0.01400002855	/* encoder 1 */
 #else
