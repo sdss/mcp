@@ -90,10 +90,10 @@ sdss_get_time(void)
 double
 get_time(void)
 {
-   double time = sdss_get_time();
-   printf("SDSS time = %f\n", time);
+   double t = sdss_get_time();
+   printf("SDSS time = %f\n", t);
 
-   return(time);
+   return(t);
 }
 
 /*=========================================================================
