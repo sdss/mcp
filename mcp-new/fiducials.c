@@ -1835,6 +1835,7 @@ read_fiducials(const char *file,	/* file to read from */
 	 if(error >= 0) {		/* valid position */
 	    fiducial_position[fid] = mark + bias;
 	 } else {
+	    fiducial_position[fid] = 0;
 	    fiducial[fid].disabled = TRUE;
 	 }
       } else {
