@@ -7,13 +7,20 @@
 #define N_AZ_FIDUCIALS 49		/* number of azimuth fiducials + 1 */
 #define N_ROT_FIDUCIALS 156		/* number of rotator fiducials + 1 */
 
+#define USE_INDEX_FIDUCIAL 0		/* if true, use the special `index'
+					   fiducial */
+
 struct FIDUCIARY {
    int seen_fiducial;			/* have we seen any fiducials? */
+#if USE_INDEX_FIDUCIAL
    int seen_index;			/* have we seen fiducial "index"? */
    long mark;				/* position of axis when fiducial
 					   "index" was seen */
    int index;				/* the canonical index */
    long known_position;			/* correct position of fiducial */
+#else
+   long seen_index, mark;		/* unused, but referenced */
+#endif
    int ms_on;				/* has the TCC asserted MS.ON for
 					   this axis? */
    long error;				/* positional error derived from
