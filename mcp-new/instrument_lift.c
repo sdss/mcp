@@ -106,17 +106,21 @@ ADC128F1
 #include "tickLib.h"
 #include "logLib.h"
 #include "inetLib.h"
+#include "rebootLib.h"
 #include "in.h"
 #include "tyLib.h"
 #include "ioLib.h"
 #include "timers.h"
 #include "time.h"
-#include "dio316ld.h"
-#include "mv162IndPackInit.h"
-#include "cw.h"
-#include "ad12f1ld.h"
+#include "gendefs.h"
+#include "dio316dr.h"
+#include "dio316lb.h"
+#include "ad12f1lb.h"
+#include "da128vlb.h"
 #include "da128vrg.h"
 #include "ip480.h"
+#include "mv162IndPackInit.h"
+#include "cw.h"
 #include "data_collection.h"
 #include "abdh.h"
 
@@ -379,7 +383,7 @@ int il_hiforce_on();
 int il_hiforce_off();
 int il_solenoid_engage();
 int il_solenoid_disengage();
-int setup_wd (char *addr, int vec, int irq);
+int setup_wd (char *addr, char vec, int irq);
 int il_setup_wd ();
 void wd_isr(struct conf_blk *cblk);
 int il_pump_on();
@@ -455,7 +459,7 @@ int lift_initialize(unsigned char *addr)
     for (i=0;i<MAX_SLOTS;i++)
       if (ip->adr[i]!=NULL)
       {
-        il_ADC128F1 = ADC128F1Init(ip->adr[i]);
+        il_ADC128F1 = ADC128F1Init((struct ADC128F1 *)ip->adr[i]);
         break;
       }
     if (i>=MAX_SLOTS)
@@ -476,7 +480,7 @@ int lift_initialize(unsigned char *addr)
     for (i=0;i<MAX_SLOTS;i++)
       if (ip->adr[i]!=NULL)
       {
-        il_DAC128V = DAC128VInit(ip->adr[i]);
+        il_DAC128V = DAC128VInit((struct DAC128V *)ip->adr[i]);
         break;
       }
     if (i>=MAX_SLOTS)
@@ -503,7 +507,7 @@ int lift_initialize(unsigned char *addr)
     for (i=0;i<MAX_SLOTS;i++)
       if (ip->adr[i]!=NULL)
       {
-        il_DIO316 = DIO316Init(ip->adr[i], 0);
+        il_DIO316 = DIO316Init((struct DIO316 *)ip->adr[i], 0);
         break;
       }
     if (i>=MAX_SLOTS)
@@ -973,7 +977,6 @@ void il_trace (int inst, int cnt)
   char symname[MAX_SYS_SYM_LEN+1];
   SYM_TYPE symtype;
   int symval;
-  extern SYMTAB_ID symTblId;
   struct IL_STATES *sm;
   struct IL_HISTORY *h;
   
@@ -1048,7 +1051,6 @@ int is_plate_full()
 }
 int is_plate_empty()
 {
-  extern struct SDSS_FRAME sdssdc;
   return TRUE;
 	
   return (!is_plate_full());
@@ -1491,7 +1493,6 @@ int il_umbilical_off()
 short il_umbilical_position()
 {
   int err;
-  extern struct SDSS_FRAME sdssdc;
   extern SEM_ID semSLC;
   short pos,position;
 
@@ -1853,14 +1854,14 @@ int shutdown_wd (int type)
   SetInterruptEnable(&sbrd,CW_WD,IntDisable);
   taskDelay (30);
 }
-int setup_wd (char *addr, int vec, int irq)
+int setup_wd (char *addr, char vec, int irq)
 {
   sbrd.brd_ptr=(BYTE *)addr;
 
-  SetInterruptVector (&sbrd,vec);
+  SetInterruptVector (&sbrd,&vec);
   attach_ihandler (0,sbrd.m_InterruptVector,0,wd_isr,
   		(struct handler_data *)&sbrd);
-  rebootHookAdd (shutdown_wd);
+  rebootHookAdd ((FUNCPTR)shutdown_wd);
 }
 int il_setup_wd ()
 {
@@ -1878,10 +1879,8 @@ int il_setup_wd ()
 int wdog=0;
 void wd_isr(struct conf_blk *cblk)
 {
-struct map96x0 *carrier;        /* pointer to carrier base address */
 int i,j;
 UWORD i_stat;
-UWORD i_stat_overall;
 
  i_stat = inpw(cblk->brd_ptr + InterruptPending);
   if(cblk->num_chan == 2)   /* check if it's a 2 or 6 channel bo */
@@ -1917,8 +1916,6 @@ UWORD i_stat_overall;
 void il_status()
 {
 	extern struct SDSS_FRAME sdssdc;
-	unsigned char val;
-	int i;
 
         if (sdssdc.status.i1.il0.inst_lift_man)
 	  printf ("\r\nLOCAL/MANUAL:  ");
