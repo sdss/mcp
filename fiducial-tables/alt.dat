@@ -1,16 +1,17 @@
 #
 # altitude fiducials
 #
-# Time:    Wed Oct 10 21:44:34 MDT 2001
-# File:    /mcptpm/52193/mcpFiducials-52193.dat
-# Encoder: pos1
-# Scale:   0
-# Arguments: -dir /mcptpm/52193 -mjd 52193 -alt -canon -reset -table /home/long/alt.dat -y pos1 -x fididx -time0 1002767494 -time1 1002768300
+# Creator:             rhl
+# Time:                Fri Nov 02 09:36:33 MST 2001
+# Input file:          /mcptpm/52193/mcpFiducials-52193.dat
+# Scales:              0  0
+# Canonical fiducial:  1
+# Arguments:           -mjd 52193 -alt -canon -reset -table alt.dat -time0 1002767494 -time1 1002768300
 #
-# Fiducial Mark +- error  npoint
-1      3825222 +-       9.2 6
-2      7433840 +-       3.1 6
-3     11772367 +-       6.3 6
-4     15433145 +-       0.0 6
-5     19322816 +-       4.2 6
-6     23091568 +-       5.3 6
+# Fiducial Encoder1 +- error  npoint  Encoder2 +- error  npoint
+1           3825222 +-   9.2   6       3825222 +-  15.0   6
+2           7433840 +-   3.1   6       7431528 +-  13.7   6
+3          11772367 +-   6.3   6      11767240 +-  12.3   6
+4          15433145 +-   0.0   6      15425590 +-   0.0   6
+5          19322816 +-   4.2   6      19312692 +-   5.9   6
+6          23091568 +-   5.3   6      23079024 +-   1.1   6
