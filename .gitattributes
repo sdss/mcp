@@ -291,4 +291,3 @@ util/timer.c -text
 util/timer.h -text
 util/usrtime.c -text
 util/usrtime.h -text
-util/utiltim.out -text svneol=unset#unset
