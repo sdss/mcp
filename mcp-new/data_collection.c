@@ -47,7 +47,6 @@ int rawtick=0;
 int MEIDC_Enable[]={TRUE,TRUE,TRUE};
 int MEIDC_Rotate=0;
 /*int MEIDC_Enable[]={FALSE,FALSE,TRUE};*/
-int MEITACH_Enable=FALSE;
 unsigned long DC_freq=0;
 unsigned long mei_freq=1;
 unsigned long slc_freq=1;
@@ -268,6 +267,7 @@ void mei_data_collection(unsigned long freq)
 	        swapwords ((short *)(&tmaxis[i]->actual_position2),1);
 	      }
 	    }
+	    semGive(semMEI);
     	    for(i = 1; i < 4; i++)	/* find next enabled data collection */
 	    {
 	      rotate = (MEIDC_Rotate+i)%3;
@@ -277,92 +277,9 @@ void mei_data_collection(unsigned long freq)
 	         break;
 	      }
 	    }
-	    if (MEITACH_Enable)
-            {
-	        i=1;
-	        pcdsp_transfer_block(dspPtr,TRUE,FALSE,DATA_STRUCT(dspPtr,
-	          5,DS_PREV_ENCODER) ,DS_SIZE,
-	          (short *)tmaxis[i]);
-	        if (dsp_error) 
-	        {
-	          meistatcnt++;
-	          tmaxis[i]->status = dsp_error;
-	          tmaxis[i]->errcnt++;
-	        }
-	        swapwords ((short *)(&tmaxis[i]->actual_position),1);
-	        swapwords ((short *)(&tmaxis[i]->position),1);
-	        swapwords ((short *)(&tmaxis[i]->time),1);
-	        swapwords ((short *)(&tmaxis[i]->velocity),1);
-	        swapwords ((short *)(&tmaxis[i]->acceleration),1);
-	        swapwords ((short *)(&tmaxis[i]->actual_position2),1);
-	    }
 	    tm_data_collection();
 	    runtime=timer_read(2);
 	  }
-	  semGive(semMEI);
-	 }
-	}
-}
-void mei_tach_data_collection(unsigned long freq)
-{
-	extern SEM_ID semMEI;
-	extern void tm_data_collection();
-	extern float sdss_get_time();
-	
-	/*  ****************************************************  **
-		put whatever type of motion you want to sample here.
-	**  ****************************************************  */
-  	if (semMEIDC==NULL) semMEIDC = semBCreate (0,SEM_Q_FIFO);
-	mei_freq=freq;
-	axis0pos=&tmaxis[0]->actual_position;
-	axis0cmd=&tmaxis[0]->position;
-	dac0out=&tmaxis[0]->voltage;
-	axis0err=&tmaxis[0]->error;
-	axis0velf=&tmaxis[0]->velocity_fractional;
-	axis0vel=&tmaxis[0]->velocity;
-	axis0accelf=&tmaxis[0]->acceleration_fractional;
-	axis0accel=&tmaxis[0]->acceleration;
-	axis0tim=&tmaxis[0]->time;
-	axis1pos=&tmaxis[0]->actual_position2;
-
-	axis2pos=&tmaxis[1]->actual_position;
-	axis2cmd=&tmaxis[1]->position;
-	dac2out=&tmaxis[1]->voltage;
-	axis2err=&tmaxis[1]->error;
-	axis2velf=&tmaxis[1]->velocity_fractional;
-	axis2vel=&tmaxis[1]->velocity;
-	axis2accelf=&tmaxis[1]->acceleration_fractional;
-	axis2accel=&tmaxis[1]->acceleration;
-	axis2tim=&tmaxis[1]->time;
-	axis3pos=&tmaxis[1]->actual_position2;
-	
-	axis4pos=&tmaxis[2]->actual_position;
-	axis4cmd=&tmaxis[2]->position;
-	dac4out=&tmaxis[2]->voltage;
-	axis4err=&tmaxis[2]->error;
-	axis4velf=&tmaxis[2]->velocity_fractional;
-	axis4vel=&tmaxis[2]->velocity;
-	axis4accelf=&tmaxis[2]->acceleration_fractional;
-	axis4accel=&tmaxis[2]->acceleration;
-	axis4tim=&tmaxis[2]->time;
-	axis5pos=&tmaxis[2]->actual_position2;
-	
-	FOREVER
-	{
-  	 if (semTake (semMEIDC,WAIT_FOREVER)!=ERROR)
-  	 {
-  	  if (semTake (semMEI,NO_WAIT)!=ERROR)
-          {
-	    timer_start (2);
-	    sdss_time_dc=sdss_get_time();
-/*            meitime = dsp_read_dm(0x11E);
-            meichan0 = get_analog (0,&meichan0);
-            meichan2 =get_analog (2,&meichan2);
-	    meichan4=get_analog(4,&meichan4);
-	    read_axis_analog(4,&meichan6);*/
-	    runtime=timer_read(2);
-	  }
-	  semGive(semMEI);
 	 }
 	}
 }

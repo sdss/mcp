@@ -152,7 +152,6 @@ double ticks_per_degree[]={AZ_TICKS_DEG,
 static char *drift_ans={"360.00000 0.500000 5040.00000               "};
 char *drift_cmd(char *cmd)
 {
-  long ap,vel;
   double position,velocity;
   double arcdeg, veldeg;
   float time;
@@ -161,20 +160,21 @@ char *drift_cmd(char *cmd)
   printf (" DRIFT command fired\r\n");
   if (semTake (semMEI,60)!=ERROR)
   {
-/*    ap=(*tmaxis[axis_select]).actual_position;*/
-/*    vel=(*tmaxis[axis_select]).velocity;*/
-    get_position(axis_select<<1,&position);
-    get_velocity(axis_select<<1,&velocity);
-    time=sdss_get_time();
-    drift_velocity[axis_select]=velocity;
     drift_break[axis_select]=TRUE;
+    get_velocity(axis_select<<1,&drift_velocity[axis_select]);
+    semGive (semMEI);
+    velocity=drift_velocity[axis_select];
+  }
+  while (tm_frames_to_execute(axis_select)>1)
+    taskDelay(3);
+  if (semTake (semMEI,60)!=ERROR)
+  {
+    get_position(axis_select<<1,&position);
+    time=sdss_get_time();
     semGive (semMEI);
   }
-  taskDelay(15);
-  ap=(long)position;
-  vel=(long)velocity;
-  veldeg=(sec_per_tick[axis_select]*vel)/3600.;
-  arcdeg=(sec_per_tick[axis_select]*ap)/3600.;
+  veldeg=(sec_per_tick[axis_select]*velocity)/3600.;
+  arcdeg=(sec_per_tick[axis_select]*position)/3600.;
   sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,time);
   return drift_ans;
   return 0;
@@ -521,13 +521,18 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
 void start_frame(int axis,double time)
 {
   int e;
+  int lcnt;
   FRAME frame;
   
   time_off[axis]=0.0;
+  while ((lcnt=tm_frames_to_execute(axis))>1)
+  {
+    printf("\r\nDwell frames left=%d",lcnt);
+    taskDelay(3);
+  }
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
      time-=sdss_get_time();
-     printf("\r\nDwell frames left=%d",tm_frames_to_execute(axis));
      dsp_dwell (axis<<1,time);
 /*
      set_gate(axis<<1);
@@ -774,19 +779,20 @@ void stop_frame(int axis,double pos,double sf)
 void drift_frame(int axis,double vel,double sf)
 {
   int e;
-  FRAME frame;
   int lcnt;
+  FRAME frame;
   
   printf ("\r\nDRIFT axis=%d: v=%12.8lf",
 	axis<<1,
 	(double)vel);
+  printf("\r\nDrift frames left=%d",tm_frames_to_execute(axis));
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
 /*  this should work but instaneously to velocity */
-    set_accel(axis<<1,(double)0.0);
-    set_velocity(axis<<1,(double)vel);
+/*    set_accel(axis<<1,(double)0.0);
+    set_velocity(axis<<1,(double)vel);*/
 
-/*
+
       e=frame_m(&frame,"0l vaj un d",axis<<1,
 	(double)vel,(double).8*sf,
 	(double)0.0,
@@ -794,9 +800,14 @@ void drift_frame(int axis,double vel,double sf)
       e=frame_m(&frame,"0l va u d",axis<<1,
 	(double)vel,(double)0.0,
 	FUPD_ACCEL|FUPD_VELOCITY,0);
-*/
+
 /*      dsp_set_last_command(dspPtr,axis<<1,(double)p[axis][index]*sf);*/
       semGive (semMEI);
+  }
+  while ((lcnt=tm_frames_to_execute(axis))>1) 
+  {
+    printf("...%d",lcnt);
+    taskDelay(3);
   }
 }
 void end_frame(int axis,int index,double sf)
@@ -825,7 +836,7 @@ int tm_frames_to_execute(int axis)
 {
   int cnt;
   
-  if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+  if (semTake (semMEI,60)!=ERROR)
   {
     cnt=frames_to_execute(axis<<1);
     semGive (semMEI);
@@ -953,13 +964,13 @@ void tm_TCC(int axis)
 /*        printf ("\r\n waiting for second frame");*/
         taskDelay (3);
       }
-/*    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-    {
-      get_velocity(axis_select<<1,&velocity);
-      semGive (semMEI);
-    }
+      if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
+      {
+        get_velocity(axis_select<<1,&velocity);
+        semGive (semMEI);
+      }
       printf("\r\nAfter dwell vel=%lf",velocity);
-*/
+
       while ((frame->nxt!=NULL) || (axis_queue[axis].active!=NULL))
       {
         frame_cnt=get_frame_cnt(axis,frame);
@@ -1010,7 +1021,8 @@ void tm_TCC(int axis)
         axis_queue[axis].active=frame;    
         while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>.02))
           taskDelay (1);
-        while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1)) taskDelay(1);
+        while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1)) 
+	  taskDelay(1);
       }
       printf ("\r\n Ran out: frames left=%d",lcnt);
       axis_queue[axis].active=NULL;    
@@ -1275,9 +1287,10 @@ char *status_cmd(char *cmd)
 {
   extern struct TM_M68K *tmaxis[];
   extern struct FIDUCIARY fiducial[3];
+  extern SEM_ID semMEIDC;
 
 /*  printf (" STATUS command fired\r\n"); */
-  if (semTake (semMEI,60)!=ERROR)
+  if (semTake (semMEIDC,60)!=ERROR)
   {
     sprintf (status_ans,"%lf %lf %f %ld %lf",
 	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
@@ -1285,10 +1298,10 @@ char *status_cmd(char *cmd)
 	sdss_get_time(),
 	status,
 	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
-    semGive (semMEI);
+    semGive (semMEIDC);
     return status_ans;
   }
-  return "ERR: semMEI";
+  return "ERR: semMEIDC";
 }
 
 /* returns:    "%date %time

@@ -1012,7 +1012,7 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                         
 #ifdef ROT_VEL_MODE
            }
 #endif
-    semGive (semMEI); 
+           semGive (semMEI); 
 	   break;
 
          case 'K': case 'k':
