@@ -32,11 +32,11 @@ CPPFLAGS = -P
 #CPPFLAGS = -P -Caa
 
 LINK = ld68k                       
-LFLAGS = -r -M
+LFLAGS = -r
 
 OBJS =cmd.o axis_cmds.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
-display.o umbilical.o telnetCmds.o
+display.o umbilical.o telnetCmds.o tagname.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
@@ -47,16 +47,19 @@ LIBRARIES = $(MEIDSP)/medvxw40.a
 	$(CC) $(CFLAGS) $(INCLUDES) -c $*.c
 
 all : mcpnew.out
-
+#
+# N.b. we rebuild tagname.o to get the current date/time in version strings
+#
 mcpnew.out : $(OBJS) $(LIBRARIES)
+	$(CC) $(CFLAGS) $(INCLUDES) -c tagname.c
 	$(LINK) $(LFLAGS) -o mcpnew.out $(OBJS) $(MEIDSP)llfirm.o \
-	$(LIBRARIES) >$(DESTDIR)mcpnew.map
+	$(LIBRARIES)
 
 install : all
 	cp Makefile *.[cho] *.out $(MCP_DIR)/mcp-new
 
 clean:
-	rm -rf *.o mcp.map mcp.out *~
+	rm -rf *.o mcp.out *~
 
 make :
 	$(SDSSTOOLS_DIR)/bin/make_make \
