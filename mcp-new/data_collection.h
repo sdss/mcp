@@ -127,19 +127,19 @@ struct PVT {
 };
 
 struct B10_0 {
-	unsigned mcp_clamp_en_cmd : 1;
+	unsigned mcp_clamp_engage_cmd : 1;
 	unsigned mcp_alt_brk_en_cmd : 1;
 	unsigned mcp_alt_brk_dis_cmd : 1;
 	unsigned mcp_az_brk_en_cmd : 1;
 	unsigned mcp_az_brk_dis_cmd : 1;
-	unsigned mcp_solenoid_enable : 1;
+	unsigned mcp_solenoid_engage : 1;
 	unsigned mcp_pump_on : 1;
 	unsigned mcp_lift_dn : 4;
 	unsigned mcp_lift_up : 4;
 	unsigned mcp_lift_high_psi : 1;
 };
 struct B10_1 {
-	unsigned mcp_ff_screen_enable_cmd : 1;
+	unsigned mcp_ff_screen_enable : 1;
 	unsigned mcp_hgcd_lamp_on_cmd : 1;
 	unsigned mcp_ne_lamp_on_cmd : 1;
 	unsigned mcp_ff_lamp_on_cmd : 1;
@@ -150,24 +150,25 @@ struct B10_1 {
 	unsigned mcp_slit_latch1_cmd : 1;
 	unsigned mcp_slit_dr1_cls_cmd : 1;
 	unsigned mcp_slit_dr1_opn_cmd : 1;
-	unsigned mcp_umbilical_on_off_cmd : 1;	/* bit 20 on=1, off=0 */
-	unsigned mcp_umbilical_up_dn_cmd : 1;	/* bit 19 dn=1, up=0 */
-	unsigned mcp_15_deg_stop_ret_cmd : 1;
-	unsigned mcp_15_deg_stop_ext_cmd : 1;
-	unsigned mcp_clamp_dis_cmd : 1;	/* bit 16 */
+	unsigned mcp_umbilical_on_off : 1;	/* bit 20 on=1, off=0 */
+	unsigned mcp_umbilical_up_dn : 1;	/* bit 19 dn=1, up=0 */
+	unsigned mcp_15_deg_stop_ret_c : 1;
+	unsigned mcp_15_deg_stop_ext_c : 1;
+	unsigned mcp_clamp_disen_cmd : 1;	/* bit 16 */
 };
 struct B10_2 {
 	unsigned : 5;
 	unsigned mcp_inst_chg_alert : 1;
 	unsigned mcp_inst_chg_prompt : 1;
-	unsigned mcp_sad_latch_opn_cmd : 1;
-	unsigned mcp_sad_latch_cls_cmd : 1;
-	unsigned mcp_sec_latch_opn_cmd : 1;
-	unsigned mcp_sec_latch_cls_cmd : 1;
-	unsigned mcp_pri_latch_opn_cmd : 1;
-	unsigned mcp_pri_latch_cls_cmd : 1;
-	unsigned mcp_t_bar_latch_cmd : 1;	
-	unsigned mcp_t_bar_unlatch_cmd : 1;	/* bit 16 */
+	unsigned mcp_sad_latch_opn_cm : 1;
+	unsigned mcp_sad_latch_cls_cm : 1;
+	unsigned mcp_sec_latch_opn_cm : 1;
+	unsigned mcp_sec_latch_cls_cm : 1;
+	unsigned mcp_pri_latch_opn_cm : 1;
+	unsigned mcp_pri_latch_cls_cm : 1;
+	unsigned mcp_purge_cell_on : 1;	
+	unsigned mcp_t_bar_latch : 1;	
+	unsigned mcp_t_bar_unlatch : 1;	/* bit 16 */
 };
 struct B10 {
 	struct B10_0 ctrl0;
@@ -223,8 +224,8 @@ typedef struct {
 	unsigned sec_man_valve_cls : 1;
 	unsigned inst_man_valve_cls : 1;
 	unsigned ilcb_pres_good : 1;
-	unsigned rot_370_ccw : 1;		/* ROCCWSL	*/
-	unsigned rot_190_cw : 1;		/* ROCWSL	*/
+	unsigned rot_pos_370_ccw : 1;		/* ROCCWSL	*/
+	unsigned rot_neg_190_cw : 1;		/* ROCWSL	*/
 	unsigned rot_inst_chg_b : 1;
 	unsigned rot_inst_chg_a : 1;		/* ROICHG	*/
 
@@ -285,6 +286,20 @@ typedef struct {
 	
 	unsigned : 16;
 }IF1_L9;
+typedef struct {
+	unsigned : 16;
+	
+	unsigned rack_3_grp_1_bit_15 : 1;
+	unsigned rack_3_grp_1_bit_14 : 1;
+	unsigned rack_3_grp_1_bit_13 : 1;
+	unsigned rack_3_grp_1_bit_12 : 1;
+	unsigned rack_3_grp_1_bit_11 : 1;
+	unsigned rack_3_grp_1_bit_10 : 1;
+	unsigned man_lift_dn : 4;
+	unsigned man_lift_up : 4;
+	unsigned inst_lift_auto : 1;
+	unsigned solenoid_engage_sw : 1;
+}IF1_L12;
 typedef struct {
 	unsigned leaf_8_closed_stat : 1;
 	unsigned leaf_8_open_stat : 1;
@@ -353,7 +368,7 @@ struct I1 {
 	IF1_L9 il9;
 	unsigned long undefined10;
 	unsigned long undefined11;
-	unsigned long undefined12;
+	IF1_L12 il12;
 	IF1_L13 il13;
 	IF1_L14 il14;
 	unsigned long undefined15;
@@ -488,7 +503,7 @@ typedef struct {
 	unsigned alt_velocity_limit : 1;
 	unsigned alt_slip : 1;
 	unsigned alt_grt_18d6_limit_2 : 1;		/* AZCWHL */
-	unsigned alt_15_deg_stop_ext : 1;
+	unsigned deg_15_stop_ext : 1;
 	unsigned az_stow_2b : 1;
 	unsigned az_stow_2a : 1;
 	unsigned bldg_clear_alt : 1;
@@ -515,11 +530,11 @@ typedef struct {
 	unsigned bldg_on_az : 1;
 	unsigned alt_grt_18d6_limit_3 : 1;		/* ALP-2	*/
 	
-	unsigned tbar_latch_stat : 1;
+	unsigned t_bar_latch_stat : 1;
 	unsigned in_8_bit_30_spare : 1;
 	unsigned in_8_bit_29_spare : 1;
 	unsigned in_8_bit_28_spare : 1;
-	unsigned alt_15_deg_stop_ret : 1;
+	unsigned deg_15_stop_ret : 1;
 	unsigned e_stop_byp_sw : 1;
 	unsigned umbilical_strain_sw : 1;
 	unsigned rot_mtr_rdy : 1;
@@ -551,7 +566,7 @@ typedef struct {
 	unsigned az_brake_en_stat : 1;
 	unsigned clamp_dis_stat : 1;
 	unsigned clamp_en_stat : 1;
-	unsigned tbar_unlatch_stat : 1;
+	unsigned t_bar_unlatch_stat : 1;
 
 	unsigned s2_c7_bypass_sw : 1;
 	unsigned s2_c6_bypass_sw : 1;
@@ -689,7 +704,7 @@ typedef struct {
 	unsigned rack_1_grp_5_bit3 : 1;
 	unsigned rack_1_grp_5_bit2 : 1;
 	unsigned rack_1_grp_5_bit1 : 1;
-	unsigned purge_air_valve_perm : 1;
+	unsigned purge_valve_permit : 1;
 } OF1_L6;
 typedef struct {
 	unsigned : 16;
@@ -802,8 +817,8 @@ typedef struct {
 
 	unsigned clamp_en : 1;
 	unsigned clamp_dis : 1;
-	unsigned t_bar_unlatch_pmt : 1;
-	unsigned t_bar_latch_pmt : 1;
+	unsigned t_bar_unlatch_perm : 1;
+	unsigned t_bar_latch_perm : 1;
 	unsigned out_11_bit_27_spare : 1;
 	unsigned lift_pump_on : 1;
 	unsigned out_11_bit_25_spare : 1;
@@ -880,7 +895,7 @@ struct AB_SLC500 {
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	10
+#define SDSS_FRAME_VERSION	11
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;

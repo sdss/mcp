@@ -1127,13 +1127,13 @@ int tm_clamp(short val)
 /*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    if (val==1) 
    {
-     tm_ctrl.mcp_clamp_en_cmd = 1;
-     tm_ctrl1.mcp_clamp_dis_cmd = 0;
+     tm_ctrl.mcp_clamp_engage_cmd = 1;
+     tm_ctrl1.mcp_clamp_disen_cmd = 0;
    }
    else
    {
-     tm_ctrl.mcp_clamp_en_cmd = 0;
-     tm_ctrl1.mcp_clamp_dis_cmd = 1;
+     tm_ctrl.mcp_clamp_engage_cmd = 0;
+     tm_ctrl1.mcp_clamp_disen_cmd = 1;
    }
    
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
@@ -1161,8 +1161,8 @@ int tm_clamp(short val)
      }
      if (sdssdc.status.i9.il0.clamp_en_stat==0) /* did not work */
      {
-       tm_ctrl.mcp_clamp_en_cmd = 0;
-       tm_ctrl1.mcp_clamp_dis_cmd = 1;
+       tm_ctrl.mcp_clamp_engage_cmd = 0;
+       tm_ctrl1.mcp_clamp_disen_cmd = 1;
        printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
      }
    }
@@ -1175,7 +1175,7 @@ int tm_clamp(short val)
        cnt--;
      }
      taskDelay(60*4);
-     tm_ctrl1.mcp_clamp_dis_cmd = 0;
+     tm_ctrl1.mcp_clamp_diseng_cmd = 0;
 */
      return 0;
    }
@@ -1525,7 +1525,7 @@ int tm_ffs(short val)
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
  /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
-   tm_ctrl1.mcp_ff_screen_enable_cmd = 1;
+   tm_ctrl1.mcp_ff_screen_enable = 1;
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
    if (semTake (semSLC,60)!=ERROR)
@@ -1561,7 +1561,7 @@ int tm_ffs(short val)
      if (!tm_ffs_close_status()) /* did not work */
        printf ("\r\n FFS did NOT all close...disabling ");
    }
-   tm_ctrl1.mcp_ff_screen_enable_cmd = 0;
+   tm_ctrl1.mcp_ff_screen_enable = 0;
    swab ((char *)&tm_ctrl1,(char *)&ctrl[1],2);
    if (semTake (semSLC,60)!=ERROR)
    {

@@ -1895,8 +1895,8 @@ int il_umbilical_move(int val)
    }
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
-   il_ctrl.mcp_umbilical_up_dn_cmd = val;
-/*   printf ("\r\n mcp_umbilical_up_dn_cmd=%d, ",il_ctrl.mcp_umbilical_up_dn_cmd);*/
+   il_ctrl.mcp_umbilical_up_dn = val;
+/*   printf ("\r\n mcp_umbilical_up_dn=%d, ",il_ctrl.mcp_umbilical_up_dn);*/
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
@@ -1938,8 +1938,8 @@ int il_umbilical(int val)
    }
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
-   il_ctrl.mcp_umbilical_on_off_cmd = val;
-/*   printf ("\r\n mcp_umbilical_on_off_cmd=%d, ",il_ctrl.mcp_umbilical_on_off_cmd);*/
+   il_ctrl.mcp_umbilical_on_off = val;
+/*   printf ("\r\n mcp_umbilical_on_off=%d, ",il_ctrl.mcp_umbilical_on_off);*/
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
@@ -2125,21 +2125,21 @@ int il_zenith_clamp(int val)
    swab ((char *)&ctrl[1],(char *)&il_ctrl_1,2);
    if (val==1)
    {
-     il_ctrl.mcp_clamp_en_cmd = 1;
-     il_ctrl_1.mcp_clamp_dis_cmd = 0;
+     il_ctrl.mcp_clamp_engage_cmd = 1;
+     il_ctrl_1.mcp_clamp_disen_cmd = 0;
    }
    if (val==0)
    {
-     il_ctrl.mcp_clamp_en_cmd = 0;
-     il_ctrl_1.mcp_clamp_dis_cmd = 1;
+     il_ctrl.mcp_clamp_engage_cmd = 0;
+     il_ctrl_1.mcp_clamp_disen_cmd = 1;
    }
    if (val==-1)
    {
-     il_ctrl.mcp_clamp_en_cmd = 0;
-     il_ctrl_1.mcp_clamp_dis_cmd = 0;
+     il_ctrl.mcp_clamp_engage_cmd = 0;
+     il_ctrl_1.mcp_clamp_disen_cmd = 0;
    }
-   printf ("\r\n mcp_clamp_en_cmd=%d, ",il_ctrl.mcp_clamp_en_cmd);
-   printf ("\r\n mcp_clamp_dis_cmd=%d, ",il_ctrl_1.mcp_clamp_dis_cmd);
+   printf ("\r\n mcp_clamp_engage_cmd=%d, ",il_ctrl.mcp_clamp_engage_cmd);
+   printf ("\r\n mcp_clamp_disen_cmd=%d, ",il_ctrl_1.mcp_clamp_disen_cmd);
    swab ((char *)&il_ctrl,(char *)&ctrl[0],2);
    swab ((char *)&il_ctrl_1,(char *)&ctrl[1],2);
    printf ("ctrl=%x %x",ctrl[0],ctrl[1]);
@@ -2307,8 +2307,8 @@ int il_solenoid(short val)
    }
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
-   il_ctrl.mcp_solenoid_enable = val;
-   printf ("\r\n mcp_solenoid_enable=%d, ",il_ctrl.mcp_solenoid_enable);
+   il_ctrl.mcp_solenoid_engage = val;
+   printf ("\r\n mcp_solenoid_egage=%d, ",il_ctrl.mcp_solenoid_engage);
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
