@@ -750,7 +750,7 @@ tLatch(const char *name)
 	    abort(); break;
 	 }
 	 
-	 TRACE(6, "Setting MS.ON for %s", axis_name(axis), "");
+	 TRACE(3, "%s MS.ON", axis_name(axis), "");
 	 fiducial[axis].ms_on = 1;
 	 
 	 maybe_reset_axis_pos(axis, 0, 0, 0);
@@ -775,7 +775,7 @@ tLatch(const char *name)
 	    abort(); break;
 	 }
       
-	 TRACE(6, "Setting MS.OFF for %s", axis_name(axis), "");
+	 TRACE(3, "%s MS.OFF", axis_name(axis), "");
 	 fiducial[axis].ms_on = 0;
 	 
 	 semGive(semLatch);
@@ -2267,17 +2267,17 @@ tLatchInit(void)
 /*
  * Declare commands to the command interpreter
  */
-   define_cmd("CORRECT",      correct_cmd,         0, 1, 1);
-   define_cmd("MS.MAP.DUMP",  ms_map_dump_cmd,     0, 0, 1);
-   define_cmd("MS.MAP.LOAD",  ms_map_load_cmd,     0, 1, 1);
-   define_cmd("MS.OFF",       ms_off_cmd,         -1, 1, 1);
-   define_cmd("MS.ON",        ms_on_cmd,           0, 1, 1);
-   define_cmd("MS.MAX",       ms_max_cmd,          1, 1, 1);
-   define_cmd("MS.READ",      ms_read_cmd,         1, 1, 1);
-   define_cmd("MS.SAVE",      ms_save_cmd,         0, 1, 1);
-   define_cmd("MS.SET",       ms_set_axis_pos_cmd, 0, 1, 1);
-   define_cmd("MS.GET",       ms_get_cmd,          0, 1, 1);
-   define_cmd("MS.DEFINE",    ms_define_cmd,       0, 1, 1);
-   define_cmd("MS.WRITE",     ms_write_cmd,        1, 1, 1);
-   define_cmd("SET.FIDUCIAL", ms_set_axis_pos_cmd, 0, 1, 1);
+   define_cmd("CORRECT",      correct_cmd,         0, 1, 0, 1, "");
+   define_cmd("MS.MAP.DUMP",  ms_map_dump_cmd,     0, 0, 0, 1, "");
+   define_cmd("MS.MAP.LOAD",  ms_map_load_cmd,     0, 1, 0, 1, "");
+   define_cmd("MS.OFF",       ms_off_cmd,         -1, 1, 0, 1, "");
+   define_cmd("MS.ON",        ms_on_cmd,           0, 1, 0, 1, "");
+   define_cmd("MS.MAX",       ms_max_cmd,          1, 1, 0, 1, "");
+   define_cmd("MS.READ",      ms_read_cmd,         1, 1, 0, 1, "");
+   define_cmd("MS.SAVE",      ms_save_cmd,         0, 1, 0, 1, "");
+   define_cmd("MS.SET",       ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
+   define_cmd("MS.GET",       ms_get_cmd,          0, 1, 0, 1, "");
+   define_cmd("MS.DEFINE",    ms_define_cmd,       0, 1, 0, 1, "");
+   define_cmd("MS.WRITE",     ms_write_cmd,        1, 1, 0, 1, "");
+   define_cmd("SET.FIDUCIAL", ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
 }
