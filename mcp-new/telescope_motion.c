@@ -573,7 +573,8 @@ char *help_TM[]={
 	"tm_set_encoder(int axis)",
 	"tm_controller_idle(int axis)",
 	"tm_dual_loop(int axis, int dual)",
-	"tm_set_fiducial(int axis); tm_print_fiducial_all()",
+	"tm_set_fiducial_pos(int axis); tm_set_pos_off_fiducial()",
+	"tm_print_fiducial(int axis); tm_print_fiducial_all()",
 ""
 };                                                         
 void TM_help()
@@ -2109,7 +2110,7 @@ void tm_setup_wd ()
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: tm_set_fiducial
+** ROUTINE: tm_set_fiducial_pos
 **
 ** DESCRIPTION:
 **      Sets the queried setting for position as the fixed fiducial
@@ -2126,7 +2127,7 @@ void tm_setup_wd ()
 **
 **=========================================================================
 */
-void tm_set_fiducial(int axis)
+void tm_set_fiducial_pos(int axis)
 {
   extern long fiducial_position[3];
   int negative;
@@ -2259,7 +2260,7 @@ void tm_print_fiducial(int axis)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: tm_set_fiducials
+** ROUTINE: tm_set_pos_off_fiducial
 **
 ** DESCRIPTION:
 **      Sets the most recent readings for position as the fixed fiducial
@@ -2275,7 +2276,7 @@ void tm_print_fiducial(int axis)
 **
 **=========================================================================
 */
-void tm_set_fiducials(int axis)
+void tm_set_pos_off_fiducials(int axis)
 {
   extern long fiducial_position[3];
   extern struct FIDUCIARY fiducial[3];
