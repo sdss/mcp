@@ -298,7 +298,7 @@ static void PrintMenuBanner()
   last_clamp=last_door1=last_door2=last_azbrake=last_altbrake=-1;
   EraseDisplayRest();
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
-  printf("    //       //   //  //       //           software by Charlie Briegel        \n");
+  printf("    //       //   //  //       //           software by Charlie and Robert     \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
   printf("      //   //   //       //       //      Tag: %-20s            \n", "$Name$");
   printf("     //   //   //       //       //                                            \n");
