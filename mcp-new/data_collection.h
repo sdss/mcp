@@ -513,7 +513,7 @@ typedef struct {
 	unsigned alt_grt_83_limit_2 : 1;		/* ALP-2	*/
 	unsigned az_109_131_limit_2 : 1;		/* ALP-2	*/
 	unsigned bldg_on_az : 1;		/* ALP20	*/
-	unsigned alt_grt_18D6_limit_3 : 1;		/* ALP-2	*/
+	unsigned alt_grt_18d6_limit_3 : 1;		/* ALP-2	*/
 	
 	unsigned tbar_latch_stat : 1;
 	unsigned in_8_bit_30_spare : 1;
