@@ -68,6 +68,7 @@ SEM_ID semMEIDC=NULL;
 SEM_ID semMEIUPD=NULL;
 SEM_ID semSLCDC=NULL;
 SEM_ID semSDSSDC = NULL;
+SEM_ID semStatusCmd = NULL;
 
 int rawtick=0;
 /* Enables for axis 0, 2, 4: Azimuth(0), Altitude(2), Rotator(4) */
@@ -187,6 +188,9 @@ mei_data_collection(unsigned long freq)
    }
    if(semSDSSDC == NULL) {
       semSDSSDC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+   }
+   if(semStatusCmd == NULL) {
+      semStatusCmd = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
    }
    
    mei_freq = freq;
@@ -428,6 +432,21 @@ slc500_data_collection(unsigned long freq)
       }
       
       semGive(semSDSSDC);
+/*
+ * Set the axis_status arrays for the use of axis_status_cmd(),
+ * and system_status for the use of system_status_cmd()
+ */
+      if(semTake(semStatusCmd, 60) == ERROR) {
+	 TRACE(2, "slc500_data_collection failed to take semStatusCmd: %s",
+							   strerror(errno), 0);
+      } else {
+	 set_status(NOINST, system_status_buff, STATUS_BUFF_SIZE);
+	 set_status(AZIMUTH, axis_status_buff[AZIMUTH], STATUS_BUFF_SIZE);
+	 set_status(ALTITUDE, axis_status_buff[ALTITUDE], STATUS_BUFF_SIZE);
+	 set_status(INSTRUMENT, axis_status_buff[INSTRUMENT],STATUS_BUFF_SIZE);
+
+	 semGive(semStatusCmd);
+      }
 /*
  * check that the correct version of the PLC's installed
  */
