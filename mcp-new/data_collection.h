@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                 
    unsigned no_inst_in_place : 1;            
    unsigned disc_cable : 1;                  
-   unsigned version_id : 16;                  /* Version 11 : v11  */
+   unsigned version_id : 16;                  /* Version 14  $Name$ */
 } B3_L1;
 
 typedef struct {
@@ -1377,7 +1377,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 11 : v11";
+   static char plcVersion[] = "Version 14  $Name$";
 #endif
 /*
  * End of machine generated code
