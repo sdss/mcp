@@ -1,4 +1,235 @@
-#include "copyright.h"
+#include "vxWorks.h"                            
+#include <assert.h>
+#include "semLib.h"
+#include "sigLib.h"
+#include "taskLib.h"
+#include "sysLib.h"
+#include "stdio.h"
+#include "logLib.h"
+#include "logLib.h"
+#include "tickLib.h"
+#include "inetLib.h"
+#include "in.h"
+#include "tyLib.h"
+#include "ioLib.h"
+#include "timers.h"
+#include "time.h"
+#include "iv.h"
+#include "intLib.h"
+#include "string.h"
+#include "rebootLib.h"
+#include "gendefs.h"
+#include "dio316dr.h"
+#include "dio316lb.h"
+#include "mv162IndPackInit.h"
+#include "cw.h"
+#include "ad12f1lb.h"
+#include "did48lb.h"
+#include "da128vlb.h"
+#include "da128vrg.h"
+#include "ip480.h"
+#include "data_collection.h"
+#include "instruments.h"
+#include "io.h"
+#include "mcpUtils.h"
+#include "dscTrace.h"
+#include "mcpMsgQ.h"
+#include "mcpTimers.h"
+
+/*****************************************************************************/
+/*
+ * Create the task and message queue for the counterweights
+ */
+#if USE_MSG_Q
+void
+tMoveCW(void)
+{
+   MCP_MSG msg;				/* message to read */
+   int status;
+   
+   for(;;) {
+/*
+ * Wait for a message asking us to do something
+ */
+      status = msgQReceive(msgMoveCW, (char*)&msg, sizeof(msg), WAIT_FOREVER);
+      assert(status != ERROR);
+
+      TRACE(4, "tMoveCW: received message %d", msg.type, 0);
+      
+      assert(msg.type == moveCW_type);
+      
+      if(semTake(semMoveCWBusy, 0) != OK) { /* task is busy */
+	 TRACE(0, "moveCW task is already already busy", 0, 0);
+	 return;
+      }
+      
+      set_counterweight(msg.u.moveCW.inst,
+			msg.u.moveCW.cw, msg.u.moveCW.cwpos);
+      
+      semGive(semMoveCWBusy);
+   }
+}
+
+void
+tMoveCWInit(void)
+{
+   if(msgMoveCW != NULL) {
+      return;
+   }
+
+   msgMoveCW = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+   assert(msgMoveCW != NULL);
+
+   msgMoveCWAbort = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+   assert(msgMoveCWAbort != NULL);
+   
+   semMoveCWBusy = semBCreate(SEM_Q_PRIORITY, SEM_FULL);
+   assert(semMoveCWBusy != NULL);
+   
+   if(taskSpawn("tMoveCW", 60, VX_FP_TASK, 10000,
+		(FUNCPTR)tMoveCW, 0,0,0,0,0,0,0,0,0,0) == ERROR) {
+      TRACE(0, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
+   }
+}
+
+void
+tMoveCWFini(void)
+{
+   if(msgMoveCW == NULL) {
+      return;
+   }
+
+   msgQDelete(msgMoveCW);
+   msgMoveCW = NULL;
+
+   msgQDelete(msgMoveCWAbort);
+   msgMoveCWAbort = NULL;
+   
+   semDelete(semMoveCWBusy);
+   semMoveCWBusy = NULL;
+   
+   taskDelete(taskIdFigure("tMoveCW"));
+}
+#endif
+
+/*****************************************************************************/
+/*
+ * Abort counter weight motion
+ */
+int
+mcp_cw_abort(void)
+{
+#if USE_MSG_Q
+   MCP_MSG msg;
+   STATUS stat;
+
+   if(semTake(semMoveCWBusy, 0) == OK) { /* task is idle */
+      semGive(semMoveCWBusy);
+   } else {
+      msg.type = moveCWAbort_type;
+      msg.u.moveCWAbort.abort = 1;
+
+      TRACE(1, "Sending abort msg to msgMoveCWAbort", 0, 0);
+      stat = msgQSend(msgMoveCWAbort, (char *)&msg, sizeof(msg),
+		      NO_WAIT, MSG_PRI_NORMAL);
+      assert(stat == OK);
+   }
+#else
+   taskDelete(taskIdFigure("moveCW"));
+#endif
+   
+   cw_abort();
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Set or balance the counter weights
+ */
+int
+mcp_set_cw(int inst,			/* instrument to balance for */
+	   int cw,			/* CW to move, or ALL_CW */
+	   int cwpos,			/* desired position, or 0 to balance */
+	   const char **errstr)		/* &error_string, or NULL  */
+{
+   if(inst < 0 || inst >= NUMBER_INST) {
+      if(errstr != NULL) {
+	 *errstr = "illegal choice of instrument";
+      }
+   }
+
+   if(cw != ALL_CW && (cw < 0 || cw > NUMBER_CW)) {
+      if(errstr != NULL) {
+	 *errstr = "illegal choice of CW";
+      }
+
+      return(-1);
+   }
+
+   if(cwpos != 0 && (cwpos < 10 || cwpos > 800)) {
+      if(errstr != NULL) {
+	 *errstr = "ERR: Position out of Range (10-800)";
+      }
+
+      return(-1);
+   }
+
+   if(sdssdc.status.i9.il0.alt_brake_en_stat == 0) {
+      if(errstr != NULL) {
+	 *errstr = "ERR: Altitude Brake NOT Engaged";
+      }
+      
+      return(-1);
+   } else {
+#if USE_MSG_Q
+/*
+ * send message requesting a counter weight motion
+ */
+      MCP_MSG msg;
+      STATUS stat;
+
+      if(semTake(semMoveCWBusy, 0) == OK) { /* task is idle */
+	 semGive(semMoveCWBusy);
+      } else {
+	 if(errstr != NULL) {
+	    *errstr = "ERR: CW or CWP task still active...be patient";
+	 }
+	 
+	 return(-1);			/* CW or CWP task still active */
+	 ;
+      }
+      
+      msg.type = moveCW_type;
+      msg.u.moveCW.inst = inst;
+      msg.u.moveCW.cw = cw;
+      msg.u.moveCW.cwpos = cwpos;
+      
+      stat = msgQSend(msgMoveCW, (char *)&msg, sizeof(msg),
+		      NO_WAIT, MSG_PRI_NORMAL);
+      assert(stat == OK);
+#else
+      if(taskIdFigure("moveCW") != ERROR) {
+	 if(errstr != NULL) {
+	    *errstr = "ERR: CW or CWP task still active...be patient";
+	 }
+	 
+	 return(-1);			/* CW or CWP task still active */
+      }
+
+      taskSpawn("moveCW",60,VX_FP_TASK,10000,(FUNCPTR)set_counterweight,
+		inst, cw, cwpos,
+		0,0,0,0,0,0,0);
+#endif
+   }
+
+   if(errstr != NULL) {
+      *errstr = "";
+   }
+
+   return(0);
+}
+
 /**************************************************************************
 **
 ** ABSTRACT:
@@ -59,44 +290,6 @@ ADC128F1
 	5:1 gear box
 	10 volts is 2500 RPM or 500 RPM after the gear reduction
 	*/
-/*------------------------------*/
-/*	includes		*/
-/*------------------------------*/
-#include "vxWorks.h"                            
-#include "semLib.h"
-#include "sigLib.h"
-#include "taskLib.h"
-#include "sysLib.h"
-#include "stdio.h"
-#include "logLib.h"
-#include "logLib.h"
-#include "tickLib.h"
-#include "inetLib.h"
-#include "in.h"
-#include "tyLib.h"
-#include "ioLib.h"
-#include "timers.h"
-#include "time.h"
-#include "iv.h"
-#include "intLib.h"
-#include "string.h"
-#include "rebootLib.h"
-#include "gendefs.h"
-#include "dio316dr.h"
-#include "dio316lb.h"
-#include "mv162IndPackInit.h"
-#include "cw.h"
-#include "ad12f1lb.h"
-#include "did48lb.h"
-#include "da128vlb.h"
-#include "da128vrg.h"
-#include "ip480.h"
-#include "data_collection.h"
-#include "instruments.h"
-#include "io.h"
-#include "mcpUtils.h"
-#include "dscTrace.h"
-
 /*-------------------------------------------------------------------------
 **
 ** GLOBAL VARIABLES
@@ -206,7 +399,7 @@ static int cw_power_on(void);
 static int cw_power_off(void);
 static int cw_select(int cw);
 static int cw_rdselect(void);
-static int cw_status(void);
+static void cw_status(void);
 static void cw_read_position(int cnt);
 static void cw_set_positionv(int inst, const short p[4]);
 
@@ -383,146 +576,187 @@ void
 balance(int cw,				/* counter weight to move */
 	int inst)			/* to position for this instrument */
 {
-  int fd;
-  int i;
-  short vel,pos,delta,direction;
-#ifdef FAKE_IT
-  short dpos;
-#endif
-  short last_direction;
-  int totcnt = 0, cnt, last_error;
+   int cw0, cw1;			/* move counterweights cw0..cw1 incl.*/
+   int CW_next;				/* go on to next counterweight */
+   int i;
+   short vel,pos,delta,direction;
+   short last_direction;
+   int totcnt = 0, cnt, last_error;
+   MCP_MSG msg;				/* message to read */
 
-  if (CW_verbose) printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
-  fd = open_log("cwp.log");
-  ioTaskStdSet(0,1,fd);
-  ioTaskStdSet(0,2,fd);
+   if(cw == ALL_CW) {
+      cw0 = 0; cw1 = NUMBER_CW - 1;
+   } else {
+      cw0 = cw1 = cw;
+   } 
 
-/* set mux for specified counter-weight */
-  cw_select(cw);
+   for(cw = cw0; cw <= cw1; cw++) {
+      if(CW_verbose) printf("\r\nBALANCE CW %d: for instrument %d",
+			    cw + 1, inst);
+/*
+ * set mux for specified counter-weight
+ */
+      cw_select(cw);
+      
+      TRACE(4, "balance cw = %d inst = %d", cw, inst);
+/*
+ * iterate until good or exceed stop count
+ */
+      DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
+      cw_power_on();
+      CW_limit_abort = FALSE;
+      
+      for(CW_next = i = 0; !CW_next && i < cw_inst[inst].stop_count; i++) {
+	 ADC128F1_Read_Reg(cw_ADC128F1,cw,&pos);
+	 if((pos & 0x800) == 0x800) {
+	    pos |= 0xF000;
+	 } else {
+	    pos &= 0xFFF;
+	 }
+	 delta = abs(pos - cw_inst[inst].pos_setting[cw]);
+	 
+	 TRACE(5, "balance i = %d delta = %d", i, delta);
+	 
+	 last_error = delta;
+	 cw_inst[inst].pos_current[cw] = pos;
+	 cw_inst[inst].pos_error[cw] = delta;
+	 direction = (pos < cw_inst[inst].pos_setting[cw]) ?
+						 POS_DIRECTION : NEG_DIRECTION;
+/*
+ * iterate until position is adequate
+ */
+	 cnt = 0;
+	 while(delta > cw_inst[inst].stop_pos_error) {
+	    TRACE(6, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
+		  delta, cw_inst[inst].stop_pos_error);
+	    
+	    taskDelay(60/cw_inst[inst].updates_per_sec);
+	    
+	    if(msgQReceive(msgMoveCWAbort, (char*)&msg, sizeof(msg), NO_WAIT)
+								    != ERROR) {
+	       assert(msg.type == moveCWAbort_type);
+	       TRACE(0, "Counter weight motion abort", 0, 0);
+	       printf("CWABORT\n");
+	       cw_abort();
+	       return;
+	    }
+	 
+	    if(CW_limit_abort) {
+	       printf ("\r\nLIMIT ABORT");
+	       cw_status();
 
-  TRACE(4, "balance cw = %d inst = %d", cw, inst);
+	       CW_next = 1;
 
-/* iterate until good or exceed stop count */
-  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
-  cw_power_on();
-  CW_limit_abort=FALSE;
+	       break;
+	    }
+	    
+	    cnt++;
+	    if(cnt%(cw_inst[inst].updates_per_sec*6) == 0) {
+	       if(delta > last_error - 4) {
+		  TRACE(2, "Not Closing in on position for CW %d; aborting",
+								    cw + 1, 0);
+		  cw_status();
+		  
+		  CW_next = 1;
+		  break;
+	       }
 
-  for (i=0;i<cw_inst[inst].stop_count;i++)
-  {
-    totcnt=cnt=0;
-    ADC128F1_Read_Reg(cw_ADC128F1,cw,&pos);
-    if ((pos&0x800)==0x800) pos |= 0xF000;
-    else pos &= 0xFFF;
-    delta = abs(pos-cw_inst[inst].pos_setting[cw]);
-
-    TRACE(5, "balance i = %d delta = %d", i, delta);
-
-    last_error=delta;
-    cw_inst[inst].pos_current[cw]=pos;
-    cw_inst[inst].pos_error[cw]=delta;
-    direction = pos<cw_inst[inst].pos_setting[cw]?POS_DIRECTION:NEG_DIRECTION;
-    last_direction = direction;
-/* iterate until position is adequate */
-    while (delta>cw_inst[inst].stop_pos_error) {
-       TRACE(6, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
-	     delta, cw_inst[inst].stop_pos_error);
-    
-      taskDelay(60/cw_inst[inst].updates_per_sec);
-      if (CW_limit_abort)
-      {
-        printf ("\r\nLIMIT ABORT");
-	cw_status();
-	return;
+	       last_error = delta;
+	    }
+/*
+ * deceleration & coast to position
+ */
+	    DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, &vel);
+	    vel -= 0x800;
+	    
+	    if(delta < cw_inst[inst].start_decel_position) {
+/*
+ * still decelerating
+ */
+	       if(direction) {
+		  vel -= cw_inst[inst].decel;
+	       } else {
+		  vel += cw_inst[inst].decel;
+	       }
+	       
+	       if(abs(vel) >= cw_inst[inst].stop_velocity) {
+		  if (CW_verbose) printf ("\r\n DECEL: ");
+	       } else {			/* coast with stop velocity */
+		  if(direction) {
+		     vel =  cw_inst[inst].stop_velocity;
+		  } else {
+		     vel = -cw_inst[inst].stop_velocity;
+		  }
+		  if(CW_verbose) printf ("\r\n STOP VEL: ");
+	       }    
+	    } else {
+/*
+ * accelerate to velocity
+ */
+	       if(direction) {
+		  vel += cw_inst[inst].accel;
+	       } else {
+		  vel -= cw_inst[inst].accel;
+	       }
+	       
+	       if(abs(vel) <= cw_inst[inst].velocity) {
+		  if (CW_verbose) printf ("\r\n ACCEL: ");
+	       } else {			/* maintain velocity */
+		  if(direction) {
+		     vel =  cw_inst[inst].velocity;
+		  } else {
+		     vel = -cw_inst[inst].velocity;
+		  }
+		  if (CW_verbose) printf ("\r\n ACCEL VEL: ");
+	       }    
+	       
+	       vel += 0x800;
+	       DAC128V_Write_Reg(cw_DAC128V, CW_MOTOR, vel);
+	    }
+/*
+ * where did we get to?
+ */
+	    ADC128F1_Read_Reg(cw_ADC128F1, CW_POS + cw, &pos);
+	    if((pos & 0x800) == 0x800) {
+	       pos |= 0xF000;
+	    } else {
+	       pos &= 0xFFF;
+	    }
+	    
+	    delta = abs(pos - cw_inst[inst].pos_setting[cw]);
+	    cw_inst[inst].pos_current[cw] = pos;
+	    cw_inst[inst].pos_error[cw] = delta;
+	    
+	    last_direction = direction;
+	    direction = (pos < cw_inst[inst].pos_setting[cw]) ?
+						 POS_DIRECTION : NEG_DIRECTION;
+	    if(direction != last_direction) break;
+	    
+	    if(CW_verbose) {
+	       printf("vel=%x,pos=%x,delta=%x,direction=%d",
+		      vel - 0x800, pos, delta, direction);
+	       printf ("\r\n  vel=%f rpm ,pos=%6.4f\", %4.2f ",
+		       (vel-0x800)*RPM_PER_COUNT,(24*pos)/(2048*0.7802),
+		       (10*pos)/2048.);
+	    }
+	 }
+	 totcnt += cnt;
+	 cw_brake_on();
+	 DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
+	 if(CW_verbose) printf("\r\n SWITCH: ");
       }
-      cnt++;
-      if (cnt%(cw_inst[inst].updates_per_sec*6)==0)
-      {
-        if (delta>(last_error-4))
-        {
-	  cw_abort();
-	  TRACE(2, "Not Closing in on position for %d; aborting", cw, 0);
-	  cw_status();
-	  return;
-        }
-        else
-          last_error=delta;
-      }
-/* deceleration & coast to position */
-      DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
-      if (delta<cw_inst[inst].start_decel_position)
-      {
-/* still decelerating */
-	if ((abs(vel-0x800)-cw_inst[inst].decel)>cw_inst[inst].stop_velocity) 
-	{
-	  if (direction)
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,vel-cw_inst[inst].decel);
-	  else
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,vel+cw_inst[inst].decel);
-	  if (CW_verbose) printf ("\r\n DECEL: ");
-	}
-	else
-	{
-/* coast with stop velocity */
-	  if (direction)
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+cw_inst[inst].stop_velocity);
-	  else
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800-cw_inst[inst].stop_velocity);
-	  if (CW_verbose) printf ("\r\n STOP VEL: ");
-        }    
-      }    
-      else
-      {
-/* accelerate to velocity */
-        if ((abs(vel-0x800)+cw_inst[inst].accel)<cw_inst[inst].velocity)
-	{
-	  if (direction)
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,vel+cw_inst[inst].accel);
-	  else
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,vel-cw_inst[inst].accel);
-	  if (CW_verbose) printf ("\r\n ACCEL: ");
-        }    
-	else
-	{
-/* maintain velocity */
-	  if (direction)
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+cw_inst[inst].velocity);
-	  else
-	    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800-cw_inst[inst].velocity);
-	  if (CW_verbose) printf ("\r\n ACCEL VEL: ");
-        }    
-      }
-/* fake moving the weight */
-#ifdef FAKE_IT
-#define FAKE_IT	1
-      DAC128V_Read_Reg(cw_DAC128V,CW_POS+cw,&dpos);
-      DAC128V_Write_Reg(cw_DAC128V,CW_POS+cw,dpos+((vel-0x800)/10));
-#endif
-      ADC128F1_Read_Reg(cw_ADC128F1,CW_POS+cw,&pos);
-      if ((pos&0x800)==0x800) pos |= 0xF000;
-      else pos &= 0xFFF;
-      delta = abs(pos-cw_inst[inst].pos_setting[cw]);
-      cw_inst[inst].pos_current[cw]=pos;
-      cw_inst[inst].pos_error[cw]=delta;
-      last_direction = direction;
-      direction = pos<cw_inst[inst].pos_setting[cw]?POS_DIRECTION:NEG_DIRECTION;
-      if (direction!=last_direction) break;
-      if (CW_verbose) 
-	printf ("vel=%x,pos=%x,delta=%x,direction=%d",
-		vel-0x800,pos,delta,direction);
-      printf ("\r\n  vel=%f rpm ,pos=%6.4f\", %4.2f ",
-		(vel-0x800)*RPM_PER_COUNT,(24*pos)/(2048*0.7802),(10*pos)/2048.);
-    }
-    totcnt += cnt;
-    cw_brake_on();
-    DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
-    if (CW_verbose) printf ("\r\n SWITCH: ");
-  }
-  TRACE(4, "CW %d done", cw, 0);
-  cw_brake_on();
-  cw_power_off();
-  if (CW_verbose) printf ("\r\n STOP: ");
-  printf ("\r\n .................time=%d secs\r\n",totcnt/cw_inst[inst].updates_per_sec);
-  close (fd);
+      
+      TRACE(4, "CW %d done", cw + 1, 0);
+   }
+
+   cw_brake_on();
+   cw_power_off();
+   
+   if (CW_verbose) {
+      printf ("\r\n STOP: ");
+      printf ("\r\n .................time=%d secs\r\n",
+	      totcnt/cw_inst[inst].updates_per_sec);
+   }
 }
 
 /*
@@ -542,13 +776,7 @@ set_counterweight(int inst,		/* instrument to set for */
 
    cw_set_positionv(inst, parray);
    
-   if(cw == ALL_CW) {
-      for(i = 0; i < NUMBER_CW; i++) {
-	 balance(i, inst);
-      }
-   } else {
-      balance(cw, inst);
-   }
+   balance(cw, inst);
 }
 
 /*=========================================================================
@@ -865,9 +1093,6 @@ cw_rdselect(void)
 ** DESCRIPTION:
 **	Diagnostic to display current status of counter-weight system.
 **
-** RETURN VALUES:
-**      int 	always zero
-**
 ** CALLS TO:
 **	DIO316_Read_Port
 **	cw_read_position
@@ -877,33 +1102,40 @@ cw_rdselect(void)
 **
 **=========================================================================
 */
-static int
+static void
 cw_status(void)
 {
-	unsigned char val;
-	int i;
+   unsigned char val;
+   int i;
+   
+   if(cw_DIO316 == -1) {
+      return;
+   }
+   
+   DIO316_Read_Port(cw_DIO316,CW_LCLRMT,&val);
+   if(val & CW_LOCAL) {
+      printf ("\r\nLOCAL:  ");
+   } else {
+      printf ("\r\nREMOTE:  ");
+   }
+   
+   DIO316_Read_Port(cw_DIO316, CW_SELECT, &val);
+   printf("CW %d Selected, ", (val & 0x3) + 1);
 
-	if (cw_DIO316==-1) return ERROR;
-	DIO316_Read_Port (cw_DIO316,CW_LCLRMT,&val);
-	if ((val&CW_LOCAL)==CW_LOCAL) printf ("\r\nLOCAL:  ");
-	else printf ("\r\nREMOTE:  ");
+   DIO316_Read_Port(cw_DIO316, CW_INTERLOCK, &val);
+   if((val & CW_INTERLOCK_BAD) == CW_INTERLOCK_OK) {
+      printf ("Interlock OK and ignored\n");
+   } else {
+      printf ("Interlock BAD but ignored\n");
+   }
 
-	DIO316_Read_Port (cw_DIO316,CW_SELECT,&val);
-	printf ("CW %d Selected, ",val&0x3);
-
-	DIO316_Read_Port (cw_DIO316,CW_INTERLOCK,&val);
-	if ((val&CW_INTERLOCK_BAD)==CW_INTERLOCK_OK) 
-	  printf ("Interlock OK and ignored\r\n");
-	else 
-	  printf ("Interlock BAD but ignored\r\n");
-
-  	DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&val);
-	printf ("\r\nLimit Byte 0x%02x (1 implies OPEN or OK)",val);
-	for (i=0;i<4;i++)
-	  printf ("\r\n  CW%d:  Upper Limit %d Lower Limit %d",
-			i,(val>>(i*2))&0x1,(val>>((i*2)+1))&0x1);
-	cw_read_position (1);
-	return 0;
+   DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&val);
+   printf ("\nLimit Byte 0x%02x (1 implies OPEN or OK)\n",val);
+   for(i = 0; i < 4; i++) {
+      printf ("  CW%d:  Upper Limit %d Lower Limit %d\n",
+	      i + 1, (val >> 2*i) & 0x1, (val >> (2*i + 1)) & 0x1);
+   }
+   cw_read_position(1);
 }
 /*=========================================================================
 **=========================================================================
