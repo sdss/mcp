@@ -1,4 +1,28 @@
 #include "copyright.h"
+/**************************************************************************
+***************************************************************************
+** FILE:
+**      instrument_lift.c
+**
+** ABSTRACT:
+**	Routines to provide motion and rules for instrument lift via
+**	FSM.
+**
+** ENTRY POINT          SCOPE   DESCRIPTION
+** ----------------------------------------------------------------------
+** 
+**
+** ENVIRONMENT:
+**      ANSI C.
+**
+** REQUIRED PRODUCTS:
+**
+** AUTHORS:
+**      Creation date:  Aug 30, 1999
+**      Charlie Briegel
+**
+***************************************************************************
+***************************************************************************/
 /************************************************************************/
 /* Project: 	SDSS - Sloan Digital Sky Survey				*/
 /* 		Instrument Lift Control					*/
@@ -124,11 +148,21 @@ ADC128F1
 #include "data_collection.h"
 #include "abdh.h"
 
+/*========================================================================
+**========================================================================
+**
+** LOCAL MACROS, DEFINITIONS, ETC.
+**
+**========================================================================
+*/
+/*------------------------------------------------------------------------
+**
+** LOCAL DEFINITIONS
+*/
+
 /* below is a place for DIAGNOStic flag for turning off the feature
 #define DIAGNOS 0
 */
-/* Prototypes */
-int lift_initialize(unsigned char *addr);
 
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
@@ -273,6 +307,11 @@ struct IL_LOOP {
 	short stop_pos_error;		/* stop position error allowed */
 	short stop_count;		/* stop polarity swing counts allowed */
 };
+
+/*-------------------------------------------------------------------------
+**
+** GLOBAL VARIABLES
+*/
 struct IL_LOOP	il_inst[16][2] = {
 {{0x0400,0,0,20, 0x400,5,5,5,2, 0x7,0xF,0x3,0x1, 0,40, 2,4},	/* UP INST 0*/
  {0x0100,0,0,20, 0x400,40,10,10,5, 0x2,0xF,0x3,0x2, 40,0, 2,4}},/* DOWN */
@@ -352,7 +391,42 @@ static int cnt;
 #define FIBER_ENGAGE	0x120
 static fiber_state,last_fiber_state,new_fiber_state;
 struct conf_blk sbrd;
+int il_DIO316=-1;
+int il_ADC128F1=-1;
+int il_DAC128V=-1;
+static short il_pos;
+static short il_action;
+static int il_state;
+static int il_instrument;
+struct IL_RULES {
+	int (*rule)();
+	short *var[2];
+	unsigned short true_state;
+	unsigned short false_state;
+};
+struct IL_STATES {
+	char *name;
+	int (*init)();
+	int (*action)();
+	struct IL_RULES rules[4];
+};
+struct IL_HISTORY {
+	unsigned char state;
+	unsigned char rule_fired;
+	unsigned short cnt;
+	time_t time;
+};
+struct IL_INST {
+	unsigned short current_state;
+	struct IL_STATES *fsm;
+	int history_enabled;
+	unsigned short history_idx;
+#define HISTORY_IDX_MAX	200
+	struct IL_HISTORY *history;
+};
 
+/* Prototypes */
+int lift_initialize(unsigned char *addr);
 char *liftup_cmd(char *cmd);
 char *liftdown_cmd(char *cmd);
 int lift_initialize(unsigned char *addr);
@@ -361,6 +435,8 @@ int fiberPut();
 #define IL_GET		0
 #define IL_PUT		1
 int fiber_fsm (int inst, int action);
+int fiber_put(struct IL_STATES *sm);
+int fiber_msg(struct IL_STATES *sm);
 int is_at_zenith();
 int is_cart_get_position();
 int is_cart_put_position();
@@ -378,9 +454,12 @@ void il_trace (int inst, int cnt);
 void il_position(double pos);
 void il_calc (struct IL_LOOP *il);
 int il_enable_motion();
+int il_enable_motion_status();
 int il_disable_motion();
 int il_hiforce_on();
 int il_hiforce_off();
+int il_force_on();
+int il_force_off();
 int il_solenoid_engage();
 int il_solenoid_disengage();
 int setup_wd (char *addr, char vec, int irq);
@@ -421,6 +500,27 @@ void IL_help();
 void IL_Verbose();
 void IL_Quiet();
 
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: liftup_cmd
+**	    liftdown_cmd
+**
+** DESCRIPTION:
+**      Send lift up or down for the specified instrument.  These are motion
+**	commands utilizing the il_inst structure and corresponding FSM
+**
+** RETURN VALUES:
+**     null string
+**
+** CALLS TO:
+**	cw_get_inst
+**	lift_fsm
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
 char *liftup_cmd(char *cmd)
 {
   int inst;
@@ -428,7 +528,7 @@ char *liftup_cmd(char *cmd)
   printf ("\r\nLIFT command fired\r\n");
   if ((inst=cw_get_inst(cmd))!=-1)
       lift_fsm (inst,IL_UP,INIT);
-  return 0;
+  return "";
 }
 char *liftdown_cmd(char *cmd)
 {
@@ -437,11 +537,36 @@ char *liftdown_cmd(char *cmd)
   printf ("\r\nLIFT command fired\r\n");
   if ((inst=cw_get_inst(cmd))!=-1)
       lift_fsm (inst,IL_DN,INIT);
-  return 0;
+  return "";
 }
-int il_DIO316=-1;
-int il_ADC128F1=-1;
-int il_DAC128V=-1;
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: lift_initialize
+**
+** DESCRIPTION:
+**      Initialize the hardware utilized for the instrument lift.  Shares 
+**	resources with the counter-weight system.  Checks to see if already
+**	initialized by cw and then uses the same handle if TRUE.
+**
+** RETURN VALUES:
+**	
+**
+** CALLS TO:
+**	Industry_Pack
+**	setup_wd
+**	il_setup_wd
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**	il_ADC128F1
+**	cw_DAC128V
+**	il_DAC128V
+**	cw_DIO316
+**	il_DIO316
+**
+**=========================================================================
+*/
 int lift_initialize(unsigned char *addr)
 {
   int i;
@@ -561,6 +686,7 @@ int lift_initialize(unsigned char *addr)
   }
   return 0;
 }
+
 int fiberGet ()
 {
   printf ("\r\nFIBER GET:");
@@ -577,6 +703,7 @@ int fiber_fsm (int inst, int action)
   int lift_state,motion;
   
   new_fiber_state=FIBER_INIT;
+  lift_state=INIT;
   if ((il_inst[inst][IL_UP].updates_per_sec!=0)||
   	(il_inst[inst][IL_DN].updates_per_sec!=0)) return ERROR;
   while (new_fiber_state!=FIBER_EXIT)
@@ -706,44 +833,16 @@ int fiber_fsm (int inst, int action)
   if (IL_verbose) printf ("\r\n FIBER_EXIT: ");
   return SUCCESS;
 }
-static short il_pos;
-static short il_action;
-static int il_state;
-static int il_instrument;
-struct IL_RULES {
-	int (*rule)();
-	short *var[2];
-	unsigned short true_state;
-	unsigned short false_state;
-};
-struct IL_STATES {
-	char *name;
-	int (*init)();
-	int (*action)();
-	struct IL_RULES rules[4];
-};
-struct IL_HISTORY {
-	unsigned char state;
-	unsigned char rule_fired;
-	unsigned short cnt;
-	time_t time;
-};
-struct IL_INST {
-	unsigned short current_state;
-	struct IL_STATES *fsm;
-	int history_enabled;
-	unsigned short history_idx;
-#define HISTORY_IDX_MAX	200
-	struct IL_HISTORY *history;
-};
 int fiber_put(struct IL_STATES *sm)
 {
   il_action=IL_DN;
   fiber_msg (sm);
+  return 0;
 }
 int fiber_msg(struct IL_STATES *sm)
 {
   if (IL_verbose) printf ("\r\nFSM: %s",sm->name);
+  return 0;
 }
 int is_action_get()
 {
@@ -812,7 +911,7 @@ int is_less_than (short *v1,short *v2)
 int is_motion_done (short *v1,short *v2)
 {
 	if (il_state==EXIT) return TRUE;
-	
+	else return FALSE;	
 }
 int leave (short *v1,short *v2)
 {
@@ -906,7 +1005,7 @@ int fsm (int inst,int action)
   new_state=START_FSM;
   last_state=CONTINUE_FSM;	/* force initial state to be different */
   if ((il_inst[inst][IL_UP].updates_per_sec!=0)||
-  	(il_inst[inst][IL_DN].updates_per_sec!=0)) return;
+  	(il_inst[inst][IL_DN].updates_per_sec!=0)) return 0;
   	
   if ((instfsm[inst].history_enabled)&&(instfsm[inst].history==NULL))
   {
@@ -969,7 +1068,7 @@ int fsm (int inst,int action)
     }
     taskDelay (1);
   }
-  return;
+  return 0;
 }
 void il_trace (int inst, int cnt)
 {
@@ -1092,10 +1191,10 @@ int lift_fsm (int inst, int motion, int new_state)
 {
   short force,pos,delta,direction,abort_pos,abort_force;
   unsigned char vel,idxvel;
-  extern SEM_ID semSLC;
 #ifdef FAKE_IT
-  short dstrain,dvel,semSLC,dpos;
-  struct B10 il_ctrl;   
+  extern SEM_ID semSLC;
+  short dstrain,dvel,dpos;
+  struct B10_0 il_ctrl;   
 #endif
   if (il_inst[inst][motion].updates_per_sec!=0) new_state=state=INIT;
   last_tick=tickGet();
@@ -1368,7 +1467,7 @@ int lift_fsm (int inst, int motion, int new_state)
     if (IL_verbose) 
 	printf ("pos=%2x,delta=%x,direction=%d,force=%d,",
 		pos,delta,direction,force);
-    printf ("pos=%6.4f\", %4.2fvolts %4d strain=%6.4f lb, %4.2 fvolts %4d ",
+    printf ("pos=%6.4f\", %4.2fvolts %4d strain=%6.4f lb, %4.2fvolts %4d ",
 		(24*pos)/(2048*0.7802),(10*pos)/2048.,pos,
 		force/.3,(10*force)/2048.,force);
     if (il_inst[inst][motion].updates_per_sec!=0)
@@ -1567,10 +1666,12 @@ int il_umbilical_move_pos(int pos)
     }
   }
   il_umbilical_off();
+  return 0;
 }
 int il_umbilical_offset(int offset)
 {
   umbilical_offset=offset;
+  return 0;
 }
 int il_umbilical_mgt()
 {
@@ -1587,6 +1688,7 @@ int il_umbilical_mgt()
   {
     il_umbilical_move_pos(umbpos);
   }
+  return 0;
 }
 int test_umbilical_mgt(int alt, int rot)
 {
@@ -1602,6 +1704,7 @@ int test_umbilical_mgt(int alt, int rot)
   {
     il_umbilical_move_pos(umbpos);
   }
+  return 0;
 }
 int test_umbilical_move()
 {
@@ -1624,12 +1727,13 @@ int test_umbilical_move()
     taskDelay(30);
     print_umbilical_position();
     printf ("\r\nUmbilical UP/DN test Done");    
+    return 0;
 }
 int il_zenith_clamp(int val) 
 {
    int err;
    unsigned short ctrl[2];
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
    struct B10_1 il_ctrl_1;   
   extern SEM_ID semSLC;
              
@@ -1659,7 +1763,7 @@ int il_zenith_clamp(int val)
    if (val==-1)
    {
      il_ctrl.mcp_clamp_en_cmd = 0;
-     il_ctrl_1.mcp_clamp_dis_cmd = 1;
+     il_ctrl_1.mcp_clamp_dis_cmd = 0;
    }
    printf ("\r\n mcp_clamp_en_cmd=%d, ",il_ctrl.mcp_clamp_en_cmd);
    printf ("\r\n mcp_clamp_dis_cmd=%d, ",il_ctrl_1.mcp_clamp_dis_cmd);
@@ -1683,12 +1787,14 @@ int il_zenith_clamp_engage()
     il_zenith_clamp(1);
     taskDelay (60*2);
     il_zenith_clamp(-1);
+    return 0;
 }
 int il_zenith_clamp_disengage() 
 {
     il_zenith_clamp(0);
     taskDelay (60*2);
     il_zenith_clamp(-1);
+    return 0;
 }
 int il_disable_motion()
 {
@@ -1698,6 +1804,7 @@ int il_disable_motion()
 	DIO316_Write_Port (il_DIO316,IL_ENABLE,val&IL_DISABLED);
 /*	il_motion_up (0);*/
         il_enable_motion_status();
+	return 0;
 }
 int il_enable_motion()
 {
@@ -1706,6 +1813,7 @@ int il_enable_motion()
 	DIO316_Read_Port (il_DIO316,IL_ENABLE,&val);
 	DIO316_Write_Port (il_DIO316,IL_ENABLE,val|IL_ENABLED);
         il_enable_motion_status();
+	return 0;
 }
 int il_enable_motion_status()
 {
@@ -1713,12 +1821,13 @@ int il_enable_motion_status()
 
 	DIO316_Read_Port (il_DIO316,IL_ENABLE,&val);
 	printf ("\r\nENABLE MOTION status=%x",val);
+	return 0;
 }
 int il_pump(short val) 
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
@@ -1745,21 +1854,27 @@ int il_pump(short val)
        return err;
      }
    }
+   else 
+     return ERROR;
+   return 0;
 }
 int il_pump_on()
 {
-    il_pump (1);
+  int status;
+
+    status=il_pump (1);
     taskDelay (4*60);
+    return status;
 }
 int il_pump_off()
 {
-    il_pump (0);
+    return il_pump (0);
 }
 int il_force(short val) 
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
@@ -1788,20 +1903,23 @@ int il_force(short val)
        return err;
      }
    }
+   else
+     return -1;
+   return 0;
 }
 int il_force_on()
 {
-    il_force (1);
+    return il_force (1);
 }
 int il_force_off()
 {
-    il_force (0);
+    return il_force (0);
 }
 int il_solenoid(short val) 
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
@@ -1830,21 +1948,25 @@ int il_solenoid(short val)
        return err;
      }
    }
+   else
+     return -1;
+   return 0;
 }
 int il_solenoid_disengage()
 {
     StopCounter (&sbrd,IL_WD);
-    il_solenoid (0);
+    return il_solenoid (0);
 }
 int il_solenoid_engage()
 {
     WriteCounterConstant (&sbrd,IL_WD);		/* 60 ms */
     StartCounter (&sbrd,IL_WD);
-    il_solenoid (1);
+    return il_solenoid (1);
 }
 int il_solenoid_maintain()
 {
     SetCounterConstant (&sbrd,IL_WD,60000);		/* 60 ms */
+    return 0;
 }
 int shutdown_wd (int type)
 {
@@ -1853,6 +1975,7 @@ int shutdown_wd (int type)
   SetInterruptEnable(&sbrd,TM_WD,IntDisable);
   SetInterruptEnable(&sbrd,CW_WD,IntDisable);
   taskDelay (30);
+  return 0;
 }
 int setup_wd (char *addr, char vec, int irq)
 {
@@ -1862,6 +1985,7 @@ int setup_wd (char *addr, char vec, int irq)
   attach_ihandler (0,sbrd.m_InterruptVector,0,wd_isr,
   		(struct handler_data *)&sbrd);
   rebootHookAdd ((FUNCPTR)shutdown_wd);
+  return 0;
 }
 int il_setup_wd ()
 {
@@ -1875,6 +1999,7 @@ int il_setup_wd ()
   SetWatchdogLoad (&sbrd,IL_WD,WDIntLd);
   SetOutputPolarity (&sbrd,IL_WD,OutPolHi);
   ConfigureCounterTimer(&sbrd,IL_WD);
+  return 0;
 }
 int wdog=0;
 void wd_isr(struct conf_blk *cblk)
@@ -1955,12 +2080,12 @@ void il_abort ()
     il_pump_off();
     il_solenoid_disengage();
 }
-static short bit_reversal[]={0,8,4,0xC, 2,0xA,6,0xE, 1,9,5,0xD, 3,0xB,7,0xF}; 
+static char bit_reversal[]={0,8,4,0xC, 2,0xA,6,0xE, 1,9,5,0xD, 3,0xB,7,0xF}; 
 int il_motion_up(char vel)
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
@@ -2003,7 +2128,7 @@ int il_motion_dn(char vel)
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
              
    if (semTake (semSLC,60)!=ERROR)
@@ -2046,7 +2171,7 @@ int il_motion_raw_up (char vel)
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
 
    printf ("\r\n  Type any character to abort......");             
@@ -2089,7 +2214,7 @@ int il_motion_raw_dn (char vel)
 {
    int err;
    unsigned short ctrl;
-   struct B10 il_ctrl;   
+   struct B10_0 il_ctrl;   
   extern SEM_ID semSLC;
              
    printf ("\r\n  Type any character to abort......");

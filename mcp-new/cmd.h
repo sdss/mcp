@@ -28,6 +28,9 @@ struct COMMANDS {
 	char *command;
 	char *(*function)();
 };
+/* commands will match incorrectly if the longest command is not first */
+/* with a subset of the string...i.e. CORRECTLY must come befor CORRECT */
+/* since CORRECTLY matches both CORRECTLY and CORRECT */
 struct COMMANDS axis_cmds[] = {
 	{"\033",reboot_cmd},
 	{"CORRECT",correct_cmd},

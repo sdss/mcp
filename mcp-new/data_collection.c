@@ -268,6 +268,8 @@ void mei_data_collection(unsigned long freq)
   	   if (semTake (semMEI,NO_WAIT)!=ERROR)
            {
 	    sdss_time_dc=sdss_get_time();
+            time (&sdssdc.ctime);
+            sdssdc.sdsstime=(long)(sdss_time_dc*1000);
             i=MEIDC_Rotate;
 	    if (MEIDC_Enable[i])
             {
@@ -463,7 +465,6 @@ void slc500_data_collection(unsigned long freq)
     }
     cw_data_collection();
     il_data_collection(); 
-    time (&sdssdc.ctime);
 
     if (check_stop_in()) axis_stat[0].stop_ok=0;
     else axis_stat[0].stop_ok=1;
@@ -742,7 +743,9 @@ printf("ff_2_stat=%d\n",sdssdc.status.i1.il13.ff_2_stat);
 printf("ff_1_stat=%d\n",sdssdc.status.i1.il13.ff_1_stat);
 printf("low_lvl_light_2=%d\n",sdssdc.status.o1.ol1.low_lvl_light_2);
 printf("low_lvl_light_1=%d\n",sdssdc.status.o1.ol1.low_lvl_light_1);
-printf("opt_bench_cls_perm=%d\n",sdssdc.status.o1.ol1.opt_bench_cls_perm);
+printf("az_stow_light=%d\n",sdssdc.status.o1.ol1.az_stow_light);
+printf("stop_bypass_strobe=%d\n",sdssdc.status.o1.ol1.stop_bypass_strobe);
+printf("az_stow_center_lt=%d\n",sdssdc.status.o1.ol1.az_stow_center_lt);
 printf("opt_bench_opn_perm=%d\n",sdssdc.status.o1.ol1.opt_bench_opn_perm);
 printf("inst_lift_perm=%d\n",sdssdc.status.o1.ol1.inst_lift_perm);
 printf("inst_lift_dn_4=%d\n",sdssdc.status.o1.ol1.inst_lift_dn_4);
@@ -863,7 +866,6 @@ printf("az_280_ccw=%d\n",sdssdc.status.i6.il0.az_280_ccw);
 printf("az_280_cw=%d\n",sdssdc.status.i6.il0.az_280_cw);
 printf("az_dir_ccw=%d\n",sdssdc.status.i6.il0.az_dir_ccw);
 printf("az_dir_cw=%d\n",sdssdc.status.i6.il0.az_dir_cw);
-
 printf("alt_brake_engaged=%d\n",sdssdc.status.i7.il0.alt_brake_engaged);
 printf("az_brake_disengaged=%d\n",sdssdc.status.i7.il0.az_brake_disengaged);
 printf("az_brake_engaged=%d\n",sdssdc.status.i7.il0.az_brake_engaged);
@@ -880,6 +882,10 @@ printf("alt_mtr1_rdy=%d\n",sdssdc.status.i7.il0.alt_mtr1_rdy);
 printf("alt_90_5_limit=%d\n",sdssdc.status.i7.il0.alt_90_5_limit);
 printf("alt_20_limit=%d\n",sdssdc.status.i7.il0.alt_20_limit);
 printf("alt_0_6_limit=%d\n",sdssdc.status.i7.il0.alt_0_6_limit);
+printf("az_stow_center_sw=%d\n",sdssdc.status.i7.il0.az_stow_center_sw);
+printf("locking_pin_out=%d\n",sdssdc.status.i7.il0.locking_pin_out);
+printf("alt_less_than_19_deg=%d\n",sdssdc.status.i7.il0.alt_less_than_19_deg);
+printf("bldg_on=%d\n",sdssdc.status.i7.il0.bldg_on);
 printf("s_wind_e_stop=%d\n",sdssdc.status.i8.il0.s_wind_e_stop);
 printf("lift_estop_sw=%d\n",sdssdc.status.i8.il0.lift_estop_sw);
 printf("lift_dn_sw=%d\n",sdssdc.status.i8.il0.lift_dn_sw);
@@ -895,6 +901,11 @@ printf("rot_290_ccw=%d\n",sdssdc.status.i8.il0.rot_290_ccw);
 printf("rot_290_cw=%d\n",sdssdc.status.i8.il0.rot_290_cw);
 printf("rot_dir_ccw=%d\n",sdssdc.status.i8.il0.rot_dir_ccw);
 printf("rot_dir_cw=%d\n",sdssdc.status.i8.il0.rot_dir_cw);
+printf("man_ff_screen_enable=%d\n",sdssdc.status.i8.il0.man_ff_screen_enable);
+printf("man_hgcd_lamp_on_cmd=%d\n",sdssdc.status.i8.il0.man_hgcd_lamp_on_cmd);
+printf("man_ne_lamp_on_cmd=%d\n",sdssdc.status.i8.il0.man_ne_lamp_on_cmd);
+printf("man_ff_lamp_on_cmd=%d\n",sdssdc.status.i8.il0.man_ff_lamp_on_cmd);
+printf("man_ff_scrn_open_cmd=%d\n",sdssdc.status.i8.il0.man_ff_scrn_open_cmd);
 printf("wind_dog_house_dr_cl=%d\n",sdssdc.status.o9.ol0.wind_dog_house_dr_cl);
 printf("wind_alt_plc_perm=%d\n",sdssdc.status.o9.ol0.wind_alt_plc_perm);
 printf("wind_az_plc_perm=%d\n",sdssdc.status.o9.ol0.wind_az_plc_perm);
@@ -909,6 +920,10 @@ printf("alt_plc_perm=%d\n",sdssdc.status.o9.ol0.alt_plc_perm);
 printf("az_plc_ccw_perm=%d\n",sdssdc.status.o9.ol0.az_plc_ccw_perm);
 printf("az_plc_cw_perm=%d\n",sdssdc.status.o9.ol0.az_plc_cw_perm);
 printf("az_plc_perm=%d\n",sdssdc.status.o9.ol0.az_plc_perm);
+
+printf("t_bar_latch_pmt=%d\n",sdssdc.status.o9.ol0.t_bar_latch_pmt);
+printf("t_bar_unlatch_pmt=%d\n",sdssdc.status.o9.ol0.t_bar_unlatch_pmt);
+
 printf("umbilical_dir_cmd=%d\n",sdssdc.status.o10.ol0.umbilical_dir_cmd);
 printf("umbilical_motor_cmd=%d\n",sdssdc.status.o10.ol0.umbilical_motor_cmd);
 printf("alt_brake_engage_cmd=%d\n",sdssdc.status.o10.ol0.alt_brake_engage_cmd);

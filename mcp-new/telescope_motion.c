@@ -81,7 +81,8 @@ short rot1vlt,rot1cur;
 #define TM_ALT2CUR	7
 int tm_ADC128F1=-1;
 /* tm_mgt variables to enable safe operation if telescope is not in control */
-int monitor_axis[3];	
+int monitor_axis[3];	/* provides mechanism to prevent deadlocks for startup */
+int monitor_on[3];	/* overrides monitoring of axis...possible disable */
 /* keep watch dog alive based on all axis software active */
 int axis_alive=0;
 
@@ -743,7 +744,7 @@ int tm_az_brake(short val)
 {
    int err;
    unsigned short ctrl;
-   struct B10 tm_ctrl;   
+   struct B10_0 tm_ctrl;   
    extern SEM_ID semSLC;
    extern struct SDSS_FRAME sdssdc;
    int cnt;
@@ -751,30 +752,26 @@ int tm_az_brake(short val)
    if (semTake (semSLC,60)!=ERROR)
    {
      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-     semGive (semSLC);
      if (err)
      {
        printf ("R Err=%04x\r\n",err);
+       semGive (semSLC);
        return err;
      }
-   }
-   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-/*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
-   if (val==1) 
-   {
-     tm_ctrl.mcp_az_brk_en_cmd = 1;
-     tm_ctrl.mcp_az_brk_dis_cmd = 0;
-   }
-   else
-   {
-     tm_ctrl.mcp_az_brk_en_cmd = 0;
-     tm_ctrl.mcp_az_brk_dis_cmd = 1;
-   }
-   
+     swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+/*   printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
+     if (val==1) 
+     {
+       tm_ctrl.mcp_az_brk_en_cmd = 1;
+       tm_ctrl.mcp_az_brk_dis_cmd = 0;
+     }
+     else
+     {
+       tm_ctrl.mcp_az_brk_en_cmd = 0;
+       tm_ctrl.mcp_az_brk_dis_cmd = 1;
+     }
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
+     swab ((char *)&tm_ctrl,(char *)&ctrl,2);
      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
      semGive (semSLC);
      if (err)
@@ -783,7 +780,6 @@ int tm_az_brake(short val)
        return err;
      }
    }
-   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
    if (val==1)
    {
      cnt=120;
@@ -792,7 +788,7 @@ int tm_az_brake(short val)
        taskDelay(1);
        cnt--;
      }
-/*     tm_ctrl.mcp_az_brk_en_cmd = 0;*/
+/*   hold on the brake command */
    }
    else
    {
@@ -803,17 +799,27 @@ int tm_az_brake(short val)
        cnt--;
      }
      taskDelay(12*60);
-     tm_ctrl.mcp_az_brk_dis_cmd = 0;
-   }
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-     semGive (semSLC);
-     if (err)
+     if (semTake (semSLC,60)!=ERROR)
      {
-       printf ("W Err=%04x\r\n",err);
-       return err;
+       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+       if (err)
+       {
+         printf ("R Err=%04x\r\n",err);
+         semGive (semSLC);
+         return err;
+       }
+       swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+/*     printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
+       tm_ctrl.mcp_az_brk_dis_cmd = 0;
+/*     printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
+       swab ((char *)&tm_ctrl,(char *)&ctrl,2);
+       err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
+       semGive (semSLC);
+       if (err)
+       {
+         printf ("W Err=%04x\r\n",err);
+         return err;
+       }
      }
    }
 /*   printf ("\r\n cnt=%d",cnt);
@@ -869,7 +875,7 @@ int tm_alt_brake(short val)
 {
    int err;
    unsigned short ctrl;
-   struct B10 tm_ctrl;   
+   struct B10_0 tm_ctrl;   
    extern SEM_ID semSLC;
    extern struct SDSS_FRAME sdssdc;
    int cnt;
@@ -877,30 +883,26 @@ int tm_alt_brake(short val)
    if (semTake (semSLC,60)!=ERROR)
    {
      err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
-     semGive (semSLC);
      if (err)
      {
        printf ("R Err=%04x\r\n",err);
+       semGive (semSLC);
        return err;
      }
-   }
-   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
-/*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
-   if (val==1) 
-   {
-     tm_ctrl.mcp_alt_brk_en_cmd = 1;
-     tm_ctrl.mcp_alt_brk_dis_cmd = 0;
-   }
-   else
-   {
-     tm_ctrl.mcp_alt_brk_en_cmd = 0;
-     tm_ctrl.mcp_alt_brk_dis_cmd = 1;
-   }
-   
+     swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+/*   printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
+     if (val==1) 
+     {
+       tm_ctrl.mcp_alt_brk_en_cmd = 1;
+       tm_ctrl.mcp_alt_brk_dis_cmd = 0;
+     }
+     else
+     {
+       tm_ctrl.mcp_alt_brk_en_cmd = 0;
+       tm_ctrl.mcp_alt_brk_dis_cmd = 1;
+     }
 /*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
+     swab ((char *)&tm_ctrl,(char *)&ctrl,2);
      err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
      semGive (semSLC);
      if (err)
@@ -909,7 +911,6 @@ int tm_alt_brake(short val)
        return err;
      }
    }
-   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
    cnt=60*4;
    if (val==1)
    {
@@ -918,7 +919,7 @@ int tm_alt_brake(short val)
         taskDelay(1);
         cnt--;
      }
-/*     tm_ctrl.mcp_alt_brk_en_cmd = 0;*/
+/*   hold on the brake command */
    }
    else
    {
@@ -928,17 +929,27 @@ int tm_alt_brake(short val)
        cnt--;
      }
      taskDelay(60*4);
-     tm_ctrl.mcp_alt_brk_dis_cmd = 0;
-   }
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
-     semGive (semSLC);
-     if (err)
+     if (semTake (semSLC,60)!=ERROR)
      {
-       printf ("W Err=%04x\r\n",err);
-       return err;
+       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
+       if (err)
+       {
+         printf ("R Err=%04x\r\n",err);
+         semGive (semSLC);
+         return err;
+       }
+       swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+/*   printf (" read ctrl = 0x%04x\r\n",tm_ctrl);*/
+       tm_ctrl.mcp_alt_brk_dis_cmd = 0;
+/*     printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
+       swab ((char *)&tm_ctrl,(char *)&ctrl,2);
+       err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
+       semGive (semSLC);
+       if (err)
+       {
+         printf ("W Err=%04x\r\n",err);
+         return err;
+       }
      }
    }
 /*   printf ("\r\n cnt=%d",cnt);
@@ -987,7 +998,7 @@ int tm_brake_status()
 {
   int err;
   unsigned short ctrl;
-  struct B10 tm_ctrl;   
+  struct B10_0 tm_ctrl;   
   extern SEM_ID semSLC;
   extern struct SDSS_FRAME sdssdc;
 
@@ -1039,7 +1050,7 @@ int tm_clamp(short val)
 {
    int err;
    unsigned short ctrl[2];
-   struct B10 tm_ctrl;   
+   struct B10_0 tm_ctrl;   
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
    extern struct SDSS_FRAME sdssdc;
@@ -1147,7 +1158,7 @@ int tm_clamp_status()
 {
   int err;
   unsigned short ctrl[0];
-  struct B10 tm_ctrl;   
+  struct B10_0 tm_ctrl;   
   extern SEM_ID semSLC;
 
   if (semTake (semSLC,60)!=ERROR)
@@ -1786,6 +1797,11 @@ int alt_amp_ok()
 	(sdssdc.status.i7.il0.alt_mtr_up))
 	return TRUE;
   else
+    if (!(sdssdc.status.i7.il0.alt_mtr_dn) &&
+	(sdssdc.status.i7.il0.alt_mtr_up) &&
+	(sdssdc.status.i7.il0.alt_less_than_19_deg))
+      return TRUE;
+    else
 	return FALSE;
 }
 int rot_amp_ok()
@@ -1834,47 +1850,63 @@ void mgt_shutdown(int type)
 void tm_amp_mgt()
 {
   extern struct SDSS_FRAME sdssdc;
+  int state;
 
   monitor_axis[0]=monitor_axis[1]=monitor_axis[2]=FALSE;
+  monitor_on[0]=monitor_on[1]=monitor_on[2]=TRUE;
   rebootHookAdd((FUNCPTR)mgt_shutdown);
   FOREVER
   {
     taskDelay (30);
     tm_amp_engage();		/* keep amps alive */
-    if ((monitor_axis[0])&&(sdssdc.status.i7.il0.az_brake_disengaged))
+    if (monitor_on[0])
     {
-      if (tm_axis_state(0)>2)
+      if ((monitor_axis[0])&&(sdssdc.status.i7.il0.az_brake_disengaged))
       {
-        tm_sp_az_brake_on();
-	monitor_axis[0]=FALSE;
-      }
-      if (!az_amp_ok())
-      {
-        tm_controller_idle(0);
-        tm_sp_az_brake_on();
-	monitor_axis[0]=FALSE;
+        if (((state=tm_axis_state(0))>2)&&(state!=STOP_EVENT))
+        {
+	  printf("\r\nMGT: bad az state %d",state);
+          tm_sp_az_brake_on();
+	  monitor_axis[0]=FALSE;
+        }
+        if (!az_amp_ok())
+        {
+	  printf("\r\nMGT: bad az amp");
+          tm_controller_idle(0);
+          tm_sp_az_brake_on();
+	  monitor_axis[0]=FALSE;
+        }
       }
     }
-    if ((monitor_axis[1])&&(sdssdc.status.i8.il0.alt_brake_disengaged))
+    if (monitor_on[1])
     {
-      if (tm_axis_state(2)>2)
+      if ((monitor_axis[1])&&(sdssdc.status.i8.il0.alt_brake_disengaged))
       {
-        tm_sp_alt_brake_on();
-	monitor_axis[1]=FALSE;
-      }
-      if (!alt_amp_ok())
-      {
-        tm_controller_idle(2);
-        tm_sp_alt_brake_on();
-	monitor_axis[1]=FALSE;
+        if (((state=tm_axis_state(2))>2)&&(state!=STOP_EVENT))
+        {
+	  printf("\r\nMGT: bad alt state %d",state);
+          tm_sp_alt_brake_on();
+  	  monitor_axis[1]=FALSE;
+        }
+        if (!alt_amp_ok())
+        {
+	  printf("\r\nMGT: bad alt amp");
+          tm_controller_idle(2);
+          tm_sp_alt_brake_on();
+	  monitor_axis[1]=FALSE;
+        }
       }
     }
-    if (monitor_axis[2])
+    if (monitor_on[2])
     {
-      if (!alt_amp_ok())
+      if (monitor_axis[2])
       {
-        tm_controller_idle(4);
-	monitor_axis[2]=FALSE;
+        if (!rot_amp_ok())
+        {
+	  printf("\r\nMGT: bad rot amp");
+          tm_controller_idle(4);
+	  monitor_axis[2]=FALSE;
+        }
       }
     }
   }
@@ -2321,3 +2353,4 @@ void tm_print_axis_source(int axis)
   printf ("AXIS SOURCE: %x",value);
     printf ("     %s\r\n",msg_axis_source[value]);
 }                                                              
+ 

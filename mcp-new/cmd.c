@@ -164,7 +164,7 @@ char *cmd_handler(char *cmd)
   for (i=0;i<strlen(cmd);i++) cmd[i]=toupper(cmd[i]);/* upper case the string */
   semTake (semCMD,WAIT_FOREVER);
   ans=NULL;					/* ans is returned from function */
-  while ((cmd!=NULL)&&(*cmd!=NULL)&&(ans==NULL))
+  while ((cmd!=NULL)&&(*cmd!=NULL))
   {
 /*    printf ("0x%x ",*cmd);*/
     cmd_list = &axis_cmds[0];			/* top of search list */

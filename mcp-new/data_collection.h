@@ -52,23 +52,23 @@ struct TM {
 	short prev_encoder;
 	short current_vel;
 	short actual_position_hi;		/* ALENC1, AZENC1 (upper)	*/
-	short actual_position_lo;		/* ALENC1, AZENC1 (lower)	*/
+	unsigned short actual_position_lo;	/* ALENC1, AZENC1 (lower)	*/
 	unsigned short time_fractional;
 	unsigned short time_hi;
 	unsigned short time_lo;
 	short jerk_fractional;
 	short jerk_hi;
-	short jerk_lo;
+	unsigned short jerk_lo;
 	short acceleration_fractional;
 	short acceleration_hi;
-	short acceleration_lo;
+	unsigned short acceleration_lo;
 	short velocity_fractional;
 	short velocity_hi;
-	short velocity_lo;
+	unsigned short velocity_lo;
 	short position_fractional_hi;
-	short position_fractional_lo;
+	unsigned short position_fractional_lo;
 	short position_hi;			/* AZCPOS, ALCPOS, ROCPOS (upper) */
-	short position_lo;			/* AZCPOS, ALCPOS, ROCPOS (lower) */
+	unsigned short position_lo;		/* AZCPOS, ALCPOS, ROCPOS (lower) */
 	short master_pos;
 	short ratio;
 	short ratio2;
@@ -84,7 +84,7 @@ struct TM {
 	short trigger4;
 	short trigger5;
 	short latch_hi;
-	short latch_lo;
+	unsigned short latch_lo;
 	short unknown1;
 	short unknown2;
 	short unknown3;
@@ -98,7 +98,7 @@ struct TM {
 	short prev_encoder2;
 	short current_vel2;
 	short actual_position2_hi;		/* ALENC2, AZENC2 (upper)	*/
-	short actual_position2_lo;		/* ALENC2, AZENC2 (lower)	*/
+	unsigned short actual_position2_lo;	/* ALENC2, AZENC2 (lower)	*/
 	short status;
 	short errcnt;
 };
@@ -126,8 +126,13 @@ struct PVT {
 	short time_lo;
 };
 
+struct B10_2 {
+	unsigned : 14;
+	unsigned mcp_t_bar_latch_cmd : 1;	/* bit 16 */
+	unsigned mcp_t_bar_unlatch_cmd : 1;	/* bit 16 */
+};
 struct B10_1 {
-	unsigned mcp_purge_cmd : 1;
+	unsigned mcp_ff_screen_enable_cmd : 1;
 	unsigned mcp_hgcd_lamp_on_cmd : 1;
 	unsigned mcp_ne_lamp_on_cmd : 1;
 	unsigned mcp_ff_lamp_on_cmd : 1;
@@ -144,7 +149,7 @@ struct B10_1 {
 	unsigned mcp_15_deg_stop_in_cmd : 1;
 	unsigned mcp_clamp_dis_cmd : 1;	/* bit 16 */
 };
-struct B10 {
+struct B10_0 {
 	unsigned mcp_clamp_en_cmd : 1;
 	unsigned mcp_alt_brk_en_cmd : 1;
 	unsigned mcp_alt_brk_dis_cmd : 1;
@@ -156,6 +161,12 @@ struct B10 {
 	unsigned mcp_lift_up : 4;
 	unsigned mcp_lift_high_psi : 1;
 };
+struct B10 {
+	struct B10_0 ctrl0;
+	struct B10_1 ctrl1;
+	struct B10_2 ctrl2;
+};
+
 typedef struct {
 	unsigned : 1;			/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
 	unsigned az_bump_ccw : 1;		/* AZCCWC	*/
@@ -278,6 +289,7 @@ typedef struct {
 	unsigned leaf_1_closed_stat : 1;
 	unsigned leaf_1_open_stat : 1;
 	
+	unsigned : 4;
 	unsigned hgcd_4_stat : 1;
 	unsigned hgcd_3_stat : 1;
 	unsigned hgcd_2_stat : 1;
@@ -311,6 +323,7 @@ struct I1 {
 };
 typedef struct {
 	unsigned dcm_status : 16;
+
 	unsigned low_lvl_lighting_req : 1;
 	unsigned : 9;
 	unsigned wind_alt_perm : 1;
@@ -320,7 +333,7 @@ typedef struct {
 	unsigned wind_az2_fault : 1;
 	unsigned wind_az1_fault : 1;
 }IF2_L0;
- struct I2 {
+struct I2 {
 	IF2_L0 il0;
 	short az_lvdt_error;
 	short alt_lvdt_error;			/* ALWSPOS	*/
@@ -425,7 +438,8 @@ typedef struct {
 	unsigned alt_20_limit : 1;		/* ALP20	*/
 	unsigned alt_0_6_limit : 1;		/* ALP-2	*/
 	
-	unsigned : 13;
+	unsigned : 12;
+	unsigned az_stow_center_sw : 1;
 	unsigned locking_pin_out : 1;
 	unsigned alt_less_than_19_deg : 1;
 	unsigned bldg_on : 1;
@@ -451,7 +465,12 @@ typedef struct {
 	unsigned rot_dir_ccw : 1;
 	unsigned rot_dir_cw : 1;
 
-	unsigned : 16;
+	unsigned : 11;
+	unsigned man_ff_screen_enable : 1;
+	unsigned man_hgcd_lamp_on_cmd : 1;
+	unsigned man_ne_lamp_on_cmd : 1;
+	unsigned man_ff_lamp_on_cmd : 1;
+	unsigned man_ff_scrn_open_cmd : 1;
 } IF8_L0;
 struct I8 {
 	IF8_L0	il0;
@@ -459,8 +478,9 @@ struct I8 {
 typedef struct {
 	unsigned low_lvl_light_2 : 1;
 	unsigned low_lvl_light_1 : 1;
-	unsigned : 2;
-	unsigned opt_bench_cls_perm : 1;
+	unsigned az_stow_light : 1;
+	unsigned stop_bypass_strobe : 1;
+	unsigned az_stow_center_lt : 1;
 	unsigned opt_bench_opn_perm : 1;
 	unsigned inst_lift_perm : 1;
   	unsigned inst_lift_dn_4 : 1;
@@ -609,7 +629,9 @@ typedef struct {
 	unsigned az_plc_cw_perm : 1;
 	unsigned az_plc_perm : 1;
 
-	unsigned : 16;
+	unsigned : 14;
+	unsigned t_bar_unlatch_pmt : 1;
+	unsigned t_bar_latch_pmt : 1;
 } OF9_L0;
 struct O9 {
 	OF9_L0	ol0;
@@ -694,7 +716,7 @@ struct AB_SLC500 {
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	7
+#define SDSS_FRAME_VERSION	9
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;
@@ -703,11 +725,11 @@ struct SDSS_FRAME {
 	struct IL inst;
 	struct CW weight[4];
 	struct AB_SLC500 status;
-	  struct PVT_M68K tccmove[3];	/* AZTCCPOS, ALTCCPOS, ROTCCPOS,
+	struct PVT_M68K tccmove[3];	/* AZTCCPOS, ALTCCPOS, ROTCCPOS,
 					   AZTCCVEL, ALTCCVEL, ROTCCVEL,
 					   AZTCCTIM, ALTCCTIM, ROTCCTIM */
-	  struct PVT_M68K tccpmove[3];
-	  struct PVT_M68K pvt[3];	/* AZMCPPOS, ALMCPPOS, ROMCPPOS,
+	struct PVT_M68K tccpmove[3];
+	struct PVT_M68K pvt[3];		/* AZMCPPOS, ALMCPPOS, ROMCPPOS,
 					   AZMCPVEL, ALMCPVEL, ROMCPVEL,
 					   AZMCPTIM, ALMCPTIM, ROMCPTIM */
 	unsigned long axis_state[3];	/* AZSTATE, ALSTATE, ROSTATE */

@@ -59,6 +59,11 @@
 #include "taskLib.h"
 #include "rebootLib.h"
 #include "sysLib.h"
+#include "nfsDrv.h"
+#include "nfsLib.h"
+#include "ioLib.h"
+#include "errno.h"
+#include "usrLib.h"
 #include "in.h"
 #include "timers.h"
 #include "time.h"
@@ -74,7 +79,6 @@
 #include "did48lb.h"
 #include "mv162IndPackInit.h"
 #include "logLib.h"
-#include "ioLib.h"
 #include "data_collection.h"
 #include "io.h"
 #include "math.h"
@@ -118,6 +122,7 @@ struct DIAG_Q {
 **
 ** GLOBAL VARIABLES
 */
+FILE *fidfp=NULL;
 int latchidx=0;
 int LATCH_verbose=FALSE;
 #define MAX_LATCHED	2000
@@ -270,6 +275,7 @@ char *correct_cmd(char *cmd)
   extern long fiducial_position[3];
   long pos;
   double position;
+  time_t fidtim;
 
   printf (" CORRECT command fired\r\n");
   if ((axis_select<AZIMUTH) ||
@@ -280,39 +286,51 @@ char *correct_cmd(char *cmd)
     {
       get_position(axis_select<<1,&position);
       semGive (semMEI);
-      pos=fiducial_position[axis_select];
+/*      pos=fiducial_position[axis_select];*/
+      pos=position;
 /* use optical encoder for axis 4 */
       switch (axis_select)
       {
         case ALTITUDE:
-          pos += ((long)position-fiducial[axis_select].mark);
+          pos += (fiducial_position[axis_select]-fiducial[axis_select].mark);
+/*          pos += ((long)position-fiducial[axis_select].mark);*/
           tm_set_pos((axis_select*2),pos);
 /* connection of the second encoder is at best a guess/wish/dream */
           tm_set_pos((axis_select*2)+1,pos);	
 	  break;
 
         case AZIMUTH:
-          pos += ((long)position-fiducial[axis_select].mark);
+          pos += (fiducial_position[axis_select]-fiducial[axis_select].mark);
+/*          pos += ((long)position-fiducial[axis_select].mark);*/
           tm_set_pos((axis_select*2),pos);
 /* connection of the second encoder is at best a guess/wish/dream */
           tm_set_pos((axis_select*2)+1,pos);
 	  break;
 
         case INSTRUMENT:
-          pos += ((long)position-fiducial[axis_select].mark);
+          pos += (fiducial_position[axis_select]-fiducial[axis_select].mark);
+/*          pos += ((long)position-fiducial[axis_select].mark);*/
           tm_set_pos((axis_select*2),pos);
           tm_set_pos((axis_select*2)+1,pos);  /* connected reliably */
 	  break;
       }
+      if (fidfp!=NULL)
+      {
+        fprintf (fidfp,"\nCORRECT %d\t%d\t%.24s:%f\t%d\t%d",
+	          axis_select,fiducial[axis_select].index,
+	          ctime(&fidtim),sdss_get_time(),
+	          (long)fiducial_position[axis_select]-fiducial[axis_select].mark,
+                  (long)position);
+/*        fidfp=freopen (bldFileName(name),"a",fidfp);*/
+      }
       fiducial[axis_select].mark=fiducial_position[axis_select];
-      semGive (semMEI);
+      return "";
     }
     else
       return "ERR: semMEI";
   }
   else
     return "ERR: fiducial for axis not crossed";
-  return "";
 }
 
 /*=========================================================================
@@ -339,7 +357,7 @@ char *correct_cmd(char *cmd)
 static char *drift_ans={"360.00000 0.500000 5040.00000                                "};
 char *drift_cmd(char *cmd)
 {
-  double position,velocity;
+  double position;
   double arcdeg, veldeg;
   float time;
 
@@ -350,7 +368,6 @@ char *drift_cmd(char *cmd)
   {
     get_velocity(axis_select<<1,&drift_velocity[axis_select]);
     semGive (semMEI);
-    velocity=drift_velocity[axis_select];
     drift_break[axis_select]=TRUE;
   }
   else
@@ -358,7 +375,7 @@ char *drift_cmd(char *cmd)
   taskDelay(3);
   if (semTake (semMEI,60)!=ERROR)
   {
-    taskLock();
+    taskLock();	/* enforce coincidental data */
     get_position(axis_select<<1,&position);
     time=sdss_get_time();
     taskUnlock();
@@ -367,7 +384,7 @@ char *drift_cmd(char *cmd)
   }
   else
     return "ERR: semMEI";
-  veldeg=(sec_per_tick[axis_select]*velocity)/3600.;
+  veldeg=(sec_per_tick[axis_select]*drift_velocity[axis_select])/3600.;
   arcdeg=(sec_per_tick[axis_select]*position)/3600.;
   sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,time);
   return drift_ans;
@@ -450,17 +467,18 @@ char *init_cmd(char *cmd)
 /*  I don't really agree with this, JG directed...I think the axis should
     remain in closed loop if in close loop */
   if (state>2)		/* normal...NOEVENT,running, or NEW_FRAME */
+  {
     printf ("\r\n  INIT axis %d: not running, state=%x",axis_select<<1,state);
-  tm_controller_idle (axis_select<<1);
+    tm_controller_idle (axis_select<<1);
+  }
   tm_reset_integrator(axis_select<<1);
-  taskDelay(1);
   drift_break[axis_select]=FALSE;
   frame_break[axis_select]=FALSE;
   switch (axis_select)
   {
     case AZIMUTH:
-      amp_reset(axis_select<<1);
-      amp_reset((axis_select<<1)+1);
+      amp_reset(axis_select<<1);	/* two amplifiers, */
+      amp_reset((axis_select<<1)+1);	/* param is index to bit field */
       if (sdssdc.status.i7.il0.az_brake_engaged)
       {
         printf("Azimuth Brake Turned Off                ");
@@ -469,8 +487,8 @@ char *init_cmd(char *cmd)
       break;
 
     case ALTITUDE:
-      amp_reset(axis_select<<1);
-      amp_reset((axis_select<<1)+1);
+      amp_reset(axis_select<<1);	/* two amplifiers */
+      amp_reset((axis_select<<1)+1);	/* param is index to bit field */
       if (sdssdc.status.i7.il0.alt_brake_engaged)
       {
         printf("Altitude Brake Turned Off               ");
@@ -479,14 +497,14 @@ char *init_cmd(char *cmd)
       break;
 
     case INSTRUMENT:
-      amp_reset(axis_select<<1);
-      break;
+      amp_reset(axis_select<<1);	/* one amplifiers */
+      break;				/* param is index to bit field */
   }
 /*  tm_axis_state retries as well...so this is really redundant, but then the
     brakes don't come off real quick so this will assure closed loop for
     at least sometime before continuing */
   retry=4;
-  while ((tm_axis_state(axis_select<<1)>2)&&(retry>0))
+  while ((tm_axis_state(axis_select<<1)>2)&&((retry--)>0))
   {
     tm_controller_run (axis_select<<1);
     taskDelay(20);
@@ -747,10 +765,10 @@ char *move_cmd(char *cmd)
 /*  printf (" MOVE command fired\r\n");*/
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (sdss_get_time()<0) return "ERR: BAD TIME";
   queue = &axis_queue[axis_select];
   frame = (struct FRAME *)malloc (sizeof(struct FRAME));
   if (frame==NULL) return "ERR: OUT OF MEMORY";
-  if (sdss_get_time()<0) return "ERR: BAD TIME";
   cnt=sscanf (cmd,"%12lf %12lf %12lf",&position,&velocity,&frame->end_time);
   switch (cnt)
   {
@@ -797,7 +815,8 @@ char *move_cmd(char *cmd)
           tm_get_pos(axis_select<<1,&pos);
 	  dt=(double)sdss_delta_time((float)frame->end_time,sdss_get_time());
 	  taskUnlock();
-	  dt -=.043;
+/* in practice, shifted around sample frequency (.05) for better err transition */
+	  dt -=.043;	/* modify time to reduce error during transition */
 	  pos=(pos+
 	    (drift_velocity[axis_select]*dt))/ticks_per_degree[axis_select];
 	  if (DRIFT_verbose)
@@ -809,16 +828,19 @@ char *move_cmd(char *cmd)
 	}
 	break;
   }
+  frame->position=position;
+  if (fabs(velocity)>max_velocity[axis_select]) 
+    if (velocity>0.0)
+      velocity=max_velocity[axis_select];
+    else
+      velocity=-max_velocity[axis_select];
+  frame->velocity=(double)velocity;
+  frame->nxt = NULL;
   sdssdc.tccmove[axis_select].position=
 	(long)(frame->position*ticks_per_degree[axis_select]);
   sdssdc.tccmove[axis_select].velocity=
 	(long)(frame->velocity*ticks_per_degree[axis_select]);
   sdssdc.tccmove[axis_select].time=(long)(frame->end_time*1000);
-  frame->position=position;
-  if (fabs(velocity)>max_velocity[axis_select]) 
-      velocity=max_velocity[axis_select];
-  frame->velocity=(double)velocity;
-  frame->nxt = NULL;
 
 /* queues are initialized with one dummy entry at sdss_init time */
   taskLock();
@@ -878,7 +900,7 @@ char *plus_move_cmd(char *cmd)
   int cnt;
   int i;
 
-/*  printf (" +MOVE command fired\r\n");*/
+  printf (" +MOVE command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   for (i=0;i<OFF_MAX;i++)
@@ -900,10 +922,13 @@ char *plus_move_cmd(char *cmd)
 	offset[axis_select][i][0].velocity=0;
 	offset[axis_select][i][1].velocity=0;
 	offset[axis_select][i][0].end_time=0;
+/* short offsets are give some extra time for smooth ramp.  long offsets
+are spread over a time period averaging .4 degs per second */
         if (position<.2)
-	  offset[axis_select][i][1].end_time=(double).4;
+	  offset[axis_select][i][1].end_time=(double).6;
 	else
-	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	  offset[axis_select][i][1].end_time=
+		(double)((int)((position/.33)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
 /*	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
@@ -921,14 +946,16 @@ char *plus_move_cmd(char *cmd)
 	offset[axis_select][i][1].velocity=velocity;
 	offset[axis_select][i][0].end_time=0;
         if (position<.2)
-	  offset[axis_select][i][1].end_time=(double).4;
-	else
-	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	  offset[axis_select][i][1].end_time=(double).5;
+	else	/* average .4 degree per second */
+	  offset[axis_select][i][1].end_time=
+		(double)((int)((position/.40)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
         break;
     case 3:
-        if (queue->active!=NULL)
+	return "ERR: unimplemented";
+/*
 	if ((position==0.0)&&(velocity==0.0)) break;
         offset[axis_select][i][0].nxt=&offset[axis_select][i][1];
         offset[axis_select][i][0].position=0;
@@ -942,6 +969,7 @@ char *plus_move_cmd(char *cmd)
 	  offset[axis_select][i][1].end_time=(double)((int)((position/1.0)*20))/20.;
 	offset_idx[axis_select][i]=0;
 	offset_queue_end[axis_select][i]=queue->end;
+*/
         break;
   }
   sdssdc.tccpmove[axis_select].position=
@@ -997,7 +1025,7 @@ char *mr_dump_cmd(char *cmd)
 */
 char *ms_dump_cmd(char *cmd)
 {
-  printf (" MS.DUMP command fired\r\n");
+/*  printf (" MS.DUMP command fired\r\n");*/
   return "";
 }
 
@@ -1158,19 +1186,19 @@ char *rot_cmd(char *cmd)
 {
 /*  printf (" IR command fired\r\n");*/
   axis_select=INSTRUMENT;
-  return 0;
+  return "";
 }
 char *tel1_cmd(char *cmd)
 {
 /*  printf (" TEL1 command fired\r\n");*/
   axis_select=AZIMUTH;
-  return 0;
+  return "";
 }
 char *tel2_cmd(char *cmd)
 {
 /*  printf (" TEL2 command fired\r\n");*/
   axis_select=ALTITUDE;
-  return 0;
+  return "";
 }
 
 /*=========================================================================
@@ -1202,7 +1230,7 @@ char *set_limits_cmd(char *cmd)
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   cnt=sscanf (cmd,"%12lf %12lf",&pos1,&pos2);
-  if (cnt!=2) printf ("ERR: requires two positions specified");
+  if (cnt!=2) return "ERR: requires two positions specified";
   if(pos1>pos2)
   {
     max_position[axis_select]=pos1;
@@ -1275,34 +1303,39 @@ char *set_time_cmd(char *cmd)
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   cnt=sscanf (cmd,"%d %d %d %f %f %f",&t.tm_mon,&t.tm_mday,&t.tm_year,&t1,&t2,&t3);
+  switch (cnt)
+  {
 /* date -> m d y h m s */
-  if (cnt>4)
-  {
-    t.tm_hour=(int)t1;
-    t.tm_min=(int)t2;
-    t.tm_sec=(int)t3;
-    if ((t3-(int)t3)>.75)
-    {
-      taskDelay(20);	/* 1/3 sec */
-      extrasec=1;
-    }
-    else 
-      extrasec=0;
-  }
-/* date -> m d y s */
-  else
-  {
-    t.tm_hour = (int)(t1/3600);
-    t.tm_min = (int)((t1-(t.tm_hour*3600))/60);
-    t3 = (float)(t1-(t.tm_hour*3600)-(t.tm_min*60));
-    t.tm_sec = (int)t3;
-    if ((t3-(int)t3)>.75)
-    {
-      taskDelay(20);	/* 1/3 sec */
-      extrasec=1;
-    }
-    else 
-      extrasec=0;
+    case 6:
+      t.tm_hour=(int)t1;
+      t.tm_min=(int)t2;
+      t.tm_sec=(int)t3;
+      if ((t3-(int)t3)>.75)
+      {
+        taskDelay(20);	/* 1/3 sec */
+        extrasec=1;
+      }
+      else 
+        extrasec=0;
+      break;		
+
+/* date -> m d y s  where s is in floating pt precision*/
+    case 4:
+      t.tm_hour = (int)(t1/3600);
+      t.tm_min = (int)((t1-(t.tm_hour*3600))/60);
+      t3 = (float)(t1-(t.tm_hour*3600)-(t.tm_min*60));
+      t.tm_sec = (int)t3;
+      if ((t3-(int)t3)>.75)
+      {
+        taskDelay(20);	/* 1/3 sec */
+        extrasec=1;
+      }
+      else 
+        extrasec=0;
+      break;		
+
+      default:
+	return "ERR: wrong number of args";
   }
   t.tm_year -= 1900;
   t.tm_mon -= 1;
@@ -1832,7 +1865,7 @@ char *slitopen_cmd(char *cmd)
   printf (" SLIT.OPEN command fired\r\n");
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_sp_slit_open(spectograph_select-SPECTOGRAPH1);
+  tm_slit_open(spectograph_select-SPECTOGRAPH1);
   return "";
 }
 char *slitclose_cmd(char *cmd)
@@ -1840,7 +1873,7 @@ char *slitclose_cmd(char *cmd)
   printf (" SLIT.CLOSE command fired\r\n");
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_sp_slit_close(spectograph_select-SPECTOGRAPH1);
+  tm_slit_close(spectograph_select-SPECTOGRAPH1);
   return "";
 }
 
@@ -1859,8 +1892,8 @@ char *slitclose_cmd(char *cmd)
 **	NULL string or "ERR:..."
 **
 ** CALLS TO:
-**	tm_sp_cart_latch
-**	tm_sp_cart_unlatch
+**	tm_cart_latch
+**	tm_cart_unlatch
 **
 ** GLOBALS REFERENCED:
 **	spectograph_select
@@ -1872,7 +1905,7 @@ char *cartlatch_cmd(char *cmd)
   printf (" CART.LATCH command fired\r\n");
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_sp_cart_latch(spectograph_select-SPECTOGRAPH1);
+  tm_cart_latch(spectograph_select-SPECTOGRAPH1);
   return "";
 }
 char *cartunlatch_cmd(char *cmd)
@@ -1880,7 +1913,7 @@ char *cartunlatch_cmd(char *cmd)
   printf (" CART.UNLATCH command fired\r\n");
   if ((spectograph_select<SPECTOGRAPH1) ||
     (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  tm_sp_cart_unlatch(spectograph_select-SPECTOGRAPH1);
+  tm_cart_unlatch(spectograph_select-SPECTOGRAPH1);
   return "";
 }
 
@@ -1898,8 +1931,6 @@ char *cartunlatch_cmd(char *cmd)
 **	NULL string or "ERR:..."
 **
 ** CALLS TO:
-**	tm_sp_cart_latch
-**	tm_sp_cart_unlatch
 **
 ** GLOBALS REFERENCED:
 **	spectograph_select
@@ -2229,8 +2260,9 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   struct FRAME *lframe;
   int i;
   
-  while (iframe->nxt==NULL) taskDelay (3);
-  taskLock();
+/* problem............................*/
+  while (iframe->nxt==NULL) return ERROR;
+/*....................................*/
   fframe=iframe->nxt;
   dx=fframe->position-iframe->position;
   dv=fframe->velocity-iframe->velocity;
@@ -2274,8 +2306,7 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
     if (lframe->nxt==NULL) 
     {
       printf ("\r\nCALC FRAME: next frame required to finish");
-      taskUnlock();
-      return i;
+      return ERROR;
     }
     fframe=lframe->nxt;
     time_off[axis]=t;
@@ -2302,13 +2333,11 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
       printf ("\r\nFinal %d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
 	i,t,tim[axis][i],p[axis][i],v[axis][i],a[axis][i]);
     if ((i+1)>MAX_CALC) printf ("\r\n calc_frames has problems %d",i+1);
-    taskUnlock();
     return (i+1);
   }
   else 
   {
     if (i>(MAX_CALC-1)) printf ("\r\n calc_frames has problems %d",i);
-    taskUnlock();
     return i;
   }
 }
@@ -2795,33 +2824,36 @@ void load_frames_test(int axis, int cnt, double sf)
 void stop_frame(int axis,double pos,double sf)
 {
   int stopped;
+  int state;
 
   printf ("\r\nSTOP axis=%d: p=%12.8lf",
 	axis<<1,(double)pos);
+  stopped=FALSE;	/* ...gets rid of warning */
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
     set_stop(axis<<1);
     stopped=motion_done(axis<<1);
+    state=axis_state(axis<<1);
     semGive (semMEI);
   }
-  else
-    stopped=FALSE;	/* of course, this can't happen...gets rid of warning */
-  while(!stopped)
+  while (!stopped)
   {  
     if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
     {
       stopped=motion_done(axis<<1);
+/*      state=axis_state(axis<<1);*/
       semGive (semMEI);
     }
 /*    printf("\r\nStopping");*/
-    taskDelay(1);
+    taskDelay(3);
   }
+  printf("\r\nStopped axis=%d, motion_done=%d, axis_state=%d",axis,stopped,state);
+  taskDelay(3);
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
     clear_status(axis<<1);
     semGive (semMEI);
   }
-  printf("\r\nStopped");
 }
 /*=========================================================================
 **=========================================================================
@@ -2994,8 +3026,8 @@ void tm_TCC(int axis)
     semGive (semMEI);
     pos=(long)position;
 /*      printf("\r\nCheck Params for repositioning");*/
-    if ( (abs((frame->position*ticks_per_degree[axis])-position)>
-		(.01*ticks_per_degree[axis])) && (fabs(velocity)==0) )
+    if ( (abs((long)((frame->position*ticks_per_degree[axis])-position))>
+	(long)(.01*ticks_per_degree[axis])) && (fabs(velocity)==0) )
     {
       while ((lcnt=tm_frames_to_execute(axis))>1)
       {
@@ -3005,15 +3037,15 @@ void tm_TCC(int axis)
       printf("\r\nRepositioning");
       tm_start_move (axis<<1,
 		1*(double)ticks_per_degree[axis],
-		.5*(double)ticks_per_degree[axis],
+		.05*(double)ticks_per_degree[axis],
 		frame->position*(double)ticks_per_degree[axis]);
-      printf ("\r\nAxis %d Repositioning TCC cmd to position=%lf from pos=%ld, diff=%ld>%ld",
-		axis,frame->position*ticks_per_degree[axis],pos,
+      printf ("\r\nAxis %d Repositioning TCC cmd to pos=%lf from pos=%lf, diff=%ld>%ld",
+		axis,frame->position*ticks_per_degree[axis],position,
 		abs((frame->position*ticks_per_degree[axis])-position),
 		(long)(.01*ticks_per_degree[axis]) );
       status=TRUE;
-      while ((abs((frame->position*ticks_per_degree[axis])-pos)>
-		(.01*ticks_per_degree[axis]))&&status)
+      while ((abs((long)((frame->position*ticks_per_degree[axis])-position))>
+		(long)(.01*ticks_per_degree[axis]))&&status)
       {
         if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
         {
@@ -3022,9 +3054,10 @@ void tm_TCC(int axis)
           semGive (semMEI);
           pos=(long)position;
         }
-        taskDelay (1);
-        printf("\r\nStill repositioning");
+        printf("\r\nrepositioning to %lf, status=%d",position,status);
+        taskDelay (10);
       }
+      printf("\r\nDone repositioning to %lf",position);
     }
 /*    else
       printf("\r\n nonzero vel=%lf",velocity);*/
@@ -3040,26 +3073,15 @@ void tm_TCC(int axis)
 
     if (frame!=NULL)
     {
-/*      while (sdss_delta_time((float)frame->end_time,sdss_get_time())>4.0)
-	taskDelay (2*60);*/
       start_frame (axis,frame->end_time);
       while ((frame->nxt==NULL)&&
 	    (sdss_delta_time((float)frame->end_time,sdss_get_time())>0.02))
       {
-        printf ("\r\n waiting for second frame");
+/*        printf ("\r\n waiting for second frame");*/
         taskDelay (3);
       }
-/*
-      if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-      {
-        get_velocity(axis_select<<1,&velocity);
-        semGive (semMEI);
-      }
-      printf("\r\nAfter dwell vel=%lf",velocity);
-*/
       while ( (frame->nxt!=NULL) || (axis_queue[axis].active!=NULL) &&
-	((!frame_break)&&(!drift_break))
-			)
+	((!frame_break)&&(!drift_break)) )
       {
         frame_cnt=get_frame_cnt(axis,frame);
 /*        printf ("\r\n frames_cnt=%d",frame_cnt);*/
@@ -3091,7 +3113,9 @@ void tm_TCC(int axis)
 	}
 	while (frame_cnt>0)
         {
-          cnt=calc_frames(axis,frame,frame_idx);
+          while ( ((cnt=calc_frames(axis,frame,frame_idx))==ERROR)&&
+            ((lcnt=tm_frames_to_execute(axis))>4) ) taskDelay (1);
+	  if (cnt==ERROR) frame_break[axis]=TRUE;
 /* OFFSET */
           for (i=0;i<OFF_MAX;i++)
 	  {
@@ -3123,7 +3147,6 @@ void tm_TCC(int axis)
             break;
 	  }
 
-          if (cnt==0) taskDelay(3);	/* calc is probably waiting on the next frame due to offset */
 	  idx=0;
 	  while (cnt>0)
           {
@@ -3488,6 +3511,96 @@ void init_fiducial()
    	/* 001:13:35:373 */
   rot_fiducial_position[fiducial[2].index]=fiducial_position[2];
 }
+static char const thePath[] = "/mcptpm/";
+/*------------------------------------------------------------------------------
+  createNfsConnection
+
+  This function sets up the NFS connection to 'sdsshost'. It also
+  changes the directory.
+------------------------------------------------------------------------------*/
+static STATUS createNfsConnection(void)
+{
+/*        int const NESWOLD = 6295;*/
+        int const BRIEGEL = 1131;
+        int const CONTROLS = 1522;
+
+        /* First, set up our NFS authentication parameters. We'll appear
+       as 'neswold' from the 'controls' group. These IDs are obtained
+       from 'sdsshost.apo.nmsu.edu'. */
+
+        nfsAuthUnixSet("sdssmcp", BRIEGEL, CONTROLS, 0, 0);
+
+        /* Attempt to mount the remote drive and set the default
+       directory. */
+
+        if (OK == nfsMount("sdsshost", (char*) thePath, 0))
+                return OK;
+        else {
+	  printErrno(errno);
+                return ERROR;
+        }
+}
+/*------------------------------------------------------------------------------
+  destroyNfsConnection
+------------------------------------------------------------------------------*/
+static STATUS destroyNfsConnection(void)
+{
+        return nfsUnmount((char*) thePath);
+}
+/* This variable holds the default path to where the log files will be
+   held. There is code that expects this string to contain the
+   trailing '/' */
+
+/*------------------------------------------------------------------------------
+  logFileName
+------------------------------------------------------------------------------*/
+static char const* bldFileName(char const* newName)
+{
+        static char buffer[1024] = "";
+
+        /* If the new name isn't NULL, then we'll be modifying the static
+       value. If it is NULL, we'll just return the current
+       contents. */
+
+        if (newName)
+
+                /* If the string isn't empty, then build up a path (the file
+           must reside in the /mcptpm directory!) If the string is
+           empty, we clear out the static value. */
+
+                if (*newName)
+                        sprintf(buffer, "%s%.*s", thePath,
+                                        (int) (sizeof(buffer) - sizeof(thePath)
+- 1), newName);
+                else
+                        buffer[0] = '\0';
+        return buffer;
+}
+
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: fiducial_shutdown
+**
+** DESCRIPTION:
+**	Flush the file and close it.
+**
+** RETURN VALUES:
+**	void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+void fiducial_shutdown(int type)
+{
+  printf("fiducial file shutdown: FP=%p\r\n",fidfp);
+  fflush (fidfp);
+  fclose (fidfp);
+  destroyNfsConnection();
+}
 /*=========================================================================
 **=========================================================================
 **
@@ -3538,16 +3651,34 @@ void init_fiducial()
 **
 **=========================================================================
 */
-void tm_latch()
+void tm_latch(char *name)
 {
   int i;
   extern int barcode_serial();
   int fididx;
+  int fididx1;
   int status;
   extern struct SDSS_FRAME sdssdc;
   extern int altclino_off;
   extern float altclino_sf;
+  time_t fidtim;
 
+  if ((status=createNfsConnection())==ERROR) printf ("\r\nNFSConnection error");
+  fidfp=fopen (bldFileName(name),"a");  /*  */
+  if (fidfp==NULL) 
+    printf ("\r\nOpen file error: %s",name);
+  else
+  {
+    printf ("\r\nOpen file %s; %p",name,fidfp);
+/*    setvbuf (fidfp,NULL,_IOLBF,0);*/
+/*    rebootHookAdd((FUNCPTR)fiducial_shutdown);*/
+    fprintf (fidfp,"\nRESTART......... %s %.24s",
+	bldFileName(name),ctime(&fidtim));
+/* should use fflush, but doesn't work */
+    fclose(fidfp);
+    fidfp=fopen (bldFileName(name),"a");  /*  */
+/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
+  }
   init_fiducial();
   if (semLATCH==NULL) semLATCH = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
   for (;;)
@@ -3583,12 +3714,25 @@ void tm_latch()
             printf ("\r\nAXIS %d: latched pos0=%f,pos1=%f",latchpos[latchidx].axis,
 	    (float)latchpos[latchidx].pos1,
 	    (float)latchpos[latchidx].pos2);
-          fididx = barcode_serial(3);	/* backwards from what you would think */
+          fididx1 = barcode_serial(3);	/* backwards from what you would think */
 	  fididx = barcode_serial(3);	/* read twice...not reliable */
 	  if ((fididx>0)&&(fididx<=24))
 	  {
 	    if (latchpos[latchidx].pos1>0)
 		fididx += 24;
+	    fidtim=time(&fidtim);
+            if (fidfp!=NULL)
+	    {
+	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	      latchpos[latchidx].axis,fididx,
+	      ctime(&fidtim),sdss_get_time(),
+	      (long)latchpos[latchidx].pos1,
+              (long)latchpos[latchidx].pos2);
+	      fprintf (fidfp,"\tfirst barcode reading=%d",fididx1);
+              fclose(fidfp);
+              fidfp=fopen (bldFileName(name),"a");  /*  */
+/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
+            }
             if ((fididx<48)&&(fididx>0))
             {
               az_fiducial[fididx].last=az_fiducial[fididx].mark;
@@ -3638,6 +3782,20 @@ void tm_latch()
 	  if (fididx!=-1)
 	  {
 	    fididx--;
+	    fidtim=time(&fidtim);
+            if (fidfp!=NULL)
+	    {
+	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	      latchpos[latchidx].axis,fididx,
+	      ctime(&fidtim),sdss_get_time(),
+	      (long)latchpos[latchidx].pos1,
+              (long)latchpos[latchidx].pos2);
+	      fprintf (fidfp,"\talt_position=%d",
+	      sdssdc.status.i4.alt_position);
+              fclose(fidfp);
+              fidfp=fopen (bldFileName(name),"a");  /*  */
+/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
+	    }
             if ((fididx<7)&&(fididx>=0))
             {
               alt_fiducial[fididx].last=alt_fiducial[fididx].mark;
@@ -3704,6 +3862,18 @@ void tm_latch()
 	        if ((fididx<35)&&(latchpos[latchidx].pos1<0))
 	          fididx = 76+fididx;
 	      fididx +=45;
+	      fidtim=time(&fidtim);
+              if (fidfp!=NULL)
+	      {
+	        fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	        latchpos[latchidx].axis,fididx,
+	        ctime(&fidtim),sdss_get_time(),
+	        (long)latchpos[latchidx].pos1,
+                (long)latchpos[latchidx].pos2);
+                fclose(fidfp);
+                fidfp=fopen (bldFileName(name),"a");  /*  */
+/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
+	      }
               if (LATCH_verbose)
 	        printf ("\r\n      final fididx=%d",fididx);
 	      if ((fididx<156)&&(fididx>0))
@@ -3736,6 +3906,18 @@ void tm_latch()
 		  if ((fididx<35)&&(latchpos[latchidx].pos1<0))
 	            fididx = 76+fididx;
 	        fididx +=45;
+	        fidtim=time(&fidtim);
+                if (fidfp!=NULL)
+	        {
+	          fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%d\t%d",
+	          latchpos[latchidx].axis,fididx,
+	          ctime(&fidtim),sdss_get_time(),
+	          (long)latchpos[latchidx].pos1,
+                  (long)latchpos[latchidx].pos2);
+                  fclose(fidfp);
+                  fidfp=fopen (bldFileName(name),"a");  /*  */
+/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
+		}
                 if (LATCH_verbose)
 	          printf ("\r\n      final fididx=%d",fididx);
 	        if ((fididx<156)&&(fididx>0))
@@ -3772,8 +3954,8 @@ void tm_latch()
           rot_latch=latchpos[latchidx].pos1;
           if (fididx==fiducial[2].index)
           {
-              fiducial[2].mark=rot_fiducial[fididx].mark;
-              fiducial[2].markvalid=TRUE;
+            fiducial[2].mark=rot_fiducial[fididx].mark;
+            fiducial[2].markvalid=TRUE;
           }
 	}
       }
@@ -3826,11 +4008,14 @@ void tm_latch()
 */
 void DIO316ClearISR_delay (int delay, int bit)
 {
+  int status;
+
   taskDelay(delay);
 
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
-    arm_latch(TRUE);
+    while ((status=arm_latch(TRUE))!=DSP_OK) 
+	printf ("\r\n Trying to ARM Latch; status=%d",status);
     semGive (semMEI);
   }
   if (bit&AZIMUTH_INT)
@@ -4505,16 +4690,16 @@ int sdss_init()
   for (axis=0;axis<dsp_axes();axis++)
   {
     get_stop_rate(axis,&rate);
-    printf ("AXIS %d: old stop rate=%f\r\n",axis,rate);
-    set_stop_rate(axis,SDSS_STOP_RATE);
+    printf ("AXIS %d:  set stop rate=%lf\r\n",axis,rate);
+    set_stop_rate(axis,(double)SDSS_STOP_RATE);
     get_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set stop rate=%f\r\n",axis,rate);
+    printf ("AXIS %d:  set stop rate=%lf\r\n",axis,rate);
 
     get_e_stop_rate(axis,&rate);
-    printf ("AXIS %d: old e_stop rate=%f\r\n",axis,rate);
-    set_e_stop_rate(axis,SDSS_E_STOP_RATE);
+    printf ("AXIS %d: old e_stop rate=%lf\r\n",axis,rate);
+    set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
     get_e_stop_rate(axis,&rate);
-    printf ("AXIS %d:  set e_stop rate=%f\r\n",axis,rate);
+    printf ("AXIS %d:  set e_stop rate=%lf\r\n",axis,rate);
 
     get_error_limit(axis,&limit,&action);
     printf ("AXIS %d: error limit=%d, action=%d\r\n",axis,(long)limit,action);
@@ -4527,7 +4712,8 @@ int sdss_init()
   arm_latch(TRUE);
   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-  taskSpawn ("tmLatch",49,VX_FP_TASK,10000,(FUNCPTR)tm_latch,0,0,0,0,0,0,0,0,0,0);
+  taskSpawn ("tmLatch",49,VX_FP_TASK,10000,(FUNCPTR)tm_latch,
+		(long)"latch.log",0,0,0,0,0,0,0,0,0);
   return 0;
 }
 
@@ -4804,3 +4990,4 @@ int print_diagq()
   }
   return 0;
 }
+ 

@@ -47,6 +47,7 @@ erase the screen etc.
 #include "time.h"
 #include "ioLib.h"
 #include "semLib.h"
+#include "string.h"
 #include "frame.h"
 #include "ms.h"
 #include "idsp.h"
@@ -380,6 +381,7 @@ void Menu()
   extern struct FIDUCIARY fiducial[3];
   extern long fiducial_position[3];
   extern double sec_per_tick[];
+  extern int monitor_on[3];
   int cwpos;
   int cw;
   int inst;
@@ -388,6 +390,8 @@ void Menu()
   double arcsecond;
   long marcs,arcs,arcm,arcd;
   int negative;
+  time_t fidtim;
+  extern FILE *fidfp;
 
   Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
   ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
@@ -489,24 +493,24 @@ void Menu()
      	 printf("Set Fiducial Position                    ");
 	 if (fiducial[Axis/2].markvalid)
 	 {
-	   pos=fiducial_position[Axis/2];
+/*	   pos=fiducial_position[Axis/2];*/
+/*         pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);*/
 /* use optical encoder for axis 4 */
+           pos = (*tmaxis[Axis/2]).actual_position+
+	     (fiducial_position[Axis/2]-fiducial[Axis/2].mark);
            switch (Axis>>1)
            {
              case INSTRUMENT:
-               pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
 	       tm_set_pos(Axis+1,pos);
                tm_set_pos(Axis,pos);
 	       break;
 
              case ALTITUDE:
-               pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
 	       tm_set_pos(Axis&0x6,pos);
 	       tm_set_pos(Axis+1,pos);
 	       break;
 
              case AZIMUTH:
-               pos += ((*tmaxis[Axis/2]).actual_position-fiducial[Axis/2].mark);
 	       tm_set_pos(Axis&0x6,pos);
 	       tm_set_pos(Axis+1,pos);
 	       break;
@@ -514,6 +518,12 @@ void Menu()
              default:
                break;
            }
+           if (fidfp!=NULL)
+             fprintf (fidfp,"\nMenu %d\t%d\t%.25s:%f\t%d\t%d",
+	          Axis,fiducial[Axis/2].index,
+	          ctime(&fidtim),sdss_get_time(),
+	          (long)fiducial_position[Axis/2]-fiducial[Axis/2].mark,
+                  (long)(*tmaxis[Axis/2]).actual_position);
 	   fiducial[Axis/2].mark=fiducial_position[Axis/2];
 	 }
 	 else
@@ -970,6 +980,21 @@ void Menu()
 	   cw_abort();
 	   break;
 
+         case '&':
+	   CursPos(20,24);
+           printf ("Toggle the axis monitor_on to ");
+	   if (monitor_on[Axis]) 
+	   {
+	     monitor_on[Axis]=FALSE;
+             printf ("FALSE ");
+	   }
+           else 
+	   {
+	     monitor_on[Axis]=TRUE;
+             printf ("TRUE ");
+	   }
+	   break;
+
          case '*':
 	   CursPos(20,24);
            printf ("AMP RESET                              ");
@@ -1045,7 +1070,7 @@ printf(" |=flat field lamp toggle; \"=Ne lamp toggle; :=HgCd lamp toggle        
 	     CursPos(1,3);
 printf(" ~=flat field screen toggle                                                   \n");
 	     CursPos(1,4);
-printf("                                                                              \n");
+printf(" &=toggel on/off axis monitor                                                 \n");
 	     CursPos(1,5);
 printf("                                                                              \n");
 	     CursPos(1,6);
@@ -1382,10 +1407,10 @@ void PrintMenuPos()
 	  }
 	}
         arcsec=(sec_per_tick[i]*abs(ap));
-        farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
 	switch (i)
 	{
           case AZIMUTH:
+            farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
 	    if (az_amp_ok()) printf ("*");
 	    else
 	    {
@@ -1400,6 +1425,7 @@ void PrintMenuPos()
             break;
 
           case ALTITUDE:
+            farcsec=(sec_per_tick[i]*abs(alt_fiducial[fiducialidx[i]].mark));
 	    if (alt_amp_ok()) printf ("*");
 	    else
 	    {
@@ -1414,6 +1440,7 @@ void PrintMenuPos()
             break;
 
           case INSTRUMENT:
+            farcsec=(sec_per_tick[i]*abs(rot_fiducial[fiducialidx[i]].mark));
 	    if (rot_amp_ok()) printf ("*");
 	    else
 	    {
@@ -2147,10 +2174,10 @@ void PrintInstPos()
 	  }
 	}
         arcsec=(sec_per_tick[i]*abs(ap));
-        farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
 	switch (i)
 	{
           case AZIMUTH:
+            farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
 	    if (az_amp_ok()) printf ("*");
 	    else
 	    {
@@ -2165,6 +2192,7 @@ void PrintInstPos()
             break;
 
           case ALTITUDE:
+            farcsec=(sec_per_tick[i]*abs(alt_fiducial[fiducialidx[i]].mark));
 	    if (alt_amp_ok()) printf ("*");
 	    else
 	    {
@@ -2179,6 +2207,7 @@ void PrintInstPos()
             break;
 
           case INSTRUMENT:
+            farcsec=(sec_per_tick[i]*abs(rot_fiducial[fiducialidx[i]].mark));
 	    if (rot_amp_ok()) printf ("*");
 	    else
 	    {
@@ -2192,6 +2221,7 @@ void PrintInstPos()
 	    break;
 
 	  default:
+	    arcsec=farcsec=0.;
             fidsign=0;
 	    break;
         }

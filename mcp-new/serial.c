@@ -168,7 +168,7 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
    int c;
    int status;
    unsigned char *ptr;
-
+   int charcnt;
 
    /* Initialize if necessary */
    status = 0;
@@ -187,7 +187,8 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
    cancel[port].fd=fileno(input_stream);
 */
    ptr    = buffer;
-   while ( ( c = getc ( input_stream ) ) != EOF )  
+   charcnt=0;
+   while ( ((c = getc(input_stream)) != EOF)&&(charcnt<256))
    {
       *ptr=c;
 /*      if (cancel[port].cancel) */
@@ -195,8 +196,10 @@ int sdss_receive ( FILE *input_stream, int port, unsigned char  *buffer)
 		 *ptr, *ptr, c);*/
       if ( *ptr == '\015' )                 /* All done */
          break;
-      ++ptr;
+      ptr++;
+      charcnt++;
    }
+   if (charcnt>=256) return -1;
    while (*(--ptr)==0x20);
    ptr++;
    *ptr = '\0';
@@ -242,7 +245,7 @@ void tcc_serial(int port)
   char *serial_port={"/tyCo/x"};
   FILE *stream;  
   int status;
-  char command_buffer[240];
+  char command_buffer[256];
   char *answer_buffer;
 
   sprintf(serial_port,"/tyCo/%d",port);
@@ -436,6 +439,7 @@ int barcode_serial(int port)
   unsigned char *ptr;
   char *bf;
   int fiducial;
+  int charcnt;
  
   if (cancel[port].fd==NULL)
     stream=barcode_open(port);
@@ -456,7 +460,8 @@ int barcode_serial(int port)
   {		/* receive answer */
     barcode_buffer[0]=NULL;
     ptr    = &barcode_buffer[0];
-    while ( ( c = getc ( stream ) ) != EOF )  
+    charcnt=0;
+    while ( ((c = getc(stream)) != EOF)&&(charcnt<256))
     {
       *ptr=c;
       if (cancel[port].cancel) return -1;
@@ -464,9 +469,10 @@ int barcode_serial(int port)
 		 *ptr, *ptr, c);*/
       if ( *ptr == '\003' )                 /* All done */
         break;
-      ++ptr;
+      ptr++;
+      charcnt++;
     }
-    while ( ( c = getc ( stream ) ) != EOF )  
+    while ( ((c = getc(stream)) != EOF)&&(charcnt<256))
     {
       *ptr=c;
       if (cancel[port].cancel) return -1;
@@ -474,8 +480,10 @@ int barcode_serial(int port)
 		 *ptr, *ptr, c);*/
       if ( *ptr == '\003' )                 /* All done */
         break;
-      ++ptr;
+      ptr++;
+      charcnt++;
     }
+    if (charcnt>=256) return -1;
     *ptr=NULL;
     if (cancel[port].tmo<cancel[port].min_tmo)
       cancel[port].min_tmo=cancel[port].tmo;
