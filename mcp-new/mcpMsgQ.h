@@ -10,8 +10,7 @@ typedef struct {
       alignClampCheck_type,		/* check if alignment clamp moved */
 
       FFS_type,				/* move Flat Field Screen */
-      FFSCheckOpen_type,		/* check that FFS opened */
-      FFSCheckClosed_type,		/* check that FFS closed */
+      FFSCheckMoved_type,		/* check that FFS moved correctly */
 
       lamps_type,			/* turn lamps on/off */
 
@@ -50,7 +49,7 @@ typedef struct {
       } alignClamp;
 
       struct {
-	 enum {FFS_OPEN = 1, FFS_CLOSE = 0} op;
+	 enum {FFS_SAME = -1, FFS_OPEN = 1, FFS_CLOSE = 0, FFS_TOGGLE = 2} op;
       } FFS;
 
       struct {
