@@ -46,6 +46,7 @@
 #include "abdh.h"
 #include "mcpTimers.h"
 #include "mcpFiducials.h"
+#include "cmd.h"
 
 /*========================================================================
 **========================================================================
@@ -74,8 +75,6 @@ struct DIAG_Q {
 */
 SEM_ID semMEI = NULL;
 SEM_ID semSLC = NULL;
-
-MSG_Q_ID msgDIO316ClearISR = NULL;	/* control the tm_ClrInt task */
 
 MSG_Q_ID msgMoveCW = NULL;		/* control the moveCW task */
 MSG_Q_ID msgMoveCWAbort = NULL;		/*  "   "   "   "  "   "   */
@@ -191,8 +190,9 @@ drift_cmd(char *cmd)
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-
-   if(semTake (semMEI,60) == ERROR) {
+   if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "drift_cmd: failed to get semMEI: %s (%d)",
+	    strerror(errno), errno);
       return "ERR: semMEI";
    }
    
@@ -201,8 +201,8 @@ drift_cmd(char *cmd)
    drift_break[axis_select]=TRUE;
 
    taskDelay(3);
-   if(semTake(semMEI, 60) != ERROR) {
-      TRACE(0, "drift_cmd: failed to get semMEI: %s (%d)",
+   if(semTake(semMEI, 60) == ERROR) {
+      TRACE(0, "drift_cmd: failed to retake semMEI: %s (%d)",
 	    strerror(errno), errno);
       return "ERR: semMEI";
    }
@@ -211,7 +211,7 @@ drift_cmd(char *cmd)
    get_position(2*axis_select, &position);
    time = sdss_get_time();
    taskUnlock();
-   semGive (semMEI);
+   semGive(semMEI);
 
    if(time < 0) {
       TRACE(0, "drift_cmd: bad time %g", time, 0);
@@ -777,7 +777,7 @@ move_cmd(char *cmd)
      (long)(frame->velocity*ticks_per_degree[axis_select]);
    sdssdc.tccmove[axis_select].time=(long)(frame->end_time*1000);
 /*
- * queues are initialized with one dummy entry at sdss_init time
+ * queues are initialized with one dummy entry by axisMotionInit
  */
    taskLock();
    nxtque = queue->end;
@@ -951,74 +951,6 @@ plus_move_cmd(char *cmd)
    
    return "";
 }
-
-/*=========================================================================
-**
-**	MS.MAP.DUMP - Displays the last all fiducials if fed back to the 
-**	MCP will restore the positions.
-**	Remains unimplemented.  Fiducials are currently saved and restored
-**	from shared memory.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-*/
-char *
-ms_map_dump_cmd(char *cmd)		/* NOTUSED */
-{
-  printf (" MS.MAP.DUMP command fired\r\n");
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: ms_map_load_cmd
-**
-** DESCRIPTION:
-**	MS.MAP.LOAD ms# val - Loads the specified fiducials.
-**	Remains unimplemented.  Fiducials are currently restored from
-**	shared memory.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *
-ms_map_load_cmd(char *cmd)		/* NOTUSED */
-{
-  printf (" MS.MAP.LOAD?????? command fired\r\n");
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-**	MS.OFF - turn off automatic setting of positions as fiducials are passed.
-**	MS.ON - turn on automatic setting of positions as fiducials are passed.
-**	Unimplemented until fiducials are better tested.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-**=========================================================================
-*/
-char *
-ms_off_cmd(char *cmd)			/* NOTUSED */
-{
-   return "";
-}
-
-char *
-ms_on_cmd(char *cmd)			/* NOTUSED */
-{
-   return "";
-}
-
 /*=========================================================================
 **=========================================================================
 **
@@ -1176,7 +1108,9 @@ status_cmd(char *cmd)
       sdss_time += 1.0;
    }
    
-   if (semTake (semMEIUPD,60) == ERROR) {
+   if(semTake(semMEIUPD,60) == ERROR) {
+      TRACE(0, "status_cmd: failed to get semMEIUPD: %s (%d)",
+	    strerror(errno), errno);
       sprintf(status_ans, "ERR: semMEIUPD : %s", strerror(errno));
    }
 
@@ -1262,6 +1196,22 @@ check_stop_in(void)
 
 /*****************************************************************************/
 /*
+ * Return the clinometer reading
+ */
+float
+read_clinometer(void)
+{
+/*
+ * 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98
+ */
+   const float altclino_sf = 0.0048683116163; /* scale factor */
+   const int altclino_off = 8937;	/* offset */
+
+   return((altclino_off - sdssdc.status.i4.alt_position)*altclino_sf);
+}
+
+/*****************************************************************************/
+/*
  * An axis-status command that can be used by IOP to get enough information
  * to update the MCP Menu
  */
@@ -1316,7 +1266,7 @@ axis_status_cmd(char *cmd)
 		   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
 	   fiducialidx[axis], fiducial[axis].markvalid, fid_mark,
 	   check_stop_in(), brake_is_on, *(long *)&axis_stat[axis],
-	   abs(sdssdc.status.i4.alt_position-altclino_off)*altclino_sf);
+	   read_clinometer());
 
    TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
@@ -1327,198 +1277,11 @@ axis_status_cmd(char *cmd)
    return(reply_str);
 }
 
-/*=========================================================================
-**
-**	TICKLOST @ . - Returns if receiving 1 Hz ticks.
-**
-** RETURN VALUES:
-**	return "0" or undefined if not receiving ticks so i return NULL string.
-**
-** CALLS TO:
-**	sdss_get_time
-**	sdss_delta_time
-**
-*/
-char *
-ticklost_cmd(char *cmd)			/* NOTUSED */
-{
-   double tick = sdss_get_time();
-   
-   taskDelay(65);
-
-   if(sdss_delta_time(sdss_get_time(), tick) > 1.0) {
-      return "0";
-   } else {
-      return "";
-   }
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: time_cmd
-**
-** DESCRIPTION:
-**	TIME? - gets date and time.
-**
-** RETURN VALUES:
-**	return date as "m d y seconds-of-day"
-**
-** CALLS TO:
-**	sdss_get_time
-**
-** GLOBALS REFERENCED:
-**	SDSStime
-**
-**=========================================================================
-*/
-static char *time_ans={"01 31 1996 86400.000                "};	/* */
-char *time_cmd(char *cmd)
-{
-  static struct tm *t;
-  struct timespec tp;
-
-/*  printf (" TIME? command fired\r\n");*/
-  clock_gettime(CLOCK_REALTIME,&tp);
-  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
-  t = localtime(&tp.tv_sec);
-/*  printf ("t=%p, mon=%d day=%d, year=%d %d:%d:%d\r\n",
-	t,t->tm_mon,t->tm_mday,t->tm_year,t->tm_hour,t->tm_min,t->tm_sec);*/
-  sprintf (time_ans,"%d %d %d %f",t->tm_mon+1,t->tm_mday,t->tm_year+1900,
-	sdss_get_time());
-  return time_ans;
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cwmov_cmd
-**	    cwinst_cmd
-**	    cwpos_cmd
-**	    cwabort_cmd
-**	    cwstatus_cmd
-**
-** DESCRIPTION:
-**	CWMOV - Move specified counter-weight to specified position in units
-**	of volts*100.
-**	CWINST - Move all counter-weights to the instruments specified 
-**	positions.
-**	CWPOS - Move all four counter-weights to specified position in units
-**	of volts*100.
-**	CWABORT - Abort any counter-weight motion provided by spawned tasks.
-**	CWSTATUS - Return status of counter_weights including position and 
-**	limit status.
-**
-** RETURN VALUES:
-**	return NULL string except for status return
-**
-** CALLS TO:
-**	cw_positionv
-**	balance_weight
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semMEIUPD
-**
-**=========================================================================
-*/
-char *
-cwmov_cmd(char *cmd)
-{
-  int cw;
-  int cwpos;
-  const char *ans;
-
-  printf (" CWMOV command fired\r\n");
-
-  if(sscanf(cmd,"%d %d", &cw, &cwpos) != 2) {
-     return("ERR: malformed command arguments");
-  }
-
-  if(mcp_set_cw(INST_DEFAULT, cw, cwpos, &ans) < 0) {
-     return((char *)ans);
-  }
-
-  return "";
-}
-
-char *
-cwinst_cmd(char *cmd)
-{
-   const char *ans;
-   int inst;
-   
-   printf (" CWINST command fired\r\n");
-   while(*cmd == ' ') cmd++;
-   if((inst = cw_get_inst(cmd)) == ERROR) {
-      return "ERR: Invalid Instrument";
-   }
-   
-   mcp_set_cw(inst, ALL_CW, 0, &ans);
-
-   return (char *)ans;
-}
-
-char *cwabort_cmd(char *cmd)
-{
-  printf (" CWABORT command fired\r\n");
-
-  mcp_cw_abort();
-
-  return "";
-}
-
-static int
-get_cwstatus(char *cwstatus_ans,
-	     int size)			/* dimen of cwstatus_ans */
-{
-   int adc;
-   int i;
-   int idx;
-   int limidx;
-   static char *limitstatus[]={"LU", "L.", ".U", ".."};
-
-   idx = sprintf(cwstatus_ans,"CW   ");
-   for(i = 0; i < 4; i++) {
-      adc = sdssdc.weight[i].pos;
-      if((adc & 0x800) == 0x800) {
-	 adc |= 0xF000;
-      } else {
-	 adc &= 0xFFF;
-      }
-      limidx = (cwLimit >> (i*2)) & 0x3;
-      idx += sprintf(&cwstatus_ans[idx],"%d %s ",
-		     (1000*adc)/2048,limitstatus[limidx]);
-   }
-   cwstatus_ans[idx++] = '\n';
-   cwstatus_ans[idx] = '\0';
-
-   assert(idx < size - 1);
-
-   return(idx);
-}
-
-char *
-cwstatus_cmd(char *cmd)
-{
-   static char cwstatus_ans[80];
-   
-   if(semTake (semMEIUPD,60) == ERROR) {
-      return "ERR: semMEIUPD";
-   }
-
-   (void)get_cwstatus(cwstatus_ans, 80);
-
-   semGive (semMEIUPD);
-
-   return cwstatus_ans;
-}
-
 /*****************************************************************************/
 /*
  * Set the imager T-bars
  */
-int
+static int
 mcp_set_tbars(int val)
 {
    int err;
@@ -1526,6 +1289,8 @@ mcp_set_tbars(int val)
    struct B10_2 tm_ctrl1;   
              
    if(semTake(semSLC,60) == ERROR) {
+      TRACE(0, "mcp_set_tbars: failed to get semSLC: %s (%d)",
+	    strerror(errno), errno);
       printf("Unable to take semaphore: %s", strerror(errno));
       return(-1);
    }
@@ -1553,6 +1318,20 @@ mcp_set_tbars(int val)
  * XXX check that the (un)latch command worked, and revert if it failed
  */
    return(0);
+}
+
+char *
+tbar_latch_cmd(char *cmd)
+{
+   int on_off;
+
+   if(sscanf(cmd, "%d", &on_off) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_tbars(on_off);
+   
+   return("");
 }
 
 /*=========================================================================
@@ -1596,285 +1375,6 @@ char *brakeoff_cmd(char *cmd)
    
    return "";
 }
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: clampon_cmd
-**	    clampoff_cmd
-**
-** DESCRIPTION:
-**	CLAMP.ON - turn on the instrument change postion clamp.
-**	CLAMP.OFF - turn off the instrument change position clamp.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**	tm_sp_clamp_on
-**	tm_sp_clamp_off
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *
-clampon_cmd(char *cmd)
-{
-  printf("CLAMP.ON command fired\n");
-  tm_sp_clamp_on();
-  return "";
-}
-
-char *
-clampoff_cmd(char *cmd)
-{
-  printf("CLAMP.OFF command fired\n");
-  tm_sp_clamp_off();
-  return "";
-}
-
-/*****************************************************************************/
-/*
- * Report the status of the spectrograph doors/slits
- */
-static int
-get_slitstatus(char *slitstatus_ans,
-	       int size)			/* dimen of slitstatus_ans */
-{
-  int len;
-
-  sprintf(slitstatus_ans,"SP1: %d %d %d %d  SP2: %d %d %d %d\n",
-	  sdssdc.status.i1.il9.slit_head_door1_opn,
-	  sdssdc.status.i1.il9.slit_head_door1_cls,
-	  sdssdc.status.i1.il9.slit_head_latch1_ext,
-	  sdssdc.status.i1.il9.slit_head_1_in_place,
-	  sdssdc.status.i1.il9.slit_head_door2_opn,
-	  sdssdc.status.i1.il9.slit_head_door2_cls,
-	  sdssdc.status.i1.il9.slit_head_latch2_ext,
-	  sdssdc.status.i1.il9.slit_head_2_in_place);
-  
-  len = strlen(slitstatus_ans);
-  assert(len < size);
-
-  return(len);
-}
-
-char *
-slitstatus_cmd(char *cmd)
-{
-   static char slitstatus_ans[50];
-
-   (void)get_slitstatus(slitstatus_ans, 50);
-
-   return(slitstatus_ans);
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: ffsopen_cmd
-**	    ffsclose_cmd
-**
-** DESCRIPTION:
-**	FFS.OPEN - open the flat field screen
-**	FFS.CLOSE - close the flat field screen
-**
-** RETURN VALUES:
-**	NULL string
-**
-** CALLS TO:
-**	tm_ffs_open
-**	tm_ffs_close
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *
-ffsopen_cmd(char *cmd)
-{
-   TRACE(1, "FFS.OPEN command fired", 0, 0);
-   printf (" FFS.OPEN command fired\r\n");
-   tm_sp_ffs_move(FFS_OPEN);
-   return "";
-}
-
-char *
-ffsclose_cmd(char *cmd)
-{
-   TRACE(1, "FFS.CLOSE command fired", 0, 0);
-   printf (" FFS.CLOSE command fired\r\n");
-   tm_sp_ffs_move(FFS_CLOSE);
-
-   return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: fflon_cmd
-**	    ffloff_cmd
-**
-** DESCRIPTION:
-**	FFL.ON - turn on the flat field incandescent lamps
-**	FFL.OFF - turn off the flat field incandescent lamps
-**
-** RETURN VALUES:
-**	NULL string
-**
-** CALLS TO:
-**	tm_ffl_on
-**	tm_ffl_off
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *fflon_cmd(char *cmd)
-{
-  printf (" FFL.ON command fired\r\n");
-  tm_ffl_on();
-  return "";
-}
-char *ffloff_cmd(char *cmd)
-{
-  printf (" FFL.OFF command fired\r\n");
-  tm_ffl_off();
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: neon_cmd
-**	    neoff_cmd
-**
-** DESCRIPTION:
-**	NE.ON - turn on the flat field neon lamps
-**	NE.OFF - turn off the flat field neon lamps
-**
-** RETURN VALUES:
-**	NULL string
-**
-** CALLS TO:
-**	tm_neon_on
-**	tm_neon_off
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *neon_cmd(char *cmd)
-{
-  printf (" NE.ON command fired\r\n");
-  tm_neon_on();
-  return "";
-}
-char *neoff_cmd(char *cmd)
-{
-  printf (" NE.OFF command fired\r\n");
-  tm_neon_off();
-  return "";
-}
-
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: hgcdon_cmd
-**	    hgcdoff_cmd
-**
-** DESCRIPTION:
-**	HGCD.ON - turn on the flat field incandescent lamps
-**	HGCD.OFF - turn off the flat field incandescent lamps
-**
-** RETURN VALUES:
-**	NULL string
-**
-** CALLS TO:
-**	tm_hgcd_on
-**	tm_hgcd_off
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *hgcdon_cmd(char *cmd)
-{
-  printf (" HGCD.ON command fired\r\n");
-  tm_hgcd_on();
-  return "";
-}
-char *hgcdoff_cmd(char *cmd)
-{
-  printf (" HGCD.OFF command fired\r\n");
-  tm_hgcd_off();
-  return "";
-}
-
-/*****************************************************************************/
-/*
- * Report the status of the flatfield screen and lamps
- */
-static int
-get_ffstatus(char *ffstatus_ans,
-	     int size)			/* dimen of ffstatus_ans */
-{
-  int len;
-
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],
-	"FFS  %d%d %d%d %d%d %d%d  %d%d %d%d %d%d %d%d  %d\n",
-	   sdssdc.status.i1.il13.leaf_1_open_stat,
-	   sdssdc.status.i1.il13.leaf_1_closed_stat,
-	   sdssdc.status.i1.il13.leaf_2_open_stat,
-	   sdssdc.status.i1.il13.leaf_2_closed_stat,
-	   sdssdc.status.i1.il13.leaf_3_open_stat,
-	   sdssdc.status.i1.il13.leaf_3_closed_stat,
-	   sdssdc.status.i1.il13.leaf_4_open_stat,
-	   sdssdc.status.i1.il13.leaf_4_closed_stat,
-	   sdssdc.status.i1.il13.leaf_5_open_stat,
-	   sdssdc.status.i1.il13.leaf_5_closed_stat,
-	   sdssdc.status.i1.il13.leaf_6_open_stat,
-	   sdssdc.status.i1.il13.leaf_6_closed_stat,
-	   sdssdc.status.i1.il13.leaf_7_open_stat,
-	   sdssdc.status.i1.il13.leaf_7_closed_stat,
-	   sdssdc.status.i1.il13.leaf_8_open_stat,
-	   sdssdc.status.i1.il13.leaf_8_closed_stat,
-	   sdssdc.status.o1.ol14.ff_screen_open_pmt);
-  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"FF   %d %d %d %d  %d\n",
-	  sdssdc.status.i1.il13.ff_1_stat,
-	  sdssdc.status.i1.il13.ff_2_stat,
-	  sdssdc.status.i1.il13.ff_3_stat,
-	  sdssdc.status.i1.il13.ff_4_stat,
-	  sdssdc.status.o1.ol14.ff_lamps_on_pmt);
-  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"Ne   %d %d %d %d  %d\n",
-	  sdssdc.status.i1.il13.ne_1_stat,
-	  sdssdc.status.i1.il13.ne_2_stat,
-	  sdssdc.status.i1.il13.ne_3_stat,
-	  sdssdc.status.i1.il13.ne_4_stat,
-	  sdssdc.status.o1.ol14.ne_lamps_on_pmt);
-  sprintf(&ffstatus_ans[strlen(ffstatus_ans)],"HgCd %d %d %d %d  %d\n",
-	  sdssdc.status.i1.il13.hgcd_1_stat,
-	  sdssdc.status.i1.il13.hgcd_2_stat,
-	  sdssdc.status.i1.il13.hgcd_3_stat,
-	  sdssdc.status.i1.il13.hgcd_4_stat,
-	  sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
-
-  len = strlen(ffstatus_ans);
-  assert(len < size);
-  
-  return(len);	
-}
-
-char *
-ffstatus_cmd(char *cmd)			/* NOTUSED */
-{
-  static char ffstatus_ans[250];
-
-  (void)get_ffstatus(ffstatus_ans, 250);
-
-  return(ffstatus_ans);
-}
 
 /*****************************************************************************/
 /*
@@ -1913,7 +1413,7 @@ system_status_cmd(char *cmd)
 
    TRACE(8, "taking semMEIUPD", 0, 0);
    if (semTake(semMEIUPD, 60) == ERROR) { 
-      TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
+      TRACE(5, "system_status_cmd: semMEIUPD : %d", errno, 0);
       sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
       return(reply_str);
    }
@@ -2291,7 +1791,8 @@ start_frame(int axis,double time)
    
    taskDelay(5);
    if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+      TRACE(0, "start_frame: Failed to get semMEI: %s (%d)",
+	    strerror(errno), errno);
    } else {
       time = sdss_delta_time(time, sdss_get_time());
 #if 0
@@ -2544,7 +2045,8 @@ load_frames(int axis, int cnt, int idx, double sf)
       }
       
       if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+	 TRACE(0, "load_frames: failed to get semMEI: %s (%d)",
+	       strerror(errno), errno);
       } else {
 	 taskLock();
 	 e=frame_m(&frame,"0l xvajt un d",axis<<1,
@@ -2771,7 +2273,8 @@ end_frame(int axis, int index, double sf)
    FRAME frame;
    
    if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+      TRACE(0, "end_frame: failed to get semMEI: %s (%d)",
+	    strerror(errno), errno);
       return;
    } 
 
@@ -2881,7 +2384,11 @@ tm_TCC(int axis)
 /*
  * reposition if necessary
  */
-      semTake (semMEI,WAIT_FOREVER);
+      if(semTake(semMEI,WAIT_FOREVER) == ERROR) {
+	 TRACE(0, "tm_TCC: failed to take semMEI: %s (%d)",
+	       strerror(errno), errno);
+      }
+
       get_position(2*axis, &position);
       get_velocity(2*axis,&velocity);
       semGive(semMEI);
@@ -2914,7 +2421,8 @@ tm_TCC(int axis)
 	       status == TRUE) {
 	    taskDelay (10);
 	    if(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	       TRACE(0, "Failed to get semMEI: %s (%d)", strerror(errno), errno);
+	       TRACE(0, "tm_TCC: failed to retake semMEI: %s (%d)",
+		     strerror(errno), errno);
 	    } else {
 	       status=in_motion(axis<<1);
 	       get_position(axis<<1,&position);
@@ -3305,101 +2813,6 @@ amp_reset(int axis)
    DIO316_Write_Port(cw_DIO316, AMP_RESET, 0);
 }
 
-/*=========================================================================
-**=========================================================================
-**	General initialization of MEI board...called from startup script.
-**	Initializes queue data structures.  Setups semaphores
-**
-** GLOBALS REFERENCED:
-**	axis_queue
-**	sdss_was_init
-**	semMEI
-**	semSLC
-**
-**=========================================================================
-*/
-int
-sdss_init(void)
-{
-   int i;
-   int err;
-   int axis;
-   double rate;
-   char buffer[MAX_ERROR_LEN] ;
-   double limit;
-   short action;
-   
-   for(i = 0; i < 3; i++) {
-      axis_queue[i].top = (struct FRAME *)malloc(sizeof(struct FRAME));
-      if(axis_queue[i].top == NULL) {
-	 printf("SDSS_INIT: no memory for queue\n");
-	 return ERROR;
-      }
-      
-      axis_queue[i].end = axis_queue[i].top;
-      axis_queue[i].active = NULL;
-      axis_queue[i].cnt = 1;
-      axis_queue[i].top->nxt = NULL;
-      axis_queue[i].top->position = 0;
-      axis_queue[i].top->velocity = 0;
-      axis_queue[i].top->end_time = 0;
-   }
-   sdss_was_init = TRUE;
-
-   err = dsp_init(DSP_IO_BASE);
-   if(err) {
-      error_msg(err, buffer) ;	/* convert an error code to a human message */
-      printf("dsp_init failed--%s (%d)\n", buffer, err);
-      /*    return (-1);*/
-   } else {
-      printf("dsp_init Passed!\n");
-   }
-   
-   err = dsp_reset();
-   if(err) {
-      error_msg(err, buffer) ;	/* convert an error code to a human message */
-      printf("dsp_reset failed--%s (%d)\n", buffer, err);
-      /*    return (-1);*/
-   } else {
-      printf("dsp_reset Passed!\n");
-   }
-   
-   set_sample_rate(160);
-   printf("\r\n Sample Rate=%d", dsp_sample_rate());
-   
-   for(axis = 0; axis < dsp_axes(); axis++) {
-      TRACE(1, "Initialising AXIS %d", axis, 0);
-
-      get_stop_rate(axis,&rate);
-      TRACE(3, "old stop rate = %f", rate, 0);
-      set_stop_rate(axis,(double)SDSS_STOP_RATE);
-      get_stop_rate(axis,&rate);
-      TRACE(3, "set stop rate = %f", rate, 0);
-      
-      get_e_stop_rate(axis,&rate);
-      TRACE(3, "old e_stop rate=%f", rate, 0);
-      set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
-      get_e_stop_rate(axis,&rate);
-      TRACE(3, "set e_stop rate=%f", rate, 0);
-      
-      get_error_limit(axis,&limit,&action);
-      TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
-      set_error_limit(axis,24000.,ABORT_EVENT);
-      get_error_limit(axis,&limit,&action);
-      TRACE(3, "set error limit=%ld, action=%d", (long)limit, action);
-
-      set_integration(axis, IM_ALWAYS);
-   }
-   
-   VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
-   init_io(2,IO_INPUT);
-   arm_latch(TRUE);
-   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
-   
-   return 0;
-}
-
 #if 0
 /*=========================================================================
 **=========================================================================
@@ -3568,7 +2981,10 @@ mcp_move_va(int axis,			/* the axis to move */
       return(-1);
    }
 
-   if(semTake (semMEI,60) == ERROR) {
+   if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "mcp_move_va: failed to take semMEI: %s (%d)",
+	    strerror(errno), errno);
+
       return(-1);
    }
    
@@ -3610,6 +3026,8 @@ mcp_set_vel(int axis,			/* the axis to set */
    }
 
    if(semTake(semMEI, 60) == ERROR) {
+      TRACE(0, "mcp_set_val: failed to take semMEI: %s (%d)",
+	    strerror(errno), errno);
       fprintf(stderr, "mcp_set_vel: could not take semMEI semphore\n");
       return(-1);
    }
@@ -3675,6 +3093,8 @@ mcp_unset_brake(int axis)		/* axis to set */
    }
    
    if(semTake(semMEI,60) == ERROR) {
+      TRACE(0, "mcp_unset_brake: failed to take semMEI: %s (%d)",
+	    strerror(errno), errno);
       fprintf(stderr,"mcp_unset_brake: could not take semMEI semphore: %s",
 	      strerror(errno));
       return(-1);
@@ -3717,9 +3137,9 @@ mcp_hold(int axis)			/* desired axis */
    TRACE(1, "Holding axis %s", axis_name(axis), 0);
 
    if(semTake(semMEI,60) == ERROR) {
-      TRACE(0, "Holding axis %s: couldn't take semMEI: %d",
+      TRACE(0, "mcp_hold: %s: couldn't take semMEI: %d",
 	    axis_name(axis), errno);
-      fprintf(stderr,"mcp_halt: could not take semMEI semphore: %s",
+      fprintf(stderr,"mcp_hold: could not take semMEI semphore: %s",
 	      strerror(errno));
       return(-1);
    }
@@ -3806,7 +3226,7 @@ mcp_stop_axis(int axis)
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "Stopping axis %s: couldn't take semMEI: %d",
 	    axis_name(axis), errno);
-      fprintf(stderr,"mcp_stop_axis: could not take semMEI semphore: %s",
+      fprintf(stderr,"mcp_stop_axis: could not take semMEI semphore: %s\n",
 	      strerror(errno));
 
       return(-1);
@@ -3818,4 +3238,226 @@ mcp_stop_axis(int axis)
    semGive (semMEI);
 
    return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Wrappers for MCP commands.
+ *
+ * These aren't declared static so that cmdList can find them
+ */
+char *
+amp_reset_cmd(char *cmd)		/* NOTUSED */
+{
+   mcp_amp_reset(axis_select);
+
+   return("");
+}
+
+static char *
+hold_cmd(char *cmd)			/* NOTUSED */
+
+{
+   mcp_hold(axis_select);
+
+   return("");
+}
+
+static char *
+stop_cmd(char *cmd)			/* NOTUSED */
+{
+   mcp_stop_axis(axis_select);
+
+   return("");
+}
+
+static char *
+set_monitor_cmd(char *cmd)			/* NOTUSED */
+{
+   int on_off;
+
+   if(sscanf(cmd, "%d", &on_off) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_monitor(axis_select, on_off);
+
+   return("");
+}
+
+static char *
+set_pos_cmd(char *cmd)
+{
+   double pos;
+
+   if(sscanf(cmd, "%lf", &pos) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_pos(axis_select, pos);
+
+   return("");
+}
+
+static char *
+set_pos_va_cmd(char *cmd)
+{
+   double pos, vel, acc;
+
+   if(sscanf(cmd, "%lf %lf %lf", &pos, &vel, &acc) != 3) {
+      return("ERR: malformed command argument");
+   }
+   
+   mcp_move_va(axis_select, pos, vel, acc);
+
+   return("");
+}
+
+static char *
+set_vel_cmd(char *cmd)
+{
+   double pos;
+
+   if(sscanf(cmd, "%lf", &pos) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_vel(axis_select, pos);
+
+   return("");
+}
+
+/*****************************************************************************/
+/*
+ * General initialization of MEI board...called from startup script.
+ *
+ * 
+ * Initialize queue data structures.
+ *
+ * Setup semaphores
+ *
+ * Declare commands to the command interpreter
+ */
+int
+axisMotionInit(void)
+{
+   int i;
+   int err;
+   int axis;
+   double rate;
+   char buffer[MAX_ERROR_LEN] ;
+   double limit;
+   short action;
+   
+   for(i = 0; i < 3; i++) {
+      axis_queue[i].top = (struct FRAME *)malloc(sizeof(struct FRAME));
+      if(axis_queue[i].top == NULL) {
+	 TRACE(0, "axisMotionInit: no memory for queue", 0, 0);
+	 return(ERROR);
+      }
+      
+      axis_queue[i].end = axis_queue[i].top;
+      axis_queue[i].active = NULL;
+      axis_queue[i].cnt = 1;
+      axis_queue[i].top->nxt = NULL;
+      axis_queue[i].top->position = 0;
+      axis_queue[i].top->velocity = 0;
+      axis_queue[i].top->end_time = 0;
+   }
+   sdss_was_init = TRUE;
+
+   err = dsp_init(DSP_IO_BASE);
+   if(err) {
+      error_msg(err, buffer) ;	/* convert an error code to a human message */
+      TRACE(0, "dsp_init failed--%s (%d)", buffer, err);
+#if 0
+      return(ERROR);
+#endif
+   } else {
+      printf("dsp_init Passed!\n");
+   }
+   
+   err = dsp_reset();
+   if(err) {
+      error_msg(err, buffer) ;	/* convert an error code to a human message */
+      TRACE(0, "dsp_reset failed--%s (%d)", buffer, err);
+#if 0
+      return(ERROR);
+#endif
+   } else {
+      printf("dsp_reset Passed!\n");
+   }
+   
+   set_sample_rate(160);
+   TRACE(1, "Sample Rate=%d", dsp_sample_rate(), 0);
+   
+   for(axis = 0; axis < dsp_axes(); axis++) {
+      TRACE(1, "Initialising AXIS %d", axis, 0);
+
+      get_stop_rate(axis,&rate);
+      TRACE(3, "old stop rate = %f", rate, 0);
+      set_stop_rate(axis,(double)SDSS_STOP_RATE);
+      get_stop_rate(axis,&rate);
+      TRACE(3, "set stop rate = %f", rate, 0);
+      
+      get_e_stop_rate(axis,&rate);
+      TRACE(3, "old e_stop rate=%f", rate, 0);
+      set_e_stop_rate(axis,(double)SDSS_E_STOP_RATE);
+      get_e_stop_rate(axis,&rate);
+      TRACE(3, "set e_stop rate=%f", rate, 0);
+      
+      get_error_limit(axis,&limit,&action);
+      TRACE(3, "old error limit=%ld, action=%d", (long)limit, action);
+      set_error_limit(axis,24000.,ABORT_EVENT);
+      get_error_limit(axis,&limit,&action);
+      TRACE(3, "set error limit=%ld, action=%d", (long)limit, action);
+
+      set_integration(axis, IM_ALWAYS);
+   }
+   
+   VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
+   init_io(2,IO_INPUT);
+
+   semMEI = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+   semSLC = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE);
+/*
+ * Declare commands
+ */
+   define_cmd("+MOVE",         plus_move_cmd, 	 -1, 1, 1);
+   define_cmd("AB.STATUS",     abstatus_cmd, 	  2, 0, 1);
+   define_cmd("AMP.RESET",     amp_reset_cmd, 	  0, 1, 1);
+   define_cmd("AXIS.STATUS",   axis_status_cmd,   0, 0, 0);
+   define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 1);
+   define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 1);
+   define_cmd("CLAMP.OFF",     clampoff_cmd, 	  0, 1, 1);
+   define_cmd("CLAMP.ON",      clampon_cmd, 	  0, 1, 1);
+   define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1);
+   define_cmd("HALT",          hold_cmd, 	  0, 1, 1);
+   define_cmd("HOLD",          hold_cmd, 	  0, 1, 1);
+   define_cmd("ID",            id_cmd, 		  0, 0, 1);
+   define_cmd("INIT",          init_cmd, 	  0, 1, 1);
+   define_cmd("IR",            rot_cmd, 	  0, 0, 0);
+   define_cmd("MAXACC",        maxacc_cmd, 	  1, 1, 1);
+   define_cmd("MAXVEL",        maxvel_cmd, 	  1, 1, 1);
+   define_cmd("MC.DUMP",       mc_dump_cmd, 	  0, 0, 1);
+   define_cmd("MC.MAXACC",     mc_maxacc_cmd,     0, 0, 1);
+   define_cmd("MC.MAXPOS",     mc_maxpos_cmd,     0, 0, 1);
+   define_cmd("MC.MAXVEL",     mc_maxvel_cmd,     0, 0, 1);
+   define_cmd("MC.MINPOS",     mc_minpos_cmd, 	  0, 0, 1);
+   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1);
+   define_cmd("SET.LIMITS",    set_limits_cmd,    2, 1, 1);
+   define_cmd("SET.MONITOR",   set_monitor_cmd,   1, 1, 1);
+   define_cmd("SET.POS.VA",    set_pos_va_cmd, 	  3, 1, 1);
+   define_cmd("SET.POSITION",  set_pos_cmd, 	  1, 1, 1);
+   define_cmd("SET.VELOCITY",  set_vel_cmd, 	  1, 1, 1);
+   define_cmd("STATS",         stats_cmd, 	  0, 0, 1);
+   define_cmd("STATUS",        status_cmd, 	  0, 0, 1);
+   define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 1);
+   define_cmd("STOP",          stop_cmd, 	  0, 1, 1);
+   define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0);
+   define_cmd("TBAR.LATCH",    tbar_latch_cmd,    1, 1, 1);
+   define_cmd("TEL1",          tel1_cmd,          0, 0, 0);
+   define_cmd("TEL2",          tel2_cmd,          0, 0, 0);
+   
+   return 0;
 }
