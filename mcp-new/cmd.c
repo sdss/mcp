@@ -53,9 +53,9 @@ amp_reset_cmd(char *cmd)		/* NOTUSED */
 }
 
 static char *
-halt_cmd(char *cmd)			/* NOTUSED */
+hold_cmd(char *cmd)			/* NOTUSED */
 {
-   mcp_halt(axis_select);
+   mcp_hold(axis_select);
 
    return("");
 }
@@ -244,7 +244,8 @@ struct COMMANDS axis_cmds[] = {
 	{"SYSTEM.STATUS", system_status_cmd},
 	{"CORRECT",correct_cmd},
 	{"DRIFT",drift_cmd},
-	{"HALT",halt_cmd},
+	{"HALT",hold_cmd},
+	{"HOLD",hold_cmd},
 	{"ID",id_cmd},
 	{"INIT",init_cmd},
 	{"MAXACC",maxacc_cmd},
@@ -295,6 +296,8 @@ struct COMMANDS axis_cmds[] = {
 	{"SLITDOOR.OPEN",slitdoor_open_cmd},
 	{"SLITHEADLATCH.CLOSE",slithead_latch_close_cmd},
 	{"SLITHEADLATCH.OPEN",slithead_latch_open_cmd},
+	{"SLITHEADLATCH.RET",slithead_latch_close_cmd},
+	{"SLITHEADLATCH.EXT",slithead_latch_open_cmd},
 	{"SLIT.STATUS",slitstatus_cmd},
 	{"FFS.CLOSE",ffsclose_cmd},
 	{"FFS.OPEN",ffsopen_cmd},
@@ -408,7 +411,20 @@ cmd_handler(char *cmd)
        cmd_list++;
     }
 
-    TRACE(5, "command %s", cmd_list->command, 0);
+    {
+       int lvl = 5;
+    
+       if(strcmp(cmd_list->command, "AXIS.STATUS") == 0 ||
+	  strcmp(cmd_list->command, "IR") == 0 ||
+	  strcmp(cmd_list->command, "SP1") == 0 ||
+	  strcmp(cmd_list->command, "SP2") == 0 ||
+	  strcmp(cmd_list->command, "TEL1") == 0 ||
+	  strcmp(cmd_list->command, "TEL2") == 0 ||
+	  strcmp(cmd_list->command, "SYSTEM.STATUS") == 0) {
+	  lvl += 2;
+       }
+       TRACE(lvl, "PID %d: command %s", client_pid, cmd_list->command);
+    }
     
     if(cmd_list->command == NULL) {	/* not a valid command */
       if(CMD_verbose) {
