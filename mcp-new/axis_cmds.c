@@ -759,7 +759,6 @@ read_clinometer(void)
 char *
 axis_status_cmd(char *cmd)
 {
-#if 1
    const int axis = ublock->axis_select;
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
@@ -779,63 +778,6 @@ axis_status_cmd(char *cmd)
    semGive(semStatusCmd);
 
    return(ublock->buff);
-#else
-   const int axis = ublock->axis_select;	/* in case it changes */
-   int brake_is_on = -1;		/* is the brake on for current axis? */
-   long fid_mark = 0;			/* position of fiducial mark */
-
-   TRACE(8, "Setting ublock->buff[200] axis == %d", axis, 0);
-   ublock->buff[UBLOCK_SIZE] = '\a';
-   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      return("ERR: ILLEGAL DEVICE SELECTION");
-   }
-
-   TRACE(8, "taking semMEIUPD", 0, 0);
-   if (semTake(semMEIUPD, 60) == ERROR) { 
-      TRACE(5, "ERR: semMEIUPD : %d", errno, 0);
-      sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
-      return(ublock->buff);
-   }
-
-   switch (axis) {
-    case AZIMUTH:
-      brake_is_on = sdssdc.status.i9.il0.az_brake_en_stat;
-      fid_mark = az_fiducial[fiducialidx[axis]].mark[1];
-      break;
-    case ALTITUDE:
-      brake_is_on = sdssdc.status.i9.il0.alt_brake_en_stat;
-      fid_mark = alt_fiducial[fiducialidx[axis]].mark[1];
-      break;
-    case INSTRUMENT:
-      brake_is_on = -1;			/* there is no brake */
-      fid_mark = rot_fiducial[fiducialidx[axis]].mark[1] - ROT_FID_BIAS;
-      break;
-    default:
-      semGive(semMEIUPD);
-      fprintf(stderr,"axis_status_cmd: impossible instrument %d\n",
-	      axis);
-      abort();
-      break;				/* NOTREACHED */
-   }
-
-   TRACE(8, "setting ublock->buff", 0, 0);
-   sprintf(ublock->buff,
-	   "%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d %d 0x%lx  %.4f",
-	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
-	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
-	   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
-	   fiducialidx[axis], fiducial[axis].seen_index, fid_mark,
-	   check_stop_in(0), brake_is_on, *(long *)&axis_stat[axis][0],
-	   read_clinometer());
-
-   TRACE(8, "giving semMEIUPD", 0, 0);
-   semGive(semMEIUPD);
-
-   TRACE(8, "Checking ublock->buff[end]: %d", ublock->buff[UBLOCK_SIZE], 0);
-   assert(ublock->buff[UBLOCK_SIZE] == '\a');	/* check for overflow */
-
-   return(ublock->buff);
-#endif
 }
 
 /*****************************************************************************/
@@ -971,7 +913,10 @@ set_status(int axis,			/* axis, or NOINST for system status */
    }
    
    TRACE(8, "set_status: checking buff[end]: %d", buff[size - 1], 0);
-   assert(buff[size - 1] == '\a');	/* check for overflow */
+   if(buff[size - 1] != '\a') {		/* check for overflow */
+      TRACE(0, "set_status: overwrote buffer marker", 0, 0);
+      taskSuspend(NULL);
+   }
 }
 
 /*=========================================================================
