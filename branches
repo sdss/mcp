@@ -109,4 +109,10 @@ Wed Nov 21 16:08:42 MST 2001
 	cvs tag v5_8_0
 	cvs tag -r v5_8_0 -b v5_8
 
-
+Mon Jan 14 07:15:17 MST 2002
+	cvs rtag -r v5_8 v5_8_7 mcp
+	(no conflicts => no checkins beyond v5_8_7)
+	cvs update -A
+	(nothing to do)
+	cvs update -j v5_8_0 -j v5_8_7
+	cvs ci -m "Merged from v5_8 branch at point v5_8_7"

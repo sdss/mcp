@@ -121,7 +121,7 @@ axis_ticks_deg(int axis)
 /*****************************************************************************/
 /*
  * The encoders are assumed to be wrong by axis_encoder_error[] which
- * is indexed by 2*axis
+ * is indexed by 2*axis + ((encoder == 1) ? 0 : 1)
  *
  * Two routines to get/set this error:
  */
@@ -147,8 +147,8 @@ set_axis_encoder_error(int axis,	/* the axis in question */
    assert(encoder == 1 || encoder == 2);
 
    if(write_log) {
-      write_fiducial_log("SET_FIDUCIAL_ERROR", axis,
-			 0, 0, 0, 0, 0, error, encoder);
+      write_fiducial_log("SET_FIDUCIAL_ERROR", axis, 0, 0, 0, 0, 0,
+			 0.0, 0.0, error, encoder);
    }
 
    axis_encoder_error[2*axis + (encoder - 1)] += error;
@@ -410,31 +410,28 @@ init_cmd(char *cmd)
  * If there's a known positional error on an axis take this opportunity to
  * zero it by setting the encoder's position
  */
-   if(semTake(semLatch, 60) == ERROR) {
-      TRACE(0, "ERR: init cannot take semLatch", 0, 0);
-   } else {
-      long correction[3];		/* how much to correct encoder posns */
+   if(fiducial[axis].max_correction != 0) {
+      if(semTake(semLatch, 60) == ERROR) {
+	 TRACE(0, "ERR: init cannot take semLatch", 0, 0);
+      } else {
+	 long correction[3];		/* how much to correct encoder posns */
       
-      for(i = 0; i < NAXIS; i++) {
-	 if(fiducial[i].max_correction == 0) {
-	    continue;
-	 }
-
 	 correction[0] = 0;		/* unused */
-	 correction[1] = get_axis_encoder_error(i, 1);
-	 correction[2] = get_axis_encoder_error(i, 2);
+	 correction[1] = get_axis_encoder_error(axis, 1);
+	 correction[2] = get_axis_encoder_error(axis, 2);
+
 	 if(abs(correction[1]) > 0) {
 	    TRACE(3,"Adjusting %s's encoder 1 by %d",
-		  axis_name(i), correction[1]);
+		  axis_name(axis), correction[1]);
 	 }
 	 if(abs(correction[2]) > 0) {
 	    TRACE(3,"Adjusting %s's encoder 2 by %d",
-		  axis_name(i), correction[2]);
+		  axis_name(axis), correction[2]);
 	 }
 	    
-	 if(tm_adjust_position(i, correction) < 0) {
+	 if(tm_adjust_position(axis, correction) < 0) {
 	    TRACE(0 ,"Failed to adjust encoder for axis %s",
-		  axis_name(i), 0);
+		  axis_name(axis), 0);
 	 }
       }
 
@@ -485,11 +482,9 @@ init_cmd(char *cmd)
    }
 
    if(semTake(semMEI, 5) != ERROR) {
-      for(i = 0; i < NAXIS; i++) {
-	 sdssdc.axis_state[i] = axis_state(2*i);
-	 axis_stat[i][0].out_closed_loop = 
-	   (sdssdc.axis_state[i] <= NEW_FRAME) ? 0 : 1;
-      }
+      sdssdc.axis_state[axis] = axis_state(2*axis);
+      axis_stat[axis][0].out_closed_loop =
+				(sdssdc.axis_state[axis] <= NEW_FRAME) ? 0 : 1;
       
       semGive(semMEI);
    }
@@ -1388,8 +1383,9 @@ mcp_move_va(int axis,			/* the axis to move */
  */
    if((ret = start_move_corr(2*axis, pos, vel, acc)) != DSP_OK) {
       char *err = _error_msg(ret);
+      int murmur_level = (ret == DSP_NO_DISTANCE) ? 3 : 0;
       if(err == NULL) { err = "unknown DSP error"; }
-      TRACE(0, "start_move failed for %s : %s", axis_name(axis), err);
+      TRACE(murmur_level, "start_move failed for %s : %s",axis_name(axis),err);
       if(ret == DSP_NO_DISTANCE) {
 	 double mei_pos;
 	 get_position_corr(2*axis, &mei_pos);

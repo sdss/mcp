@@ -230,6 +230,56 @@ mei_data_collection(unsigned long freq)
 	 semGive(semMEI);
 	 semGive(semSDSSDC);
       } else {
+/*
+ * Read desired information out of the MEI's DSP. This is done is a
+ * slightly sleazy way...
+ * 
+ * The object tmaxis[] is a struct that looks like:
+ * 
+ * struct TM {
+ *    short prev_encoder;
+ *    short current_vel;
+ *    short actual_position_hi;
+ *    unsigned short actual_position_lo;
+ * ...
+ *    short unknown9;
+ *    short prev_encoder2;
+ *    short current_vel2;
+ *    short actual_position2_hi;
+ *    unsigned short actual_position2_lo;
+ *    short status;
+ *    short errcnt;
+ * };
+ * 
+ * The DSP's memory is laid out (in terms of a fictional struct) as:
+ *
+ * struct DSP_TM {
+ *    short prev_encoder;
+ *    short current_vel;
+ *    short actual_position_hi;
+ *    unsigned short actual_position_lo;
+ *    ...
+ *    short unknown9;
+ * } axis[6]
+ *
+ * where sizeof(struct DSP_TM) == DS_SIZE*sizeof(short).
+ *
+ * I.e. struct TM consists of one struct DSP_TM, followed by the first
+ * 4 short words of a second struct DSP_TM, followed by
+ *    short status;
+ *    short errcnt;
+ *
+ * OK?  So the following pcdsp_transfer_block() reads the DSP_TM for
+ * axis 2*i, and then the first 4 shorts of the DSP_TM for axis 2*i + 1.
+ *
+ * Looking at the definition of DATA_STRUCT, it is clear that there's
+ * no extraneous padding, and that this is therefore OK if not clean.
+ *
+ * There is one other issue; the pcdsp_transfer_block actually transfers
+ * blocks in units of TRANSFER_BUFF_SIZE shorts; but as this is 64 there's
+ * no problem with part of the data being read at one time, and part at
+ * another.
+ */
 	 pcdsp_transfer_block(dspPtr,TRUE,FALSE,
 			      DATA_STRUCT(dspPtr, i*2, DS_PREV_ENCODER),
 			      DS_SIZE+4, (unsigned short *)tmaxis[i]);
@@ -307,7 +357,7 @@ slc500_data_collection(unsigned long freq)
    int i;
    static int plc_version_id = -1;	/* plc version in data_collection.h */
    static int plc_version_mismatch = 0;	/* version_id != plc_version_id? */
-   char status[176*2 + 1];
+   char status[184*2 + 1];
    int stat;
 /*
  * gcc complains about this assertion if I don't introduce tmp.
@@ -342,10 +392,10 @@ slc500_data_collection(unsigned long freq)
 	 
 	 stat  = slc_read_blok(1,9,BIT_FILE, 0, (uint *)&status[0], 64);
 	 stat |= slc_read_blok(1,9,BIT_FILE, 64, (uint *)&status[128], 64);
-	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 46);
+	 stat |= slc_read_blok(1,9,BIT_FILE, 128, (uint *)&status[256], 54);
 	 semGive (semSLC);
 
-	 assert(nbyte == (64 + 64 + 46)*sizeof(short));
+	 assert(nbyte == (64 + 64 + 54)*sizeof(short));
 	 assert(status[sizeof(status) - 1] == '\a');
 	 
 	 if(stat == 0) {

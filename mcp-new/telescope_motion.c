@@ -241,6 +241,7 @@ tm_adjust_position(int axis,		/* desired axis */
 {
    int i;
    double position[3];			/* positions of axes; [0] is unused */
+   double vel;				/* velocity of axis */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       TRACE(0, "tm_adjust_position: invalid axis %d", axis, 0);
@@ -255,10 +256,6 @@ tm_adjust_position(int axis,		/* desired axis */
    }
    
    taskLock();
-   
-   for(i = 1; i <= 2; i++) {		/* correct the current error */
-      set_axis_encoder_error(axis, i, offset[i], 1);
-   }
 
    if(get_position_corr(2*axis, &position[1]) != DSP_OK ||
       get_position_corr(2*axis + 1, &position[2]) != DSP_OK) {
@@ -269,17 +266,18 @@ tm_adjust_position(int axis,		/* desired axis */
       return(-1);
    }
 
+   get_velocity(2*axis, &vel);
    for(i = 1; i <= 2; i++) {
       write_fiducial_log("UPDATE_ENCODER", axis, 0, 0, 0, position[i], 0,
-			 get_axis_encoder_error(axis, i), 0);
-      
-      position[i] += get_axis_encoder_error(axis, i); /* include software
-							 correction */
-      set_position_corr(2*axis + (i - 1), position[i]);
+			 vel, 0.0, get_axis_encoder_error(axis, i), i);
 /*
  * zero software correction term
  */
       set_axis_encoder_error(axis, i, -get_axis_encoder_error(axis, i), 0);
+/*
+ * Set raw encoder position to the corrected position
+ */
+      set_position_corr(2*axis + (i - 1), position[i]);
    }
 
    taskUnlock();

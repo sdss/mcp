@@ -54,7 +54,8 @@ extern unsigned long check_encoder_freq; /* frequency to check encoder slip */
 /*****************************************************************************/
 
 void write_fiducial_log(const char *type, int axis, int fididx, int t1, int t2,
-			int pos1, int pos2, float arg0, float arg1);
+			int pos1, int pos2,
+			double arg0, double arg1, long iarg0, long iarg1);
 
 int set_ms_on(int axis);
 int set_ms_off(int axis, float delay);
