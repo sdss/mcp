@@ -241,6 +241,10 @@ tcc_serial(int port)
 	 */
 	log_mcp_command(cmd_type, command_buffer);
 
+	if(answer_buffer == NULL) {
+	   fprintf(stderr,"RHL Command %s returned NULL\n", command_buffer);
+	   answer_buffer = "";
+	}
 	status = sdss_transmit(stream, answer_buffer, "  OK");
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
