@@ -27,7 +27,13 @@ install :
 		echo $(MCP_DIR) "doesn't exist; making it"; \
 		mkdir $(MCP_DIR); \
 	fi
-	@if [ `(cd $(MCP_DIR); pwd)` = `pwd` ]; then \
+	@:
+	@: Check the inode number for . and $(MCP_DIR) to find out if two
+	@: directories are the same\; they may have different names due to
+	@: symbolic links and automounters
+	@:
+	@if [ `ls -id $(MCP_DIR) | awk '{print $$1}'` = \
+				`ls -id . | awk '{print $$1}'` ]; then \
 		echo "The destination directory is the same" \
 			"as the current directory; aborting." >&2; \
 		echo ""; \
