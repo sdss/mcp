@@ -602,6 +602,7 @@ char *
 status_cmd(char *cmd)
 {
    const int axis = ublock->axis_select;
+   double pos, vel;
    double sdss_time;			/* time from sdss_get_time() */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
@@ -621,10 +622,10 @@ status_cmd(char *cmd)
       return(ublock->buff);
    }
 
-   sprintf(ublock->buff, "%f %f %f %ld %f",
-	   (*tmaxis[axis]).actual_position/ticks_per_degree[axis],
-	   (*tmaxis[axis]).velocity/ticks_per_degree[axis],
-	   sdss_time,
+   get_position_corr(2*axis, &pos);
+   get_velocity(2*axis, &vel);
+
+   sprintf(ublock->buff, "%f %f %f %ld %f", pos, vel, sdss_time,
 	   (*(long *)&axis_stat[axis][0] & ~STATUS_MASK), 0.0);
    
    axis_stat[axis][0] = axis_stat[axis][1];
