@@ -1499,10 +1499,31 @@ correct_cmd(char *cmd)			/* NOTUSED */
  * Initialise an array of FIDUCIALS
  */
 static void
-reset_fiducials(struct FIDUCIALS *axis_fiducial, /* fiducials data structure */
-		int n_fiducials)	/* number of fiducials */
+reset_fiducials(int axis)
 {
+   struct FIDUCIALS *axis_fiducial; /* fiducials data structure */
    int i, j;
+   int n_fiducials;			/* number of fiducials */
+
+   switch (axis) {
+    case AZIMUTH:
+      n_fiducials = N_AZ_FIDUCIALS;
+      axis_fiducial = az_fiducial;
+      break;
+    case ALTITUDE:
+      n_fiducials = N_ALT_FIDUCIALS;
+      axis_fiducial = alt_fiducial;
+      break;
+    case INSTRUMENT:
+      n_fiducials = N_ROT_FIDUCIALS;
+      axis_fiducial = rot_fiducial;
+      break;
+    default:
+      fprintf(stderr,"reset_fiducials: illegal axis %d\n", axis);
+      return;
+   }
+   
+   fiducialidx[axis] = -1;
 
    for(i = 0; i < n_fiducials; i++) {
       axis_fiducial[i].markvalid = FALSE;
@@ -1567,7 +1588,7 @@ read_fiducials(const char *file,	/* file to read from */
 /*
  * Initialise fiducials array
  */
-   reset_fiducials(axis_fiducial, n_fiducials);
+   reset_fiducials(axis);
 /*
  * Open file, read header and data, and set fiducials array
  */
@@ -1892,9 +1913,9 @@ tLatchInit(void)
 /*
  * Initialise arrays
  */
-   reset_fiducials(az_fiducial, N_AZ_FIDUCIALS);
-   reset_fiducials(alt_fiducial, N_ALT_FIDUCIALS);
-   reset_fiducials(rot_fiducial, N_ROT_FIDUCIALS);
+   reset_fiducials(AZIMUTH);
+   reset_fiducials(ALTITUDE);
+   reset_fiducials(INSTRUMENT);
 /*
  * Initialise fiducial[] array
  */
