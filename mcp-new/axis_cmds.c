@@ -408,6 +408,22 @@ char *drift_cmd(char *cmd)
 **
 **=========================================================================
 */
+/*
+ * This function is provided so that the dollar-Name:-dollar only
+ * needs to be expanded in one file
+ */
+const char *
+getCvsTagname(void)
+{
+   return "$Name$";
+}
+char *
+version_cmd(char *cmd)			/* NOTUSED */
+{
+   return "mcpVersion=\"$Name$|"  __DATE__ "|" __TIME__ "\"\n";
+}
+
+
 static char *id_ans={"0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Option=xxxx Axes=x"};
 char *id_cmd(char *cmd)
 {
@@ -418,18 +434,10 @@ char *id_cmd(char *cmd)
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   sprintf (id_ans,"%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
-		axis_select,axis_name[axis_select+1],__DATE__,
-		"$Name$",
+		axis_select,axis_name[axis_select+1],__DATE__, getCvsTagname(),
 		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
 		dsp_option()&0xFFF,dsp_axes());
   return id_ans;
-}
-
-
-char *
-version_cmd(char *cmd)			/* NOTUSED */
-{
-   return "mcpVersion=\"$Name$\"\r\n";
 }
 
 /*=========================================================================
