@@ -18,12 +18,14 @@ cd /p/mcpbase
 #
 # Make the links for the MCP directories
 #
-for d in ab bin etc ip mcp-new mei-new util; do
+for d in ab bin etc ip mcp-new mei-new params util; do
     if [ -l $d ]; then 
 	rm $d
     fi
 
-    ln -s $MCP_DIR/$d $d
+    if [ -d $MCP_DIR/$d ]; then
+	ln -s $MCP_DIR/$d $d
+    fi
 done
 #
 # And for required products
