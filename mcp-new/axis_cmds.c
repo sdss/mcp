@@ -373,6 +373,9 @@ init_cmd(char *cmd)
  */
    axis_queue[axis].active = axis_queue[axis].end;
    axis_queue[axis].active = NULL;
+
+   tcc_may_release_semCmdPort = 0;	/* don't allow the TCC
+					   to drop the semCmdPort */
 /*
  * zero the velocity
  */
