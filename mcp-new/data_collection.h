@@ -169,10 +169,18 @@ struct B10_2 {
 	unsigned mcp_t_bar_latch : 1;	
 	unsigned mcp_t_bar_unlatch : 1;	/* bit 16 */
 };
+/*
+ * Pad to make cc happy on irix 6.5
+ */
 struct B10 {
-	struct B10_0 ctrl0;
-	struct B10_1 ctrl1;
-	struct B10_2 ctrl2;
+   union {
+      char dummy[12];
+      struct {
+	 struct B10_0 ctrl0;
+	 struct B10_1 ctrl1;
+	 struct B10_2 ctrl2;
+      } ctrl;
+   } u;
 };
 
 typedef struct {		/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
@@ -935,6 +943,7 @@ struct SDSS_FRAME {
 	unsigned long ascii_len;
 #define ASCII_LEN	80
 	unsigned char ascii[ASCII_LEN];
+	struct B10 b10;
 };
 
 struct AXIS_STAT {
