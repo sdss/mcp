@@ -57,7 +57,6 @@
 /*------------------------------*/
 #include "vxWorks.h"
 #include "types.h"
-/*#include "netdb.h"*/
 #include "inetLib.h"
 #include "stdioLib.h"
 #include "strLib.h"
@@ -69,6 +68,7 @@
 #include "usrLib.h"
 #include "errnoLib.h"
 #include "time.h"
+#include "timers.h"
 
 struct sockaddr_in time_sockaddr;
 char time_msg[100];
@@ -127,6 +127,7 @@ void iptimeGet (char *node)
 void iptimeSet (char *node, int tzadj)
 {
 
+    extern int stime(long *tp);
     int time_s;
     int time_port=13;
     int msglen;
@@ -217,6 +218,6 @@ void iptimeSet (char *node, int tzadj)
     tp.tv_sec += tzadj*3600;  /* for SDSS */     
     tp.tv_usec=0;
     printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_usec);
-    stime (&tp);
+    stime ((long*)&tp);
     clock_settime(CLOCK_REALTIME,(struct timespec *)&tp);
 }

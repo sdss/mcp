@@ -23,12 +23,12 @@
 #include <vxWorks.h>			/* VxWorks types		    */
 #include <time.h>
 #include <timers.h>
-#include "usrtime.h"			/* time structure definitions	    */
 #include <stdioLib.h>			/* VxWorks standard I/O library	    */
 #include <sysLib.h>			/* VxWorks Driver defines	    */
 #include <string.h>			/* VxWorks string types		    */
 #include <limits.h>			/* VxWorks integer limits	    */
 #include <taskLib.h>
+#include "usrtime.h"			/* time structure definitions	    */
 
 #define ASCTM_SIZE	32		/* Size of buffer for asctime()	    */
 #define LCLOFS		28800L		/* Offset in seconds from GMT to PST*/

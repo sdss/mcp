@@ -10,14 +10,17 @@
 /* $Revision$							*/
 /* Created  : 02/28/91							*/
 /************************************************************************/
-/* Modification History:						*/
-/* $Log$
+/* Modification History:						
+ * $Log$
+ * Revision 1.3  2000/01/29 10:25:02  briegel
+ * modified makefile, installed 162 kernel h fileis and deleted unused c files
+ *
  * Revision 1.2  2000/01/26 08:31:07  ekinney
  * Charlie's edits 25 Jan 2000
  *
-/* Revision 1.1.1.1  1999/04/14 14:59:56  yanny
-/* inital rev
-/*
+ * Revision 1.1.1.1  1999/04/14 14:59:56  yanny
+ * inital rev
+ *
  * Revision 1.1.1.1  1999/04/14 05:33:46  spock
  * First entry of the MCP into CVS by matt newcomb
  * I made an attempt to cleanup the origional mcp directory.  It was hard
@@ -47,9 +50,10 @@
 #include <types.h>		/* MBARI standard types		    */
 #include <vxWorks.h>			/* VxWorks includes		    */
 #include <time.h>			/* time structure definitions	    */
-#include <usrTime.h>			/* time structure definitions	    */
+#include <timers.h>			/* time structure definitions	    */
 #include <taskLib.h>			/* VxWorks task definitions	    */
 #include <sysLib.h>			/* VxWorks driver definitions	    */
+#include <usrTime.h>			/* time structure definitions	    */
 
 #include "mv162.h"			/* Hardware defns for MVME-162	    */
 

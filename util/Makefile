@@ -3,12 +3,17 @@
 #
 CPU = MC68040
 
-#FEATURES = -DMICROTIME
-FEATURES =
+HOST = irix
 
-## files and directories
-
-VW		= /usr/vw_52/
+DESTDIR = ./
+MEIDSP = ../mei-new/
+IP = ../ip
+SYSTRAN = ../ip/systran/
+ACROMAG = ../ip/acromag/
+AB = ../ab
+VW = $(VXWORKS_DIR)/
+#VW = /p/vx_dsc/v5_1_1f3/
+#VW = /usr/vw_52/
 VWINC		= $(VW)h/
 CONFIG		= $(VW)/config/mv162/
 VWSYSINC	= $(VWINC)drv/
@@ -24,9 +29,9 @@ VWSYSINCLUDES	= $(CONFIG)mv162.h $(VWINC)drv/multi/mcchip.h
 
 INCLUDES	= $(PROGINCLUDES) $(VWINCLUDES) $(VWSYSINCLUDES)
 
-SOURCES		= usrtime.c rtc.c microtime.c iptime.c auxtime.c getvec.c
+SOURCES		= usrtime.c rtc.c microtime.c iptime.c timer.c
 
-OBJECTS		= iptime.o usrtime.o rtc.o microtime.o auxtime.o getvec.o
+OBJECTS		= iptime.o usrtime.o rtc.o microtime.o timer.o
 
 ALLFILES	= $(MAKEFILE) $(INCLUDES) $(SOURCES)
 
@@ -62,6 +67,9 @@ $(LIBFILE): $(OBJECTS)
 	    $(RM) $(LIBFILE)
 	    $(AR) cru $(LIBFILE) $(OBJECTS)
 	    $(RANLIB) $(LIBFILE)
+	$(LINK) $(LFLAGS) -o  utiltim.out \
+	iptime.o usrtime.o rtc.o microtime.o \
+	>$(DESTDIR)utiltim.map
 
 print	: 
 	  $(PRINT) $(MAKEFILE) $(PROGINCLUDES) $(SOURCES) | lp -opr
@@ -84,19 +92,6 @@ microtime.o : $(INCLUDES) microtime.c
 iptime.o : $(INCLUDES) iptime.c
 	      $(CC) $(CFLAGS) iptime.c
 
-auxtime.o : $(INCLUDES) auxtime.c
-	      $(CC) $(CFLAGS) auxtime.c
-
-getvec.o : $(INCLUDES) getvec.c
-	      $(CC) $(CFLAGS) getvec.c
-
-utiltime.o: $(OBJECTS)
-	$(LINK) $(LFLAGS) -o  utiltime.out \
-	$(OBJECTS) \
-	>$(DESTDIR)utiltime.map
-
-utiltim.out: $(OBJECTS)
-	$(LINK) $(LFLAGS) -o  utiltim.out \
-	iptime.o usrtime.o rtc.o microtime.o \
-	>$(DESTDIR)utiltim.map
+timer.o : $(INCLUDES) timer.c
+	      $(CC) $(CFLAGS) timer.c
 
