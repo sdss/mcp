@@ -430,7 +430,7 @@ void slc500_data_collection(unsigned long freq)
 {
   extern SEM_ID semSLC;
   extern SEM_ID semMEI;
-  char status[152*2];
+  char status[168*2];
   int stat;
   extern int check_stop_in();
   extern int az_amp_ok();
@@ -447,14 +447,14 @@ void slc500_data_collection(unsigned long freq)
     {
       if (semTake (semSLC,60)!=ERROR)
       {
-        stat = slc_read_blok(1,9,0x85,96,(uint *)&status[0],64);
-        stat |= slc_read_blok(1,9,0x85,160,(uint *)&status[128],64);
-        stat |= slc_read_blok(1,9,0x85,224,(uint *)&status[256],32);
+        stat = slc_read_blok(1,9,0x85,0,(uint *)&status[0],64);
+        stat |= slc_read_blok(1,9,0x85,64,(uint *)&status[128],64);
+        stat |= slc_read_blok(1,9,0x85,128,(uint *)&status[256],38);
 	semGive (semSLC);
         if (stat==0)
         {
           taskLock();
-          swab (&status[0],(char *)(&sdssdc.status.i1),160*2);
+          swab (&status[0],(char *)(&sdssdc.status.i1),166*2);
           taskUnlock();
         }
       }
