@@ -1228,15 +1228,24 @@ mcp_move_va(int axis,			/* the axis to move */
  */
    if(fabs(vel) > max_velocity[axis]*sf) {
       printf("AXIS %d: MAX VEL %f exceeded; limit %f\n",
-	     axis, vel/sf, max_acceleration[axis]);
+	     axis, vel/sf, max_velocity[axis]);
       TRACE(2, "Max vel. for %s exceeded: %ld", axis_name(axis), vel);
+      
+      if(fabs(vel) > fabs(max_velocity_requested[axis])) {
+	 max_velocity_requested[axis] = vel;
+      }
+	 
       vel = (vel > 0) ? sf*max_velocity[axis] : -sf*max_velocity[axis]*sf;
    }
    if(fabs(acc) > sf*max_acceleration[axis]) {
       printf("AXIS %d: MAX ACC %f exceeded; limit %f\n",
 	     axis, acc/sf, max_acceleration[axis]);
       TRACE(2, "Max accl. for %s exceeded: %ld", axis_name(axis), acc);
-      
+
+      if(fabs(acc) > fabs(max_acceleration_requested[axis])) {
+	 max_acceleration_requested[axis] = acc;
+      }
+
       acc = (acc > 0) ? sf*max_acceleration[axis] : -sf*max_acceleration[axis];
    }
 /*
