@@ -793,8 +793,10 @@ int tm_az_brake(short val)
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
    extern SEM_ID semSLC;
+/*
    extern struct SDSS_FRAME sdssdc;
    int cnt;
+*/
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -827,6 +829,7 @@ int tm_az_brake(short val)
        return err;
      }
    }
+#ifdef TURNOFF
    if (val==1)
    {
      cnt=120;
@@ -869,9 +872,10 @@ int tm_az_brake(short val)
        }
      }
    }
+   az_cnt=cnt;
+#endif
 /*   printf ("\r\n cnt=%d",cnt);
    tm_brake_status();*/
-   az_cnt=cnt;
    return 0;
 }
 void tm_az_brake_on()
@@ -884,12 +888,12 @@ void tm_az_brake_off()
 }
 void tm_sp_az_brake_on()
 {
-  if (taskIdFigure("tmAzBrk")!=NULL)
+  if (taskIdFigure("tmAzBrk")==ERROR)
     taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_az_brake_off()
 {
-  if (taskIdFigure("tmAzBrk")!=NULL)
+  if (taskIdFigure("tmAzBrk")==ERROR)
     taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -924,8 +928,10 @@ int tm_alt_brake(short val)
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
    extern SEM_ID semSLC;
+/*
    extern struct SDSS_FRAME sdssdc;
    int cnt;
+*/
              
    if (semTake (semSLC,60)!=ERROR)
    {
@@ -958,7 +964,7 @@ int tm_alt_brake(short val)
        return err;
      }
    }
-   cnt=60*4;
+#ifdef TURNOFF
    if (val==1)
    {
      while ((sdssdc.status.i9.il0.alt_brake_en_stat==0)&&(cnt>0))
@@ -970,6 +976,7 @@ int tm_alt_brake(short val)
    }
    else
    {
+     cnt=60*4;
      while ((sdssdc.status.i9.il0.alt_brake_dis_stat==0)&&(cnt>0)) 
      {
        taskDelay(1);
@@ -999,9 +1006,10 @@ int tm_alt_brake(short val)
        }
      }
    }
+   alt_cnt=cnt;
+#endif
 /*   printf ("\r\n cnt=%d",cnt);
    tm_brake_status();*/
-   alt_cnt=cnt;
    return 0;
 }
 void tm_alt_brake_on()
@@ -1014,12 +1022,12 @@ void tm_alt_brake_off()
 }
 void tm_sp_alt_brake_on()
 {
-  if (taskIdFigure("tmAltBrk")!=NULL)
+  if (taskIdFigure("tmAltBrk")==ERROR)
     taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_alt_brake_off()
 {
-  if (taskIdFigure("tmAltBrk")!=NULL)
+  if (taskIdFigure("tmAltBrk")==ERROR)
     taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -1142,7 +1150,7 @@ int tm_clamp(short val)
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
    swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
-   cnt=60*5;
+   cnt=60*7;
    if (val==1) 
    {
      while ((sdssdc.status.i9.il0.clamp_en_stat==0)&&(cnt>0))
@@ -1153,11 +1161,13 @@ int tm_clamp(short val)
      if (sdssdc.status.i9.il0.clamp_en_stat==0) /* did not work */
      {
        tm_ctrl.mcp_clamp_en_cmd = 0;
-       printf ("\r\n Clamp did NOT engage...turning off ");
+       tm_ctrl1.mcp_clamp_dis_cmd = 1;
+       printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
      }
    }
    else
    {
+/*
      while ((sdssdc.status.i9.il0.clamp_dis_stat==0)&&(cnt>0)) 
      {
        taskDelay(1);
@@ -1165,6 +1175,8 @@ int tm_clamp(short val)
      }
      taskDelay(60*4);
      tm_ctrl1.mcp_clamp_dis_cmd = 0;
+*/
+     return 0;
    }
    swab ((char *)&tm_ctrl,(char *)&ctrl[0],2);
    swab ((char *)&tm_ctrl1,(char *)&ctrl[1],2);
@@ -1193,19 +1205,18 @@ void tm_clamp_off()
 }
 void tm_sp_clamp_on()
 {
-  if (taskIdFigure("tmClamp")!=NULL)
+  if (taskIdFigure("tmClamp")==ERROR)
     taskSpawn("tmClamp",90,0,1000,(FUNCPTR)tm_clamp,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_clamp_off()
 {
-  if (taskIdFigure("tmClamp")!=NULL)
+  if (taskIdFigure("tmClamp")==ERROR)
     taskSpawn("tmClamp",90,0,1000,(FUNCPTR)tm_clamp,0,0,0,0,0,0,0,0,0,0);
 }
 int tm_clamp_status()
 {
   int err;
-  unsigned short ctrl[0];
-  struct B10_0 tm_ctrl;   
+  unsigned short ctrl[2],sctrl[2];
   extern SEM_ID semSLC;
 
   if (semTake (semSLC,60)!=ERROR)
@@ -1218,8 +1229,9 @@ int tm_clamp_status()
       return err;
     }
   }
-  swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
-  printf (" read ctrl = 0x%04x 0x%4x\r\n",ctrl[0],ctrl[1]);
+  swab ((char *)&ctrl[0],(char *)&sctrl[0],2);
+  swab ((char *)&ctrl[1],(char *)&sctrl[1],2);
+  printf (" read ctrl = 0x%4x 0x%4x\r\n",sctrl[0],sctrl[1]);
   return 0;
 }
 /*=========================================================================
@@ -1328,12 +1340,12 @@ void tm_slit_close(int door)
 }
 void tm_sp_slit_open(int door)
 {
-  if (taskIdFigure("tmSlit")!=NULL)
+  if (taskIdFigure("tmSlit")==ERROR)
     taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_open,door,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_slit_close(int door)
 {
-  if (taskIdFigure("tmSlit")!=NULL)
+  if (taskIdFigure("tmSlit")==ERROR)
     taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_close,door,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -1413,12 +1425,12 @@ void tm_cart_unlatch(int door)
 }
 void tm_sp_cart_latch(int door)
 {
-  if (taskIdFigure("tmCart")!=NULL)
+  if (taskIdFigure("tmCart")==ERROR)
     taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_latch,door,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_cart_unlatch(int door)
 {
-  if (taskIdFigure("tmCart")!=NULL)
+  if (taskIdFigure("tmCart")==ERROR)
     taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_unlatch,door,0,0,0,0,0,0,0,0,0);
 }
 int tm_slit_status()
@@ -1533,12 +1545,12 @@ void tm_ffs_close()
 }
 void tm_sp_ffs_open()
 {
-  if (taskIdFigure("tmFFS")!=NULL)
+  if (taskIdFigure("tmFFS")==ERROR)
     taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_ffs_close()
 {
-  if (taskIdFigure("tmFFS")!=NULL)
+  if (taskIdFigure("tmFFS")==ERROR)
     taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -1608,12 +1620,12 @@ void tm_ffl_off()
 }
 void tm_sp_ffl_on()
 {
-  if (taskIdFigure("tmFFL")!=NULL)
+  if (taskIdFigure("tmFFL")==ERROR)
     taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_ffl_off()
 {
-  if (taskIdFigure("tmFFL")!=NULL)
+  if (taskIdFigure("tmFFL")==ERROR)
     taskSpawn("tmFFL",90,0,1000,(FUNCPTR)tm_ffl,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -1683,12 +1695,12 @@ void tm_neon_off()
 }
 void tm_sp_neon_on()
 {
-  if (taskIdFigure("tmNeon")!=NULL)
+  if (taskIdFigure("tmNeon")==ERROR)
     taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_neon_off()
 {
-  if (taskIdFigure("tmNeon")!=NULL)
+  if (taskIdFigure("tmNeon")==ERROR)
     taskSpawn("tmNeon",90,0,1000,(FUNCPTR)tm_neon,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -1758,12 +1770,12 @@ void tm_hgcd_off()
 }
 void tm_sp_hgcd_on()
 {
-  if (taskIdFigure("tmHgCd")!=NULL)
+  if (taskIdFigure("tmHgCd")==ERROR)
     taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_hgcd_off()
 {
-  if (taskIdFigure("tmHgCd")!=NULL)
+  if (taskIdFigure("tmHgCd")==ERROR)
     taskSpawn("tmHgCd",90,0,1000,(FUNCPTR)tm_hgcd,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
@@ -1956,14 +1968,14 @@ void tm_amp_mgt()
         if (((state=tm_axis_state(0))>2)&&(state!=STOP_EVENT))
         {
 	  printf("\r\nMGT: bad az state %d",state);
-          tm_sp_az_brake_on();
+          tm_az_brake_on();
 	  monitor_axis[0]=FALSE;
         }
         if (!az_amp_ok())
         {
 	  printf("\r\nMGT: bad az amp");
           tm_controller_idle(0);
-          tm_sp_az_brake_on();
+          tm_az_brake_on();
 	  monitor_axis[0]=FALSE;
         }
       }
@@ -1975,14 +1987,14 @@ void tm_amp_mgt()
         if (((state=tm_axis_state(2))>2)&&(state!=STOP_EVENT))
         {
 	  printf("\r\nMGT: bad alt state %d",state);
-          tm_sp_alt_brake_on();
+          tm_alt_brake_on();
   	  monitor_axis[1]=FALSE;
         }
         if (!alt_amp_ok())
         {
 	  printf("\r\nMGT: bad alt amp");
           tm_controller_idle(2);
-          tm_sp_alt_brake_on();
+          tm_alt_brake_on();
 	  monitor_axis[1]=FALSE;
         }
       }

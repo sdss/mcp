@@ -560,7 +560,7 @@ void balance (int cw, int inst)
 	return;
       }
       cnt++;
-      if (cnt%(cw_inst[inst].updates_per_sec*4)==0)
+      if (cnt%(cw_inst[inst].updates_per_sec*6)==0)
       {
         if (delta>(last_error-4))
         {
@@ -1194,7 +1194,7 @@ void cw_list (int inst)
 
   if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
   {
-    printf ("\r\nINST %d (%s):",inst, inst_name[inst]);
+/*    printf ("\r\nINST %d (%s):",inst, inst_name[inst]);*/
     for (i=0;i<4;i++) printf ("\r\n CW %d POS SETTING=%d (%6.4f\" %4.2fv)",i,
 	cw_inst[inst].pos_setting[i],
 	(24*cw_inst[inst].pos_setting[i])/(2048*0.7802),
@@ -1287,7 +1287,7 @@ void cw_set_position (int inst, double p1, double p2, double p3, double p4)
      if ((p2<0.0)||(p2>24.)) return;
      if ((p3<0.0)||(p3>24.)) return;
      if ((p4<0.0)||(p4>24.)) return;
-     printf ("\r\nINST %d: p1=%f, p2=%f, p3=%f, p4=%f",inst,p1,p2,p3,p4);
+/*     printf ("\r\nINST %d: p1=%f, p2=%f, p3=%f, p4=%f",inst,p1,p2,p3,p4);*/
      cw_inst[inst].pos_setting[0]=(short)((p1/24.)*(2048*0.7802));
      cw_inst[inst].pos_current[0]=0;
      cw_inst[inst].pos_error[0]=0;
@@ -1310,7 +1310,7 @@ void cw_set_positionv (int inst, short p1, short p2, short p3, short p4)
      if ((p2<0)||(p2>1000)) return;
      if ((p3<0)||(p3>1000)) return;
      if ((p4<0)||(p4>1000)) return;
-     printf ("\r\nINST %d: p1=%d, p2=%d, p3=%d, p4=%d",inst,p1,p2,p3,p4);
+/*     printf ("\r\nINST %d: p1=%d, p2=%d, p3=%d, p4=%d",inst,p1,p2,p3,p4);*/
      cw_inst[inst].pos_setting[0]=(short)(p1*2.048);
      cw_inst[inst].pos_current[0]=0;
      cw_inst[inst].pos_error[0]=0;
