@@ -1,5 +1,6 @@
 * text=auto !eol
 /.login -text
+/Makefile -text
 ab/Makefile -text
 ab/abdh.h -text
 ab/dhpd.c -text
