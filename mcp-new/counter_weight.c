@@ -196,12 +196,12 @@ Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 #define INST_CAMERA	0
 #define INST_FIBER	1
 #define INST_EMPTY	2
-#define INST_4		4
-#define INST_5		5
-#define INST_6		6
-#define INST_7		7
-#define INST_8		8
-#define INST_9		9
+#define INST_SPC_COR_CART		4
+#define INST_SPC			5
+#define INST_SPC_COR			6
+#define INST_SPC_ENGCAM			7
+#define INST_SPC_ENGCAM_COR		8
+#define INST_SPC_IMGCAM			9
 #define INST_10		10
 #define INST_11		11
 #define INST_12		12
@@ -209,9 +209,9 @@ Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 #define INST_14		14
 #define INST_15		15
 #define INST		17
-char *inst_name[]={"CAMERA","FIBER","EMPTY","INST3",
-			"INST4","INST5","INST6","INST7",
-			"INST8","INST9","INST10","INST11",
+char *inst_name[]={"CAMERA","FIBER","EMPTY","SCC",
+			"S","SC","SE","SEC",
+			"SI","INST9","INST10","INST11",
 			"INST12","INST13","INST14","INST15",
 			"INSTDEF"};
 #define CW_0		0
@@ -251,12 +251,12 @@ struct CW_LOOP {
 struct CW_LOOP	cw_inst[] = {	{   50,    50,   50,   50},	/*CAMERA*/
 				{0x400, 0x400,0x400,0x400},	/*FIBER	*/
 				{ 1432,  1470, 1470, 1470},	/*EMPTY	*/
-				{0x200, 0x200,0x200,0x200},	/*INST3	*/
-				{0x200, 0x200,0x200,0x200},	/*INST4 */
-				{0x200, 0x200,0x200,0x200},	/*INST5 */
-				{0x200, 0x200,0x200,0x200},	/*INST6 */
-				{0x200, 0x200,0x200,0x200},	/*INST7 */
-				{0x200, 0x200,0x200,0x200},	/*INST8 */
+				{  290,   290,  290,  290},	/*SCC	*/
+				{  150,   150,  150,  150},	/*S     */
+				{  220,   220,  220,  220},	/*SC    */
+				{  115,   115,  115,  115},	/*SE    */
+				{  425,   425,  425,  425},	/*SEC   */
+				{  690,   690,  690,  690},	/*SI    */
 				{0x200, 0x200,0x200,0x200},	/*INST9 */
 				{0x200, 0x200,0x200,0x200},	/*INST10*/
 				{0x200, 0x200,0x200,0x200},	/*INST11*/
