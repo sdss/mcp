@@ -2,6 +2,7 @@
 #include <intLib.h>
 #include <iv.h>
 #include "ip480.h"
+#include "acromag.h"
 
 /*
  * VxWork's INUM_TO_IVEC uses (VOIDFUNCPTR*) cast for intConnect(), but
