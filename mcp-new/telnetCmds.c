@@ -39,84 +39,6 @@ SEM_ID semPleaseGiveCmdPort = NULL;	/* semaphore to request its owner
 
 /*****************************************************************************/
 /*
- * Return 1 if the command should only be permitted to the holder of the
- * semCmdPort semaphore, otherwise 0.  Only check first word of command
- */
-static int
-locked_command0(const char *cmd)
-{
-   char cmd0[100];			/* copy of initial word of cmd */
-   int i;
-
-   for(i = 0; cmd[i] != '\0' && !isspace(cmd[i]); i++) {
-      cmd0[i] = cmd[i];
-   }
-   assert(i < 100 - 1);
-   cmd0[i] = '\0';
-
-   if(isdigit(cmd0[0]) ||
-      strcmp(cmd0, "AXIS.STATUS") == 0 ||
-      strcmp(cmd0, "ID") == 0 ||
-      strcmp(cmd0, "MC.DUMP") == 0 ||
-      strcmp(cmd0, "MR.DUMP") == 0 ||
-      strcmp(cmd0, "MS.DUMP") == 0 ||
-      strcmp(cmd0, "MS.MAP.DUMP") == 0 ||
-      strcmp(cmd0, "MS.POS.DUMP") == 0 ||
-      strcmp(cmd0, "STATS") == 0 ||
-      strcmp(cmd0, "STATUS.LONG") == 0 ||
-      strcmp(cmd0, "STATUS") == 0 ||
-      strcmp(cmd0, "IR") == 0 ||
-      strcmp(cmd0, "TEL1") == 0 ||
-      strcmp(cmd0, "TEL2") == 0 ||
-      strcmp(cmd0, "TICKLOST @ .") == 0 ||
-      strcmp(cmd0, "SP1") == 0 ||
-      strcmp(cmd0, "SP2") == 0 ||
-      strcmp(cmd0, "SLIT.STATUS") == 0 ||
-      strcmp(cmd0, "FFS.CLOSE") == 0 ||
-      strcmp(cmd0, "FFS.OPEN") == 0 ||
-      strcmp(cmd0, "FF.ON") == 0 ||
-      strcmp(cmd0, "FF.OFF") == 0 ||
-      strcmp(cmd0, "FFL.ON") == 0 ||
-      strcmp(cmd0, "FFL.OFF") == 0 ||
-      strcmp(cmd0, "NE.ON") == 0 ||
-      strcmp(cmd0, "NE.OFF") == 0 ||
-      strcmp(cmd0, "HGCD.ON") == 0 ||
-      strcmp(cmd0, "HGCD.OFF") == 0 ||
-      strcmp(cmd0, "FF.STATUS") == 0 ||
-      strcmp(cmd0, "CW.STATUS") == 0 ||
-      strcmp(cmd0, "AB.STATUS") == 0 ||
-      strcmp(cmd0, "SYSTEM.STATUS") == 0 ||
-      strcmp(cmd0, "VERSION") == 0) {
-      return(0);
-   }
-   
-   return(1);
-}
-
-/*
- * See if any word in a command string is locked
- */
-STATIC int
-locked_command(const char *cmd)
-{
-   const char *ptr = cmd;
-
-   for(;;) {
-      if(locked_command0(ptr)) {
-	 return(1);
-      }
-
-      if((ptr = strpbrk(ptr, " \t\n")) == NULL) {
-	 break;
-      }
-      while(isspace(*ptr)) ptr++;
-   }
-
-   return(0);
-}
-
-/*****************************************************************************/
-/*
  * The task that does the work of reading commands and executing them
  */
 int client_pid = -1;			/* Process ID of connected process */
@@ -129,6 +51,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    char cmd[MSG_SIZE];			/* buffer to read messages */
    int took_semCmdPort = 0;		/* did we take semCmdPort? */
    int n;				/* number of bytes read */
+   int nerr;				/* number of consecutive errors seen */
    const int port = ntohs(client->sin_port); /* the port they connected on */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
@@ -150,23 +73,20 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 if(errno != 0) {
 	    fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
 	 }
-	 if(errno != S_taskLib_NAME_NOT_FOUND &&
+	 if(nerr < 10 && errno != S_taskLib_NAME_NOT_FOUND &&
 	    errno != S_objLib_OBJ_TIMEOUT) {
+	    taskDelay(5);
 	    break;
 	 }
+	 nerr++;
       } else if(n == 0) {
 	 if(errno != 0) {
 	    fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
 	 }
       }
+      nerr = 0;				/* number of error seen */
       
       cmd[n] = '\0';
-/*
- * uppercase all commands
- */
-      for(ptr = cmd; *ptr != '\0'; ptr++) {
-	 if(islower(*ptr)) { *ptr = toupper(*ptr); }
-      }
 /*
  * See if we can take semPleaseGiveCmdPort; if we cannot someone else
  * has taken it, so give the semCmdPort if we have it
@@ -271,6 +191,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	       if(semMGiveForce(semCmdPort) == OK) {
 		  took_semCmdPort = 0;
 	       }
+	       (void)semMGiveForce(semMEIUPD);
 	    }
 	    
 	    sprintf(buff, "Unable to give semaphore: %s",
@@ -298,17 +219,14 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    telnetInit();		/* restart the telnet daemon */
 	    reply = "restarted the tTelnetd";
 	 }
-      } else if(!locked_command(cmd)) {
-	 reply = cmd_handler(took_semCmdPort, cmd);
       } else {
-	 if(took_semCmdPort) {
-	    reply = cmd_handler(took_semCmdPort, cmd);
-	 } else {
-	    reply = "I don't have the semCmdPort semaphore";
-	 }
+	 reply = cmd_handler(took_semCmdPort, cmd);
       }
 
-      assert(reply != NULL);
+      if(reply == NULL) {
+	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0);
+	 reply = "";
+      }
       TRACE(16, "PID %d: reply = %s", client_pid, reply)
 
       ptr = reply + strlen(reply) - 1;	/* strip trailing white space */
