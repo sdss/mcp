@@ -10,6 +10,7 @@
 #include <time.h>
 #include <errno.h>
 #include "mcpNtp.h"
+#include "tod_prototypes.h"
 #include "iv.h"
 #include "gendefs.h"
 #include "mcpTimers.h"
@@ -141,7 +142,7 @@ print_time_changes(void)
 }
 
 void
-setSDSStimeFromNTP(int quiet, int set)
+new_setSDSStimeFromNTP(int quiet, int set)
 {
    const char *ntpServer = "tcc25m.apo.nmsu.edu";
    const char *utcServer = "utc-time.apo.nmsu.edu";
@@ -160,11 +161,16 @@ setSDSStimeFromNTP(int quiet, int set)
       return;
    }
    if(setTimeFromNTP(utcServer, 0, 1, 0, &utc) < 0) {
-      TRACE(0, "failed to get time from %s: %s", ntpServer, strerror(errno));
+      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno));
       return;
    }
-   leapSeconds =
-     (utc.tv_sec + 1e-6*utc.tv_usec) - (tai.tv_sec + 1e-6*tai.tv_usec) + 0.5;
+   settimeofday(&utc, NULL);		/* synchronise the clock to UTC */
+
+   {
+      float fleapSeconds =
+	(utc.tv_sec + 1e-6*utc.tv_usec) - (tai.tv_sec + 1e-6*tai.tv_usec);
+      leapSeconds = fleapSeconds + ((fleapSeconds > 0) ? +0.5 : -0.5);
+   }
 /*
  * Wait until we are more than 50ms away from a GPS tick
  */
@@ -173,6 +179,7 @@ setSDSStimeFromNTP(int quiet, int set)
       sdss_frac_s = sdss_time - (int)sdss_time;
    }
    if(sdss_frac_s > 0.95) {
+      fprintf(stderr,"RHL Delaying %d\n", (int)(60*(1.0 - sdss_frac_s) + 5));
       taskDelay((int)(60*(1.0 - sdss_frac_s) + 5));
    }
 
@@ -218,6 +225,9 @@ old_setSDSStimeFromNTP(int quiet, int set)
 
    setTimeFromNTP("utc-time.apo.nmsu.edu", 0, 1, 0, NULL);
 }
+
+
+void (*setSDSStimeFromNTP)(int quiet, int set) = new_setSDSStimeFromNTP; /* RHL XXX */
 
 int use_NTP = 1;			/* get time from NTP not the TCC */
 
