@@ -40,6 +40,10 @@
 #define AZ_TICKS_DEG	(3600/AZ_TICK)
 #define ALT_TICKS_DEG	(3600/ALT_TICK)
 #define ROT_TICKS_DEG	(3600/ROT_TICK)
+/*
+ * Dynamically switch PID coefficients?
+ */
+#define SWITCH_PID_COEFFS 0
 
 /* function prototypes */
 char *reboot_cmd(char *cmd);
@@ -141,13 +145,14 @@ struct FIDUCIALS {
    };
 #endif
 
-void set_rot_coeffs (int state, int index, short val);
-void print_rot_coeffs (void);
-void set_rot_uplimit (int state, int val);
-void set_rot_dnlimit (int state, int val);
-void set_rot_state (int state);
-int coeffs_state_deg (int axis, double degs);
-int coeffs_state_cts (int axis, int cts);
+void set_rot_state(int state);
+#if SWITCH_PID_COEFFS
+void set_rot_coeffs(int state, int index, short val);
+void print_rot_coeffs(void);
+void set_rot_uplimit(int state, int val);
+void set_rot_dnlimit(int state, int val);
+int coeffs_state_cts(int axis, int cts);
+#endif
 double sdss_get_time(void);
 double get_time(void);
 void amp_reset(int axis);
@@ -161,7 +166,7 @@ int mcp_set_vel(int axis, double vel);
 int mcp_set_fiducial(int axis);
 int mcp_set_brake(int axis);
 int mcp_unset_brake(int axis);
-int mcp_halt(int axis);
+int mcp_hold(int axis);
 int mcp_amp_reset(int axis);
 int mcp_cw_abort(void);
 int mcp_set_cw(int inst, int cw, int cwpos, const char **ans);
