@@ -1490,8 +1490,6 @@ mcp_move(int axis,			/* the axis to move */
 
       if(sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
 	 if(frame != NULL) free(frame);
-	 printf("MOVE CMD: %s bad time=%f real time=%f\n",
-		axis_name(axis), frame->end_time, sdss_get_time());
 	 TRACE(0, "MOVE CMD: requested time=%f", frame->end_time, 0);
 	 TRACE(0, "            current time=%f", sdss_get_time(), 0);
 	 traceMode(0);			/* XXX */
