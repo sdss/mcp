@@ -35,6 +35,7 @@
 #include "tm.h"
 #include "cw.h"
 #include "instruments.h"
+#include "dscTrace.h"
 
 /*-------------------------------------------------------------------------
 **
@@ -830,14 +831,14 @@ void
 tm_sp_az_brake_on()
 {
   if (taskIdFigure("tmAzBrk")==ERROR)
-    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,1,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAzBrk",90,0,2000,(FUNCPTR)tm_az_brake,1,0,0,0,0,0,0,0,0,0);
 }
 
 void
 tm_sp_az_brake_off()
 {
   if (taskIdFigure("tmAzBrk")==ERROR)
-    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAzBrk",90,0,2000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
 }
 /*=========================================================================
 **=========================================================================
@@ -870,19 +871,23 @@ int tm_alt_brake(short val)
    int err;
    unsigned short ctrl;
    struct B10_0 tm_ctrl;   
-   
+
+   TRACE(10, "Taking semaphore", 0, 0);
    if (semTake(semSLC,60) == ERROR) {
       printf("tm_alt_brake: unable to take semaphore: %s", strerror(errno));
       return(-1);
    }
    
+   TRACE(10, "Reading blok", 0, 0);
    err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
    if(err) {
       printf ("R Err=%04x\r\n",err);
       semGive(semSLC);
       return err;
    }
-   swab ((char *)&ctrl,(char *)&tm_ctrl,2);
+   TRACE(10, "Read 0x%x", *(int *)&ctrl, 0);
+   swab ((char *)&ctrl,(char *)&ctrl,2);
+   TRACE(10, "Swapped to 0x%x", *(int *)&tm_ctrl, 0);
 
    if(val == 1) {
       tm_ctrl.mcp_alt_brk_en_cmd = 1;
@@ -892,6 +897,8 @@ int tm_alt_brake(short val)
       tm_ctrl.mcp_alt_brk_dis_cmd = 1;
    }
 
+   TRACE(10, "Swapping back", 0, 0);
+
    swab ((char *)&tm_ctrl,(char *)&ctrl,2);
    err = slc_write_blok(1,10,BIT_FILE,0,&ctrl,1);
    semGive (semSLC);
@@ -900,6 +907,7 @@ int tm_alt_brake(short val)
       return err;
    }
 
+   TRACE(10, "returning", 0, 0);
 #ifdef TURNOFF
    if(val == 1) {
       while(sdssdc.status.i9.il0.alt_brake_en_stat == 0 && cnt > 0) {
@@ -961,14 +969,14 @@ void
 tm_sp_alt_brake_on()
 {
   if (taskIdFigure("tmAltBrk")==ERROR)
-    taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,1,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAltBrk",90,0,2000,(FUNCPTR)tm_alt_brake,1,0,0,0,0,0,0,0,0,0);
 }
 
 void
 tm_sp_alt_brake_off()
 {
    if (taskIdFigure("tmAltBrk")==ERROR)
-     taskSpawn("tmAltBrk",90,0,1000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
+     taskSpawn("tmAltBrk",90,0,2000,(FUNCPTR)tm_alt_brake,0,0,0,0,0,0,0,0,0,0);
 }
 
 /*=========================================================================
@@ -1144,12 +1152,12 @@ void tm_clamp_off()
 void tm_sp_clamp_on()
 {
   if (taskIdFigure("tmClamp")==ERROR)
-    taskSpawn("tmClamp",90,0,1000,(FUNCPTR)tm_clamp,1,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmClamp",90,0,2000,(FUNCPTR)tm_clamp,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_clamp_off()
 {
   if (taskIdFigure("tmClamp")==ERROR)
-    taskSpawn("tmClamp",90,0,1000,(FUNCPTR)tm_clamp,0,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmClamp",90,0,2000,(FUNCPTR)tm_clamp,0,0,0,0,0,0,0,0,0,0);
 }
 int tm_clamp_status()
 {
@@ -1271,15 +1279,35 @@ void tm_slit_close(int door)
 {
     tm_slit (0+(door*3));
 }
-void tm_sp_slit_open(int door)
+
+void
+tm_sp_slit_clear(int door)
 {
-  if (taskIdFigure("tmSlit")==ERROR)
-    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_open,door,0,0,0,0,0,0,0,0,0);
+   if(taskIdFigure("tmSlit") == ERROR) {
+      taskSpawn("tmSlit",90,0,2000,
+		(FUNCPTR)tm_slit_clear, door,
+		0,0,0,0,0,0,0,0,0);
+   }
 }
-void tm_sp_slit_close(int door)
+
+void
+tm_sp_slit_open(int door)
 {
-  if (taskIdFigure("tmSlit")==ERROR)
-    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit_close,door,0,0,0,0,0,0,0,0,0);
+   if(taskIdFigure("tmSlit") == ERROR) {
+      taskSpawn("tmSlit",90,0,2000,
+		(FUNCPTR)tm_slit_open, door,
+		0,0,0,0,0,0,0,0,0);
+   }
+}
+
+void
+tm_sp_slit_close(int door)
+{
+   if(taskIdFigure("tmSlit") == ERROR) {
+      taskSpawn("tmSlit",90,0,2000,
+		(FUNCPTR)tm_slit_close, door,
+		0,0,0,0,0,0,0,0,0);
+   }
 }
 /*=========================================================================
 **=========================================================================
@@ -1368,6 +1396,7 @@ void tm_sp_cart_unlatch(int door)
   if (taskIdFigure("tmCart")==ERROR)
     taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart_unlatch,door,0,0,0,0,0,0,0,0,0);
 }
+
 int
 tm_slit_status()
 {
@@ -1399,22 +1428,86 @@ tm_slit_status()
   printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
 	sdssdc.status.i1.il9.slit_head_door1_opn,
 	sdssdc.status.i1.il9.slit_head_door1_cls,
-	sdssdc.status.i1.il9.slit_head_latch1_opn);
+	sdssdc.status.i1.il9.slit_head_latch1_ext);
   printf ("\r\n slit_door2_opn=%d, slit_door2_cls=%d, cart_latch2_opn=%d",
 	sdssdc.status.i1.il9.slit_head_door2_opn,
 	sdssdc.status.i1.il9.slit_head_door2_cls,
-	sdssdc.status.i1.il9.slit_head_latch2_opn);
-  printf ("\r\n slit_dr1_opn_perm=%d, slit_dr1_cls_perm=%d, slit_latch1_opn_perm=%d",
+	sdssdc.status.i1.il9.slit_head_latch2_ext);
+  printf ("\r\n slit_dr1_ext_perm=%d, slit_dr1_cls_perm=%d, slit_latch1_ext_perm=%d",
 	sdssdc.status.o1.ol9.slit_dr1_opn_perm,
 	sdssdc.status.o1.ol9.slit_dr1_cls_perm,
-	sdssdc.status.o1.ol9.slit_latch1_opn_perm);
-  printf ("\r\n slit_dr2_opn_perm=%d, slit_dr2_cls_perm=%d, slit_latch2_opn_perm=%d",
+	sdssdc.status.o1.ol9.slit_latch1_ext_perm);
+  printf ("\r\n slit_dr2_opn_perm=%d, slit_dr2_cls_perm=%d, slit_latch2_ext_perm=%d",
 	sdssdc.status.o1.ol9.slit_dr2_opn_perm,
 	sdssdc.status.o1.ol9.slit_dr2_cls_perm,
-	sdssdc.status.o1.ol9.slit_latch2_opn_perm);
+	sdssdc.status.o1.ol9.slit_latch2_ext_perm);
 
   return 0;
 }
+
+/*
+ * Commands to control the spectrograph doors/latches
+ */
+int
+mcp_slit_clear(int spec)
+{
+   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+      return(-1);
+   }
+   
+   tm_sp_slit_clear(spec);
+
+   return(0);
+}
+
+int
+mcp_slit_open(int spec)
+{
+   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+      return(-1);
+   }
+   
+   tm_sp_slit_open(spec);
+
+   return(0);
+}
+
+int
+mcp_slit_close(int spec)
+{
+   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+      return(-1);
+   }
+   
+   tm_sp_slit_close(spec);
+
+   return(0);
+}
+
+int
+mcp_slithead_latch_open(int spec)
+{
+   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+      return(-1);
+   }
+   
+   tm_cart_unlatch(spec);
+
+   return(0);
+}
+
+int
+mcp_slithead_latch_close(int spec)
+{
+   if(spec != SPECTOGRAPH1 && spec != SPECTOGRAPH2) {
+      return(-1);
+   }
+   
+   tm_cart_latch(spec);
+
+   return(0);
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1508,12 +1601,12 @@ void tm_ffs_close()
 void tm_sp_ffs_open()
 {
   if (taskIdFigure("tmFFS")==ERROR)
-    taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,1,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmFFS",90,0,2000,(FUNCPTR)tm_ffs,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_ffs_close()
 {
   if (taskIdFigure("tmFFS")==ERROR)
-    taskSpawn("tmFFS",90,0,1000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmFFS",90,0,2000,(FUNCPTR)tm_ffs,0,0,0,0,0,0,0,0,0,0);
 }
 int tm_ffs_open_status()
 {
@@ -1768,76 +1861,6 @@ void tm_sp_hgcd_off()
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: tm_ff_status
-**
-** DESCRIPTION:
-**      Prints the flat field status for a diagnostic
-**
-** RETURN VALUES:
-**      always zero
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
-int tm_ff_status()
-{
-  char open[]={' ','O'};
-  char close[]={' ','C'};
-  char *oo[]={"Off"," On"};
-
-  printf ("\r\nLeaf 01 02 03 04 05 06 07 08");
-  printf ("\r\n  FF %c%c  %c%c %c%c %c%c %c%c  %c%c %c%c %c%c",
-	open[sdssdc.status.i1.il13.leaf_1_open_stat],
-	close[sdssdc.status.i1.il13.leaf_1_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_2_open_stat],
-	close[sdssdc.status.i1.il13.leaf_2_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_3_open_stat],
-	close[sdssdc.status.i1.il13.leaf_3_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_4_open_stat],
-	close[sdssdc.status.i1.il13.leaf_4_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_5_open_stat],
-	close[sdssdc.status.i1.il13.leaf_5_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_6_open_stat],
-	close[sdssdc.status.i1.il13.leaf_6_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_7_open_stat],
-	close[sdssdc.status.i1.il13.leaf_7_closed_stat],
-	open[sdssdc.status.i1.il13.leaf_8_open_stat],
-	close[sdssdc.status.i1.il13.leaf_8_closed_stat]
-  );
-  printf ("\r\nLamp  01  02  03  04");
-  printf ("\r\n  FF %s %s %s %s",
-	oo[sdssdc.status.i1.il13.ff_1_stat],
-	oo[sdssdc.status.i1.il13.ff_2_stat],
-	oo[sdssdc.status.i1.il13.ff_3_stat],
-	oo[sdssdc.status.i1.il13.ff_4_stat]
-  );
-  printf ("\r\n  Ne %s %s %s %s",
-	oo[sdssdc.status.i1.il13.ne_1_stat],
-	oo[sdssdc.status.i1.il13.ne_2_stat],
-	oo[sdssdc.status.i1.il13.ne_3_stat],
-	oo[sdssdc.status.i1.il13.ne_4_stat]
-  );
-  printf ("\r\nHgCd %s %s %s %s",
-	oo[sdssdc.status.i1.il13.hgcd_1_stat],
-	oo[sdssdc.status.i1.il13.hgcd_2_stat],
-	oo[sdssdc.status.i1.il13.hgcd_3_stat],
-	oo[sdssdc.status.i1.il13.hgcd_4_stat]
-  );
-  printf("\n\rff_screen_open_pmt=%d",sdssdc.status.o1.ol14.ff_screen_open_pmt);
-  printf("\n\rff_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ff_lamps_on_pmt);
-  printf("\n\rne_lamps_on_pmt=%d",sdssdc.status.o1.ol14.ne_lamps_on_pmt);
-  printf("\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
-  printf ("\r\n");
-  return 0;
-}
-/*=========================================================================
-**=========================================================================
-**
 ** ROUTINE: az_amp_ok
 **	    alt_amp_ok
 **	    rot_amp_ok
@@ -1925,7 +1948,7 @@ int rot_amp_ok()
 #define TM_WD		4		/* WD channel    15 */
 void mgt_shutdown(int type)
 {
-    printf("\r\nmgt: Safely halt the telescope by braking AZ and ALT");
+    printf("mgt: Safely halt the telescope by braking AZ and ALT\n");
     tm_az_brake_on();
     tm_alt_brake_on();
 }
