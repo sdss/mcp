@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <mv162.h>
 #include "timer.h"
+#include "dscTrace.h"
 
 #define	MCC(off)		(*(unsigned long*)(MCC_BASE_ADRS + (off)))
 
@@ -53,8 +54,10 @@ static void initStats(void)
   This function is activated by the timer interrupt. It calls the user-
   supplied function and then resets the interrupt status.
 ----------------------------------------------------------------------------*/
-static void intRoutine()
+static void
+intRoutine()
 {
+   TRACE0(16, "intRoutine: intFunc = %p", intFunc, 0);
 	stat.totalInterrupts++;
 
 	if (intFunc)
