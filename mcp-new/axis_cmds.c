@@ -49,7 +49,9 @@
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
+#include <assert.h>
 #include <string.h>
+#include <ctype.h>
 #include "vxWorks.h"                            
 #include "wdLib.h"
 #include "semLib.h"
@@ -127,7 +129,7 @@ struct DIAG_Q {
 ** GLOBAL VARIABLES
 */
 FILE *fidfp=NULL;
-int latchidx=0;
+static int latchidx=0;
 int LATCH_error=FALSE;
 int LATCH_verbose=FALSE;
 #define MAX_LATCHED	2000
@@ -435,19 +437,39 @@ char *drift_cmd(char *cmd)
 **
 **=========================================================================
 */
-/*
- * This function is provided so that the dollar-Name:-dollar only
- * needs to be expanded in one file
- */
-const char *
-getCvsTagname(void)
+
+void
+mcpVersion(void)
 {
-   return "$Name$";
-}
-char *
-version_cmd(char *cmd)			/* NOTUSED */
-{
-   return "mcpVersion=\"$Name$|"  __DATE__ "|" __TIME__ "\"\n";
+   int i;
+   const char *ptr;			/* scratch pointer */
+   const char *tag = version_cmd("");	/* CVS tagname + compilation time */
+   char version[100 + 1];		/* version string to return */
+
+   version[100] = '\a';			/* check for string overrun */
+
+   ptr = strchr(tag, ':');
+   if(ptr == NULL) {
+      strncpy(version, tag, 100);
+   } else {
+      while(isspace(*ptr)) ptr++;
+      
+      if(*ptr != '$') {			/* a CVS tag */
+	 for(i = 0;*ptr != '\0' && !isspace(*ptr) && i < 100; i++) {
+	    version[i] = ptr[i];
+	 }
+	 *version = '\0';
+      } else {
+	 if(*ptr == '$') ptr++;
+	 if(*ptr == '|') ptr++;
+	 
+	 sprintf(version, "NOCVS:%s", ptr);
+	 version[strlen(version) - 2] = '\0'; /* trim "double quote\n" */
+      }
+   }
+
+   assert(version[100] == '\a');	/* no overrun */
+   printf("mcpVersion: %s", version);
 }
 
 
@@ -674,7 +696,7 @@ char *mc_maxacc_cmd(char *cmd)
   printf (" MC.MAX.ACC command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f",&max_acceleration[axis_select]);
+  sprintf (max_ans,"F@ F. %12f", max_acceleration[axis_select]);
   return max_ans;
 }
 
@@ -702,7 +724,7 @@ char *mc_maxpos_cmd(char *cmd)
   printf (" MC.MAX.POS command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f",&max_position[axis_select]);
+  sprintf (max_ans,"F@ F. %12f", max_position[axis_select]);
   return max_ans;
 }
 
@@ -730,7 +752,7 @@ char *mc_maxvel_cmd(char *cmd)
   printf (" MC.MAX.VEL command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f",&max_velocity[axis_select]);
+  sprintf (max_ans,"F@ F. %12f", max_velocity[axis_select]);
   return max_ans;
 }
 
@@ -758,7 +780,7 @@ char *mc_minpos_cmd(char *cmd)
   printf (" MC.MIN.POS command fired\r\n");
   if ((axis_select<AZIMUTH) ||
     (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  sprintf (max_ans,"F@ F. %12f",&min_position[axis_select]);
+  sprintf (max_ans,"F@ F. %12f", min_position[axis_select]);
   return max_ans;
 }
 
@@ -1172,7 +1194,7 @@ char *ms_on_cmd(char *cmd)
 ** DESCRIPTION:
 **	MS.POS.DUMP - Displays the last all fiducials.
 **	Remains unimplemented.  Fiducials can be viewed from 
-**	print_fiducials(axis).
+**	print_fiducials(axis, show_all).
 **
 ** RETURN VALUES:
 **	NULL string or "ERR:..."
@@ -1302,29 +1324,6 @@ set_limits_cmd(char *cmd)
    return "";
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: set_position_cmd
-**
-** DESCRIPTION:
-**	SET.POSITION pos - sets position of axis.  Could cause jerk and is
-**	not implemented.   This functionality is available via the Menu.
-**
-** RETURN VALUES:
-**	NULL string or "ERR:..."
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *set_position_cmd(char *cmd)
-{
-  printf (" SET.POSITION command fired\r\n");
-  return "";
-}
 
 /*=========================================================================
 **=========================================================================
@@ -1427,7 +1426,7 @@ void print_time_changes()
 ** DESCRIPTION:
 **	STATS - Tracking error statistics based on fiducial crossing.
 **	Unimplemented until fiducials are better understood.  The information
-**	is available via print_fiducials(axis).
+**	is available via print_fiducials(axis, show_all).
 **
 ** RETURN VALUES:
 **	NULL string or "ERR:..."
@@ -1469,42 +1468,35 @@ char *stats_cmd(char *cmd)
 */
 /* returns: "%position %velocity %time %status_word %index_position" */
 static long status=0x40000000;
-static char *status_ans=
-{"1073741824                                                                   "};	/* 0x40000000 */
-char *status_cmd(char *cmd)
+
+char *
+status_cmd(char *cmd)
 {
-/*  printf (" STATUS command fired\r\n"); */
-  if ((axis_select<AZIMUTH) ||
-    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (sdss_get_time()<0) 
-  {
-   if (semTake (semMEIUPD,60)!=ERROR)
-   {
-    sprintf (status_ans,"%f %f %f 0x%lx %f",
-	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
-	(*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
-	sdss_get_time()+1.0,
-	     *(long *)&axis_stat[axis_select],
-	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
-    semGive (semMEIUPD);
-    return status_ans;
+   double sdss_time;			/* time from sdss_get_time() */
+   static char status_ans[200];		/* reply */
+
+   if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
+						   axis_select != INSTRUMENT) {
+      return("ERR: ILLEGAL DEVICE SELECTION");
    }
-  }
-  else
-  {
-   if (semTake (semMEIUPD,60)!=ERROR)
-   {
-    sprintf (status_ans,"%f %f %f %ld %f",
-	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
-	(*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
-	sdss_get_time(),
-	*(long *)&axis_stat[axis_select],
-	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
-    semGive (semMEIUPD);
-    return status_ans;
+
+   sdss_time = sdss_get_time();
+   if(sdss_time < 0) {
+      sdss_time += 1.0;
    }
-  }
-  return "ERR: semMEIUPD";
+   
+   if (semTake (semMEIUPD,60) == ERROR) {
+      sprintf(status_ans, "ERR: semMEIUPD : %s", strerror(errno));
+   }
+
+   sprintf(status_ans,"%f %f %f 0x%lx %f",
+	    (*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
+	    (*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
+	    sdss_time, *(long *)&axis_stat[axis_select],
+	    fiducial[axis_select].mark/ticks_per_degree[axis_select]);
+   semGive(semMEIUPD);
+
+   return status_ans;
 }
 
 /*=========================================================================
@@ -1540,24 +1532,79 @@ char *status_cmd(char *cmd)
 		%f velocity 
 		%b status 
 		%f last index" */
-char *status_long_ans={"10987654321098765432109876543210"};/* 31-0 bits */
 char *status_long_cmd(char *cmd)
 {
-  unsigned long bit_check=0x80000000;
-  int i;
+   static char status_long_ans[33];
+   int i;
+   
+   printf (" STATUS.LONG command fired\r\n");
+   for(i = 0;i < 32; i++) {
+      status_long_ans[i]= (status & (1 << (31 - i))) ? '1' : '0';
+   }
+   status_long_ans[i] = '\0';
 
-  printf (" STATUS.LONG command fired\r\n");
-  for (i=0;i<32;i++) 
-  {
-    if (status&bit_check)
-      status_long_ans[i]='1';
-    else
-      status_long_ans[i]='0';
-    bit_check >>= 1;
-  }
-  return status_long_ans;
+   return status_long_ans;
 }
 
+
+/*****************************************************************************/
+/*
+ * An axis-status command that can be used by IOP to get enough information
+ * to update the MCP Menu
+ */
+char *
+axis_status_cmd(char *cmd)
+{
+   const int axis = axis_select;	/* in case it changes */
+   int brake_is_on = -1;		/* is the brake on for current axis? */
+   long fid_mark = 0;			/* position of fiducial mark */
+   static char reply_str[200 + 1];	/* desired values */
+
+   reply_str[200] = '\a';
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      return("ERR: ILLEGAL DEVICE SELECTION");
+   }
+
+   if (semTake (semMEIUPD,60) == ERROR) {
+      sprintf(reply_str, "ERR: semMEIUPD : %s", strerror(errno));
+      return(reply_str);
+   }
+
+   switch (axis) {
+    case AZIMUTH:
+      brake_is_on = sdssdc.status.i9.il0.az_brake_en_stat;
+      fid_mark = az_fiducial[fiducialidx[axis]].mark;
+      break;
+    case ALTITUDE:
+      brake_is_on = sdssdc.status.i9.il0.alt_brake_en_stat;
+      fid_mark = alt_fiducial[fiducialidx[axis]].mark;
+      break;
+    case INSTRUMENT:
+      brake_is_on = -1;			/* there is no brake */
+      fid_mark = rot_fiducial[fiducialidx[axis]].mark;
+      break;
+    default:
+      semGive(semMEIUPD);
+      fprintf(stderr,"axis_status_cmd: impossible instrument %d\n",
+	      axis);
+      abort();
+      break;				/* NOTREACHED */
+   }
+     
+   sprintf(reply_str,"%f %d %d  %ld %ld %ld %ld  %d %d %ld  %d 0x%lx",
+	   ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
+	   tmaxis[axis]->actual_position, tmaxis[axis]->position,
+		   tmaxis[axis]->voltage, tmaxis[axis]->velocity,
+	   fiducialidx[axis], fiducial[axis].markvalid, fid_mark,
+	   brake_is_on, *(long *)&axis_stat[axis]);
+
+   semGive(semMEIUPD);
+
+   assert(reply_str[200] == '\a');	/* check for overflow */
+
+   return(reply_str);
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -1658,105 +1705,80 @@ char *time_cmd(char *cmd)
 **
 **=========================================================================
 */
-char *cwmov_cmd(char *cmd)
+char *
+cwmov_cmd(char *cmd)
 {
   int cw;
   int cwpos;
+  const char *ans;
 
   printf (" CWMOV command fired\r\n");
-  sscanf (cmd,"%d %d",&cw,&cwpos);
-  if ((cw<0)||(cw>4))
-    return "ERR: Bad CW id (0-3)";
-  if ((cwpos<10)||(cwpos>800))
-    return "ERR: Position out of Range (10-800)";
-  if (taskIdFigure("cw")!=ERROR)
-    return "ERR: CW task still active";
-  if (taskIdFigure("cwp")!=ERROR)
-    return "ERR: CWP task still active";
-  if (sdssdc.status.i9.il0.alt_brake_en_stat)
-    taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
-			  cw,cwpos,0,0,0,0,0,0,0,0);
-  else
-    return "ERR: Altitude Brake NOT Engaged";
-  return "";
-}
-char *cwinst_cmd(char *cmd)
-{
-  int inst;
 
-  printf (" CWINST command fired\r\n");
-  while (*cmd==' ') cmd++;
-  if ((inst=cw_get_inst(cmd))==-1)
-    return "ERR: Invalid Instrument";
-  if ((inst<0)||(inst>16)) 
-    return "ERR: Inst Out of Range (0-16)";
-  if (taskIdFigure("cw")!=ERROR)
-    return "ERR: CW task still active";
-  if (taskIdFigure("cwp")!=ERROR)
-    return "ERR: CWP task still active";
-  if (sdssdc.status.i9.il0.alt_brake_en_stat)
-    taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
-			  (int)inst,0,0,0,0,0,0,0,0,0);
-  else
-    return "ERR: Altitude Brake NOT Engaged";
-  return "";
-}
-char *cwpos_cmd(char *cmd)
-{
-  int cwpos;
+  if(sscanf(cmd,"%d %d", &cw, &cwpos) != 2) {
+     return("ERR: malformed command arguments");
+  }
 
-  printf (" CWPOS command fired\r\n");
-  sscanf (cmd,"%d",&cwpos);
-  if ((cwpos<10)||(cwpos>800))
-    return "ERR: Position out of Range (10-800)";
-  if (taskIdFigure("cw")!=ERROR)
-    return "ERR: CW task still active";
-  if (taskIdFigure("cwp")!=ERROR)
-    return "ERR: CWP task still active";
-  cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
-  if (sdssdc.status.i9.il0.alt_brake_en_stat)
-    taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
-		  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
-  else
-    return "ERR: Altitude Brake NOT Engaged";
+  if(mcp_set_cw(cw, cwpos, &ans) < 0) {
+     return((char *)ans);
+  }
+
   return "";
 }
+
+char *
+cwinst_cmd(char *cmd)
+{
+   const char *ans;
+   int inst;
+   
+   printf (" CWINST command fired\r\n");
+   while(*cmd == ' ') cmd++;
+   if((inst = cw_get_inst(cmd)) == ERROR) {
+      return "ERR: Invalid Instrument";
+   }
+   
+   mcp_set_cw(inst, 0, &ans);
+
+   return (char *)ans;
+}
+
 char *cwabort_cmd(char *cmd)
 {
   printf (" CWABORT command fired\r\n");
-  taskDelete(taskIdFigure("cw"));
-  taskDelete(taskIdFigure("cwp"));
+
+  mcp_cw_abort();
+
   return "";
 }
-static char *limitstatus[]={"LU","L "," U","  "};
-static char *cwstatus_ans=
-	{"CW# 800 UL  CW# 800 UL  CW# 800 UL  CW# 800 UL       "};
-char *cwstatus_cmd(char *cmd)
-{
-  int i, idx;
-  int adc;
-  int limidx;
 
-  printf (" CWSTATUS command fired\r\n");
-  if (semTake (semMEIUPD,60)!=ERROR)
-  {
-    idx=0;
-    for (i=0;i<4;i++)
-    {
-/*      printf("\r\n%d %d",sdssdc.weight[i].pos,idx);*/
-	adc=sdssdc.weight[i].pos;
-        if ((adc&0x800)==0x800) adc |= 0xF000;
-        else adc &= 0xFFF;
-	limidx = (cwLimit>>(i*2))&0x3;
-        idx+=sprintf (&cwstatus_ans[idx],"CW%d %d %s",
-	  i,(1000*adc)/2048,limitstatus[limidx]);
-/*       printf("%s",cwstatus_ans);*/
-    }
-    semGive (semMEIUPD);
-  }
-  else
-    return "ERR: semMEIUPD";
-  return cwstatus_ans;
+char *
+cwstatus_cmd(char *cmd)
+{
+   static char *limitstatus[]={"LU","L "," U","  "};
+   static char cwstatus_ans[80];
+   int i, idx;
+   int adc;
+   int limidx;
+   
+   if(semTake (semMEIUPD,60) == ERROR) {
+      return "ERR: semMEIUPD";
+   }
+
+   idx=0;
+   for(i = 0; i < 4; i++) {
+      adc = sdssdc.weight[i].pos;
+      if((adc & 0x800) == 0x800) {
+	 adc |= 0xF000;
+      } else {
+	 adc &= 0xFFF;
+      }
+      limidx = (cwLimit >> (i*2)) & 0x3;
+      idx += sprintf(&cwstatus_ans[idx],"CW%d %d %s",
+		     i,(1000*adc)/2048,limitstatus[limidx]);
+   }
+   semGive (semMEIUPD);
+
+   return cwstatus_ans;
 }
 
 /*=========================================================================
@@ -1786,24 +1808,19 @@ char *cwstatus_cmd(char *cmd)
 char *brakeon_cmd(char *cmd)
 {
   printf (" BRAKEON command fired\r\n");
-  if (axis_select==AZIMUTH)
-    tm_sp_az_brake_on();
-  else if (axis_select==ALTITUDE)
-         tm_sp_alt_brake_on();
-       else
-         return "ERR: ILLEGAL DEVICE SELECTION";
+
+  mcp_set_brake(axis_select);
+  
   return "";
 }
+
 char *brakeoff_cmd(char *cmd)
 {
-  printf (" BRAKEOFF command fired\r\n");
-  if (axis_select==AZIMUTH)
-    tm_sp_az_brake_off();
-  else if (axis_select==ALTITUDE)
-         tm_sp_alt_brake_off();
-       else
-         return "ERR: ILLEGAL DEVICE SELECTION";
-  return "";
+   printf (" BRAKE.OFF command fired\r\n");
+   
+   mcp_unset_brake(axis_select);
+   
+   return "";
 }
 
 /*=========================================================================
@@ -1997,22 +2014,22 @@ char *cartunlatch_cmd(char *cmd)
 **
 **=========================================================================
 */
-static char *slitstatus[]={"    ","OPEN","     ","CLOSE","UNLATCH","LATCH  "};
-static char *slitstatus_ans={"SP1 OPEN CLOSE UNLATCH SP2 OPEN CLOSE UNLATCH"};
-char *slitstatus_cmd(char *cmd)
+char *
+slitstatus_cmd(char *cmd)
 {
-  printf (" SLIT.STATUS command fired\r\n");
-  if ((spectograph_select<SPECTOGRAPH1) ||
-    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
-  slitstatus_ans[2]=0x31+spectograph_select;
-  sprintf (&slitstatus_ans[4],"%s %s %s %s %s %s",
-	slitstatus[sdssdc.status.i1.il9.slit_head_door1_opn],
-	slitstatus[sdssdc.status.i1.il9.slit_head_door1_cls+2],
-	slitstatus[sdssdc.status.i1.il9.slit_head_latch1_opn+4],
-	slitstatus[sdssdc.status.i1.il9.slit_head_door2_opn],
-	slitstatus[sdssdc.status.i1.il9.slit_head_door2_cls+2],
-	slitstatus[sdssdc.status.i1.il9.slit_head_latch2_opn+4]);
-  return slitstatus_ans;	
+   static char slitstatus_ans[50];
+   
+   sprintf(slitstatus_ans,"SP1: %d %d %d %d  SP2: %d %d %d %d",
+	   sdssdc.status.i1.il9.slit_head_door1_opn,
+	   sdssdc.status.i1.il9.slit_head_door1_cls,
+	   sdssdc.status.i1.il9.slit_head_latch1_opn,
+	   sdssdc.status.i1.il9.slit_head_1_in_place,
+	   sdssdc.status.i1.il9.slit_head_door2_opn,
+	   sdssdc.status.i1.il9.slit_head_door2_cls,
+	   sdssdc.status.i1.il9.slit_head_latch2_opn,
+	   sdssdc.status.i1.il9.slit_head_2_in_place);
+
+   return(slitstatus_ans);
 }
 
 /*=========================================================================
@@ -2179,7 +2196,7 @@ char *ffstatus_cmd(char *cmd)
   printf (" FF.STATUS command fired\r\n");
   sprintf (&ffstatus_ans[0],"\r\nLeaf 01 02 03 04 05 06 07 08");
   sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],
-	"\r\n  FF %c%c  %c%c %c%c %c%c %c%c  %c%c %c%c %c%c",
+	"\r\n  FF %c%c  %c%c %c%c %c%c %c%c  %c%c %c%c %c%c  %d",
 	open[sdssdc.status.i1.il13.leaf_1_open_stat],
 	close[sdssdc.status.i1.il13.leaf_1_closed_stat],
 	open[sdssdc.status.i1.il13.leaf_2_open_stat],
@@ -2195,26 +2212,30 @@ char *ffstatus_cmd(char *cmd)
 	open[sdssdc.status.i1.il13.leaf_7_open_stat],
 	close[sdssdc.status.i1.il13.leaf_7_closed_stat],
 	open[sdssdc.status.i1.il13.leaf_8_open_stat],
-	close[sdssdc.status.i1.il13.leaf_8_closed_stat]
+	close[sdssdc.status.i1.il13.leaf_8_closed_stat],
+	      sdssdc.status.o1.ol14.ff_screen_open_pmt
   );
   sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nLamp  01  02  03  04");
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  FF %s %s %s %s",
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  FF %s %s %s %s %d",
 	oo[sdssdc.status.i1.il13.ff_1_stat],
 	oo[sdssdc.status.i1.il13.ff_2_stat],
 	oo[sdssdc.status.i1.il13.ff_3_stat],
-	oo[sdssdc.status.i1.il13.ff_4_stat]
+	oo[sdssdc.status.i1.il13.ff_4_stat],
+	   sdssdc.status.o1.ol14.ff_lamps_on_pmt
   );
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  Ne %s %s %s %s",
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\n  Ne %s %s %s %s %d",
 	oo[sdssdc.status.i1.il13.ne_1_stat],
 	oo[sdssdc.status.i1.il13.ne_2_stat],
 	oo[sdssdc.status.i1.il13.ne_3_stat],
-	oo[sdssdc.status.i1.il13.ne_4_stat]
+	oo[sdssdc.status.i1.il13.ne_4_stat],
+	   sdssdc.status.o1.ol14.ne_lamps_on_pmt
   );
-  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nHgCd %s %s %s %s",
+  sprintf (&ffstatus_ans[strlen(&ffstatus_ans[0])],"\r\nHgCd %s %s %s %s %d",
 	oo[sdssdc.status.i1.il13.hgcd_1_stat],
 	oo[sdssdc.status.i1.il13.hgcd_2_stat],
 	oo[sdssdc.status.i1.il13.hgcd_3_stat],
-	oo[sdssdc.status.i1.il13.hgcd_4_stat]
+	oo[sdssdc.status.i1.il13.hgcd_4_stat],
+	   sdssdc.status.o1.ol14.hgcd_lamps_on_pmt
   );
 /*
   sprintf(&ffstatus_ans[strlen(&ffstatus_ans[0])],"\n\rhgcd_lamps_on_pmt=%d",sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
@@ -3598,7 +3619,7 @@ struct FIDUCIALS rot_fiducial[156];
 long az_fiducial_position[60];
 long alt_fiducial_position[7];
 long rot_fiducial_position[156];
-long rot_latch=0;	/* need two latches or a valid last point */
+long rot_latch = 0;			/* position of last rotary latch seen*/
 int fiducialidx[3]={-1,-1,-1};		/* last fiducial crossed */
 void init_fiducial()
 {
@@ -3782,345 +3803,380 @@ void fiducial_shutdown(int type)
 **
 **=========================================================================
 */
-void tm_latch(char *name)
+void
+tm_latch(char *name)
 {
-  int i;
-  int fididx;
-  int fididx1;
-  int status;
-  time_t fidtim;
+   int i;
+   int fididx;
+   int fididx1;
+   int status;
+   time_t fidtim;
+   int ret;				/* return code from semTake() */
+   
+   if((status = createNfsConnection()) == ERROR) {
+      printf ("\r\nNFSConnection error");
+   }
 
-  if ((status=createNfsConnection())==ERROR) printf ("\r\nNFSConnection error");
-  fidfp=fopen (bldFileName(name),"a");  /*  */
-  if (fidfp==NULL) 
-    printf ("\r\nOpen file error: %s",name);
-  else
-  {
-    printf ("\r\nOpen file %s; %p",name,fidfp);
-/*    setvbuf (fidfp,NULL,_IOLBF,0);*/
-/*    rebootHookAdd((FUNCPTR)fiducial_shutdown);*/
-    time (&fidtim);
-    fprintf (fidfp,"\n#RESTART......... %s %.24s",
-	bldFileName(name),ctime(&fidtim));
-    fprintf (fidfp,"\n#Axis\tIndex\tDate & Time:SDSStime\tPosition1\tPosition2");
-/* should use fflush, but doesn't work */
-    fclose(fidfp);
-    fidfp=fopen (bldFileName(name),"a");  /*  */
-/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
-  }
-  init_fiducial();
-  if (semLATCH==NULL) semLATCH = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
-  for (;;)
-  {
-    if (semTake(semLATCH,WAIT_FOREVER)!=ERROR)
-    {
-      i=15;
-      status=FALSE;
-      while ((!status)&&(i>0))
-      {
-        if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-        {
-          status=(int)latch_status;
-          semGive (semMEI);
-        }
-        taskDelay(1);
-        i--;
-      }
-      if (status)
-      {
-        fididx=-1;
-        latchpos[latchidx].axis=-9;
-        if (dio316int_bit&AZIMUTH_INT)
-        {
-	  latchpos[latchidx].axis=AZIMUTH;
-          if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-          {
-	    get_latched_position(0,&latchpos[latchidx].pos1);
-	    get_latched_position(1,&latchpos[latchidx].pos2);
-	    semGive (semMEI);
-	  }
-          if (LATCH_verbose)
-            printf ("\r\nAXIS %d: latched pos0=%f,pos1=%f",latchpos[latchidx].axis,
-	    (float)latchpos[latchidx].pos1,
-	    (float)latchpos[latchidx].pos2);
-          fididx1 = barcode_serial(3);	/* backwards from what you would think */
-	  fididx = barcode_serial(3);	/* read twice...not reliable */
-	  if ((fididx>0)&&(fididx<=24))
-	  {
-	    if (latchpos[latchidx].pos1>0)
-		fididx += 24;
-	    fidtim=time(&fidtim);
-            if (fidfp!=NULL)
-	    {
-   	      time (&fidtim);
-	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-	      latchpos[latchidx].axis,fididx,
-	      ctime(&fidtim),sdss_get_time(),
-	      (long)latchpos[latchidx].pos1,
-              (long)latchpos[latchidx].pos2);
-	      fprintf (fidfp,"\n#first barcode reading=%d",fididx1);
-              fclose(fidfp);
-              fidfp=fopen (bldFileName(name),"a");  /*  */
-/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
-            }
-            if ((fididx<48)&&(fididx>0))
-            {
-              az_fiducial[fididx].last=az_fiducial[fididx].mark;
-              az_fiducial[fididx].mark=latchpos[latchidx].pos1;
-	      az_fiducial[fididx].err=az_fiducial[fididx].mark-
-		az_fiducial[fididx].last;
-	      az_fiducial[fididx].poserr=az_fiducial[fididx].mark-
-		az_fiducial_position[fididx];
-	      az_fiducial[fididx].markvalid=TRUE;
-	      if ((abs(az_fiducial[fididx].poserr)>errmsg_max[0])&&
-		      (az_fiducial_position[fididx]!=0))
-                printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-		  latchpos[latchidx].axis,
-	          (long)az_fiducial[fididx].poserr,
-	          (float)latchpos[latchidx].pos1,
-	          (float)latchpos[latchidx].pos2);
-              if (fididx==fiducial[0].index)
-              {
-                fiducial[0].mark=az_fiducial[fididx].mark;
-	        fiducial[0].markvalid=TRUE;
-              }
-	      fiducialidx[0]=fididx;
-	    }
-	  }
-	}
-        if (dio316int_bit&ALTITUDE_INT)
-        {
-	  latchpos[latchidx].axis=ALTITUDE;
-          if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-          {
-	    get_latched_position(2,&latchpos[latchidx].pos1);
-	    get_latched_position(3,&latchpos[latchidx].pos2);
-            semGive (semMEI);
-          }
-          if (LATCH_verbose)
-          printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",latchpos[latchidx].axis,
-	    (float)latchpos[latchidx].pos1,
-	    (float)latchpos[latchidx].pos2);
-/*  turned off (failed hardware)
-          fididx = barcode_serial(2);
-	  fididx = barcode_serial(2);
-*/
-/* clinometer does a better job */
-          fididx=((int)(abs(sdssdc.status.i4.alt_position-altclino_off)*
-            altclino_sf)+7.5)/15;
-	  fididx++;
-	  if (fididx!=-1)
-	  {
-	    fididx--;
-	    fidtim=time(&fidtim);
-            if (fidfp!=NULL)
-	    {
-	      time (&fidtim);
-	      fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-	      latchpos[latchidx].axis,fididx,
-	      ctime(&fidtim),sdss_get_time(),
-	      (long)latchpos[latchidx].pos1,
-              (long)latchpos[latchidx].pos2);
-	      fprintf (fidfp,"\n#alt_position=%d",
-	      sdssdc.status.i4.alt_position);
-              fclose(fidfp);
-              fidfp=fopen (bldFileName(name),"a");  /*  */
-/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
-	    }
-            if ((fididx<7)&&(fididx>=0))
-            {
-              alt_fiducial[fididx].last=alt_fiducial[fididx].mark;
-              alt_fiducial[fididx].mark=latchpos[latchidx].pos1;
-	      alt_fiducial[fididx].err=alt_fiducial[fididx].mark-
-		alt_fiducial[fididx].last;
-	      alt_fiducial[fididx].poserr=alt_fiducial[fididx].mark-
-		alt_fiducial_position[fididx];
-	      alt_fiducial[fididx].markvalid=TRUE;
-	      if ((abs(alt_fiducial[fididx].poserr)>errmsg_max[1])&&
-		      (alt_fiducial_position[fididx]!=0))
-                printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-		  latchpos[latchidx].axis,
-	          (long)alt_fiducial[fididx].poserr,
-	          (float)latchpos[latchidx].pos1,
-	          (float)latchpos[latchidx].pos2);
-              if (fididx==fiducial[1].index)
-              {
-                fiducial[1].mark=alt_fiducial[fididx].mark;
-                fiducial[1].markvalid=TRUE;
-              }
-	      fiducialidx[1]=fididx;
-	    }
-	  }
-	}
-        if (dio316int_bit&INSTRUMENT_INT)
-        {
-	  latchpos[latchidx].axis=INSTRUMENT;
-          if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-          {
-#ifdef ROT_ROTARY_ENCODER
-/* switch to 5 for optical encoder, when using rotary */
-	    get_latched_position(5,&latchpos[latchidx].pos1);
-	    get_latched_position(4,&latchpos[latchidx].pos2);
-#else
-	    get_latched_position(4,&latchpos[latchidx].pos1);
-	    get_latched_position(5,&latchpos[latchidx].pos2);
+   fidfp = fopen(bldFileName(name),"a");
+   if(fidfp == NULL) {
+      printf ("\r\nOpen file error: %s",name);
+   } else {
+      printf ("\r\nOpen file %s; %p",name,fidfp);
+
+#if 0
+      setvbuf(fidfp,NULL,_IOLBF,0);
+      rebootHookAdd((FUNCPTR)fiducial_shutdown);
 #endif
-            semGive (semMEI);
-          }
-          if (LATCH_verbose)
-            printf ("\r\nAXIS %d: latched pos4=%f,pos5=%f",
-	      latchpos[latchidx].axis,
-	      (float)latchpos[latchidx].pos1,
-	      (float)latchpos[latchidx].pos2);
-	  if (rot_latch!=0)
-          {
-            if (abs((long)latchpos[latchidx].pos1-rot_latch)>250000)
-	      fididx = abs(iround((latchpos[latchidx].pos1-rot_latch)/800.) )-500;
-	    else
-	      fididx = 0;
-            if (LATCH_verbose)
-              printf ("\r\nAXIS %d: latched pos4=%ld,rot_latch=%ld,idx=%d, abspos=%d",
-                latchpos[latchidx].axis,
-                (long)latchpos[latchidx].pos1,
-                rot_latch,fididx,
-	        abs(iround((latchpos[latchidx].pos1-rot_latch)/800.) ));
-	    if ((fididx<0)&&(fididx>-80))
-	    {
-	      fididx = -fididx;
-	      if ((fididx>45)&&(latchpos[latchidx].pos1>0))
-	        fididx = fididx-76;
-	      else 
-	        if ((fididx<35)&&(latchpos[latchidx].pos1<0))
-	          fididx = 76+fididx;
-	      fididx +=45;
-	      fidtim=time(&fidtim);
-              if (fidfp!=NULL)
-	      {
-	        time (&fidtim);
-	        fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-	        latchpos[latchidx].axis,fididx,
-	        ctime(&fidtim),sdss_get_time(),
-	        (long)latchpos[latchidx].pos1,
-                (long)latchpos[latchidx].pos2);
-                fclose(fidfp);
-                fidfp=fopen (bldFileName(name),"a");  /*  */
-/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
-	      }
-              if (LATCH_verbose)
-	        printf ("\r\n      final fididx=%d",fididx);
-	      if ((fididx<156)&&(fididx>0))
-	      {
-/*	        rot_fiducial[fididx].last=rot_fiducial[fididx].mark;*/
-                rot_fiducial[fididx].mark=
-	          max((long)latchpos[latchidx].pos1,rot_latch);
-/*	        rot_fiducial[fididx].err=rot_fiducial[fididx].mark-
-		  rot_fiducial[fididx].last;*/
-	        rot_fiducial[fididx].poserr=rot_fiducial[fididx].mark-
-		  rot_fiducial_position[fididx];
-      	        rot_fiducial[fididx].markvalid=TRUE;
-                fiducialidx[2]=fididx;
-	        if ((abs(rot_fiducial[fididx].poserr)>errmsg_max[2])&&
-		      (rot_fiducial_position[fididx]!=0))
-                  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-	  	    latchpos[latchidx].axis,
-	            (long)rot_fiducial[fididx].poserr,
-	            (float)latchpos[latchidx].pos1,
-	            (float)latchpos[latchidx].pos2);
-	      }
-	    }
-	    else
-            {
-	      if ((fididx>0)&&(fididx<80))
-              {
-	        if ((fididx>45)&&(latchpos[latchidx].pos1>0))
-	          fididx = fididx-76;
-	        else 
-		  if ((fididx<35)&&(latchpos[latchidx].pos1<0))
-	            fididx = 76+fididx;
-	        fididx +=45;
-	        fidtim=time(&fidtim);
-                if (fidfp!=NULL)
-	        {
-	          time (&fidtim);
-	          fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
-	          latchpos[latchidx].axis,fididx,
-	          ctime(&fidtim),sdss_get_time(),
-	          (long)latchpos[latchidx].pos1,
-                  (long)latchpos[latchidx].pos2);
-                  fclose(fidfp);
-                  fidfp=fopen (bldFileName(name),"a");  /*  */
-/*    fidfp=freopen (bldFileName(name),"a",fidfp);*/
-		}
-                if (LATCH_verbose)
-	          printf ("\r\n      final fididx=%d",fididx);
-	        if ((fididx<156)&&(fididx>0))
-	        {
-	          rot_fiducial[fididx].last=rot_fiducial[fididx].mark;
-                  rot_fiducial[fididx].mark=
-                    min((long)latchpos[latchidx].pos1,rot_latch);
-	          rot_fiducial[fididx].err=rot_fiducial[fididx].mark-
-	  	    rot_fiducial[fididx].last;
-	          rot_fiducial[fididx].poserr=rot_fiducial[fididx].mark-
-	 	    rot_fiducial_position[fididx];
-                  rot_fiducial[fididx].markvalid=TRUE;
-                  fiducialidx[2]=fididx;
-	          if (LATCH_error)
-	            if ((abs(rot_fiducial[fididx].poserr)>200)&&
-		      (rot_fiducial_position[fididx]!=0))
-                      printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
-	  	      latchpos[latchidx].axis,
-	              (long)rot_fiducial[fididx].poserr,
-	              (float)latchpos[latchidx].pos1,
-	              (float)latchpos[latchidx].pos2);
-                }
-              }
-            }
-          }
-          if (LATCH_verbose)
-	  {
-            i=fididx;
-            printf ("\r\nROT FIDUCIAL %d:  mark=%ld, pos=%ld, last=%ld",i,
-                rot_fiducial[i].mark,rot_fiducial_position[i],
-                rot_fiducial[i].last);
-            printf ("\r\n                  err=%ld, poserr=%ld",
-                rot_fiducial[i].err,rot_fiducial[i].poserr);
-	  }
-          rot_latch=latchpos[latchidx].pos1;
-          if (fididx==fiducial[2].index)
-          {
-            fiducial[2].mark=rot_fiducial[fididx].mark;
-            fiducial[2].markvalid=TRUE;
-          }
-	}
+      
+      time(&fidtim);
+      fprintf (fidfp,"\n#RESTART......... %s %.24s",
+	       bldFileName(name),ctime(&fidtim));
+      fprintf(fidfp,"\n#Axis\tIndex\tDate & Time:SDSStime\t"
+	      "Position1\tPosition2");
+      /* should use fflush, but doesn't work */
+      fclose(fidfp);
+      fidfp=fopen (bldFileName(name),"a");
+   }
+   
+   init_fiducial();
+   if(semLATCH == NULL) {
+      semLATCH = semBCreate(SEM_Q_FIFO,SEM_EMPTY);
+   }
+   
+   for(;;) {
+      ret = semTake(semLATCH, WAIT_FOREVER);
+      assert(ret != ERROR);
+
+      for(i = 15, status = FALSE; status == FALSE && i > 0; i--) {
+	 ret = semTake(semMEI, WAIT_FOREVER);
+	 assert(ret != ERROR);
+	 
+	 status = (int)latch_status();
+	 semGive(semMEI);
+	 
+	 taskDelay(1);
       }
-      else
-      {
-        latchpos[latchidx].axis=-9;
-        if (dio316int_bit&AZIMUTH_INT)
-          latchpos[latchidx].axis=-(AZIMUTH+1);
-        if (dio316int_bit&ALTITUDE_INT)
-          latchpos[latchidx].axis=-(ALTITUDE+1);
-        if (dio316int_bit&INSTRUMENT_INT)
-          latchpos[latchidx].axis=-(INSTRUMENT+1);
-        printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
+      
+      if(status == FALSE) {		/* we didn't see anything */
+	 latchpos[latchidx].axis = -9;
+	 
+	 if(dio316int_bit & AZIMUTH_INT) {
+	    latchpos[latchidx].axis = -(AZIMUTH+1);
+	 }
+	 if(dio316int_bit & ALTITUDE_INT) {
+	    latchpos[latchidx].axis = -(ALTITUDE+1);
+	 }
+	 if (dio316int_bit & INSTRUMENT_INT) {
+	    latchpos[latchidx].axis = -(INSTRUMENT+1);
+	 }
+
+	 printf ("\r\n BAD LATCH: latchidx=%d",latchidx);
+
+	 continue;
       }
-    }
-    if (latchidx<MAX_LATCHED)
-      latchidx++;
-    else
-      latchidx=0;
 /*
-    if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
-    {
+ * OK, we read a latch position so do something with it
+ */
+      fididx = -1;
+      latchpos[latchidx].axis=-9;
+
+      if(dio316int_bit & AZIMUTH_INT) {
+	 latchpos[latchidx].axis = AZIMUTH;
+	 ret = semTake(semMEI,WAIT_FOREVER);
+	 assert(ret != ERROR);
+	 
+	 get_latched_position(0,&latchpos[latchidx].pos1);
+	 get_latched_position(1,&latchpos[latchidx].pos2);
+	 semGive (semMEI);
+
+	 if(LATCH_verbose) {
+	    printf ("\r\nAXIS %d: latched pos0=%f,pos1=%f",
+		    latchpos[latchidx].axis,
+		    (float)latchpos[latchidx].pos1,
+		    (float)latchpos[latchidx].pos2);
+	 }
+
+	 fididx1 = barcode_serial(3); /* backwards from what you'd think */
+	 fididx = barcode_serial(3);	/* read twice...not reliable */
+	 if(fididx > 0 && fididx <= 24) {
+	    if(latchpos[latchidx].pos1 > 0) {
+	       fididx += 24;
+	    }
+	    
+	    if(fidfp != NULL) {
+	       fidtim = time(&fidtim);
+	       time(&fidtim);
+	       
+	       fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
+			latchpos[latchidx].axis,fididx,
+			ctime(&fidtim),sdss_get_time(),
+			(long)latchpos[latchidx].pos1,
+			(long)latchpos[latchidx].pos2);
+	       fprintf (fidfp,"\n#first barcode reading=%d",fididx1);
+	       
+	       fclose(fidfp);
+	       fidfp=fopen (bldFileName(name),"a");
+	    }
+	    
+	    if(fididx < 48 && fididx > 0) {
+	       az_fiducial[fididx].last=az_fiducial[fididx].mark;
+	       az_fiducial[fididx].mark=latchpos[latchidx].pos1;
+	       az_fiducial[fididx].err=az_fiducial[fididx].mark-
+		 az_fiducial[fididx].last;
+	       az_fiducial[fididx].poserr=az_fiducial[fididx].mark-
+		 az_fiducial_position[fididx];
+	       az_fiducial[fididx].markvalid=TRUE;
+	       
+	       if((abs(az_fiducial[fididx].poserr)>errmsg_max[0])&&
+		  (az_fiducial_position[fididx]!=0)) {
+		  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
+			  latchpos[latchidx].axis,
+			  (long)az_fiducial[fididx].poserr,
+			  (float)latchpos[latchidx].pos1,
+			  (float)latchpos[latchidx].pos2);
+	       }
+	       if(fididx==fiducial[AZIMUTH].index) {
+		  fiducial[AZIMUTH].mark = az_fiducial[fididx].mark;
+		  fiducial[AZIMUTH].markvalid = TRUE;
+	       }
+	       fiducialidx[AZIMUTH] = fididx;
+	    }
+	 }
+      }
+      
+      if(dio316int_bit & ALTITUDE_INT) {
+	 latchpos[latchidx].axis = ALTITUDE;
+	 ret = semTake(semMEI,WAIT_FOREVER);
+	 assert(ret != ERROR);
+	 
+	 get_latched_position(2,&latchpos[latchidx].pos1);
+	 get_latched_position(3,&latchpos[latchidx].pos2);
+	 semGive (semMEI);
+
+	 if(LATCH_verbose) {
+	    printf ("\r\nAXIS %d: latched pos2=%f,pos3=%f",
+		    latchpos[latchidx].axis,
+		    (float)latchpos[latchidx].pos1,
+		    (float)latchpos[latchidx].pos2);
+	 }
+/*
+ * turned off (failed hardware)
+ * clinometer does a better job
+ */
+#if 0
+	 fididx = barcode_serial(2);
+	 fididx = barcode_serial(2);
+#endif
+	 fididx=((int)(abs(sdssdc.status.i4.alt_position-altclino_off)*
+		       altclino_sf)+7.5)/15;
+	 fididx++;
+	 if(fididx != -1) {
+	    fididx--;
+	    if (fidfp!=NULL) {
+	       fidtim = time(&fidtim);
+	       time(&fidtim);
+	       
+	       fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
+			latchpos[latchidx].axis,fididx,
+			ctime(&fidtim),sdss_get_time(),
+			(long)latchpos[latchidx].pos1,
+			(long)latchpos[latchidx].pos2);
+	       fprintf (fidfp,"\n#alt_position=%d",
+			sdssdc.status.i4.alt_position);
+	       fclose(fidfp);
+	       fidfp=fopen (bldFileName(name),"a");  /*  */
+	    }
+	    
+            if(fididx < 7 && fididx >= 0) {
+	       alt_fiducial[fididx].last = alt_fiducial[fididx].mark;
+	       alt_fiducial[fididx].mark = latchpos[latchidx].pos1;
+	       alt_fiducial[fididx].err = alt_fiducial[fididx].mark -
+						     alt_fiducial[fididx].last;
+	       alt_fiducial[fididx].poserr = alt_fiducial[fididx].mark -
+						 alt_fiducial_position[fididx];
+	       alt_fiducial[fididx].markvalid = TRUE;
+
+	       if(abs(alt_fiducial[fididx].poserr) > errmsg_max[1] &&
+					  alt_fiducial_position[fididx] != 0) {
+		  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
+			  latchpos[latchidx].axis,
+			  (long)alt_fiducial[fididx].poserr,
+			  (float)latchpos[latchidx].pos1,
+			  (float)latchpos[latchidx].pos2);
+	       }
+	       
+	       if(fididx==fiducial[ALTITUDE].index) {
+		  fiducial[ALTITUDE].mark = alt_fiducial[fididx].mark;
+		  fiducial[ALTITUDE].markvalid = TRUE;
+	       }
+	       fiducialidx[ALTITUDE] = fididx;
+	    }
+	 }
+      }
+      
+      if(dio316int_bit & INSTRUMENT_INT) {
+	 latchpos[latchidx].axis = INSTRUMENT;
+	 ret = semTake(semMEI,WAIT_FOREVER);
+	 assert(ret != ERROR);
+
+#ifdef ROT_ROTARY_ENCODER
+	    /* switch to 5 for optical encoder, when using rotary */
+	 get_latched_position(5,&latchpos[latchidx].pos1);
+	 get_latched_position(4,&latchpos[latchidx].pos2);
+#else
+	 get_latched_position(4, &latchpos[latchidx].pos1);
+	 get_latched_position(5, &latchpos[latchidx].pos2);
+#endif
+	 semGive (semMEI);
+	 
+	 if(LATCH_verbose) {
+	    printf("\r\nAXIS %d: latched pos4=%f,pos5=%f",
+		   latchpos[latchidx].axis,
+		   (float)latchpos[latchidx].pos1,
+		   (float)latchpos[latchidx].pos2);
+	 }
+/*
+ * have we already seen a rotator latch? If so, we know which encoder
+ * is which
+ */
+	 if(rot_latch != 0) {
+            if(abs((long)latchpos[latchidx].pos1 - rot_latch) > 250000) {
+	       fididx =
+		 abs(iround((latchpos[latchidx].pos1 - rot_latch)/800.));
+	      fididx -= 500;
+	    } else {
+	       fididx = 0;
+	    }
+	    
+            if(LATCH_verbose) {
+	       printf("\r\nAXIS %d: latched pos4=%ld,rot_latch=%ld,idx=%d, "
+		      "abspos=%d", latchpos[latchidx].axis,
+		      (long)latchpos[latchidx].pos1, rot_latch,fididx,
+		      abs(iround((latchpos[latchidx].pos1-rot_latch)/800.) ));
+	    }
+
+	    if(fididx == 0) {
+	       ;			/* we just crossed the same fiducial
+					   twice */
+	    } else if(fididx < 0 && fididx > -80) {
+	       fididx = -fididx;
+	       if(fididx > 45 && latchpos[latchidx].pos1 > 0) {
+		  fididx -= 76;
+	       } else {
+		  if(fididx < 35 && latchpos[latchidx].pos1 < 0) {
+		     fididx += 76;
+		  }
+	       }
+	       fididx += 45;
+	       	       
+	       if(LATCH_verbose) {
+		  printf ("\r\n      final fididx=%d",fididx);
+	       }
+	       
+	       if(fididx <= 0 || fididx >= 156) {
+		  fprintf(stderr,"Illegal fididx = %d\n", fididx);
+		  continue;
+	       }
+	       
+	       rot_fiducial[fididx].mark =
+				  max((long)latchpos[latchidx].pos1,rot_latch);
+	    } else if(fididx > 0 && fididx < 80) {
+	       if(fididx > 45 && latchpos[latchidx].pos1 > 0) {
+		  fididx -= 76;
+	       } else {
+		  if(fididx < 35 && latchpos[latchidx].pos1 < 0) {
+		     fididx += 76;
+		  }
+	       }
+	       fididx += 45;
+	       
+	       if(LATCH_verbose) {
+		  printf ("\r\n      final fididx=%d",fididx);
+	       }
+	       
+	       if(fididx <= 0 || fididx >= 156) {
+		  fprintf(stderr,"Illegal fididx = %d\n", fididx);
+		  continue;
+	       }
+	       
+	       rot_fiducial[fididx].last = rot_fiducial[fididx].mark;
+	       rot_fiducial[fididx].mark =
+				  min((long)latchpos[latchidx].pos1,rot_latch);
+	       rot_fiducial[fididx].err =
+			 rot_fiducial[fididx].mark - rot_fiducial[fididx].last;
+	    } else {
+	       fprintf(stderr,"Impossible value of fididx: %d\n", fididx);
+	       continue;
+	    }
+
+	    rot_fiducial[fididx].poserr =
+		     rot_fiducial[fididx].mark - rot_fiducial_position[fididx];
+	    rot_fiducial_position[fididx] = latchpos[latchidx].pos1;
+
+	    if(fididx != 0) {
+	       rot_fiducial[fididx].markvalid = TRUE;
+	       fiducialidx[INSTRUMENT] = fididx;
+	    }
+
+	    if(LATCH_error) {
+	       if(abs(rot_fiducial[fididx].poserr) > errmsg_max[2] &&
+					  rot_fiducial_position[fididx] != 0) {
+		  printf ("\r\nAXIS %d: ERR=%ld, latched pos0=%f,pos1=%f",
+			  latchpos[latchidx].axis,
+			  (long)rot_fiducial[fididx].poserr,
+			  (float)latchpos[latchidx].pos1,
+			  (float)latchpos[latchidx].pos2);
+	       }
+	    }
+	    
+	    if(fidfp != NULL) {
+	       fidtim = time(&fidtim);
+	       time (&fidtim);
+	       
+	       fprintf (fidfp,"\n%d\t%d\t%.24s:%f\t%ld\t%ld",
+			latchpos[latchidx].axis,fididx,
+			ctime(&fidtim), sdss_get_time(),
+			(long)latchpos[latchidx].pos1,
+			(long)latchpos[latchidx].pos2);
+	       
+	       fclose(fidfp);
+	       fidfp=fopen (bldFileName(name),"a");  /*  */
+	    }
+	 }
+
+	 if(LATCH_verbose) {
+            i = fididx;
+            printf ("\r\nROT FIDUCIAL %d:  mark=%ld, pos=%ld, last=%ld",i,
+		    rot_fiducial[i].mark,rot_fiducial_position[i],
+		    rot_fiducial[i].last);
+            printf ("\r\n                  err=%ld, poserr=%ld",
+		    rot_fiducial[i].err,rot_fiducial[i].poserr);
+	 }
+
+	 rot_latch = latchpos[latchidx].pos1;
+	 if(fididx == fiducial[INSTRUMENT].index) {
+            fiducial[INSTRUMENT].mark = rot_fiducial[fididx].mark;
+            fiducial[INSTRUMENT].markvalid = TRUE;
+	 }
+      }
+
+      latchidx = (latchidx + 1)%MAX_LATCHED;
+      
+#if 0
+      ret = semTake(semMEI,WAIT_FOREVER);
+      assert(ret != ERROR);
+
       arm_latch(TRUE);
       semGive (semMEI);
-    }
-*/
-    DIO316ClearISR (tm_DIO316);
-    taskSpawn ("tm_ClrInt",30,8,4000,(FUNCPTR)DIO316ClearISR_delay,120,
-		dio316int_bit,0,0,0,0,0,0,0,0);
-  }
+#endif
+      
+      DIO316ClearISR (tm_DIO316);
+   
+      taskSpawn ("tm_ClrInt",30,8,4000,(FUNCPTR)DIO316ClearISR_delay,120,
+		 dio316int_bit,0,0,0,0,0,0,0,0);
+   }
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -4414,86 +4470,75 @@ restore_fiducials (int axis)
 **
 **=========================================================================
 */
-void print_fiducials (int axis)
+void
+print_fiducials(int axis,		/* which axis */
+		int show_all)		/* show all fiducials, including
+					   ones we haven't crossed */
 {
   int i;
 
-  switch (axis)
-  {
-    case 0:
-	for (i=0;i<48;i++)
-	{
-	  printf ("\r\n");
-	  if (fiducial[axis].index==i)
-	  {
-            printf ("*");
-	    if (fiducial[axis].markvalid==i) printf ("!");
-	  }
-          if (az_fiducial[i].markvalid)
-	  {
-	    printf ("AZ FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld",i,
-		(int)(az_fiducial[i].mark/AZ_TICKS_DEG),
-		az_fiducial[i].mark,az_fiducial_position[i], az_fiducial[i].last);
-	    printf ("\r\n                 err=%ld, poserr=%ld",
-		az_fiducial[i].err,az_fiducial[i].poserr);
-          }
-	  else
-	  {
-	    printf ("AZ FIDUCIAL %d:  pos=%ld",i,
-		az_fiducial_position[i]);
-	  }     
+  switch (axis) {
+   case AZIMUTH:
+     for(i = 0;i < 48; i++) {
+	if(fiducial[axis].index==i) {
+	   printf("*");
+	   if(fiducial[axis].markvalid == i) printf ("!");
 	}
-	break;
-    case 1:
-	for (i=0;i<7;i++)
-	{
-	  printf ("\r\n");
-	  if (fiducial[axis].index==i)
-	  {
-            printf ("*");
-	    if (fiducial[axis].markvalid==i) printf ("!");
-	  }
-          if (alt_fiducial[i].markvalid)
-	  {
-	    printf ("ALT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld",i,
-		(int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
-		alt_fiducial[i].mark,alt_fiducial_position[i],
-	        alt_fiducial[i].last);
-	    printf ("\r\n                 err=%ld, poserr=%ld",
-		alt_fiducial[i].err,alt_fiducial[i].poserr);
-          }
-	  else
-	  {
-	    printf ("ALT FIDUCIAL %d:  pos=%ld",i,
-		alt_fiducial_position[i]);
-	  }     
+	if(az_fiducial[i].markvalid) {
+	   printf("AZ FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld\n",
+		   i, (int)(az_fiducial[i].mark/AZ_TICKS_DEG),
+		   az_fiducial[i].mark,az_fiducial_position[i],
+		   az_fiducial[i].last);
+	   printf("                 err=%ld, poserr=%ld\n",
+		   az_fiducial[i].err,az_fiducial[i].poserr);
+	} else {
+	   if(show_all) {
+	      printf("AZ FIDUCIAL %d:  pos=%ld\n", i, az_fiducial_position[i]);
+	   }
+	}     
+     }
+     break;
+   case ALTITUDE:
+     for(i = 0;i < 7; i++) {
+	if(fiducial[axis].index == i) {
+	   printf("*");
+	   if(fiducial[axis].markvalid == i) printf ("!");
 	}
-	break;
-    case 2:
-	for (i=0;i<156;i++)
-	{
-	  printf ("\r\n");
-	  if (fiducial[axis].index==i)
-	  {
-            printf ("*");
-	    if (fiducial[axis].markvalid==i) printf ("!");
-	  }
-          if (rot_fiducial[i].markvalid)
-	  {
-	    printf ("ROT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld",i,
-		(int)(rot_fiducial[i].mark/ROT_TICKS_DEG),
-		rot_fiducial[i].mark,rot_fiducial_position[i],
-	        rot_fiducial[i].last);
-	    printf ("\r\n                  err=%ld, poserr=%ld",
-		rot_fiducial[i].err,rot_fiducial[i].poserr);
-          }
-	  else
-	  {
-	    printf ("ROT FIDUCIAL %d:  pos=%ld",i,
-		rot_fiducial_position[i]);
-	  }     
+	if(alt_fiducial[i].markvalid) {
+	   printf("ALT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld\n",
+		   i, (int)(alt_fiducial[i].mark/ALT_TICKS_DEG),
+		   alt_fiducial[i].mark,alt_fiducial_position[i],
+		   alt_fiducial[i].last);
+	   printf("\n                 err=%ld, poserr=%ld\n",
+		  alt_fiducial[i].err,alt_fiducial[i].poserr);
+	} else {
+	   if(show_all) {
+	      printf("ALT FIDUCIAL %d:  pos=%ld\n",i,alt_fiducial_position[i]);
+	   }
 	}
-	break;
+     }
+     break;
+   case INSTRUMENT:
+     for(i = 0;i < 156; i++) {
+	if(fiducial[axis].index==i) {
+	   printf("*");
+	   if(fiducial[axis].markvalid == i) printf ("!");
+	}
+
+	if(rot_fiducial[i].markvalid) {
+	   printf("ROT FIDUCIAL %d(%d degs):  mark=%ld, pos=%ld, last=%ld\n",
+		  i, (int)(rot_fiducial[i].mark/ROT_TICKS_DEG),
+		  rot_fiducial[i].mark,rot_fiducial_position[i],
+		  rot_fiducial[i].last);
+	   printf("                  err=%ld, poserr=%ld\n",
+		   rot_fiducial[i].err,rot_fiducial[i].poserr);
+	} else {
+	   if(show_all) {
+	      printf("ROT FIDUCIAL %d:  pos=%ld\n",i,rot_fiducial_position[i]);
+	   }
+	}     
+     }
+     break;
   }
 }
 /*=========================================================================
@@ -5135,4 +5180,382 @@ int print_diagq()
   }
   return 0;
 }
- 
+
+/*****************************************************************************/
+/*
+ * Functions called by Menu() to do various things; also accessible
+ * via the serial or tcp interfaces
+ */
+/*
+ * Set the position of an axis
+ */
+int
+mcp_set_pos(int axis,			/* the axis to set */
+	    double pos)			/* the position to go to */
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_set_pos: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   tm_set_pos(2*axis,pos);
+   tm_set_pos(2*axis + 1,pos);
+   fiducial[axis].markvalid = FALSE;
+   
+   return 0;
+}
+
+/*
+ * move to a position with specified velocity and acceleration
+ */
+int
+mcp_move_va(int axis,			/* the axis to move */
+	    long pos,			/* desired position */
+	    long vel,			/* desired velocity */
+	    long acc)			/* desired acceleration */
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_move_va: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(semTake (semMEI,60) == ERROR) {
+      return(-1);
+   }
+   
+   sem_controller_run(2*axis);
+   
+   if(axis == INSTRUMENT) {
+      while(coeffs_state_cts(2*axis, vel) == TRUE) {
+	 continue;
+      }	     
+   }
+   
+   start_move(2*axis, pos, vel, acc);
+   semGive(semMEI);
+   
+   return(0);
+}
+
+/*
+ * set a velocity
+ */
+int
+mcp_set_vel(int axis,			/* the axis to set */
+	    double vel)			/* the position to go to */
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_set_vel: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(axis == AZIMUTH && sdssdc.status.i9.il0.az_brake_en_stat) {
+      fprintf(stderr,"mcp_set_vel: AZ Brake is Engaged\n");
+      return(-1);
+   } else if(axis == ALTITUDE && sdssdc.status.i9.il0.alt_brake_en_stat) {
+      fprintf(stderr, "mcp_set_vel: ALT Brake is Engaged");
+      return(-1);
+   }
+
+   if(semTake(semMEI, 60) == ERROR) {
+      fprintf(stderr, "mcp_set_vel: could not take semMEI semphore\n");
+      return(-1);
+   }
+	 
+   if(axis == INSTRUMENT) {
+      while(coeffs_state_cts(2*axis, vel) == TRUE) {
+	 ;
+      }
+   }
+   set_velocity (2*axis, vel);
+   semGive (semMEI); 
+
+   return 0;
+}
+
+/*****************************************************************************/
+/*
+ * Set a fiducial
+ */
+int
+mcp_set_fiducial(int axis)
+{
+   double pos;
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_set_fiducial: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+   
+   if(!fiducial[axis].markvalid) {
+      fprintf(stderr,"fiducial for axis %s not crossed", axis_name(axis));
+      return(-1);
+   }
+
+   pos = (*tmaxis[axis]).actual_position +
+			       (fiducial_position[axis] - fiducial[axis].mark);
+
+   if(mcp_set_pos(axis, pos) < 0) {
+      fprintf(stderr,"Failed to set position for axis %s", axis_name(axis));
+      return(-1);
+   } 
+      
+   if (fidfp != NULL) {
+      time_t fidtim;
+      
+      time (&fidtim);
+      fprintf (fidfp,"%s\t%d\t%.25s:%f\t%ld\t%ld\n",
+	       axis_name(axis), fiducial[axis].index,
+	       ctime(&fidtim), sdss_get_time(),
+	       (long)fiducial_position[axis] - fiducial[axis].mark,
+	       (long)(*tmaxis[axis]).actual_position);
+   }
+   
+   fiducial[axis].mark = fiducial_position[axis];
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Put on a brake
+ */
+int
+mcp_set_brake(int axis)
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_set_brake: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(axis == AZIMUTH) {
+      tm_sp_az_brake_on();
+   } else if(axis == ALTITUDE) {
+      tm_sp_alt_brake_on();
+   }
+   
+   tm_controller_idle(2*axis);
+   tm_reset_integrator(2*axis);
+
+   return(0);
+}
+
+/*
+ * Clear a brake
+ */
+int
+mcp_unset_brake(int axis)		/* axis to set */
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_unset_brake: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(axis == AZIMUTH) {
+      tm_sp_az_brake_off();
+   } else if(axis == ALTITUDE) {
+      tm_sp_alt_brake_off();
+   }
+   
+   if(semTake(semMEI,60) == ERROR) {
+      fprintf(stderr,"mcp_unset_brake: could not take semMEI semphore: %s",
+	      strerror(errno));
+      return(-1);
+   }
+
+   sem_controller_run(2*axis);
+   if(axis == INSTRUMENT) {
+      while(coeffs_state_cts(2*axis, 0) == TRUE) {
+	 ;
+      }
+   }
+   v_move(2*axis,(double)0,(double)5000);
+
+   semGive(semMEI);
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Halt an axis
+ */
+int
+mcp_halt(int axis)			/* desired axis */
+{
+   double vel;				/* velocity of axis */
+
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_halt: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(semTake(semMEI,60) == ERROR) {
+      fprintf(stderr,"mcp_halt: could not take semMEI semphore: %s",
+	      strerror(errno));
+      return(-1);
+   }
+   
+   if(get_velocity(2*axis, &vel) != DSP_OK) {
+      fprintf(stderr,"mcp_halt: Failed to read velocity for %s\n",
+	      axis_name(axis));
+      vel = 0;
+   }
+
+   sem_controller_run(2*axis);		/* back into closed loop */
+   
+   while(fabs(vel) > 5000) {
+      vel -= (vel > 0) ? 5000 : -5000;
+      set_velocity(2*axis, vel);
+      
+      if(axis == INSTRUMENT) {
+	 while(coeffs_state_cts(2*axis, vel) == TRUE) {
+	    ;
+	 }
+      }
+      
+      taskDelay (15);
+   }
+   
+   vel = 0;
+   set_velocity(2*axis, vel);
+   while(coeffs_state_cts(2*axis, vel) == TRUE) {
+      ;
+   }
+   
+   semGive (semMEI);
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Reset amplifiers for an axis
+ */
+int
+mcp_amp_reset(int axis)
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_amp_reset: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(axis == INSTRUMENT) {
+      amp_reset(2*axis);
+   } else {
+      amp_reset(2*axis);
+      amp_reset(2*axis + 1);
+   }
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Abort counter weight motion
+ */
+int
+mcp_cw_abort(void)
+{
+   taskDelete(taskIdFigure("cw"));
+   taskDelete(taskIdFigure("cwp"));
+   cw_abort();
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Set or balance the counter weights
+ */
+int
+mcp_set_cw(int cw,			/* CW to move, or INST_DEFAULT */
+	   int cwpos,			/* desired position, or 0 to balance */
+	   const char **errstr)		/* &error_string, or NULL  */
+{
+   if(cw < 0 || cw >= 16) {
+      if(errstr != NULL) {
+	 *errstr = "illegal choice of CW";
+      }
+
+      return(-1);
+   }
+
+   if(cwpos != 0 && (cwpos < 10 || cwpos > 800)) {
+      if(errstr != NULL) {
+	 *errstr = "ERR: Position out of Range (10-800)";
+      }
+
+      return(-1);
+   }
+
+   if(taskIdFigure("cw") != ERROR || taskIdFigure("cwp") != ERROR) {
+      if(errstr != NULL) {
+	 *errstr = "ERR: CW or CWP task still active...be patient";
+      }
+      
+      return(-1);			/* CW or CWP task still active */
+   }
+
+   if(cw == INST_DEFAULT) {
+      cw_set_positionv(INST_DEFAULT, cwpos, cwpos, cwpos, cwpos);
+   }
+
+   if(sdssdc.status.i9.il0.alt_brake_en_stat == 0) {
+      if(errstr != NULL) {
+	 *errstr = "ERR: Altitude Brake NOT Engaged";
+      }
+      
+      return(-1);
+   } else {
+      if(cwpos == 0) {			/* balance the weight */
+	 taskSpawn("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+		    cw,
+		    0,0,0,0,0,0,0,0,0);
+      } else {
+	 taskSpawn("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
+		    cw, cwpos,
+		    0,0,0,0,0,0,0,0);
+      }
+   }
+
+   if(errstr != NULL) {
+      *errstr = "";
+   }
+
+   return(0);
+}
+
+/*****************************************************************************/
+/*
+ * Stop an axis
+ */
+int
+mcp_stop_axis(int axis)
+{
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      fprintf(stderr,"mcp_stop_axis: illegal axis %d\n", axis);
+
+      return(-1);
+   }
+
+   if(semTake(semMEI,60) == ERROR) {
+      fprintf(stderr,"mcp_stop_axis: could not take semMEI semphore: %s",
+	      strerror(errno));
+      return(-1);
+   }
+
+   sem_controller_idle(2*axis);
+   reset_integrator(2*axis);
+   semGive (semMEI);
+
+   return(0);
+}
