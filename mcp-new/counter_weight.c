@@ -51,7 +51,7 @@ tMoveCW(void)
       status = msgQReceive(msgMoveCW, (char*)&msg, sizeof(msg), WAIT_FOREVER);
       assert(status != ERROR);
 
-      TRACE(4, "tMoveCW: received message %d", msg.type, 0);
+      TRACE(6, "tMoveCW: received message %d", msg.type, 0);
       
       assert(msg.type == moveCW_type);
       
@@ -582,19 +582,31 @@ balance(int cw,				/* counter weight to move */
 	       last_error = delta;
 	    }
 /*
- * deceleration & coast to position
+ * Read velocity and decide what to do; the first time through we
+ * must accelerate even if within start_decel_position of our destination
  */
 	    DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, &vel);
 	    vel -= 0x800;
 	    
-	    if(delta < cw_inst[inst].start_decel_position) {
+	    if(cnt > 1 && delta < cw_inst[inst].start_decel_position) {
 /*
- * still decelerating
+ * decelerate & coast to position
  */
 	       if(direction) {
-		  vel -= cw_inst[inst].decel;
+		  if(vel > cw_inst[inst].decel) {
+		     vel -= cw_inst[inst].decel;
+		  } else {
+		     vel *= 0.7;
+		  }
 	       } else {
-		  vel += cw_inst[inst].decel;
+		  if(vel > -cw_inst[inst].decel) {
+		     vel += cw_inst[inst].decel;
+		  } else {
+		     vel *= 0.7;
+		  }
+	       }
+	       if(vel == 0) {
+		  break;
 	       }
 	       
 	       if(abs(vel) >= cw_inst[inst].stop_velocity) {
@@ -627,10 +639,10 @@ balance(int cw,				/* counter weight to move */
 		  }
 		  if (CW_verbose) printf ("\r\n ACCEL VEL: ");
 	       }    
-	       
-	       vel += 0x800;
-	       DAC128V_Write_Reg(cw_DAC128V, CW_MOTOR, vel);
 	    }
+
+	    vel += 0x800;
+	    DAC128V_Write_Reg(cw_DAC128V, CW_MOTOR, vel);
 /*
  * where did we get to?
  */
@@ -1724,8 +1736,6 @@ cwmov_cmd(char *cmd)
   int cwpos;
   const char *ans;
 
-  printf (" CWMOV command fired\r\n");
-
   if(sscanf(cmd,"%d %d", &cw, &cwpos) != 2) {
      return("ERR: malformed command arguments");
   }
@@ -1743,7 +1753,6 @@ cwinst_cmd(char *cmd)
    const char *ans;
    int inst;
    
-   printf (" CWINST command fired\r\n");
    while(*cmd == ' ') cmd++;
    if((inst = cw_get_inst(cmd)) == ERROR) {
       return "ERR: Invalid Instrument";
@@ -1757,8 +1766,6 @@ cwinst_cmd(char *cmd)
 char *
 cwabort_cmd(char *cmd)
 {
-  printf (" CWABORT command fired\r\n");
-
   mcp_cw_abort();
 
   return "";
@@ -1823,9 +1830,9 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
       cw_inst[i].vel_rpm = 500.;	/* user specified velocity */
       cw_inst[i].decel_rpm = 6000.;	/* user specified deceleration */
       cw_inst[i].stop_vel_rpm = 220.;	/* user specified stop velocity */
-      cw_inst[i].start_decel_position = 58;/* start position to begin decel. */
+      cw_inst[i].start_decel_position = 58;/* position error to begin decel. */
       cw_inst[i].stop_pos_error = 2;	/* stop position error allowed */
-      cw_inst[i].stop_count = 6;	/* stop polarity swing counts allowed*/
+      cw_inst[i].stop_count = 8;	/* stop polarity swing counts allowed*/
       
       cw_calc(&cw_inst[i]);
    }
