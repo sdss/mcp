@@ -1476,7 +1476,6 @@ mcp_move(int axis,			/* the axis to move */
 	sdss_get_time() + abs((pos/ticks_per_degree[axis] - position)/velocity);
       frame->end_time = fmod(frame->end_time, ONE_DAY);
 
-      velocity = 0.0;
       break;
     case 2:
       position = params[0];
