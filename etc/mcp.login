@@ -25,7 +25,6 @@ cd "/p/mcpbase"
 #
 # Load Ron's tracing tools from vx_tools
 #
-ld < vx_tools/objects/trace.mv167.o
 ld < vx_tools/lib/vxt.mv167.o
 #
 # Load murmur
@@ -60,7 +59,7 @@ clk2Start ()			/* VMEchip2 tick timer 2 */
 # A further suggestion is to use an even trace level for subroutine entry
 # and that level, plus one, for trace entries within the subroutine.
 #
-traceInit(60000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
+traceInit(40000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
 traceTtyOn 0, 3
@@ -132,6 +131,25 @@ ld < /p/tpmbase/bin/mv162/slaLib
 # Load the MCP itself
 #
 ld < mcp-new/mcpnew.out
+#ld < mei-new/llfirm.o
+#ld < mcp-new/util.o
+#ld < mcp-new/telescope_motion.o
+#ld < mcp-new/counter_weight.o
+#ld < mcp-new/serial.o
+#ld < mcp-new/instrument_lift.o
+#ld < mcp-new/data_collection.o
+#ld < mcp-new/ipcast.o
+#ld < mcp-new/ipsym.o
+#ld < mcp-new/display.o
+#ld < mcp-new/umbilical.o
+#ld < mcp-new/telnetCmds.o
+#ld < mcp-new/tagname.o
+#ld < mcp-new/axis_cmds.o
+#ld < mcp-new/cmd.o
+#
+# Initialise message queues and semaphores
+#
+tMoveCWInit
 
 #BCAST_Enable=0
 #SM_COPY=0
