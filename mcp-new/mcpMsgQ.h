@@ -8,11 +8,20 @@ typedef struct {
    enum {
       alignClamp_type,			/* move alignment clamp */
       alignClampCheck_type,		/* check if alignment clamp moved */
+
+      FFS_type,				/* move Flat Field Screen */
+      FFSCheckOpen_type,		/* check that FFS opened */
+      FFSCheckClosed_type,		/* check that FFS closed */
+
       lamps_type,			/* turn lamps on/off */
+
       latchCrossed_type,		/* we crossed a fiducial */
+
       latchReenable_type,		/* reenable fiducial latches */
+
       moveCW_type,			/* counterweights motion */
       moveCWAbort_type,			/* abort counterweights */
+
       specDoor_type			/* control spectrograph doors */
    } type;
    
@@ -20,6 +29,10 @@ typedef struct {
       struct {
 	 enum {ENGAGE, DISENGAGE} op;
       } alignClamp;
+
+      struct {
+	 enum {FFS_OPEN = 1, FFS_CLOSE = 0} op;
+      } FFS;
 
       struct {
 	 enum { FF_LAMP, HGCD_LAMP, NE_LAMP } type; /* type off lamp */
@@ -58,6 +71,10 @@ typedef struct {
  * tAlgnClmp task
  */
 extern MSG_Q_ID msgAlignClamp;
+/*
+ * tFFS task
+ */
+extern MSG_Q_ID msgFFS;
 /*
  * moveCW task
  */

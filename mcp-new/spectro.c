@@ -1,3 +1,7 @@
+#define tmr_e_abort_ns tmr_e_abort	/* an enum in the next version of
+					   Ron's timerTask; when that appears
+					   it won't compile until this #define
+					   is removed */
 #include <vxWorks.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,6 +26,7 @@
 #include "mcpMsgQ.h"
 
 MSG_Q_ID msgAlignClamp = NULL;		/* control alignment clamp */
+MSG_Q_ID msgFFS = NULL;			/* control flat field screens */
 MSG_Q_ID msgLamps = NULL;		/* control lamps */
 MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
 
@@ -435,30 +440,10 @@ mcp_slithead_latch_close(int spec)
    return(0);
 }
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: tm_ffs
-**          tm_ffs_enable
-**	    tm_sp_ffs_move
-**	    tm_ffs_open_status
-**	    tm_ffs_close_status
-**
-** DESCRIPTION:
-**      Open/close the flat field screen
-**
-** RETURN VALUES:
-**      status
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	sdssdc
-**	semSLC
-**
-**=========================================================================
-*/
+/*****************************************************************************/
 /*
+ * Open or close the flat field screens
+ *
  * Set the FFS control bits. If val is < 0, it isn't set
  */
 static int
@@ -500,74 +485,19 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 }
 
 /*
- * Open or close the FF screen
- */
-int
-tm_ffs(short val)			/* FFS_CLOSE or FFS_OPEN */
-{
-   int cnt;
-   int err;
-   int failed = 0;			/* did operation fail? */
-   int wait_time = 30;			/* FF screen timeout (seconds) */
-
-   if(set_mcp_ffs_bits(val, 1) != 0) {
-      return(err);
-   }
-
-   cnt=60*wait_time;
-   printf("Waiting up to %ds for flat field to move\n", wait_time);
-   if(val == 1) {
-      while(!tm_ffs_open_status() && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      if(!tm_ffs_open_status()) {	/* did not work */
-	 failed = 1;
-	 TRACE(0, "FFS did NOT all open", 0, 0);
-	 printf("\r\n FFS did NOT all open ");
-      }
-   } else {
-      while(!tm_ffs_close_status() && cnt > 0) {
-	 taskDelay(1);
-	 cnt--;
-      }
-      if(!tm_ffs_close_status()) {	/* did not work */
-	 failed = 1;
-	 TRACE(0, "FFS did NOT all close", 0, 0);
-	 printf("\r\n FFS did NOT all close ");
-      }
-   }
-   
-   if(failed) {
-      return(set_mcp_ffs_bits(!val, 1)); /* don't leave command pending */
-   } else {
-      return 0;
-   }
-}
-
-/*
  * Enable the flat field screen
  */
 int
-tm_ffs_enable(int val)
+ffs_enable(int val)
 {
    return(set_mcp_ffs_bits(-1, 1));
 }
 
-void
-tm_sp_ffs_move(int open_close)		/* FFS_CLOSE or FFS_OPEN */
-{
-   if(taskIdFigure("tmFFS") == ERROR) {
-      taskSpawn("tmFFS", 90, 0, 2000, (FUNCPTR)tm_ffs, open_close,
-		0,0,0,0,0,0,0,0,0);
-   } else {
-      TRACE(0, "Task tmFFS is already active; not moving FF screen (%d)",
-	    open_close, 0);
-   }
-}
-
+/*
+ * Return status of flat field screen
+ */
 int
-tm_ffs_open_status(void)
+ffs_open_status(void)
 {
   if ((sdssdc.status.i1.il13.leaf_1_open_stat)&&
 	(sdssdc.status.i1.il13.leaf_2_open_stat)&&
@@ -583,7 +513,7 @@ tm_ffs_open_status(void)
 }
 
 int
-tm_ffs_close_status(void)
+ffs_close_status(void)
 {
   if ((sdssdc.status.i1.il13.leaf_1_closed_stat)&&
  	(sdssdc.status.i1.il13.leaf_2_closed_stat)&&
@@ -596,6 +526,77 @@ tm_ffs_close_status(void)
     return TRUE;
   else 
     return FALSE;
+}
+
+/*****************************************************************************/
+/*
+ * Here's the spawned task that actually does the work
+ */
+void
+tFFS(void)
+{
+   MCP_MSG msg;				/* message to pass around */
+   int msg_type;			/* type of check message to send */
+   int ret;				/* return code */
+   int wait = 30;			/* FF screen timeout (seconds) */
+
+   for(;;) {
+      ret = msgQReceive(msgFFS, (char *)&msg, sizeof(msg), WAIT_FOREVER);
+      assert(ret != ERROR);
+
+      TRACE(8, "read msg on msgFFS", 0, 0);
+/*
+ * What sort of message?
+ *   FFS_type            A request from the outside world to move screens
+ *   FFSCheckOpen_type   A request from us to check that the screens opened
+ *   FFSCheckClosed_type A request from us to check that the screens closed
+ */
+      if(msg.type == FFS_type) {
+	 (void)timerSend(FFSCheckClosed_type, tmr_e_abort_ns, 0, 0, 0);
+	 (void)timerSend(FFSCheckOpen_type, tmr_e_abort_ns, 0, 0, 0);
+      } else {
+	 if(msg.type == FFSCheckClosed_type) {
+	    if(!ffs_close_status()) {
+	       TRACE(0, "FFS did NOT all close", 0, 0);
+	       (void)set_mcp_ffs_bits(1, 1);
+	    }
+	 } else if(msg.type == FFSCheckOpen_type) {
+	    if(!ffs_open_status()) {
+	       TRACE(0, "FFS did NOT all open", 0, 0);
+	       (void)set_mcp_ffs_bits(0, 1);
+	    }
+	 } else {
+	    TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 }
+
+	 continue;
+      }
+/*
+ * Time to do the work
+ */
+      if(set_mcp_ffs_bits(msg.u.FFS.op, 1) != 0) {
+	 continue;
+      }
+      
+      TRACE(1, "Waiting %ds for flat field screen to move", wait, 0);
+
+      if(msg.u.FFS.op == FFS_OPEN) {
+	 if(ffs_open_status()) {	/* already open */
+	    continue;
+	 }
+	 msg_type = FFSCheckOpen_type;
+      } else {
+	 if(ffs_close_status()) {	/* already closed */
+	    continue;
+	 }
+	 msg_type = FFSCheckClosed_type;
+      }
+
+      if(timerSend(msg_type, tmr_e_add, wait*60, 0, msgFFS) == ERROR) {
+	 TRACE(0, "Failed to send message to timer task: %s (%d)",
+	       strerror(errno), errno);
+      }
+   }
 }
 
 /*****************************************************************************/
@@ -773,14 +774,30 @@ ffstatus_cmd(char *cmd)			/* NOTUSED */
 char *
 ffsopen_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_sp_ffs_move(FFS_OPEN);
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = FFS_type;
+   msg.u.FFS.op = FFS_OPEN;
+
+   ret = msgQSend(msgFFS, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
 char *
 ffsclose_cmd(char *cmd)			/* NOTUSED */
 {
-   tm_sp_ffs_move(FFS_CLOSE);
+   MCP_MSG msg;				/* message to send */
+   int ret;				/* return code */
+
+   msg.type = FFS_type;
+   msg.u.FFS.op = FFS_CLOSE;
+
+   ret = msgQSend(msgFFS, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
+   assert(ret == OK);
+
    return "";
 }
 
@@ -1009,6 +1026,12 @@ spectroInit(void)
       msgAlignClamp = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgAlignClamp != NULL);
       ret = taskSpawn("tAlgnClmp",90,0,2000,(FUNCPTR)tAlgnClmp,
+		      0,0,0,0,0,0,0,0,0,0);
+      assert(ret != ERROR);
+
+      msgFFS = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
+      assert(msgFFS != NULL);
+      ret = taskSpawn("tFFS",90,0,2000,(FUNCPTR)tFFS,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
 
