@@ -55,16 +55,21 @@ double
 sdss_get_time(void)
 {
    unsigned long micro_sec;
+   int extra;				/* extra second */
    
 #if 0
    micro_sec = (unsigned long)(1.0312733648*timer_read (1));
 #else
    micro_sec = timer_read (1);
 #endif
-   
-   if(micro_sec > 1000000) micro_sec = 999999;
 
-   return(double)(SDSStime+((micro_sec%1000000)/1000000.));
+   extra = 0;
+   if(micro_sec > 1000000) {
+      micro_sec -= 1000000;
+      extra++;
+   }
+
+   return(SDSStime + extra + 1e-6*micro_sec);
 }
 #else
 double
@@ -148,6 +153,32 @@ print_time_changes(void)
    printf("SDSS time1=%f time2=%f dt = %f\n", time1, time2, time2 - time1);
 }
 
+void
+setSDSStimeFromNTP(int quiet, int set)
+{
+   struct tm tm;
+   time_t t;
+   
+   setTimeFromNTP("tcc25m.apo.nmsu.edu", 0, 1, 0);
+
+   t = time(NULL);
+   tm = *localtime(&t);
+   tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
+   
+   if(!quiet) {
+      fprintf(stderr,"NTP time: %d SDSStime: %d\n",
+	      (time(NULL) - mktime(&tm))%ONE_DAY, SDSStime);
+   }
+
+   if(set) {
+      SDSStime = (time(NULL) - mktime(&tm))%ONE_DAY;
+   }
+
+   setTimeFromNTP("utc-time.apo.nmsu.edu", 0, 1, 0);
+}
+
+int use_NTP = 1;			/* get time from NTP not the TCC */
+
 char *
 set_time_cmd(char *cmd)
 {
@@ -180,7 +211,7 @@ set_time_cmd(char *cmd)
 
    t.tm_year -= 1900;
    t.tm_mon -= 1;
-#if 1
+
    if(t3 - (int)t3 > 0.75) {
       taskDelay(20);			/* 1/3 sec */
       extrasec = 1;
@@ -190,24 +221,38 @@ set_time_cmd(char *cmd)
    
    tp.tv_sec = mktime(&t) + extrasec;
    tp.tv_nsec = 0;
-#else
-   tp.tv_sec = mktime(&t);
-   tp.tv_nsec = 1e9*(t3 - (int)t3);
-#endif
    time1 = sdss_get_time();		/* before and after for diagnostic */
+   
    SDSStime = tp.tv_sec%ONE_DAY;
-   clock_settime(CLOCK_REALTIME, &tp);
+   
+#if 0
+   if(clock_settime(CLOCK_REALTIME, &tp) < 0) {
+      TRACE(0, "Failed to set realtime clock: %s", strerror(errno), 0);
+   }
+#endif
    time2 = sdss_get_time();
 
+#if 0
    print_time_changes();
-#if 1
-  printf("t3=%f (extrasec=%d)\n",t3,extrasec);
-  printf (" mon=%d day=%d, year=%d %d:%d:%d\n",
-	t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
-  printf (" sec=%d, nano_sec=%d\n",tp.tv_sec,tp.tv_nsec);
+   printf("t3=%f (extrasec=%d)\n",t3,extrasec);
+   printf (" mon=%d day=%d, year=%d %d:%d:%d\n",
+	   t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
+   printf (" sec=%d, nano_sec=%d\n",tp.tv_sec,tp.tv_nsec);
+
+   printf("time - set.time = %.3f\n",
+	  sdss_get_time() - (t3 + 60*(t.tm_min + 60*t.tm_hour)));
 #endif
-  
-  return "";
+
+#if 1
+   t.tm_hour = t.tm_min = t.tm_sec = 0;
+   setSDSStimeFromNTP(0, 0);
+#endif
+
+   if(use_NTP) {
+      setSDSStimeFromNTP(1, 1);
+   }
+
+   return "";
 }
 
 /*=========================================================================
