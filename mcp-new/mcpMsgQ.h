@@ -103,7 +103,6 @@ extern MSG_Q_ID msgFFS;
  */
 extern MSG_Q_ID msgMoveCW;
 extern MSG_Q_ID msgMoveCWAbort;
-extern SEM_ID semMoveCWBusy;
 /*
  * tm_ClrInt/tLatch tasks
  */
