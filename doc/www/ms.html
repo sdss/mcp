@@ -81,22 +81,13 @@ a discussion see documentation of
 <A HREF="#ms_on_cmd"><CODE>MS.ON</CODE></A> is allowed to apply
 
 <DT> <A HREF="#ms_read_cmd">MS.READ</A>
-<DD> Read the `current' fiducial positions from a file on the unix host.
-
-<DT> <A HREF="#ms_save_cmd">MS.SAVE</A>
-<DD> Save the `correct' values of the fiducials to shared memory.
+<DD> Read the fiducial positions from a file on the unix host.
 
 <DT> <A HREF="#ms_set_axis_pos_cmd">MS.SET</A>
 <DD> Equivalent to <A HREF="#ms_set_axis_pos_cmd">SET.FIDUCIAL</A>
 
-<DT> <A HREF="#ms_get_cmd">MS.GET</A>
-<DD> Set the `current' values of the fiducials from the `correct' ones.
-
-<DT> <A HREF="#ms_define_cmd">MS.DEFINE</A>
-<DD> Set the `correct' fiducials array from the `current' fiducials.
-
 <DT> <A HREF="#ms_write_cmd">MS.WRITE</A>
-<DD> Write the `current' fiducials to a file.
+<DD> Write the current fiducial table to a file.
 
 <DT> <A HREF="#ms_set_axis_pos_cmd">SET.FIDUCIAL</A>
 <DD> Tell the MEI where an axis is.
@@ -179,13 +170,14 @@ current axis.
 <P>
 Data lines are of the form
 <PRE>
-  7           0 +- -9999.000000 0
-  8   100167224 +- 0.000000 1
+  7           0 +- -9999.000000 0           0 +- -9999.000000 0
+  8   100167224 +- 0.000000 1       100167224 +- 0.000000 1
 </PRE>
-where the first integer is the fiducial index; the next the encoder
-value for that fiducial, followed by its error; and finally the number of
-points that were averaged together to derive the value.  Only the
-first two values are used, except that the special error value
+where the first integer is the fiducial index; the next the value for
+encoder1 for that fiducial, followed by its error; then the number of
+points that were averaged together to derive the value; then the
+corresponding values for the second encoder.  Only the fiducial number
+and the two positions are used, except that the special error value
 <CODE>-9999</CODE> is used to label a missing value.
 <P>
 
@@ -193,38 +185,42 @@ When you switch to a new version of the MCP (using <CODE>switchMCP</CODE>)
 the fiducial tables in the new version are installed in
 <CODE>/p/mcpbase</CODE>; they are downloaded to the MCP itself at boot time.
 
-<H3><A NAME="ms_save_cmd">MS.SAVE</A></H3>
-Save the `correct' values of the fiducials to shared memory.
-No human is likely to ever need to do this.
-
-<H3><A NAME="ms_get_cmd">MS.GET</A></H3>
-Set the `current' values of the fiducials from the `correct' ones.
-Why would you ever want to do that? So as to be able to write them
-to a file with <A HREF=#ms_write_cmd><CODE>MS.WRITE</A></CODE>.
-
-<H3><A NAME="ms_define_cmd">MS.DEFINE</A></H3>
-Set the `correct' fiducials array from the `current' fiducials. The
-`current' fiducials may be read from a file using 
-<A HREF=#ms_read_cmd><CODE>MS.READ</A></CODE>.
-
 <H3><A NAME="ms_write_cmd">MS.WRITE</A> file</H3>
-Write the `current' fiducial positions to <CODE>file</CODE>.
+Write the fiducial table to <CODE>file</CODE>. Only useful if you're not
+sure what's currently loaded into the MCP.
 <P>
 
 The format is:
 <PRE>
 #
 # rotator fiducials
-# ?????
 #
-# Fiducial Mark +- error  npoint
+# Creator:             rhl
+# Time:                Fri Nov 02 09:36:47 MST 2001
+# Input file:          /mcptpm/52159/mcpFiducials-52159.dat
+# Scales:              0.021315785186278132  0.021315786787577316
+# Canonical fiducial:  78
+# Arguments:           -mjd 52159 -rot -time0 999838149 -time1 999841558 -canon -reset -scale -table rot.dat
 #
+# Fiducial Encoder1 +- error  npoint  Encoder2 +- error  npoint
 ...
-  7           0 +- -9999.000000 0
-  8   100167224 +- 0.000000 1
+4          59366318 +-   4.6   6      59366599 +-   1.2   6
+5          58565519 +-   4.7   6      58565809 +-   0.9   6
 ...
 </PRE>
 An error of <CODE>-9999</CODE> is used to indicate that a value is missing.
+<P>
+
+The iop command <CODE>readMcpFiducials</CODE> is used to produce fiducial
+tables, e.g.
+<PRE>
+readMcpFiducials -mjd 52193 -alt -canon -reset -scale -table alt.dat \
+					-time0 1002767494 -time1 1002768300
+readMcpFiducials -mjd 52193 -az -canon -reset -scale -table az.dat \
+					-time0 1002759866 -time1 1002763821
+readMcpFiducials -mjd 52159 -rot -canon -reset -scale -table rot.dat \
+					-time0 999838149 -time1 999841558
+</PRE>
 
 <H3><A NAME="ms_set_axis_pos_cmd">SET.FIDUCIAL</A></H3>
 
@@ -250,24 +246,22 @@ The <CODE>typedef</CODE>s in the file are:
 
 <DT> ALT_FIDUCIAL
 <DD> An altitude fiducial has been crossed.
-The fiducial index, its `correct' position, two encoder positions, the
-velocity, and the raw clinometer reading are logged.
-
-The clinometer reading may be decoded using:
-<PRE>
-	alt = 0.0048683116163*(8937 - clino)
-</PRE>
+The fiducial index, the `correct' positions of both encoders,
+two measured encoder positions, the
+velocity, and the clinometer reading converted to an elevation are logged.
 
 <DT> AZ_FIDUCIAL
 <DD>
-The fiducial index, its `correct' position, and two encoder positions,
+The fiducial index, the `correct' positions of both encoders,
+two measured encoder positions, the
 and the velocity are logged.
 
 <DT> ROT_FIDUCIAL
 <DD>
 The fiducial index (negative if the index is one of the intermediate
-dithered values), `correct' position, two encoder readings, velocity, and
-the position of the previous fiducial crossed are logged.
+dithered values), the `correct' positions of both encoders, two
+encoder readings, velocity, and the position of the previous fiducial
+crossed are logged.
 
 <DT> DEFINE_FIDUCIALS
 <DD> A <A HREF=#ms_define_cmd><CODE>MS.DEFINE</A></CODE> command has been
@@ -276,11 +270,6 @@ issued; which axis was affected is logged.
 <DT> START_FIDUCIAL
 <DD> The fiducials task in the MCP has restarted; this almost certainly
 means that the MCP has been rebooted.
-
-<DT> SET_FIDUCIAL
-<DD> A <A HREF="#ms_set_axis_pos_cmd">SET.FIDUCIAL</A> command has been issued.
-The axis, fiducial index, `correct' position, actual position, and
-correction are logged.
 
 <DT> UPDATE_ENCODER
 <DD> The MEI's idea of the position of the axis has been reset, and the
@@ -388,6 +377,9 @@ The value that -scale prints out is exactly the value that
 should be in the file mcp/mcp-new/axis.h.
 <P>
 
+For axes that don't wrap (i.e. altitude) the relative scale is still correct;
+the numbers in the fiducial table are -(range in encoder counts) seen on
+the two encoders.
 
 Implies the <CODE>-absolute</CODE> flag.
 
