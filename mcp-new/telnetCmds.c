@@ -37,11 +37,38 @@ STATIC SEM_ID semCmdPort = NULL;	/* semaphore to control permission
 STATIC int
 locked_command(const char *cmd)
 {
-   if(strcmp(cmd, "VERSION") == 0) {
-      return(1);
+   if(strcmp(cmd, "ID") == 0 ||
+      strcmp(cmd, "MC.DUMP") == 0 ||
+      strcmp(cmd, "MR.DUMP") == 0 ||
+      strcmp(cmd, "MS.DUMP") == 0 ||
+      strcmp(cmd, "MS.MAP.DUMP") == 0 ||
+      strcmp(cmd, "MS.POS.DUMP") == 0 ||
+      strcmp(cmd, "STATS") == 0 ||
+      strcmp(cmd, "STATUS.LONG") == 0 ||
+      strcmp(cmd, "STATUS") == 0 ||
+      strcmp(cmd, "IR") == 0 ||
+      strcmp(cmd, "TEL1") == 0 ||
+      strcmp(cmd, "TEL2") == 0 ||
+      strcmp(cmd, "TICKLOST @ .") == 0 ||
+      strcmp(cmd, "CWSTATUS") == 0 ||
+      strcmp(cmd, "SP1") == 0 ||
+      strcmp(cmd, "SP2") == 0 ||
+      strcmp(cmd, "SLIT.STATUS") == 0 ||
+      strcmp(cmd, "FFS.CLOSE") == 0 ||
+      strcmp(cmd, "FFS.OPEN") == 0 ||
+      strcmp(cmd, "FFL.ON") == 0 ||
+      strcmp(cmd, "FFL.OFF") == 0 ||
+      strcmp(cmd, "NE.ON") == 0 ||
+      strcmp(cmd, "NE.OFF") == 0 ||
+      strcmp(cmd, "HGCD.ON") == 0 ||
+      strcmp(cmd, "HGCD.OFF") == 0 ||
+      strcmp(cmd, "FF.STATUS") == 0 ||
+      strcmp(cmd, "AB.STATUS") == 0 ||
+      strcmp(cmd, "VERSION") == 0) {
+      return(0);
    }
    
-   return(0);
+   return(1);
 }
 
 /*****************************************************************************/
@@ -54,6 +81,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 {
    char buff[MSG_SIZE];			/* buffer to reply to messages */
    char cmd[MSG_SIZE];			/* buffer to read messages */
+   int took_semCmdPort = 0;		/* did we take semCmdPort? */
    int n;				/* number of bytes read */
    const int port = ntohs(client->sin_port); /* the port they connected on */
    char *ptr;				/* utility pointer to char */
@@ -79,39 +107,39 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  * Maybe execute it
  */
       if(strcmp(cmd, "SEM.TAKE") == 0) {
-	 if(semTake(semCmdPort,60) == ERROR) {
-	    sprintf(buff, "Unable to take semaphore: %s ok\n",
-		    strerror(errno));
-	    if(write(fd, buff, strlen(buff)) == -1) {
-	       fprintf(stderr,"Sending reply %s to command %s: %s",
-		       buff, cmd, strerror(errno));
-	       close(fd);
-	       (void)semGive(semCmdPort);
-	       return;
-	    }
+	 if(!took_semCmdPort && semTake(semCmdPort,60) == OK) {
+	    took_semCmdPort = 1;
 	 }
-	 reply = "";
+
+	 if(took_semCmdPort) {
+	    reply = "took semaphore";
+	 } else {
+	    sprintf(buff, "Unable to take semaphore: %s",
+		    strerror(errno));
+	    reply = buff;
+	 }
       } else if(strcmp(cmd, "SEM.GIVE") == 0) {
-	 semGive(semCmdPort);
-	 reply = "";
+	 if(took_semCmdPort && semGive(semCmdPort) == OK) {
+	    took_semCmdPort = 0;
+	 }
+
+	 if(!took_semCmdPort) {
+	    reply = "gave semaphore";
+	 } else {
+	    sprintf(buff, "Unable to give semaphore: %s",
+		    strerror(errno));
+	    reply = buff;
+	 }
       } else if(strcmp(cmd, "SEM.SHOW") == 0) {
 	 semShow(semCmdPort, 1);
 	 reply = "";
       } else if(!locked_command(cmd)) {
 	 reply = cmd_handler(cmd);
       } else {
-	 if(semTake(semCmdPort,60) == ERROR) {
-	    sprintf(buff, "Unable to take semaphore for %s: %s ok\n",
-		    reply, strerror(errno));
-	    if(write(fd, buff, strlen(buff)) == -1) {
-	       fprintf(stderr,"Sending reply %s to command %s: %s",
-		       buff, cmd, strerror(errno));
-	       close(fd);
-	       (void)semGive(semCmdPort);
-	       return;
-	    }
-	 } else {
+	 if(took_semCmdPort) {
 	    reply = cmd_handler(cmd);
+	 } else {
+	    reply = "I don't have the semCmdPort semaphore";
 	 }
       }
 
@@ -122,12 +150,14 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 *ptr-- = '\0';
       }
       
-      sprintf(buff, "%s ok\n", reply);
+      sprintf(buff, "%s ok\n", reply);	/* OK even if buff == reply */
       if(write(fd, buff, strlen(buff)) == -1) {
 	 fprintf(stderr,"Sending reply %s to command %s: %s",
 		 buff, cmd, strerror(errno));
 	 close(fd);
-	       (void)semGive(semCmdPort);
+	 if(took_semCmdPort) {
+	    semGive(semCmdPort); took_semCmdPort = 0;
+	 }
 	 return;
       }
    }
@@ -136,7 +166,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
    }
 
-   (void)semGive(semCmdPort);
+   if(took_semCmdPort) {
+      semGive(semCmdPort); took_semCmdPort = 0;
+   }
+
    close(fd);
 }
 
