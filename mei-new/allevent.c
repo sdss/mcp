@@ -26,17 +26,6 @@ Warning!  This is a sample program to assist in the integration of the
  of the logic and safety features that your application requires.
 */
 
-/*	Revision Control System Information
-	$Source$ 
-	$Revision$
-	$Date$
-
-	$Log$
-	Revision 1.1  1999/08/31 16:42:52  briegel
-	source for MEI library
-
-*/
-
 	
 # include <stdio.h>
 # include <stdlib.h>

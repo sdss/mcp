@@ -19,16 +19,6 @@ Warning!  This is a sample program to assist in the integration of the
 Written for Version 2.5  
 */
 
-/*	Revision Control System Information
-	$Source$ 
-	$Revision$
-	$Date$
-
-	$Log$
-	Revision 1.1  1999/08/31 16:43:45  briegel
-	source for MEI library
-
-*/
 
 	
 # include <stdio.h>
