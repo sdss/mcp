@@ -357,6 +357,7 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
 }
 void balance (int cw, int inst)
 {
+  int fd;
   int i;
   short vel,pos,delta,direction;
 #ifdef FAKE_IT
@@ -367,6 +368,10 @@ void balance (int cw, int inst)
 
 /* set mux for specified counter-weight */
   printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
+  fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
+  ioTaskStdSet(0,1,fd);
+  ioTaskStdSet(0,2,fd);
+
   cw_select (cw);
 
 /* iterate until good or exceed stop count */
@@ -485,18 +490,12 @@ void balance (int cw, int inst)
   cw_power_off();
   if (CW_verbose) printf ("\r\n STOP: ");
   printf ("\r\n .................time=%d secs\r\n",totcnt/cw_inst[inst].updates_per_sec);
+  close (fd);
 }
 void cw_pos(int cw, float *pos)
 {
-  int fd;
-
-  fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
-  ioTaskStdSet(0,1,fd);
-  ioTaskStdSet(0,2,fd);
-  printf ("pos=%f\r\n",*pos);
   cw_set_position (INST_DEFAULT, (double)*pos, (double)*pos, (double)*pos, (double)*pos);
   balance (cw, INST_DEFAULT);
-  close (fd);
 }
 void cw_position(int cw, double pos)
 {
@@ -505,19 +504,12 @@ void cw_position(int cw, double pos)
 }
 void cw_posv(int cw, short *pos)
 {
-  int fd;
-
-  fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
-  ioTaskStdSet(0,1,fd);
-  ioTaskStdSet(0,2,fd);
-  printf ("pos=%f\r\n",*pos);
   cw_set_positionv (INST_DEFAULT, *pos, *pos, *pos, *pos);
   balance (cw, INST_DEFAULT);
-  close (fd);
 }
 void cw_positionv(int cw, short pos)
 {
-  cw_set_position (INST_DEFAULT, pos, pos, pos, pos);
+  cw_set_positionv (INST_DEFAULT, pos, pos, pos, pos);
   balance (cw, INST_DEFAULT);
 }
 

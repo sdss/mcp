@@ -25,9 +25,13 @@
 
 char *balance_weight(int inst);
 char *balance_cmd(char *cmd);
+void balance (int cw, int inst);
 void cw_set_positionv(int inst, short p1, short p2, short p3, short p4);
 void cw_set_posv(int inst, short *p1, short *p2, short *p3, short *p4);
+void cw_pos(int cw, float *pos);
 void cw_posv(int cw, short *pos);
+void cw_position(int cw, double pos);
+void cw_positionv(int cw, short pos);
 int cw_get_inst(char *cmd);
 
 #define __CW_H__             /* do only once */

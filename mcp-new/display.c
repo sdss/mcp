@@ -14,7 +14,7 @@ Routines to control the display screen
 These functions can be used with a Vt220 terminal to position the cursor,
 erase the screen etc.
 ******************************************************************************/
-#define SoftwareVersion_	12
+#define SoftwareVersion_	14
 /* INCLUDES */
 #include "display.h"
 #include "stdio.h"
@@ -172,6 +172,11 @@ static char *limitstatus[]={"LU","L "," U","  "};
 double ilcpos[6]={90,0,120,0,0,0};
 int ilcvel[6]={200000,0,200000,0,500000,0};
 int ilcacc[6]={10000,10000,10000,10000,10000,10000};
+int last_clamp;
+int last_door1;
+int last_door2;
+int last_azbrake;
+int last_altbrake;
 /****************************************************************************/
 static void PrintMenu()
 {
@@ -186,6 +191,7 @@ static void PrintMenuBanner()
 {
   CursPos(1,1);
   MenuInput[21]=NULL;
+  last_clamp=last_door1=last_door2=last_azbrake=last_altbrake=-1;
   EraseDisplayRest();
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie Briegel        \n");
@@ -205,13 +211,13 @@ static void PrintMenuBanner()
   CursPos(1,12);    
   printf("Alt Clinomator=       degrees\n\r");
   CursPos(1,13);    
-  printf("ALIGN Clamp\n\r");
+  printf("ALIGN Clamp               SP1 Slit                  SP2 Slit                 \n\r");
   CursPos(1,14);    
   printf("AZ Brake\n\r");
   CursPos(1,15);    
   printf("ALT Brake\n\r");
   CursPos(1,16);    
-  printf("CW1\t\tCW2\t\tCW3\t\tCW4\n\r");
+  printf("CW1\tCW2\tCW3\tCW4\n\r");
   CursPos(1,19);
   if (Axis==0) printf("Azimuth Controls  ");
   if (Axis==2) printf("Altitude Controls ");
@@ -266,8 +272,6 @@ void Menu()
   extern void tm_alt_brake_on(),tm_alt_brake_off();
   extern void tm_set_pos(int axis, int pos);
   extern void manTrg();
-  extern char *balance_weight(int inst);
-  extern int cw_pos(int cw, float pos);
   extern int cw_abort();
   extern int amp_reset(int axis);
   extern struct FIDUCIARY fiducial[3];
@@ -580,12 +584,12 @@ void Menu()
 	   if (Axis==0)
 	   {
 	     printf("Azimuth Brake Turned On                 ");
-	     tm_az_brake_on();
+	     tm_sp_az_brake_on();
 	   }
 	   if (Axis==2)
 	   {
 	     printf("Altitude Brake Turned On                ");
-	     tm_alt_brake_on();
+	     tm_sp_alt_brake_on();
 	   }
            STOPed[Axis]=TRUE;
            tm_controller_idle (Axis);
@@ -598,12 +602,12 @@ void Menu()
 	   if (Axis==0)
 	   {
 	     printf("Azimuth Brake Turned Off                ");
-	     tm_az_brake_off();
+	     tm_sp_az_brake_off();
 	   }
 	   if (Axis==2)
 	   {
 	     printf("Altitude Brake Turned Off               ");
-	     tm_alt_brake_off();
+	     tm_sp_alt_brake_off();
 	   }
            Axis_vel[Axis]=0;
            CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
@@ -645,6 +649,82 @@ void Menu()
 	   tm_clamp_off();
 	   break;
 
+         case '(':
+	   CursPos(20,24);
+	   printf("SP1 Slit Door Toggled          ");
+	   if ((sdssdc.status.i1.il9.slit_door1_opn)&&
+               (!sdssdc.status.i1.il9.slit_door1_cls))		
+	   {
+	     tm_sp_slit_close(SPECTOGRAPH1);
+	     break;
+	   }
+	   if ((!sdssdc.status.i1.il9.slit_door1_opn)&&
+               (sdssdc.status.i1.il9.slit_door1_cls))		
+	   {
+	     tm_sp_slit_open(SPECTOGRAPH1);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case ')':
+	   CursPos(20,24);
+	   printf("SP2 Slit Door Toggled           ");
+	   if ((sdssdc.status.i1.il9.slit_door2_opn)&&
+               (!sdssdc.status.i1.il9.slit_door2_cls))		
+	   {
+	     tm_sp_slit_close(SPECTOGRAPH2);
+	     break;
+	   }
+	   if ((!sdssdc.status.i1.il9.slit_door2_opn)&&
+               (sdssdc.status.i1.il9.slit_door2_cls))		
+	   {
+	     tm_sp_slit_open(SPECTOGRAPH2);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+	   break;
+
+         case '{':
+	   CursPos(20,24);
+	   printf("SP1 Latch               ");
+	   tm_cart_latch(SPECTOGRAPH1);
+/*
+	   printf("SP1 Latch Toggled               ");
+	   if (sdssdc.status.i1.il9.cart_latch1_opn)
+	   {
+	     tm_cart_unlatch(SPECTOGRAPH1);
+	     break;
+	   }
+	   if (!sdssdc.status.i1.il9.cart_latch2_opn)
+	   {
+	     tm_cart_latch(SPECTOGRAPH1);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+*/
+	   break;
+
+         case '}':
+	   CursPos(20,24);
+	   printf("SP1 UnLatch                ");
+	   tm_cart_unlatch(SPECTOGRAPH1);
+/*
+	   printf("SP2 Latch Toggled               ");
+	   if (sdssdc.status.i1.il9.cart_latch2_opn)
+	   {
+	     tm_cart_unlatch(SPECTOGRAPH2);
+	     break;
+	   }
+	   if (!sdssdc.status.i1.il9.cart_latch2_opn)
+	   {
+	     tm_cart_latch(SPECTOGRAPH2);
+	     break;
+	   }
+	   printf("ERR: Inconsistent State  ");
+*/
+	   break;
+
          case 'X': case 'x':
 	   Running=FALSE;
 	   ioctl(0,FIOOPTIONS,Options); /* back to normal */
@@ -678,7 +758,7 @@ void Menu()
 	       printf("ERR: CWP task still active..be patient  ");
 	       break;
 	     }
-	     if (sdssdc.status.i78.il0.alt_brake_engaged)
+	     if (sdssdc.status.i7.il0.alt_brake_engaged)
 	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)inst,0,0,0,0,0,0,0,0,0);
 	     else
@@ -695,17 +775,17 @@ void Menu()
 	   CursPos(20,24);
 	   if (buf[0]=='@') cw = 2;
 	   else cw = buf[0]-0x20;
-	   printf("CW %d pp.pp                             ",cw);
+	   printf("CW %d vvv                              ",cw);
 	   cw--;
 	   if (GetString(&MenuInput[0],20))
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
 	     memset(&MenuInput[0],' ',20);
-	     sscanf (buf,"%f",&fpos);
+	     sscanf (buf,"%ld",&cwpos);
 	     CursPos(20,24);
-	     if ((fpos<.1)||(fpos>24.0))
+	     if ((cwpos<10)||(cwpos>800))
 	     {
-	       printf("ERR: Position out of Range (.1-24.0)    ");
+	       printf("ERR: Position out of Range (10-800)    ");
 	       break;
 	     }
              if (taskIdFigure("cw")!=ERROR)
@@ -718,9 +798,9 @@ void Menu()
 	       printf("ERR: CWP task still active..be patient  ");
 	       break;
 	     }
-	     if (sdssdc.status.i78.il0.alt_brake_engaged)
-	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_pos,
-			  (int)cw,(int)&fpos,0,0,0,0,0,0,0,0);
+	     if (sdssdc.status.i7.il0.alt_brake_engaged)
+	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
+			  (int)cw,(int)cwpos,0,0,0,0,0,0,0,0);
 	     else
              {
 	       printf ("Alt Brake NOT Engaged                  ");
@@ -756,7 +836,7 @@ void Menu()
 	       break;
 	     }
 	     cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
-	     if (sdssdc.status.i78.il0.alt_brake_engaged)
+	     if (sdssdc.status.i7.il0.alt_brake_engaged)
 	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
 	     else
@@ -867,13 +947,13 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
              printf("ERR: Velocity is Zero for AZ or Alt Axis");
 	     break;
 	   }
-	   if (sdssdc.status.i78.il0.az_brake_engaged)
+	   if (sdssdc.status.i7.il0.az_brake_engaged)
 	   {
              CursPos(20,24);
 	     printf("ERR: AZ Brake is Engaged                ");
 	     break;
 	   }
-	   if (sdssdc.status.i78.il0.alt_brake_engaged)
+	   if (sdssdc.status.i7.il0.alt_brake_engaged)
 	   {
 	     CursPos(20,24);
 	     printf("ERR: ALT Brake is Engaged               ");
@@ -917,13 +997,13 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
 	   }
            if (STOPed[Axis])
            {
-	     if ((Axis==0)&&(sdssdc.status.i78.il0.az_brake_engaged))
+	     if ((Axis==0)&&(sdssdc.status.i7.il0.az_brake_engaged))
 	     {
 	       CursPos(20,24);
 	       printf("ERR: AZ Brake is Engaged                ");
 	       break;
 	     }
-	     if ((Axis==2)&&(sdssdc.status.i78.il0.alt_brake_engaged))
+	     if ((Axis==2)&&(sdssdc.status.i7.il0.alt_brake_engaged))
 	     {
 	       CursPos(20,24);
 	       printf("ERR: ALT Brake is Engaged               ");
@@ -975,7 +1055,7 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
 	   CursPos(19,19); printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
            if (STOPed[Axis])
            {
-             if ((Axis==0)&&(sdssdc.status.i78.il0.az_brake_engaged)&&
+             if ((Axis==0)&&(sdssdc.status.i7.il0.az_brake_engaged)&&
 		(Axis_vel[Axis]!=0))
              {
                CursPos(20,24);
@@ -983,7 +1063,7 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
 	       printf("ERR: AZ Brake is Engaged                ");
 	       break;
              }
-             if ((Axis==2)&&(sdssdc.status.i78.il0.alt_brake_engaged)&&
+             if ((Axis==2)&&(sdssdc.status.i7.il0.alt_brake_engaged)&&
 		(Axis_vel[Axis]!=0))
              {
 	       CursPos(20,24);
@@ -1034,13 +1114,13 @@ printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                
 	   CursPos(19,19);  printf ("<--J-- %6ld --K-->\n",Axis_vel[Axis]);
            if (STOPed[Axis])
            {
-             if ((Axis==0)&&(sdssdc.status.i78.il0.az_brake_engaged))
+             if ((Axis==0)&&(sdssdc.status.i7.il0.az_brake_engaged))
              {
                CursPos(20,24);
 	       printf("ERR: AZ Brake is Engaged");
 	       break;
              }
-             if ((Axis==2)&&(sdssdc.status.i78.il0.alt_brake_engaged))
+             if ((Axis==2)&&(sdssdc.status.i7.il0.alt_brake_engaged))
              {
                CursPos(20,24);
 	       printf("ERR: ALT Brake is Engaged");
@@ -1171,7 +1251,7 @@ void PrintMenuPos()
 	  else
 	  {
 	    if (check_stop_in()) printf ("S");
-            else if (sdssdc.status.i78.il0.az_brake_engaged) printf ("B");
+            else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
 	      else printf ("?");
 	  }
           arcsec=(AZ_TICK*abs(ap));
@@ -1187,7 +1267,7 @@ void PrintMenuPos()
 	  else
 	  {
 	    if (check_stop_in()) printf ("S");
-            else if (sdssdc.status.i78.il0.alt_brake_engaged) printf ("B");
+            else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
 	      else printf ("?");
 	  }
           arcsec=(ALT_TICK*abs(ap));
@@ -1257,50 +1337,124 @@ void PrintMenuPos()
     taskDelay(30);
     if (semTake (semMEIUPD,60)!=ERROR)
     {
-
+      if (last_clamp!=(int)((sdssdc.status.i11.ol0.clamp_engaged_st)|
+		      (sdssdc.status.i11.ol0.clamp_disengaged_st<<1)|
+		      (sdssdc.status.o10.ol0.clamp_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.clamp_disen_cmd<<3)) )
+      {
       CursPos(14,13);
-      if (sdssdc.status.i11o12.ol0.clamp_engaged_st)
+      printf("             ");
+      CursPos(14,13);
+      if (sdssdc.status.i11.ol0.clamp_engaged_st)
         printf("On  ");
-      if (sdssdc.status.i11o12.ol0.clamp_disengaged_st)
-        printf("Off  ");
-      if (sdssdc.status.o910.ol0.clamp_engage_cmd)
-        printf("OnCmd  ");
-      if (sdssdc.status.o910.ol0.clamp_disen_cmd)
-        printf("OffCmd  ");
+      if (sdssdc.status.i11.ol0.clamp_disengaged_st)
+        printf("Off ");
+      if (sdssdc.status.o10.ol0.clamp_engage_cmd)
+        printf("OnCmd ");
+      if (sdssdc.status.o10.ol0.clamp_disen_cmd)
+        printf("OffCmd ");
+      last_clamp=(sdssdc.status.i11.ol0.clamp_engaged_st)|
+		      (sdssdc.status.i11.ol0.clamp_disengaged_st<<1)|
+		      (sdssdc.status.o10.ol0.clamp_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.clamp_disen_cmd<<3);
+      }
+
+      if (last_door1!=(int)((sdssdc.status.i1.il9.slit_door1_opn)|
+		      (sdssdc.status.i1.il9.slit_door1_cls<<1)|
+		      (sdssdc.status.i1.il9.cart_latch1_opn<<2)) )
+      {
+      CursPos(36,13);
+      printf("               ");
+      CursPos(36,13);
+      if (sdssdc.status.i1.il9.slit_door1_opn)
+        printf("Open ");
+      if (sdssdc.status.i1.il9.slit_door1_cls)
+        printf("Closed ");
+      if (sdssdc.status.i1.il9.cart_latch1_opn)
+        printf("Latch ");
+      else
+        printf("UnLatch ");
+      last_door1=(sdssdc.status.i1.il9.slit_door1_opn)|
+		      (sdssdc.status.i1.il9.slit_door1_cls<<1)|
+		      (sdssdc.status.i1.il9.cart_latch1_opn<<2);
+      }
+      if (last_door2!=(int)((sdssdc.status.i1.il9.slit_door2_opn)|
+		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
+		      (sdssdc.status.i1.il9.cart_latch2_opn<<2)) )
+      {
+      CursPos(62,13);
+      printf("               ");
+      CursPos(62,13);
+      if (sdssdc.status.i1.il9.slit_door2_opn)
+        printf("Open ");
+      if (sdssdc.status.i1.il9.slit_door2_cls)
+        printf("Closed ");
+      if (sdssdc.status.i1.il9.cart_latch2_opn)
+        printf("Latch ");
+      else
+        printf("UnLatch ");
+      last_door2=(sdssdc.status.i1.il9.slit_door2_opn)|
+		      (sdssdc.status.i1.il9.slit_door2_cls<<1)|
+		      (sdssdc.status.i1.il9.cart_latch2_opn<<2);
+      }
+      if (last_azbrake!=(int)((sdssdc.status.i7.il0.az_brake_engaged)|
+		      (sdssdc.status.i7.il0.az_brake_disengaged<<1)|
+		      (sdssdc.status.o10.ol0.az_brake_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.az_brake_disen_cmd<<3)) )
+      {
       CursPos(14,14);
-      if (sdssdc.status.i78.il0.az_brake_engaged)
+      printf("                 ");
+      CursPos(14,14);
+      if (sdssdc.status.i7.il0.az_brake_engaged)
         printf("On  ");
-      if (sdssdc.status.i78.il0.az_brake_disengaged)
-        printf("Off  ");
-      if (sdssdc.status.o910.ol0.az_brake_engage_cmd)
-        printf("OnCmd  ");
-      if (sdssdc.status.o910.ol0.az_brake_disen_cmd)
-        printf("OffCmd  ");
+      if (sdssdc.status.i7.il0.az_brake_disengaged)
+        printf("Off ");
+      if (sdssdc.status.o10.ol0.az_brake_engage_cmd)
+        printf("OnCmd ");
+      if (sdssdc.status.o10.ol0.az_brake_disen_cmd)
+        printf("OffCmd ");
+      last_azbrake=(sdssdc.status.i7.il0.az_brake_engaged)|
+		      (sdssdc.status.i7.il0.az_brake_disengaged<<1)|
+		      (sdssdc.status.o10.ol0.az_brake_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.az_brake_disen_cmd<<3);
+      }
+      if (last_altbrake!=(int)((sdssdc.status.i7.il0.alt_brake_engaged)|
+		      (sdssdc.status.i8.il0.alt_brake_disengaged<<1)|
+		      (sdssdc.status.o10.ol0.alt_brake_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.alt_brake_disen_cmd<<3)) )
+      {
       CursPos(14,15);
-      if (sdssdc.status.i78.il0.alt_brake_engaged)
+      printf("                 ");
+      CursPos(14,15);
+      if (sdssdc.status.i7.il0.alt_brake_engaged)
         printf("On  ");
-      if (sdssdc.status.i78.il0.alt_brake_disengaged)
-        printf("Off  ");
-      if (sdssdc.status.o910.ol0.alt_brake_engage_cmd)
-        printf("OnCmd  ");
-      if (sdssdc.status.o910.ol0.alt_brake_disen_cmd)
-        printf("OffCmd  ");
+      if (sdssdc.status.i8.il0.alt_brake_disengaged)
+        printf("Off ");
+      if (sdssdc.status.o10.ol0.alt_brake_engage_cmd)
+        printf("OnCmd ");
+      if (sdssdc.status.o10.ol0.alt_brake_disen_cmd)
+        printf("OffCmd ");
+      last_altbrake=(sdssdc.status.i7.il0.alt_brake_engaged)|
+		      (sdssdc.status.i8.il0.alt_brake_disengaged<<1)|
+		      (sdssdc.status.o10.ol0.alt_brake_engage_cmd<<2)|
+		      (sdssdc.status.o10.ol0.alt_brake_disen_cmd<<3);
+      }
 /*
       printf("\t\tOn=%d\tOff=%d\tOnCmd=%d\tOffCmd=%d\n",
-        sdssdc.status.i11o12.ol0.clamp_engaged_st,
-        sdssdc.status.i11o12.ol0.clamp_disengaged_st,
-	sdssdc.status.o910.ol0.clamp_engage_cmd,
-	sdssdc.status.o910.ol0.clamp_disen_cmd);
+        sdssdc.status.i11.ol0.clamp_engaged_st,
+        sdssdc.status.i11.ol0.clamp_disengaged_st,
+	sdssdc.status.o10.ol0.clamp_engage_cmd,
+	sdssdc.status.o10.ol0.clamp_disen_cmd);
       printf("\t\tOn=%d\tOff=%d\tOnCmd=%d\tOffCmd=%d\n",
-        sdssdc.status.i78.il0.az_brake_engaged,
-	sdssdc.status.i78.il0.az_brake_disengaged,
-	sdssdc.status.o910.ol0.az_brake_engage_cmd,
-	sdssdc.status.o910.ol0.az_brake_disen_cmd);
+        sdssdc.status.i7.il0.az_brake_engaged,
+	sdssdc.status.i7.il0.az_brake_disengaged,
+	sdssdc.status.o10.ol0.az_brake_engage_cmd,
+	sdssdc.status.o10.ol0.az_brake_disen_cmd);
       printf("\t\tOn=%d\tOff=%d\tOnCmd=%d\tOffCmd=%d\n", 
-	sdssdc.status.i78.il0.alt_brake_engaged,
-        sdssdc.status.i78.il0.alt_brake_disengaged,
-        sdssdc.status.o910.ol0.alt_brake_engage_cmd,
-        sdssdc.status.o910.ol0.alt_brake_disen_cmd);
+	sdssdc.status.i7.il0.alt_brake_engaged,
+        sdssdc.status.i8.il0.alt_brake_disengaged,
+        sdssdc.status.o10.ol0.alt_brake_engage_cmd,
+        sdssdc.status.o10.ol0.alt_brake_disen_cmd);
 */
       CursPos(1,17);
       for (i=0;i<4;i++)
@@ -1310,8 +1464,8 @@ void PrintMenuPos()
         if ((adc&0x800)==0x800) adc |= 0xF000;
         else adc &= 0xFFF;
 	limidx = (cwLimit>>(i*2))&0x3;
-        printf ("%5.2f\" %5.2fv%s\t",
-	  (24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
+        printf ("%d %s\t",
+	  (int)((1000*adc)/2048.),limitstatus[limidx]);
       }
       CursPos (60,24);
       printf ("%s",&MenuInput[0]);
@@ -1356,7 +1510,7 @@ static void PrintInstBanner()
   CursPos(1,13);    
   printf("ALIGN Clamp\n\r");
   CursPos(1,16);    
-  printf("CW1\t\tCW2\t\tCW3\t\tCW4\n\r");
+  printf("CW1\tCW2\tCW3\tCW4\n\r");
   CursPos(1,19);
   CursPos(1,22);
   printf("/////////////////////////////// SDSS ////////////////////////////////\n\r");
@@ -1380,8 +1534,6 @@ void Inst()
   extern SEM_ID semMEI;
   extern SEM_ID semMEIUPD;
   extern void manTrg();
-  extern char *balance_weight(int inst);
-  extern int cw_pos(int cw, float pos);
   extern int cw_abort();
   extern int fsm();
   int cw;
@@ -1419,13 +1571,13 @@ void Inst()
 	   
          case 'G': case 'g':
 	   CursPos(20,24);
-	   if (sdssdc.status.i78.il0.az_brake_engaged)
+	   if (sdssdc.status.i7.il0.az_brake_engaged)
 	   {
              CursPos(20,24);
 	     printf("ERR: AZ Brake is Engaged                ");
 	     break;
 	   }
-	   if (sdssdc.status.i78.il0.alt_brake_engaged)
+	   if (sdssdc.status.i7.il0.alt_brake_engaged)
 	   {
 	     CursPos(20,24);
 	     printf("ERR: ALT Brake is Engaged               ");
@@ -1545,7 +1697,7 @@ void Inst()
 	       printf("ERR: CWP task still active..be patient  ");
 	       break;
 	     }
-	     if (sdssdc.status.i78.il0.alt_brake_engaged)
+	     if (sdssdc.status.i7.il0.alt_brake_engaged)
 	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)inst,0,0,0,0,0,0,0,0,0);
 	     else
@@ -1585,7 +1737,7 @@ void Inst()
 	       printf("ERR: CWP task still active..be patient  ");
 	       break;
 	     }
-	     if (sdssdc.status.i78.il0.alt_brake_engaged)
+	     if (sdssdc.status.i7.il0.alt_brake_engaged)
 	       taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_pos,
 			  (int)cw,(int)&fpos,0,0,0,0,0,0,0,0);
 	     else
@@ -1742,10 +1894,10 @@ void PrintInstPos()
         ap,
         ap2);
       printf("\t\tOn=%d\tOff=%d\tOnCmd=%d\tOffCmd=%d\n",
-        sdssdc.status.i11o12.ol0.clamp_engaged_st,
-        sdssdc.status.i11o12.ol0.clamp_disengaged_st,
-	sdssdc.status.o910.ol0.clamp_engage_cmd,
-	sdssdc.status.o910.ol0.clamp_disen_cmd);
+        sdssdc.status.i11.ol0.clamp_engaged_st,
+        sdssdc.status.i11.ol0.clamp_disengaged_st,
+	sdssdc.status.o10.ol0.clamp_engage_cmd,
+	sdssdc.status.o10.ol0.clamp_disen_cmd);
       CursPos(1,17);
       for (i=0;i<4;i++)
       {
@@ -1753,8 +1905,8 @@ void PrintInstPos()
         if ((adc&0x800)==0x800) adc |= 0xF000;
         else adc &= 0xFFF;
 	limidx = (cwLimit>>(i*2))&0x3;
-        printf ("%5.2f\" %5.2fv%s\t",
-	  (24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
+        printf ("%d %s\t",
+	  (int)((1000*adc)/2048.),limitstatus[limidx]);
       }
       CursPos(1,19);
       memset(&inst_msg[10],' ',60);
@@ -1846,7 +1998,7 @@ int is_alt_brake_on()
   inst_display = "Checking alt brake status";
   taskDelay (30);
     return TRUE;
-  if (sdssdc.status.i78.il0.alt_brake_engaged)
+  if (sdssdc.status.i7.il0.alt_brake_engaged)
   {
     inst_display = "ALT Brake is Engaged";
     return TRUE;
@@ -1902,7 +2054,7 @@ int is_clamp_on()
   inst_display = "Checking clamp status";
   taskDelay (30);
     return TRUE;
-  if (sdssdc.status.i11o12.ol0.clamp_engaged_st)
+  if (sdssdc.status.i11.ol0.clamp_engaged_st)
   {
     inst_display = "Clamp is Engaged";
     return TRUE;
@@ -1933,52 +2085,57 @@ int is_stop_in()
   inst_display = "Checking stop buttons";
   taskDelay (30);
     return TRUE;
-  if (!sdssdc.status.i56.il0.w_lower_stop)
+  if (!sdssdc.status.i5.il0.w_lower_stop)
   {
     inst_display = "West Lower Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.e_lower_stop)
+  if (!sdssdc.status.i5.il0.e_lower_stop)
   {
     inst_display = "East Lower Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.s_lower_stop)
+  if (!sdssdc.status.i5.il0.s_lower_stop)
   {
     inst_display = "South Lower Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.n_lower_stop)
+  if (!sdssdc.status.i5.il0.n_lower_stop)
   {
     inst_display = "North Lower Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.w_rail_stop)
+  if (!sdssdc.status.i5.il0.w_rail_stop)
   {
     inst_display = "West Rail Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.s_rail_stop)
+  if (!sdssdc.status.i5.il0.s_rail_stop)
   {
     inst_display = "South Rail Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.n_rail_stop)
+  if (!sdssdc.status.i5.il0.n_rail_stop)
   {
     inst_display = "North Rail Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.n_wind_stop)
+  if (!sdssdc.status.i5.il0.n_fork_stop)
+  {
+    inst_display = "North Fork Stop In";
+    return TRUE;
+  }
+  if (!sdssdc.status.i5.il0.n_wind_stop)
   {
     inst_display = "North Windscreen Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i56.il0.cr_stop)
+  if (!sdssdc.status.i5.il0.cr_stop)
   {
     inst_display = "Control Room Stop In";
     return TRUE;
   }
-  if (!sdssdc.status.i78.il0.s_wind_e_stop)
+  if (!sdssdc.status.i8.il0.s_wind_e_stop)
   {
     inst_display = "South Windscreen Stop In";
     return TRUE;
@@ -1990,16 +2147,17 @@ int check_stop_in()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i56.il0.w_lower_stop)&&
-     (sdssdc.status.i56.il0.e_lower_stop)&&
-     (sdssdc.status.i56.il0.s_lower_stop)&&
-     (sdssdc.status.i56.il0.n_lower_stop)&&
-     (sdssdc.status.i56.il0.w_rail_stop)&&
-     (sdssdc.status.i56.il0.s_rail_stop)&&
-     (sdssdc.status.i56.il0.n_rail_stop)&&
-     (sdssdc.status.i56.il0.n_wind_stop)&&
-     (sdssdc.status.i56.il0.cr_stop)&&
-     (sdssdc.status.i78.il0.s_wind_e_stop) )
+  if ((sdssdc.status.i5.il0.w_lower_stop)&&
+     (sdssdc.status.i5.il0.e_lower_stop)&&
+     (sdssdc.status.i5.il0.s_lower_stop)&&
+     (sdssdc.status.i5.il0.n_lower_stop)&&
+     (sdssdc.status.i5.il0.w_rail_stop)&&
+     (sdssdc.status.i5.il0.s_rail_stop)&&
+     (sdssdc.status.i5.il0.n_rail_stop)&&
+     (sdssdc.status.i5.il0.n_fork_stop)&&
+     (sdssdc.status.i5.il0.n_wind_stop)&&
+     (sdssdc.status.i5.il0.cr_stop)&&
+     (sdssdc.status.i8.il0.s_wind_e_stop) )
     return FALSE;
   else
     return TRUE;

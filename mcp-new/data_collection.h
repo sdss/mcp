@@ -51,8 +51,8 @@ struct TM_M68K {
 struct TM {
 	short prev_encoder;
 	short current_vel;
-	short actual_position_hi;				/* ALENC1, AZENC1 (upper)	*/
-	short actual_position_lo;				/* ALENC1, AZENC1 (lower)	*/
+	short actual_position_hi;		/* ALENC1, AZENC1 (upper)	*/
+	short actual_position_lo;		/* ALENC1, AZENC1 (lower)	*/
 	unsigned short time_fractional;
 	unsigned short time_hi;
 	unsigned short time_lo;
@@ -67,8 +67,8 @@ struct TM {
 	short velocity_lo;
 	short position_fractional_hi;
 	short position_fractional_lo;
-	short position_hi;						/* AZCPOS, ALCPOS, ROCPOS (upper) */
-	short position_lo;						/* AZCPOS, ALCPOS, ROCPOS (lower) */
+	short position_hi;			/* AZCPOS, ALCPOS, ROCPOS (upper) */
+	short position_lo;			/* AZCPOS, ALCPOS, ROCPOS (lower) */
 	short master_pos;
 	short ratio;
 	short ratio2;
@@ -93,12 +93,12 @@ struct TM {
 	short unknown6;
 	short unknown7;
 	short unknown8;
-	short voltage;							/* AZCVOLT, ALCVOLT, ROCVOLT */
+	short voltage;				/* AZCVOLT, ALCVOLT, ROCVOLT */
 	short unknown9;
 	short prev_encoder2;
 	short current_vel2;
-	short actual_position2_hi;				/* ALENC2, AZENC2 (upper)	*/
-	short actual_position2_lo;				/* ALENC2, AZENC2 (lower)	*/
+	short actual_position2_hi;		/* ALENC2, AZENC2 (upper)	*/
+	short actual_position2_lo;		/* ALENC2, AZENC2 (lower)	*/
 	short status;
 	short errcnt;
 };
@@ -125,30 +125,37 @@ struct PVT {
 	short time_hi;
 	short time_lo;
 };
+
 struct B10_1 {
-	unsigned : 11;
-	unsigned mcp_umbilical_off_on_cmd: 1;	/* bit 20 on=1, off=0 */
-	unsigned mcp_umbilical_dn_up_cmd: 1;	/* bit 19 dn=1, up=0 */
-	unsigned mcp_15_deg_stop_out_cmd: 1;
-	unsigned mcp_15_deg_stop_in_cmd: 1;
-	unsigned mcp_clamp_dis_cmd: 1;	/* bit 16 */
+	unsigned : 5;
+	unsigned mcp_cart_latch2_cmd : 1;
+	unsigned mcp_slit_door2_cls_cmd : 1;
+	unsigned mcp_slit_door2_opn_cmd : 1;
+	unsigned mcp_cart_latch1_cmd : 1;
+	unsigned mcp_slit_door1_cls_cmd : 1;
+	unsigned mcp_slit_door1_opn_cmd : 1;
+	unsigned mcp_umbilical_off_on_cmd : 1;	/* bit 20 on=1, off=0 */
+	unsigned mcp_umbilical_dn_up_cmd : 1;	/* bit 19 dn=1, up=0 */
+	unsigned mcp_15_deg_stop_out_cmd : 1;
+	unsigned mcp_15_deg_stop_in_cmd : 1;
+	unsigned mcp_clamp_dis_cmd : 1;	/* bit 16 */
 };
 struct B10 {
-	unsigned mcp_clamp_en_cmd: 1;
-	unsigned mcp_alt_brk_en_cmd: 1;
-	unsigned mcp_alt_brk_dis_cmd: 1;
-	unsigned mcp_az_brk_en_cmd: 1;
-	unsigned mcp_az_brk_dis_cmd: 1;
+	unsigned mcp_clamp_en_cmd : 1;
+	unsigned mcp_alt_brk_en_cmd : 1;
+	unsigned mcp_alt_brk_dis_cmd : 1;
+	unsigned mcp_az_brk_en_cmd : 1;
+	unsigned mcp_az_brk_dis_cmd : 1;
 	unsigned mcp_solenoid_enable : 1;
 	unsigned mcp_pump_on : 1;
-	unsigned mcp_lift_dn: 4;
-	unsigned mcp_lift_up: 4;
-	unsigned mcp_lift_high_psi: 1;
+	unsigned mcp_lift_dn : 4;
+	unsigned mcp_lift_up : 4;
+	unsigned mcp_lift_high_psi : 1;
 };
 typedef struct {
-	unsigned : 1;			/* msw bit - 32, i.e. 0x8000 0000 */
-	unsigned az_bump_ccw : 1;				/* AZCCWC	*/
-	unsigned az_bump_cw : 1;				/* AZCWC	*/
+	unsigned : 1;			/* msw bit - 32 i:1/15, i.e. 0x8000 0000 */
+	unsigned az_bump_ccw : 1;		/* AZCCWC	*/
+	unsigned az_bump_cw : 1;		/* AZCWC	*/
 	unsigned imager_serv_cart : 1;
 	unsigned imager_ops_cart : 1;
 	unsigned fiber_cart_pos2 : 1;	/* cart locked in second position - put */
@@ -163,7 +170,7 @@ typedef struct {
 	unsigned inst_lift_sw1 : 1;	/* kinematic mounts engaged */
 	unsigned inst_lift_pump_on : 1;	/* pump status */
 
-	unsigned low_lvl_light_req : 1;	/* msw bit - 15, i.e. 0x8000 */
+	unsigned low_lvl_light_req : 1;	/* msw bit - 15 I:1/31, i.e. 0x8000 */
 	unsigned : 8;
 	unsigned optical_bench_cls : 1;
 	unsigned optical_bench_opn : 1;
@@ -180,16 +187,17 @@ typedef struct {
 	unsigned sec_latch_cls_cmd : 1;
 	unsigned pri_latch_opn_cmd : 1;
 	unsigned pri_latch_cls_cmd : 1;
-	unsigned alt_bump_dn : 1;				/* ALLWC	*/
-	unsigned alt_bump_up : 1;				/* ALRWC	*/
+	unsigned alt_bump_dn : 1;		/* ALLWC	*/
+	unsigned alt_bump_up : 1;		/* ALRWC	*/
 	unsigned sad_man_valve_cls : 1;
 	unsigned sec_man_valve_cls : 1;
 	unsigned inst_man_valve_cls : 1;
 	unsigned ilcb_pres_good : 1;
-	unsigned rot_280_ccw : 1;				/* ROCCWSL	*/
-	unsigned rot_280_cw : 1;				/* ROCWSL	*/
+	unsigned rot_280_ccw : 1;		/* ROCCWSL	*/
+	unsigned rot_280_cw : 1;		/* ROCWSL	*/
 	unsigned rot_inst_chg_b : 1;
-	unsigned rot_inst_chg_a : 1;			/* ROICHG	*/
+	unsigned rot_inst_chg_a : 1;		/* ROICHG	*/
+
 	unsigned : 16;
 }IF1_L4;
 typedef struct {
@@ -273,10 +281,10 @@ typedef struct {
 	unsigned wind_az2_fault : 1;
 	unsigned wind_az1_fault : 1;
 }IF2_L0;
-struct I2 {
+ struct I2 {
 	IF2_L0 il0;
 	short az_lvdt_error;
-	short alt_lvdt_error;					/* ALWSPOS	*/
+	short alt_lvdt_error;			/* ALWSPOS	*/
 	short az_primary_drv;
 	short az_feed_forward_drv;
 	short alt_primary_drv;
@@ -295,19 +303,19 @@ struct I2 {
 	unsigned long undefined15;
 };
 struct I3 {
-	short az_1_voltage;						/* AZMTRV1 */
-	short az_1_current;						/* AZMTRC1 */
-	short az_2_voltage;						/* AZMTRV2 */
-	short az_2_current;						/* AZMTRC2 */
-	short alt_1_voltage;					/* ALMTRV1	*/
-	short alt_1_current;					/* ALMTRC1	*/
-	short alt_2_voltage;					/* ALMTRV2	*/
-	short alt_2_current;					/* ALMTRC2	*/
+	short az_1_voltage;			/* AZMTRV1      */
+	short az_1_current;			/* AZMTRC1      */
+	short az_2_voltage;			/* AZMTRV2      */
+	short az_2_current;			/* AZMTRC2      */
+	short alt_1_voltage;			/* ALMTRV1	*/
+	short alt_1_current;			/* ALMTRC1	*/
+	short alt_2_voltage;			/* ALMTRV2	*/
+	short alt_2_current;			/* ALMTRC2	*/
 };
 struct I4 {
 	short alt_position;
-	short rot_1_voltage;					/* ROMTRV	*/
-	short rot_1_current;					/* ROMTRC	*/
+	short rot_1_voltage;			/* ROMTRV	*/
+	short rot_1_current;			/* ROMTRC	*/
 	short umbilical_dist;
 	short inst_lift_force;
 	short inst_lift_dist;
@@ -332,25 +340,33 @@ typedef struct {
 	unsigned cr_stop : 1;
 	unsigned tcc_stop : 1;
 	
+	unsigned : 16;
+} IF5_L0;
+struct I5 {
+	IF5_L0	il0;
+};
+typedef struct {
 	unsigned deg_15_stop_out : 1;
 	unsigned deg_15_stop_in : 1;
 	unsigned az_mtr2_perm : 1;
 	unsigned az_mtr1_perm : 1;
 	unsigned az_mtr_ccw : 1;
 	unsigned az_mtr_cw : 1;
-	unsigned : 1;
+	unsigned splitter_bypass_enab : 1;
 	unsigned az_plc_permit_in : 1;
 	unsigned az_mtr2_rdy : 1;
 	unsigned az_mtr1_rdy : 1;
-	unsigned az_290_ccw : 1;				/* AZCCWHL */
-	unsigned az_290_cw : 1;					/* AZCWHL */
-	unsigned az_280_ccw : 1;				/* AZCCWSL */
-	unsigned az_280_cw : 1;					/* AZCWSL */
+	unsigned az_290_ccw : 1;		/* AZCCWHL */
+	unsigned az_290_cw : 1;			/* AZCWHL */
+	unsigned az_280_ccw : 1;		/* AZCCWSL */
+	unsigned az_280_cw : 1;			/* AZCWSL */
 	unsigned az_dir_ccw : 1;
 	unsigned az_dir_cw : 1;
-} IF56_L0;
-struct I56 {
-	IF56_L0	il0;
+
+	unsigned : 16;
+} IF6_L0;
+struct I6 {
+	IF6_L0	il0;
 };
 typedef struct {
 	unsigned alt_brake_engaged: 1;
@@ -358,7 +374,7 @@ typedef struct {
 	unsigned az_brake_engaged: 1;
 	unsigned az_stow_b : 1;
 	unsigned az_stow_a : 1;
-	unsigned alt_stow : 1;					/* ALSTOW	*/
+	unsigned alt_stow : 1;			/* ALSTOW	*/
 	unsigned alt_mtr2_perm : 1;
 	unsigned alt_mtr1_perm : 1;
 	unsigned alt_mtr_dn : 1;
@@ -366,10 +382,19 @@ typedef struct {
 	unsigned alt_plc_permit_in : 1;
 	unsigned alt_mtr2_rdy : 1;
 	unsigned alt_mtr1_rdy : 1;
-	unsigned alt_90_5_limit : 1;			/* ALP100	*/
-	unsigned alt_20_limit : 1;				/* ALP20	*/
-	unsigned alt_0_6_limit : 1;				/* ALP-2	*/
+	unsigned alt_90_5_limit : 1;		/* ALP100	*/
+	unsigned alt_20_limit : 1;		/* ALP20	*/
+	unsigned alt_0_6_limit : 1;		/* ALP-2	*/
 	
+	unsigned : 13;
+	unsigned locking_pin_out : 1;
+	unsigned alt_less_than_19_deg : 1;
+	unsigned bldg_on : 1;
+} IF7_L0;
+struct I7 {
+	IF7_L0	il0;
+};
+typedef struct {
 	unsigned s_wind_e_stop : 1;
 	unsigned lift_estop_sw : 1;
 	unsigned lift_dn_sw : 1;
@@ -382,13 +407,15 @@ typedef struct {
 	unsigned rot_mtr_cw : 1;
 	unsigned rot_plc_permit_in : 1;
 	unsigned rot_mtr_rdy : 1;
-	unsigned rot_290_ccw : 1;				/* ROCCWHL	*/
-	unsigned rot_290_cw : 1;				/* ROCWHL	*/
+	unsigned rot_290_ccw : 1;		/* ROCCWHL	*/
+	unsigned rot_290_cw : 1;		/* ROCWHL	*/
 	unsigned rot_dir_ccw : 1;
 	unsigned rot_dir_cw : 1;
-} IF78_L0;
-struct I78 {
-	IF78_L0	il0;
+
+	unsigned : 16;
+} IF8_L0;
+struct I8 {
+	IF8_L0	il0;
 };
 typedef struct {
 	unsigned low_lvl_light_2 : 1;
@@ -524,6 +551,12 @@ typedef struct {
 	unsigned az_plc_cw_perm : 1;
 	unsigned az_plc_perm : 1;
 
+	unsigned : 16;
+} OF9_L0;
+struct O9 {
+	OF9_L0	ol0;
+};
+typedef struct {
 	unsigned : 3;
 	unsigned umbilical_dir_cmd : 1;
 	unsigned umbilical_motor_cmd : 1;
@@ -538,22 +571,48 @@ typedef struct {
 	unsigned lift_estop_light : 1;
 	unsigned lift_dn_light : 1;
 	unsigned lift_up_light : 1;
-} OF910_L0;
-struct O910 {
-	OF910_L0	ol0;
+
+	unsigned : 16;
+} OF10_L0;
+struct O10 {
+	OF10_L0	ol0;
 };
 typedef struct {
-	unsigned : 13;
+	unsigned stop_bypass_enabled : 1;
+	unsigned : 12;
 	unsigned umbilical_strain_sw : 1;
 	unsigned clamp_disengaged_st : 1;
 	unsigned clamp_engaged_st : 1;
 
+	unsigned s2_c7_bypassed : 1;
+	unsigned s2_c6_bypassed : 1;
+	unsigned s2_c5_bypassed : 1;
+	unsigned s2_c4_bypassed : 1;
+	unsigned s2_c3_bypassed : 1;
+	unsigned s2_c2_bypassed : 1;
+	unsigned s2_c1_bypassed : 1;
+	unsigned s2_c0_bypassed : 1;
+	unsigned s1_c7_bypassed : 1;
+	unsigned s1_c6_bypassed : 1;
+	unsigned s1_c5_bypassed : 1;
+	unsigned s1_c4_bypassed : 1;
+	unsigned s1_c3_bypassed : 1;
+	unsigned s1_c2_bypassed : 1;
+	unsigned s1_c1_bypassed : 1;
+	unsigned s1_c0_bypassed : 1;
+} I11_L0;
+struct I11 {
+	I11_L0	ol0;
+};
+typedef struct {
 	unsigned : 14;
 	unsigned tbar_latch_opn_perm : 1;
 	unsigned tbar_latch_cls_perm : 1;
-} I11O12_L0;
-struct I11O12 {
-	I11O12_L0	ol0;
+
+	unsigned : 16;
+} O12_L0;
+struct O12 {
+	O12_L0	ol0;
 };
 
 struct AB_SLC500 {
@@ -565,15 +624,19 @@ struct AB_SLC500 {
 	struct O2 o2;
 	struct I3 i3;
 	struct I4 i4;
-	struct I56 i56;
-	struct I78 i78;
-	struct O910 o910;
-	struct I11O12 i11o12;
+	struct I5 i5;
+	struct I6 i6;
+	struct I7 i7;
+	struct I8 i8;
+	struct O9 o9;
+	struct O10 o10;
+	struct I11 i11;
+	struct O12 o12;
 };
 
 struct SDSS_FRAME {
 	unsigned char vers;
-#define SDSS_FRAME_VERSION	4
+#define SDSS_FRAME_VERSION	5
 	unsigned char type;
 #define DATA_TYPE	1
 	unsigned short binary_len;
@@ -589,4 +652,26 @@ struct SDSS_FRAME {
 	unsigned long ascii_len;
 #define ASCII_LEN	80
 	unsigned char ascii[ASCII_LEN];
+};
+
+struct AXIS_STAT {
+	unsigned always_zero : 1;
+	unsigned  : 7;
+	unsigned  : 6;
+	unsigned clock_slow_signal : 1;
+	unsigned clock_loss_signal : 1;
+
+        unsigned : 5;
+	unsigned stop_ok : 1;
+	unsigned amp_ok : 1;
+	unsigned closed_loop : 1;
+
+	unsigned max_limit: 1;
+	unsigned min_limit: 1;
+	unsigned max_acc: 1;
+	unsigned max_vel: 1;
+	unsigned max_pos: 1;
+	unsigned min_pos: 1;
+	unsigned pvt_time_late : 1;
+	unsigned pvt_empty : 1;
 };

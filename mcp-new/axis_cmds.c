@@ -85,6 +85,11 @@ void latch_it ();
 void latchstart ();
 void latchprint (char *description);
 void latchexcel (int axis);
+void test_rotfiducials_idx (int axis, double pos, int fididx);
+void set_primary_fiducials (int axis,int fididx,long pos);
+void set_fiducials (int axis);
+void save_fiducials (int axis);
+void restore_fiducials (int axis);
 void print_max ();
 void tm_load_frame();
 void load_frames_trigger(int axisnum);
@@ -114,7 +119,8 @@ SEM_ID semSLC=NULL;
 SEM_ID semLATCH=NULL;
 SEM_ID semLOADFRAME=NULL;
 int tm_DIO316,tm_DID48;
-int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT,3=ENCL, -1=ERROR  */
+int axis_select=-1;		/* 0=AZ,1=ALT,2=ROT -1=ERROR  */
+int spectograph_select=-1;	/* 0=SP1, 1=SP2, -1=ERROR  */
 int MEI_interrupt=FALSE;
 int DIO316_Init=FALSE;
 int DID48_Init=FALSE;
@@ -157,7 +163,55 @@ char *reboot_cmd(char *cmd)
 }
 char *correct_cmd(char *cmd)
 {
+  extern SEM_ID semMEIUPD;
+  extern struct TM_M68K *tmaxis[];
+  extern struct FIDUCIARY fiducial[3];
+  extern long fiducial_position[3];
+  long pos;
+
   printf (" CORRECT command fired\r\n");
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
+  if (fiducial[axis_select].markvalid)
+  {
+    if (semTake (semMEIUPD,60)!=ERROR)
+    {
+      pos=fiducial_position[axis_select];
+/* use optical encoder for axis 4 */
+      if (axis_select==INSTRUMENT) 
+      { 
+#ifdef ROT_ROTARY_ENCODER
+        pos += ((*tmaxis[axis_select]).actual_position2-fiducial[axis_select].mark);
+#else
+        pos += ((*tmaxis[axis_select]).actual_position-fiducial[axis_select].mark);
+#endif
+        tm_set_pos(axis_select*2+1,pos);
+/*	     tm_set_pos(axis_select*2-1,pos);*/
+#ifdef ROT_ROTARY_ENCODER
+        pos = (pos*OPT_TICK)/ROT_TICK;
+#endif
+        tm_set_pos(axis_select*2,pos);
+      }
+      if (axis_select==ALTITUDE)
+      { 
+        pos += ((*tmaxis[axis_select]).actual_position-fiducial[axis_select].mark);
+        tm_set_pos((axis_select*2)&0x6,pos);
+        tm_set_pos((axis_select*2)+1,pos);
+      }
+      if (axis_select==AZIMUTH)
+      { 
+        pos += ((*tmaxis[axis_select]).actual_position-fiducial[axis_select].mark);
+        tm_set_pos((axis_select*2)&0x6,pos);
+        tm_set_pos((axis_select*2)+1,pos);
+      }
+      fiducial[axis_select].mark=fiducial_position[axis_select];
+      semGive (semMEIUPD);
+    }
+    else
+      return "ERR: semMEIUPD";
+  }
+  else
+    return "ERR: fiducial for axis not crossed";
   return 0;
 }
 
@@ -174,7 +228,8 @@ char *drift_cmd(char *cmd)
 /*  extern struct TM_M68K *tmaxis[];*/
 
 /*  printf (" DRIFT command fired\r\n");*/
-  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   if (semTake (semMEI,60)!=ERROR)
   {
     drift_break[axis_select]=TRUE;
@@ -183,7 +238,7 @@ char *drift_cmd(char *cmd)
     velocity=drift_velocity[axis_select];
   }
   else
-    return "ERR: semMEIUPD";
+    return "ERR: semMEI";
   while (tm_frames_to_execute(axis_select)>1)
     taskDelay(3);
   taskDelay(3);
@@ -197,7 +252,7 @@ char *drift_cmd(char *cmd)
     if (time<0) return "ERR: BAD TIME";
   }
   else
-    return "ERR: semMEIUPD";
+    return "ERR: semMEI";
   veldeg=(sec_per_tick[axis_select]*velocity)/3600.;
   arcdeg=(sec_per_tick[axis_select]*position)/3600.;
   sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,time);
@@ -207,7 +262,6 @@ char *drift_cmd(char *cmd)
 char *encl_cmd(char *cmd)
 {
   printf ("ENCL command fired\r\n");
-  axis_select=ENCLOSURE;
   return 0;
 }
 
@@ -215,9 +269,11 @@ char *id_ans={"0 None Specified MMM DD 19YY\r\nDSP Firmware=Vxxx.xx Rxx Sx, Opti
 char *id_cmd(char *cmd)
 {
   static char *axis_name[]={"None Specified","Azimuth","Altitude","Rotator",
-		"Enclosure"};
+		};
 
 /*  printf (" ID command fired\r\n");*/
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   sprintf (id_ans,"%d %s %s\r\nDSP Firmware=V%f R%d S%d, Option=%d, Axes=%d",
 		axis_select,axis_name[axis_select+1],__DATE__,
 		dsp_version()/1600.,dsp_version()&0xF,(dsp_option()>>12)&0x7,
@@ -233,8 +289,8 @@ char *init_cmd(char *cmd)
 /*  extern struct SDSS_FRAME sdssdc;*/
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
-  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   state=tm_axis_state(axis_select<<1);
 /*  if (state>2)*/		/* normal...NOEVENT,running, or NEW_FRAME */
 /*  {*/
@@ -258,7 +314,7 @@ char *init_cmd(char *cmd)
 /*
   if (axis_select==0)
   {
-    if (sdssdc.status.i78.il0.az_brake_engaged)
+    if (sdssdc.status.i7.il0.az_brake_engaged)
     {
       printf("Azimuth Brake Turned Off                ");
       tm_az_brake_off();
@@ -266,7 +322,7 @@ char *init_cmd(char *cmd)
   }
   if (axis_select==1)
   {
-    if (sdssdc.status.i78.il0.alt_brake_engaged)
+    if (sdssdc.status.i7.il0.alt_brake_engaged)
     {
       printf("Altitude Brake Turned Off               ");
       tm_alt_brake_off();           
@@ -350,8 +406,8 @@ char *move_cmd(char *cmd)
   double dt;
 
 /*  printf (" MOVE command fired\r\n");*/
-  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   queue = &axis_queue[axis_select];
   frame = (struct FRAME *)malloc (sizeof(struct FRAME));
   if (frame==NULL) return 0;
@@ -882,7 +938,8 @@ void stop_frame(int axis,double pos,double sf)
     semGive (semMEI);
   }
   printf("\r\nStopped");
-  tm_start_move (axis<<1,1*sf,.8*sf,pos);
+/* do not reposition, just stop */
+/*  tm_start_move (axis<<1,1*sf,.8*sf,pos);*/
 }
 void drift_frame(int axis,double vel,double sf)
 {
@@ -1095,14 +1152,15 @@ void tm_TCC(int axis)
 	{
 	  if ((offset_idx[axis]/20.)>offset[axis][1].end_time)
 	  {
-            frame->position+=offset[axis][1].position+
-               (offset[axis][1].velocity*offset[axis][1].end_time);
+            frame->position+=(offset[axis][1].position+
+               (offset[axis][1].velocity*(offset_idx[axis]/20.-
+		offset[axis][1].end_time)));
 	    frame->velocity+=offset[axis][1].velocity;
 	  }
 	  else
 	  {
-	    frame->position+=poff[axis][cntoff-1]+
-               (voff[axis][cntoff-1]*offset[axis][1].end_time);
+	    frame->position+=(poff[axis][cntoff-1]+
+               (voff[axis][cntoff-1]*(offset[axis][1].end_time/20.)));
 	    frame->velocity+=voff[axis][cntoff-1];
 	  }
 	  offset_idx[axis]=0;
@@ -1115,6 +1173,17 @@ void tm_TCC(int axis)
 	  if (offset_queue_end[axis]!=NULL)
 	  {
 	    cntoff=calc_offset(axis,&offset[axis][0],offset_idx[axis],cnt);
+/*
+            if (cntoff==0)
+	    {
+              offset_queue_end[axis]->position+=(offset[axis][1].position+
+               (offset[axis][1].velocity*
+	       sdss_delta_time((float)frame->end_time,sdss_get_time()) ));
+	      offset_queue_end[axis]->velocity+=offset[axis][1].velocity;
+	      offset_idx[axis]=0;
+	      offset_queue_end[axis]=NULL;
+	    }
+*/
 	    offset_idx[axis]+=cnt;
 	    addoffset(axis,cnt);
 	  }
@@ -1122,6 +1191,7 @@ void tm_TCC(int axis)
           frame_idx += cnt;
           frame_cnt -= cnt;
 /*          printf ("\r\n cnt=%d, i=%d",cnt,i);*/
+/*
 	  if (frame_break[axis]) 
 	  {
             axis_queue[axis].active=NULL;
@@ -1134,10 +1204,23 @@ void tm_TCC(int axis)
 	    cnt=1;
             break;
 	  }
+*/
           if (cnt==0) taskDelay(15);	/* calc is probably waiting on the next frame due to offset */
 	  idx=0;
 	  while (cnt>0)
           {
+	    if (frame_break[axis]) 
+	    {
+              axis_queue[axis].active=NULL;
+ 	      cnt=0;
+              break;
+	    }
+	    if (drift_break[axis]) 
+	    {
+              axis_queue[axis].active=NULL;
+	      cnt=0;
+              break;
+	    }
             load_frames(axis,min(cnt,5),idx,(double)ticks_per_degree[axis]);
             while ((lcnt=tm_frames_to_execute(axis))>10) taskDelay (3);
 	    idx+=5;
@@ -1238,8 +1321,8 @@ char *plus_move_cmd(char *cmd)
   int cnt;
 
 /*  printf (" +MOVE command fired\r\n");*/
-  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   queue = &axis_queue[axis_select];
   cnt=sscanf (cmd,"%lf %lf %lf",&position,&velocity,&frame_time);
   if (offset_queue_end[axis_select]!=NULL) return "ERR: bump active";
@@ -1272,9 +1355,11 @@ char *plus_move_cmd(char *cmd)
 	else
 	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
 	offset_queue_end[axis_select]=queue->end;
-/*	printf("\r\n%p: queue_end=%p, position=%lf, end_time=%lf",
+	printf("\r\n%p: queue_end=%p, position=%lf, velocity=%lf, end_time=%lf",
 		&offset[axis_select],offset_queue_end[axis_select],
-		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
+		offset[axis_select][1].position,
+		offset[axis_select][1].velocity,
+		offset[axis_select][1].end_time);
         break;
     case 2:
 /*
@@ -1416,8 +1501,8 @@ char *set_time_cmd(char *cmd)
   int extrasec;
 
 /*  printf (" SET.TIME command fired\r\n");*/
-  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   cnt=sscanf (cmd,"%d %d %d %f %f %f",&t.tm_mon,&t.tm_mday,&t.tm_year,&t1,&t2,&t3);
 /*  printf ("\r\ncnt=%d",cnt);*/
   if (cnt>4)
@@ -1485,17 +1570,18 @@ char *status_cmd(char *cmd)
   extern struct TM_M68K *tmaxis[];
   extern struct FIDUCIARY fiducial[3];
   extern SEM_ID semMEIUPD;
+  extern struct AXIS_STAT axis_stat[];
 
 /*  printf (" STATUS command fired\r\n"); */
-  if (axis_select<0) return "ERR: ILLEGAL DEVICE SELECTION";
-  if (axis_select>=ENCLOSURE) return "ERR: ILLEGAL DEVICE SELECTION";
+  if ((axis_select<AZIMUTH) ||
+    (axis_select>INSTRUMENT)) return "ERR: ILLEGAL DEVICE SELECTION";
   if (semTake (semMEIUPD,60)!=ERROR)
   {
     sprintf (status_ans,"%lf %lf %f %ld %lf",
 	(*tmaxis[axis_select]).actual_position/ticks_per_degree[axis_select],
 	(*tmaxis[axis_select]).velocity/ticks_per_degree[axis_select],
 	sdss_get_time(),
-	status,
+	axis_stat[axis_select],
 	fiducial[axis_select].mark/ticks_per_degree[axis_select]);
     semGive (semMEIUPD);
     return status_ans;
@@ -1566,22 +1652,26 @@ char *time_cmd(char *cmd)
 );
   return time_ans;
 }
-char *cw_cmd(char *cmd)
+char *cwmov_cmd(char *cmd)
 {
-  int cw, cwpos;
+  int cw;
+  int cwpos;
   extern struct SDSS_FRAME sdssdc;
 
-  printf (" CW command fired\r\n");
+  printf (" CWMOV command fired\r\n");
   sscanf (cmd,"%d %d",&cw,&cwpos);
+/*  printf ("\r\n cw=%d, cwpos=%d",cw,cwpos);*/
+  if ((cw<0)||(cw>4))
+    return "ERR: Bad CW id (0-3)";
   if ((cwpos<10)||(cwpos>800))
     return "ERR: Position out of Range (10-800)";
   if (taskIdFigure("cw")!=ERROR)
     return "ERR: CW task still active";
   if (taskIdFigure("cwp")!=ERROR)
     return "ERR: CWP task still active";
-  if (sdssdc.status.i78.il0.alt_brake_engaged)
-    taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_posv,
-			  (int)cw,(int)&cwpos,0,0,0,0,0,0,0,0);
+  if (sdssdc.status.i7.il0.alt_brake_engaged)
+    taskSpawn ("cwp",60,VX_FP_TASK,4000,(FUNCPTR)cw_positionv,
+			  cw,cwpos,0,0,0,0,0,0,0,0);
   else
     return "ERR: Altitude Brake NOT Engaged";
   return 0;
@@ -1592,6 +1682,7 @@ char *cwinst_cmd(char *cmd)
   int inst;
 
   printf (" CWINST command fired\r\n");
+  while (*cmd==' ') cmd++;
   if ((inst=cw_get_inst(cmd))==-1)
     return "ERR: Invalid Instrument";
   if ((inst<0)||(inst>16)) 
@@ -1600,7 +1691,7 @@ char *cwinst_cmd(char *cmd)
     return "ERR: CW task still active";
   if (taskIdFigure("cwp")!=ERROR)
     return "ERR: CWP task still active";
-  if (sdssdc.status.i78.il0.alt_brake_engaged)
+  if (sdssdc.status.i7.il0.alt_brake_engaged)
     taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 			  (int)inst,0,0,0,0,0,0,0,0,0);
   else
@@ -1621,7 +1712,7 @@ char *cwpos_cmd(char *cmd)
   if (taskIdFigure("cwp")!=ERROR)
     return "ERR: CWP task still active";
   cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
-  if (sdssdc.status.i78.il0.alt_brake_engaged)
+  if (sdssdc.status.i7.il0.alt_brake_engaged)
     taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
 		  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
   else
@@ -1636,11 +1727,11 @@ char *cwabort_cmd(char *cmd)
   return 0;
 }
 static char *limitstatus[]={"LU","L "," U","  "};
-static char *cwstatus_ans[]={"CW# 800 UL  CW# 800 UL  CW# 800 UL  CW# 800 UL"};
+static char *cwstatus_ans={"CW# 800 UL  CW# 800 UL  CW# 800 UL  CW# 800 UL"};
 char *cwstatus_cmd(char *cmd)
 {
   extern struct SDSS_FRAME sdssdc;
-  int i;
+  int i, idx;
   int adc;
   int limidx;
   extern unsigned char cwLimit;
@@ -1649,18 +1740,22 @@ char *cwstatus_cmd(char *cmd)
   printf (" CWSTATUS command fired\r\n");
   if (semTake (semMEIUPD,60)!=ERROR)
   {
+    idx=0;
     for (i=0;i<4;i++)
     {
-/*      printf("%d\t",sdssdc.weight[i].pos);*/
+/*      printf("\r\n%d %d",sdssdc.weight[i].pos,idx);*/
 	adc=sdssdc.weight[i].pos;
         if ((adc&0x800)==0x800) adc |= 0xF000;
         else adc &= 0xFFF;
 	limidx = (cwLimit>>(i*2))&0x3;
-        sprintf (&cwstatus_ans[i*12],"CW%d %d %s\n",
-	  i,(10*adc)/2048,limitstatus[limidx]);
+        idx+=sprintf (&cwstatus_ans[idx],"CW%d %d %s",
+	  i,(1000*adc)/2048,limitstatus[limidx]);
+/*       printf("%s",cwstatus_ans);*/
     }
     semGive (semMEIUPD);
   }
+  else
+    return "ERR: semMEIUPD";
   return cwstatus_ans;
 }
 char *brakeon_cmd(char *cmd)
@@ -1696,6 +1791,87 @@ char *clampoff_cmd(char *cmd)
   printf (" CLAMPOFF command fired\r\n");
   tm_sp_clamp_off();
   return 0;
+}
+char *sp1_cmd(char *cmd)
+{
+  printf (" SP1 command fired\r\n");
+  spectograph_select=SPECTOGRAPH1;
+  return 0;
+}
+char *sp2_cmd(char *cmd)
+{
+  printf (" SP2 command fired\r\n");
+  spectograph_select=SPECTOGRAPH2;
+  return 0;
+}
+char *slitopen_cmd(char *cmd)
+{
+  printf (" SLIT.OPEN command fired\r\n");
+  if ((spectograph_select<SPECTOGRAPH1) ||
+    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  tm_sp_slit_open(spectograph_select-SPECTOGRAPH1);
+  return 0;
+}
+char *slitclose_cmd(char *cmd)
+{
+  printf (" SLIT.CLOSE command fired\r\n");
+  if ((spectograph_select<SPECTOGRAPH1) ||
+    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  tm_sp_slit_close(spectograph_select-SPECTOGRAPH1);
+  return 0;
+}
+char *cartlatch_cmd(char *cmd)
+{
+  printf (" CART.LATCH command fired\r\n");
+  if ((spectograph_select<SPECTOGRAPH1) ||
+    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  tm_sp_cart_latch(spectograph_select-SPECTOGRAPH1);
+  return 0;
+}
+char *cartunlatch_cmd(char *cmd)
+{
+  printf (" CART.UNLATCH command fired\r\n");
+  if ((spectograph_select<SPECTOGRAPH1) ||
+    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  tm_sp_cart_unlatch(spectograph_select-SPECTOGRAPH1);
+  return 0;
+}
+static char *slitstatus[]={"    ","OPEN","     ","CLOSE","UNLATCH","LATCH  "};
+static char *slitstatus_ans={"SP1 OPEN CLOSE UNLATCH SP2 OPEN CLOSE UNLATCH"};
+char *slitstatus_cmd(char *cmd)
+{
+  extern struct SDSS_FRAME sdssdc;
+
+  printf (" SLIT.STATUS command fired\r\n");
+  if ((spectograph_select<SPECTOGRAPH1) ||
+    (spectograph_select>SPECTOGRAPH2)) return "ERR: ILLEGAL DEVICE SELECTION";
+  sprintf (&slitstatus_ans[4],"%s %s %s",
+	slitstatus[sdssdc.status.i1.il9.slit_door1_opn],
+	slitstatus[sdssdc.status.i1.il9.slit_door1_cls+2],
+	slitstatus[sdssdc.status.i1.il9.cart_latch1_opn+4]);
+  sprintf (&slitstatus_ans[26],"%s %s %s",
+	slitstatus[sdssdc.status.i1.il9.slit_door2_opn],
+	slitstatus[sdssdc.status.i1.il9.slit_door2_cls+2],
+	slitstatus[sdssdc.status.i1.il9.cart_latch2_opn+4]);
+  return slitstatus_ans;	
+}
+char abstatus_ans[5*20];
+char *abstatus_cmd(char *cmd)
+{
+  extern struct SDSS_FRAME sdssdc;
+  int i,idx;
+  short *dt;
+  int off,len;
+
+  printf (" AB.STATUS command fired\r\n");
+  sscanf (cmd,"%d %d",&off,&len);
+  if (len>20) return "ERR: bad length";
+  dt=&sdssdc.status;
+  dt+=off;
+  idx=0;
+  for (i=0;i<len;i++,dt++)
+    idx+=sprintf (&abstatus_ans[idx],"%04x ",*dt);
+  return &abstatus_ans[0];
 }
 int print_axis_queue(int axis)
 {
@@ -1760,7 +1936,6 @@ void axis_DIO316_shutdown(int type)
     }
     taskDelay(30);
 }
-unsigned long NIST_sec;
 unsigned long int_count=0;
 float latchpos4,latchpos5;
 int lpos4,lpos5;
@@ -2365,19 +2540,23 @@ unsigned long SDSS_cnt=0;
 #define DAYINSECS	86400
 void DID48_interrupt(int type)
 {
+  extern struct AXIS_STAT axis_stat[];
 
           DID48_Read_Port (tm_DID48,5,&did48int_bit);
 	  NIST_cnt++;
           if (did48int_bit&NIST_INT)
           {
+	    SDSS_cnt++;
 	    if (SDSStime>0)
-	    {
-	      SDSS_cnt++;
               SDSStime=(SDSStime+1)%DAYINSECS;
 
-              NIST_sec=timer_read (1);
-              timer_start (1);
-	    }
+            NIST_sec=(unsigned long)(1.0312733648*timer_read (1));
+	    if (NIST_sec>1000100) axis_stat[0].clock_loss_signal=1;
+	    else axis_stat[0].clock_loss_signal=0;
+	    axis_stat[2].clock_loss_signal=axis_stat[1].clock_loss_signal=
+	      axis_stat[0].clock_loss_signal;
+            timer_start (1);
+
 /*            logMsg ("NIST_INTERRUPT,%d %d, did48int_bit=%x, cnt=%d\r\n",
 		type,NIST_sec,(short)did48int_bit,NIST_cnt,0,0);*/
           }

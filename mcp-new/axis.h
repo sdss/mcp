@@ -21,7 +21,11 @@
 #define AZIMUTH			0
 #define ALTITUDE		1
 #define	INSTRUMENT		2
+
 #define	ENCLOSURE		3
+
+#define	SPECTOGRAPH1		0
+#define	SPECTOGRAPH2		1
 
 #define SDSS_STOP_RATE		200000.0
 #define SDSS_E_STOP_RATE	200000.0
@@ -83,11 +87,19 @@ char *brakeon_cmd(char *cmd);
 char *brakeoff_cmd(char *cmd);
 char *clampon_cmd(char *cmd);
 char *clampoff_cmd(char *cmd);
-char *cw_cmd(char *cmd);
+char *cwmov_cmd(char *cmd);
 char *cwpos_cmd(char *cmd);
 char *cwinst_cmd(char *cmd);
 char *cwabort_cmd(char *cmd);
 char *cwstatus_cmd(char *cmd);
+char *sp1_cmd(char *cmd);
+char *sp2_cmd(char *cmd);
+char *slitopen_cmd(char *cmd);
+char *slitclose_cmd(char *cmd);
+char *cartlatch_cmd(char *cmd);
+char *cartunlatch_cmd(char *cmd);
+char *slitstatus_cmd(char *cmd);
+char *abstatus_cmd(char *cmd);
 
 #define CONTROL_BUFFER_EMPTY	00000001L
 #define MOVE_TMO		00000002L

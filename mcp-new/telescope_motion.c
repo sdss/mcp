@@ -574,7 +574,7 @@ int tm_az_brake(short val)
    if (val==1)
    {
      cnt=120;
-     while ((sdssdc.status.i78.il0.az_brake_engaged==0)&&(cnt>0)) 
+     while ((sdssdc.status.i7.il0.az_brake_engaged==0)&&(cnt>0)) 
      {
        taskDelay(1);
        cnt--;
@@ -584,7 +584,7 @@ int tm_az_brake(short val)
    else
    {
      cnt=60*6;
-     while ((sdssdc.status.i78.il0.az_brake_disengaged==0)&&(cnt>0))
+     while ((sdssdc.status.i7.il0.az_brake_disengaged==0)&&(cnt>0))
      {
        taskDelay(1);
        cnt--;
@@ -618,12 +618,12 @@ void tm_az_brake_off()
 void tm_sp_az_brake_on()
 {
   if (taskIdFigure("tmAzBrk")!=NULL)
-    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake_off,1,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,1,0,0,0,0,0,0,0,0,0);
 }
 void tm_sp_az_brake_off()
 {
   if (taskIdFigure("tmAzBrk")!=NULL)
-    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake_off,0,0,0,0,0,0,0,0,0,0);
+    taskSpawn("tmAzBrk",90,0,1000,(FUNCPTR)tm_az_brake,0,0,0,0,0,0,0,0,0,0);
 }
 int alt_cnt;
 int tm_alt_brake(short val) 
@@ -674,7 +674,7 @@ int tm_alt_brake(short val)
    cnt=60*4;
    if (val==1)
    {
-     while ((sdssdc.status.i78.il0.alt_brake_engaged==0)&&(cnt>0))
+     while ((sdssdc.status.i7.il0.alt_brake_engaged==0)&&(cnt>0))
      {
         taskDelay(1);
         cnt--;
@@ -683,7 +683,7 @@ int tm_alt_brake(short val)
    }
    else
    {
-     while ((sdssdc.status.i78.il0.alt_brake_disengaged==0)&&(cnt>0)) 
+     while ((sdssdc.status.i8.il0.alt_brake_disengaged==0)&&(cnt>0)) 
      {
        taskDelay(1);
        cnt--;
@@ -734,11 +734,11 @@ int tm_brake_status()
   extern struct SDSS_FRAME sdssdc;
 
   printf("\r\nAZ\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i78.il0.az_brake_engaged,
-    sdssdc.status.i78.il0.az_brake_disengaged,az_cnt);
+    sdssdc.status.i7.il0.az_brake_engaged,
+    sdssdc.status.i7.il0.az_brake_disengaged,az_cnt);
   printf("\r\nALT\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i78.il0.alt_brake_engaged,
-    sdssdc.status.i78.il0.alt_brake_disengaged,alt_cnt);
+    sdssdc.status.i7.il0.alt_brake_engaged,
+    sdssdc.status.i8.il0.alt_brake_disengaged,alt_cnt);
   if (semTake (semSLC,60)!=ERROR)
   {
     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl,1);
@@ -807,12 +807,12 @@ int tm_clamp(short val)
    cnt=60*5;
    if (val==1) 
    {
-     while ((sdssdc.status.i11o12.ol0.clamp_engaged_st==0)&&(cnt>0))
+     while ((sdssdc.status.i11.ol0.clamp_engaged_st==0)&&(cnt>0))
      {
         taskDelay(1);
         cnt--;
      }
-     if (sdssdc.status.i11o12.ol0.clamp_engaged_st==0) /* did not work */
+     if (sdssdc.status.i11.ol0.clamp_engaged_st==0) /* did not work */
      {
        tm_ctrl.mcp_clamp_en_cmd = 0;
        printf ("\r\n Clamp did NOT engage...turning off ");
@@ -820,7 +820,7 @@ int tm_clamp(short val)
    }
    else
    {
-     while ((sdssdc.status.i11o12.ol0.clamp_disengaged_st==0)&&(cnt>0)) 
+     while ((sdssdc.status.i11.ol0.clamp_disengaged_st==0)&&(cnt>0)) 
      {
        taskDelay(1);
        cnt--;
@@ -872,8 +872,8 @@ int tm_clamp_status()
   extern struct SDSS_FRAME sdssdc;
 
   printf("\r\nCLAMP\tEngaged=%d\tDisengaged=%d, cnt=%d\n",
-    sdssdc.status.i11o12.ol0.clamp_engaged_st,
-    sdssdc.status.i11o12.ol0.clamp_disengaged_st,alt_cnt);
+    sdssdc.status.i11.ol0.clamp_engaged_st,
+    sdssdc.status.i11.ol0.clamp_disengaged_st,alt_cnt);
   if (semTake (semSLC,60)!=ERROR)
   {
     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
@@ -889,13 +889,195 @@ int tm_clamp_status()
   return 0;
 }
 
+int slit_cnt;
+int tm_slit(short val) 
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+   extern struct SDSS_FRAME sdssdc;
+   int cnt;
+             
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+/*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+   if (val==3)
+   {
+     tm_ctrl1.mcp_slit_door2_opn_cmd = 1;
+     tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
+   }
+   if (val==2)
+   {
+     tm_ctrl1.mcp_slit_door2_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_door2_cls_cmd = 1;
+   }
+   if (val==1) 
+   {
+     tm_ctrl1.mcp_slit_door1_opn_cmd = 1;
+     tm_ctrl1.mcp_slit_door1_cls_cmd = 0;
+   }
+   if (val==0)
+   {
+     tm_ctrl1.mcp_slit_door1_opn_cmd = 0;
+     tm_ctrl1.mcp_slit_door1_cls_cmd = 1;
+   }
+/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+/* must hold the door open, but springs closed */
+   if ((val==0)||(val==2))
+   {
+     swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+     taskDelay(60);
+     if (val==2)
+       tm_ctrl1.mcp_slit_door2_cls_cmd = 0;
+     if (val==0) 
+       tm_ctrl1.mcp_slit_door1_cls_cmd = 0;
+ /*    printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+     swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+     if (semTake (semSLC,60)!=ERROR)
+     {
+       err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+       semGive (semSLC);
+       if (err)
+       {
+         printf ("W Err=%04x\r\n",err);
+         return err;
+       }
+     }
+   }
+/*   printf ("\r\n cnt=%d",cnt);
+   tm_slit_status();*/
+   return 0;
+}
+void tm_slit_open(int door)
+{
+    tm_slit (1+door);
+}
+void tm_slit_close(int door)
+{
+    tm_slit (0+door);
+}
+void tm_sp_slit_open(int door)
+{
+  if (taskIdFigure("tmSlit")!=NULL)
+    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit,1,door,0,0,0,0,0,0,0,0);
+}
+void tm_sp_slit_close(int door)
+{
+  if (taskIdFigure("tmSlit")!=NULL)
+    taskSpawn("tmSlit",90,0,1000,(FUNCPTR)tm_slit,0,door,0,0,0,0,0,0,0,0);
+}
+int tm_cart(short val) 
+{
+   int err;
+   unsigned short ctrl[1];
+   struct B10_1 tm_ctrl1;   
+   extern SEM_ID semSLC;
+   extern struct SDSS_FRAME sdssdc;
+   int cnt;
+             
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+ /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+   if (val==3)
+     tm_ctrl1.mcp_cart_latch2_cmd = 1;
+   if (val==2)
+     tm_ctrl1.mcp_cart_latch2_cmd = 0;
+   if (val==1)
+     tm_ctrl1.mcp_cart_latch1_cmd = 1;
+   if (val==0)
+     tm_ctrl1.mcp_cart_latch1_cmd = 0;
+/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+/*
+   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("W Err=%04x\r\n",err);
+       return err;
+     }
+   }
+*/
+/*   printf ("\r\n cnt=%d",cnt);
+   tm_slit_status();*/
+   return 0;
+}
+void tm_cart_latch(int door)
+{
+    tm_cart (1+door);
+}
+void tm_cart_unlatch(int door)
+{
+    tm_cart (0+door);
+}
+void tm_sp_cart_latch(int door)
+{
+  if (taskIdFigure("tmCart")!=NULL)
+    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart,1,door,0,0,0,0,0,0,0,0);
+}
+void tm_sp_cart_unlatch(int door)
+{
+  if (taskIdFigure("tmCart")!=NULL)
+    taskSpawn("tmCart",90,0,1000,(FUNCPTR)tm_cart,0,door,0,0,0,0,0,0,0,0);
+}
+int tm_slit_status()
+{
+  int err;
+  unsigned short ctrl[0];
+  struct B10 tm_ctrl;   
+  extern SEM_ID semSLC;
+  extern struct SDSS_FRAME sdssdc;
+
+  printf ("\r\n slit_door1_opn=%d, slit_door1_cls=%d, cart_latch1_opn=%d",
+	sdssdc.status.i1.il9.slit_door1_opn,
+	sdssdc.status.i1.il9.slit_door1_cls,
+	sdssdc.status.i1.il9.cart_latch1_opn);
+  printf ("\r\n slit_door2_opn=%d, slit_door2_cls=%d, cart_latch2_opn=%d",
+	sdssdc.status.i1.il9.slit_door2_opn,
+	sdssdc.status.i1.il9.slit_door2_cls,
+	sdssdc.status.i1.il9.cart_latch2_opn);
+  return 0;
+}
+
 
 int az_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i56.il0.az_mtr_ccw) &&
-	(sdssdc.status.i56.il0.az_mtr_cw))
+  if ((sdssdc.status.i6.il0.az_mtr_ccw) &&
+	(sdssdc.status.i6.il0.az_mtr_cw))
 	return TRUE;
   else
 	return FALSE;
@@ -904,8 +1086,8 @@ int alt_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i78.il0.alt_mtr_dn) &&
-	(sdssdc.status.i78.il0.alt_mtr_up))
+  if ((sdssdc.status.i7.il0.alt_mtr_dn) &&
+	(sdssdc.status.i7.il0.alt_mtr_up))
 	return TRUE;
   else
 	return FALSE;
@@ -914,9 +1096,9 @@ int rot_amp_ok()
 {
   extern struct SDSS_FRAME sdssdc;
 
-  if ((sdssdc.status.i78.il0.rot_mtr_rdy) &&
-        (sdssdc.status.i78.il0.rot_mtr_ccw) &&
-        (sdssdc.status.i78.il0.rot_mtr_cw))
+  if ((sdssdc.status.i8.il0.rot_mtr_rdy) &&
+        (sdssdc.status.i8.il0.rot_mtr_ccw) &&
+        (sdssdc.status.i8.il0.rot_mtr_cw))
 	return TRUE;
   else
 	return FALSE;
@@ -954,21 +1136,21 @@ void tm_print_amp_status()
 
     if (!az_amp_ok())
       printf ("\r\nAz Amp Disengaged: az_mtr_ccw=%d,az_mtr_cw=%d",
-	sdssdc.status.i56.il0.az_mtr_ccw,
-	sdssdc.status.i56.il0.az_mtr_cw);
+	sdssdc.status.i6.il0.az_mtr_ccw,
+	sdssdc.status.i6.il0.az_mtr_cw);
     else
       printf ("\r\nAZ Amp OK");
     if (!alt_amp_ok())
       printf ("\r\nAlt Amp Disengaged: alt_mtr_dn=%d,alt_mtr_up=%d",
-	sdssdc.status.i78.il0.alt_mtr_dn,
-	sdssdc.status.i78.il0.alt_mtr_up);
+	sdssdc.status.i7.il0.alt_mtr_dn,
+	sdssdc.status.i7.il0.alt_mtr_up);
     else
       printf ("\r\nALT Amp OK");
     if (!rot_amp_ok())
       printf ("\r\nRot Amp Disengaged: rot_mtr_rdy=%d,rot_mtr_ccw=%d,rot_mtr_cw=%d",
-	sdssdc.status.i78.il0.rot_mtr_rdy,
-	sdssdc.status.i78.il0.rot_mtr_ccw,
-	sdssdc.status.i78.il0.rot_mtr_cw);
+	sdssdc.status.i8.il0.rot_mtr_rdy,
+	sdssdc.status.i8.il0.rot_mtr_ccw,
+	sdssdc.status.i8.il0.rot_mtr_cw);
     else
       printf ("\r\nROT Amp OK");
 }

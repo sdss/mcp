@@ -67,11 +67,19 @@ struct COMMANDS axis_cmds[] = {
 	{"BRAKE.OFF",brakeoff_cmd},
 	{"CLAMP.ON",clampon_cmd},
 	{"CLAMP.OFF",clampoff_cmd},
-	{"CW",cw_cmd},
+	{"CWMOV",cwmov_cmd},
 	{"CWPOS",cwpos_cmd},
 	{"CWINST",cwinst_cmd},
 	{"CWABORT",cwabort_cmd},
 	{"CWSTATUS",cwstatus_cmd},
+	{"SP1",sp1_cmd},
+	{"SP2",sp2_cmd},
+	{"SLIT.CLOSE",slitclose_cmd},
+	{"SLIT.OPEN",slitopen_cmd},
+	{"CART.LATCH",cartlatch_cmd},
+	{"CART.UNLATCH",cartunlatch_cmd},
+	{"SLIT.STATUS",slitstatus_cmd},
+	{"AB.STATUS",abstatus_cmd},
 	{NULL,dummy_cmd}		/* termination */
 };
 #define __CMD_H__             /* do only once */
