@@ -136,3 +136,6 @@ Fri Jan 25 14:47:49 MST 2002
 		Don't call taskLock() from interrupt routines
 	
 
+Thu Jan 31 07:04:35 MST 2002
+	cvs rtag -r v5_9 v5_9_4 mcp
+		Fix PR 3123
