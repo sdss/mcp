@@ -644,9 +644,10 @@ rot_amp_ok(int update)			/* update status before reporting? */
       if(semTake(semSLC,60) == ERROR) {
 	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       } else {
-	 const int offset = (char *)&sdssdc.status.i7 - (char *)&sdssdc.status;
+	 const int offset =
+	   (char *)&sdssdc.status.i7 - (char *)&sdssdc.status.i1;
 	 int err = slc_read_blok(1, 9, BIT_FILE, offset/2,
-						      &ctrl[0],sizeof(ctrl)/2);
+						     &ctrl[0], sizeof(ctrl)/2);
 	 if(err) {
 	    TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
 	 }
@@ -698,7 +699,7 @@ mgt_shutdown(int type)
 void
 tm_amp_mgt(void)
 {
-   int amp_ok;
+   int amp_ok, amp_ok1;
    int state;
    
    monitor_axis[AZIMUTH] = monitor_axis[ALTITUDE] =
@@ -720,9 +721,12 @@ tm_amp_mgt(void)
 	    }
 	    if(!az_amp_ok(0)) {
 	       taskDelay(1);
-	       amp_ok = az_amp_ok(0);
-	       TRACE(2, "MGT: bad az amp (now %d %d)", amp_ok, az_amp_ok(1));
-	       if(!az_amp_ok(1)) {
+	       amp_ok = az_amp_ok(1);
+	       taskDelay(60);
+	       amp_ok1 = az_amp_ok(1);
+	       
+	       TRACE(2, "MGT: bad az amp (%d now %d)", amp_ok, amp_ok1);
+	       if(!amp_ok1) {
 		  TRACE(0, "MGT: bad az amp; aborting", 0, 0);
 		  tm_sem_controller_idle(2*AZIMUTH);
 		  mcp_set_brake(AZIMUTH);
@@ -744,10 +748,12 @@ tm_amp_mgt(void)
 	    }
 	    if(!alt_amp_ok(0)) {
 	       taskDelay(1);
-	       amp_ok = alt_amp_ok(0);
+	       amp_ok = alt_amp_ok(1);
+	       taskDelay(60);
+	       amp_ok1 = alt_amp_ok(1);
 
-	       TRACE(2, "MGT: bad alt amp (now %d %d)", amp_ok, alt_amp_ok(1));
-	       if(!alt_amp_ok(1)) {
+	       TRACE(2, "MGT: bad alt amp (%d now %d)", amp_ok, amp_ok1);
+	       if(!amp_ok1) {
 		  TRACE(0, "MGT: bad alt amp; aborting", 0, 0);
 		  tm_sem_controller_idle(2*ALTITUDE);
 		  mcp_set_brake(ALTITUDE);
@@ -768,11 +774,12 @@ tm_amp_mgt(void)
 	    }
 	    if(!rot_amp_ok(0)) {
 	       taskDelay(1);
-	       amp_ok = alt_amp_ok(0);
+	       amp_ok = rot_amp_ok(1);
+	       taskDelay(60);
+	       amp_ok1 = rot_amp_ok(1);
+	       TRACE(2, "MGT: bad rot amp (%d now %d)", amp_ok, amp_ok1);
 
-	       TRACE(2, "MGT: bad rot amp (now %d %d)", amp_ok, rot_amp_ok(1));
-
-	       if(!rot_amp_ok(1)) {
+	       if(!amp_ok1) {
 		  TRACE(0, "MGT: bad rot amp; aborting", 0, 0);
 		  
 		  tm_sem_controller_idle(2*INSTRUMENT);
