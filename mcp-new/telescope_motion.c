@@ -268,6 +268,8 @@ tm_adjust_position(int axis,			/* desired axis */
    
    taskLock();
    
+   set_axis_encoder_error(axis, offset, 1); /* correct the current error */
+
    if(get_position_corr(2*axis, &position) != DSP_OK) {
       taskUnlock();
       semGive(semMEI);
@@ -276,17 +278,18 @@ tm_adjust_position(int axis,			/* desired axis */
       return(-1);
    }
    
-   write_fiducial_log("UPDATE_ENCODER", axis, 0, 0, position, 0, offset);
+   write_fiducial_log("UPDATE_ENCODER", axis, 0, 0, position, 0,
+		      get_axis_encoder_error(axis), 0);
 
-   position += offset + get_axis_encoder_error(axis); /* include software
-							 correction */
+   position += get_axis_encoder_error(axis); /* include software correction */
    
    set_position_corr(2*axis, position);
    set_position_corr(2*axis + 1, position); /* second az/alt encoder isn't
 					       connected/doesn't exist */
-   set_axis_encoder_error(axis,
-			  -get_axis_encoder_error(axis)); /* zero software
-							     correction term */
+/*
+ * zero software correction term
+ */
+   set_axis_encoder_error(axis, -get_axis_encoder_error(axis), 0);
 
    taskUnlock();
    semGive(semMEI);
