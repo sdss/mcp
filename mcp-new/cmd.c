@@ -151,12 +151,10 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    char *ans;
    char *args;				/* arguments for this command */
    char *cmd_str = cmd;			/* pointer to cmd; or NULL */
-   static char *cmd_error = "ERR: CMD ERROR";
    static int iack_counter = -1;	/* control too many "MCP has rebooted"
 					   messages; wait before the first */
    int lvl;				/* level for TRACE */
    int nskip;				/* number of tokens to skip */
-   static char *sem_error = "ERR: I don't have the semCmdPort semaphore";
    char *tok;				/* a token from cmd */
    SYM_TYPE type;			/* actually number of arguments */
    int varargs;				/* we don't know how many arguments
@@ -169,8 +167,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    }
 
    semTake(semCMD, WAIT_FOREVER);
-   ans=NULL;				/* ans is returned from function */
-   
+   ans = "no reply";			/* ans is returned from function */
 
    nskip = varargs = 0;
    while((tok = strtok(cmd_str, " \t")) != NULL) {
@@ -194,7 +191,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
 	 
 	 semGive(semCMD);
-	 return(cmd_error);
+	 return("ERR: CMD ERROR");
       } else {
 	 lvl = 5;
 	 if(!(type & CMD_TYPE_MURMUR)) {
@@ -208,7 +205,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 
 	 if((type & CMD_TYPE_LOCKED) && !have_sem) {
 	    semGive(semCMD);
-	    return(sem_error);
+	    return("ERR: I don't have the semCmdPort semaphore");
 	 }
 	 
 	 nskip = type & CMD_TYPE_NARG;
