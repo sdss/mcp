@@ -1454,6 +1454,8 @@ mcp_move(int axis,			/* the axis to move */
       tm_get_position(2*axis, &stop_position[axis]);
       frame_break[axis] = TRUE;
 
+      (void)give_semCmdPort(0);
+
       if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
 	 sdssdc.tccmove[axis].position = 0;
 	 sdssdc.tccmove[axis].velocity = 0;
