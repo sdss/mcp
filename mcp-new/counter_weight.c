@@ -528,7 +528,7 @@ void balance (int cw, int inst)
   short dpos;
 #endif
   short last_direction;
-  int totcnt, cnt, last_error;
+  int totcnt = 0, cnt, last_error;
 
   if (CW_verbose) printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
   fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
