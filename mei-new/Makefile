@@ -81,5 +81,13 @@ $(LIB):	$(OBJS)
 	$(AR) $(ARFLAGS) $(LIB) $?
 	$(RAN) $(LIB)
 
+install : all
+	cp Makefile *.[acho] $(MCP_DIR)/mei-new
+
+	if [ ! -d $(MCP_DIR)/doc ]; then \
+		mkdir $(MCP_DIR)/doc; \
+	fi
+	cp doc/*.txt $(MCP_DIR)/doc
+
 clean :
-	/bin/rm -f $(OBJS) *.a core *~
+	/bin/rm -f $(OBJS) *.a core *~ doc/*~

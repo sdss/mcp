@@ -50,6 +50,9 @@ all dg : $(OBJS) $(LIBRARIES)
 	$(LINK) $(LFLAGS) -o mcpnew.out $(OBJS) $(MEIDSP)llfirm.o \
 	$(LIBRARIES) >$(DESTDIR)mcpnew.map
 
+install : all
+	cp Makefile *.[cho] *.out $(MCP_DIR)/mcp-new
+
 clean:
 	rm -rf *.o mcp.map mcp.out *~
 

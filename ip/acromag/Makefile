@@ -13,5 +13,8 @@ all : ip480.out
 ip480.out : $(OBJECTS)
 	ld68k -r -M -o ip480.out $(OBJECTS) > ip480.map
 
+install : all
+	cp Makefile *.[cho] *.out $(MCP_DIR)/ip/acromag
+
 clean:
 	/bin/rm -f *.out *.o *.map *~

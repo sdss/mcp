@@ -41,6 +41,10 @@ DHP_OBJS = std_dhp.o dhpd.o diag.o sbslc.o rdslc.o vmeinst.o
 
 all dg: $(DHP_OBJS)
 	$(LINK) $(LFLAGS) -o  dhp.out $(DHP_OBJS) > $(DESTDIR)dhp.map
+
+install :
+	cp Makefile *.[cho] *.out *.bin $(MCP_DIR)/ab
+
 #
 # Don't delete sddhp.bin sdhdhp.bin sdudhp.bin; we don't have source for them
 #

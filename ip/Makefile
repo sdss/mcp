@@ -56,6 +56,16 @@ all dg: $(ASRCS) $(OBJS)
 		(cd $$d; $(MAKE) $(MFLAGS) all ); \
 	done
 
+install : all
+	cp Makefile *.[cho] $(MCP_DIR)/ip
+	@for d in $(DIRS); do \
+		echo $$d; \
+		if [ ! -d $(MCP_DIR)/$$d ]; then \
+			mkdir $(MCP_DIR)/ip/$$d; \
+		fi; \
+		(cd $$d; $(MAKE) $(MFLAGS) install ); \
+	done
+
 clean :
 	/bin/rm -f *.o *~ *.map *.out
 	@for d in $(DIRS); do \

@@ -67,6 +67,9 @@ all dg: $(ASRCS) $(OBJS)
 		ad12f1ri.o  ad12f1rr.o  ad12f1rv.o  ad12f1uc.o  ad12f1wr.o \
 	>adc128f1.map
 
+install : all
+	cp Makefile *.[cho] *.out $(MCP_DIR)/ip/systran
+
 #
 # Don't delete did48.out, we cannot (yet) recreate it
 #

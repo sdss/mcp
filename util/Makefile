@@ -71,6 +71,9 @@ $(LIBFILE): $(OBJECTS)
 	iptime.o usrtime.o rtc.o microtime.o \
 	>$(DESTDIR)utiltim.map
 
+install : all
+	cp Makefile *.[cho] *.out $(MCP_DIR)/util
+
 clean	:
 	  $(RM) $.o *~
 
