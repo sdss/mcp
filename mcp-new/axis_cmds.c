@@ -230,16 +230,15 @@ double sec_per_tick[3]={AZ_TICK,ALT_TICK,ROT_TICK};
 double ticks_per_degree[]={AZ_TICKS_DEG,
 				ALT_TICKS_DEG,
 				ROT_TICKS_DEG};
+
+/* note, this will return junk if semTake returns an error */
 char *drift_cmd(char *cmd)
 {
-  static char *time_ans={"360.00000 0.500000 5040.00000               "};	/* */
-  struct timespec tp;
-  unsigned long micro_sec;
+  static char *time_ans={"360.00000 0.500000 5040.00000               "};
   long ap,vel;
   double position,velocity;
   double arcdeg, veldeg;
-  static struct tm *t;
-  extern struct TM_M68K *tmaxis[];
+  /*  extern struct TM_M68K *tmaxis[]; */
 
 /*  printf (" DRIFT command fired\r\n");*/
   if (semTake (semMEI,60)!=ERROR)
@@ -285,8 +284,10 @@ char *id_cmd(char *cmd)
 
 char *init_cmd(char *cmd)
 {
+#ifdef NOTDEFINED
   int e ;
   char buffer[MAX_ERROR_LEN] ;
+#endif
 
 /*  printf (" INIT command fired axis=%d\r\n",axis_select);*/
   tm_controller_idle (axis_select<<1);
@@ -359,7 +360,11 @@ char *move_cmd(char *cmd)
 {
 
   double position,velocity,pos;
-  struct FRAME *frame,*nxtque,*lstque,*nframe;
+  struct FRAME *frame,*nxtque;
+
+  /*
+  struct FRAME *nframe;
+  */
   struct FRAME_QUEUE *queue;
   int cnt;
 
@@ -472,12 +477,16 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   vdot=dx/dt;
   ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
   j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
+
+  /* moved above the verbose bit as it was used uninitialized otherwise */
+  t=(start+1)/FLTFRMHZ+time_off[axis];	/* for end condition */
+
   if (CALC_verbose)
   {
     printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
     printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, time_off=%f",ai,j,t,start,time_off[axis]);
   }
-  t=(start+1)/FLTFRMHZ+time_off[axis];	/* for end condition */
+
   for (i=0;i<(int)min(MAX_CALC-1,
 		(int)((dt-time_off[axis])*FRMHZ)-start);i++)
   {
@@ -734,9 +743,7 @@ void load_frames(int axis, int cnt, double sf)
 
 void load_frames_test(int axis, int cnt, double sf)
 {
-  int e;
   int i;
-  FRAME frame;
    
     printf("\r\n Load %d Frames, sf=%lf",cnt,sf);
     for (i=0;i<cnt;i++)
@@ -771,6 +778,8 @@ void end_frame(int axis,int index,double sf)
 	tim[axis][index]);    
   }
 }
+
+/* note: returns junk if semTake returns an error */
 int tm_frames_to_execute(int axis)
 {
   int cnt;
@@ -782,6 +791,7 @@ int tm_frames_to_execute(int axis)
   }
   return cnt;    
 }
+
 #define LOAD_MAX        50
 void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 {
@@ -789,7 +799,6 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
   struct FRAME *frame;
   int i;
   int frame_cnt, frame_idx;
-  extern struct TM_M68K *tmaxis[];
 
   printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
         ticks_per_degree[axis]);
@@ -818,6 +827,11 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
   CALC_verbose=FALSE;
 }
 
+
+
+/* cnt and lcnt are used not initialized if there is only one frame in the
+ * queue...  bad..
+ */
 void tm_TCC(int axis)
 {
   int cnt, lcnt;
@@ -997,18 +1011,24 @@ void tm_test(int axis, int sf)
       printf ("\r\nRestart no frames to process");
   }
 }
-start_tm_TCC()
+
+void start_tm_TCC()
 {
   taskSpawn("tmAz",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,0,0,0,0,0,0,0,0,0,0);
   taskSpawn("tmAlt",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,1,0,0,0,0,0,0,0,0,0);
   taskSpawn("tmRot",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC,2,0,0,0,0,0,0,0,0,0);
 }
-start_tm_TCC_test()
+
+void start_tm_TCC_test()
 {
-  taskSpawn("tmAztest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,0,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmAlttest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,1,0,0,0,0,0,0,0,0,0);
-  taskSpawn("tmRottest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,2,0,0,0,0,0,0,0,0,0);
+  taskSpawn("tmAztest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,
+	    0,0,0,0,0,0,0,0,0,0);
+  taskSpawn("tmAlttest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,
+	    1,0,0,0,0,0,0,0,0,0);
+  taskSpawn("tmRottest",62,VX_FP_TASK,10000,(FUNCPTR)tm_TCC_test,
+	    2,0,0,0,0,0,0,0,0,0);
 }
+
 void tm_pos_vel(int axis,int vel, int accel)
 {
   int e;

@@ -59,7 +59,10 @@ int cmd_init()
   printf ("\r\n%s\r\n",sdss_version);
   if (semCMD==0)
     semCMD = semMCreate (SEM_Q_FIFO);
+
+  return 0;
 }
+
 char *cmd_handler(char *cmd)
 {
   int i;
