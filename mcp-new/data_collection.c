@@ -315,6 +315,7 @@ mei_data_collection(unsigned long freq)
 /*
  * Check if the encoders agree?
  */
+#if 0
 	 if(DC_freq%check_encoder_freq < NAXIS) { /* check all axes */
 	    if(fiducial[i].scale_ratio_12 > 0 &&
 				       fiducial[i].min_encoder_mismatch >= 0) {
@@ -329,6 +330,7 @@ mei_data_collection(unsigned long freq)
 	       }
 	    }
 	 }
+#endif
 /*
  * If all the axes are idle, make the TCC give up the semaphore if
  * if currently holds it.  If grabbed_semCmdPort is true don't allow
