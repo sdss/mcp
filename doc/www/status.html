@@ -1,0 +1,95 @@
+<HTML>
+<TITLE>MCP Axis Status Bits</TITLE>
+
+<H1>MCP Axis Status Bits</H1>
+
+The status word that the MCP passes to the TCC upon receipt of a
+<CODE>STATUS</CODE> command is defined in data_collection.h; the
+version as of Guy Fawkes day 2000 is:
+
+<PRE>
+struct AXIS_STAT {
+	unsigned <A HREF="#always_zero">always_zero</A> : 1;
+
+	unsigned <A HREF="#bump_up_ccw_sticky">bump_up_ccw_sticky</A> : 1;
+	unsigned <A HREF="#bump_dn_cw_sticky">bump_dn_cw_sticky</A> : 1;
+	unsigned  : 4;
+	unsigned <A HREF="#ms_on_correction_too_large">ms_on_correction_too_large</A> : 1;
+
+	unsigned  : 6;
+	unsigned <A HREF="#clock_slow_signal">clock_slow_signal</A> : 1;
+	unsigned <A HREF="#clock_loss_signal">clock_loss_signal</A> : 1;
+        unsigned : 5;
+	unsigned <A HREF="#stop_ok">stop_ok</A> : 1;
+	unsigned <A HREF="#amp_ok">amp_ok</A> : 1;
+	unsigned <A HREF="#closed_loop">closed_loop</A> : 1;
+
+	unsigned <A HREF="#max_limit">max_limit</A>: 1;
+	unsigned <A HREF="#min_limit">min_limit</A>: 1;
+	unsigned <A HREF="#max_acc">max_acc</A>: 1;
+	unsigned <A HREF="#max_vel">max_vel</A>: 1;
+	unsigned <A HREF="#max_pos">max_pos</A>: 1;
+	unsigned <A HREF="#min_pos">min_pos</A>: 1;
+	unsigned <A HREF="#pvt_time_late">pvt_time_late</A> : 1;
+	unsigned <A HREF="#pvt_empty">pvt_empty</A> : 1;
+};
+</PRE>
+
+with meanings:
+<DL>
+<DT> <A NAME="always_zero">always_zero</A>
+<DD> Sign bit; always zero.
+
+<DT> <A NAME="bump_up_ccw_sticky">bump_up_ccw_sticky</A>
+<DD> The windscreen touched.  Only valid for altitude (up)
+or azimuth (anticlockwise)
+
+<DT> <A NAME="bump_dn_cw_sticky">bump_dn_cw_sticky</A>
+<DD> The windscreen touched.  Only valid for altitude (down)
+or azimuth (clockwise)
+
+<DT> <A NAME="ms_on_correction_too_large">ms_on_correction_too_large</A>
+<DD> The correction made by an MS.ON command would have exceeded MS.MAX
+
+<DT> <A NAME="clock_slow_signal">clock_slow_signal</A>
+<DD> Unused
+
+<DT> <A NAME="clock_loss_signal">clock_loss_signal</A>
+<DD> Failed to see the GPS interrupt
+
+<DT> <A NAME="stop_ok">stop_ok</A>
+<DD> A stop button has <EM>not</EM> been pushed.
+
+<DT> <A NAME="amp_ok">amp_ok</A>
+<DD> The amplifier for this axis is OK
+
+<DT> <A NAME="closed_loop">closed_loop</A>
+<DD> This axis is in closed loop
+
+<DT> <A NAME="max_limit">max_limit</A>
+<DD> Unused
+
+<DT> <A NAME="min_limit">min_limit</A>
+<DD> Unused
+
+<DT> <A NAME="max_acc">max_acc</A>
+<DD> Unused
+
+<DT> <A NAME="max_vel">max_vel</A>
+<DD> Unused
+
+<DT> <A NAME="max_pos">max_pos</A>
+<DD> Unused
+
+<DT> <A NAME="min_pos">min_pos</A>
+<DD> Unused
+
+<DT> <A NAME="pvt_time_late">pvt_time_late</A>
+<DD> Unused
+
+<DT> <A NAME="pvt_empty">pvt_empty</A>
+<DD> Unused
+
+</DL>
+
+</HTML>
