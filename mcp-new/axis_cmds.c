@@ -458,6 +458,19 @@ init_cmd(char *cmd)
  * Clear the status of the bump switches
  */
    clear_sticky_bumps(axis_select);
+/*
+ * If we are the TCC, try to take the semCmdPort semaphore; if the
+ * axis init fails we'll still have it (but it can be stolen).
+ *
+ * The TCC's AXIS STOP command issues a MOVE command, which gives
+ * up the semaphore.
+ */
+   if(taskIdSelf() == taskNameToId("TCC")) {
+      TRACE(2, "AXIS INIT: taking semCmdPort", 0, 0);
+      if(take_semCmdPort(NO_WAIT, "TCC") == ERROR) {
+	 TRACE(1, "AXIS INIT failed to take semCmdPort semaphore", 0, 0);
+      }
+   }
 
    return "";
 }
