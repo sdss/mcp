@@ -98,7 +98,6 @@ float altclino_sf=.0049016925256;
 /*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
 int altclino_off=8857;
 /*9048;*/         /*9500*/
-double tickperarcs[3]={AZ_TICK,ALT_TICK,ROT_TICK};
 double ilcpos[6]={90,0,120,0,0,0};
 int ilcvel[6]={200000,0,200000,0,500000,0};
 int ilcacc[6]={10000,10000,10000,10000,10000,10000};
@@ -324,26 +323,11 @@ static void PrintMenuBanner()
 */
 void PrintMenuMove()
 {
+  extern double sec_per_tick[];
   double arcsecond;
   long marcs,arcs,arcm,arcd;
 
-  switch (Axis>>1)
-  {
-    case AZIMUTH:
-      arcsecond=(AZ_TICK*abs(adjpos[Axis]));
-      break;
-
-    case ALTITUDE:
-      arcsecond=(ALT_TICK*abs(adjpos[Axis]));
-      break;
-
-    case INSTRUMENT:
-      arcsecond=(ROT_TICK*abs(adjpos[Axis]));
-      break;
-
-    default:
-      return;
-  }
+  arcsecond=(sec_per_tick[Axis>>1]*abs(adjpos[Axis]));
   arcd=(long)(arcsecond)/3600;	     
   arcm=((long)(arcsecond)-(arcd*3600))/60;
   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
@@ -395,6 +379,7 @@ void Menu()
   extern int cw_abort();
   extern struct FIDUCIARY fiducial[3];
   extern long fiducial_position[3];
+  extern double sec_per_tick[];
   int cwpos;
   int cw;
   int inst;
@@ -469,30 +454,24 @@ void Menu()
 			&deg,&min,&arcsec,&marcsec);
              negative=FALSE;
            }
+	   pos=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
+           if (negative) pos = -pos;
            switch (Axis>>1)
            {
              case AZIMUTH:
-               pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-		    (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-               if (negative) pos = -pos;
                tm_set_pos(Axis,pos);
 	       tm_set_pos(Axis+1,pos);
                fiducial[Axis/2].markvalid=FALSE;
                break;
 
              case ALTITUDE:
-               pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-		    (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-               if (negative) pos = -pos;
                tm_set_pos(Axis,pos);
 	       tm_set_pos(Axis+1,pos);
                fiducial[Axis/2].markvalid=FALSE;
                break;
 
              case INSTRUMENT:
-               pos=(long)((abs(deg)*3600000.)+(min*60000.)+
-                    (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
-               if (negative) pos = -pos;
                tm_set_pos(Axis,pos);
 	       tm_set_pos(Axis+1,pos);
                fiducial[Axis/2].markvalid=FALSE;
@@ -562,15 +541,8 @@ void Menu()
 		&deg,&min,&arcsec,&marcsec);
 	     negative=FALSE;
 	   }
-	   if (Axis==0)
-	     adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-	        (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-	   if (Axis==2)
-	     adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-	        (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-	   if (Axis/2==2)
-	     adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-                (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
+	   adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
 	   if (negative) adjpos[Axis] = -adjpos[Axis];
 	   CursPos(36,20);
 	   if (adjpos[Axis]<0)
@@ -602,23 +574,11 @@ void Menu()
 		&deg,&min,&arcsec,&marcsec);
 	     negative=FALSE;
 	   }
-	   if (Axis==0)
-	     adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-	       (arcsec*1000.)+marcsec)/(AZ_TICK*1000);
-	   if (Axis==2)
-	     adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-	       (arcsec*1000.)+marcsec)/(ALT_TICK*1000);
-	   if (Axis/2==2)
-	     adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
-               (arcsec*1000.)+marcsec)/(ROT_TICK*1000);
+	   adjpos[Axis]=(long)((abs(deg)*3600000.)+(min*60000.)+
+	     (arcsec*1000.)+marcsec)/(sec_per_tick[Axis>>1]*1000);
 	   if (negative) adjpos[Axis] = -adjpos[Axis];
            adjpos[Axis] += (*tmaxis[Axis/2]).actual_position;
-	   if (Axis==0)
-	     arcsecond=(AZ_TICK*abs(adjpos[Axis]));
-	   if (Axis==2)
-	     arcsecond=(ALT_TICK*abs(adjpos[Axis]));
-	   if (Axis/2==2)
-	     arcsecond=(ROT_TICK*abs(adjpos[Axis]));
+	   arcsecond=(sec_per_tick[Axis>>1]*abs(adjpos[Axis]));
 	   arcd=(long)(arcsecond)/3600;	     
 	   arcm=((long)(arcsecond)-(arcd*3600))/60;
 	   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
@@ -643,12 +603,7 @@ void Menu()
 	   memset(&MenuInput[0],' ',20);
 	   sscanf (buf,"%ld",&adjpos[Axis]);
            adjpos[Axis] += (*tmaxis[Axis/2]).actual_position;
-           if (Axis==0)
-	     arcsecond=(AZ_TICK*abs(adjpos[Axis]));
-           if (Axis==2)
-    	     arcsecond=(ALT_TICK*abs(adjpos[Axis]));
-           if (Axis/2==2)
-	     arcsecond=(ROT_TICK*abs(adjpos[Axis]));
+	   arcsecond=(sec_per_tick[Axis>>1]*abs(adjpos[Axis]));
 	   arcd=(long)(arcsecond)/3600;	     
 	   arcm=((long)(arcsecond)-(arcd*3600))/60;
 	   arcs=((long)(arcsecond)-(arcd*3600)-(arcm*60));
@@ -1373,6 +1328,7 @@ void PrintMenuPos()
   extern struct FIDUCIALS alt_fiducial[];
   extern struct FIDUCIALS rot_fiducial[];
   extern char *get_date();
+  extern double sec_per_tick[];
   int state;
   int fidsign;
   int i;
@@ -1425,6 +1381,8 @@ void PrintMenuPos()
 	    default: printf ("?");
 	  }
 	}
+        arcsec=(sec_per_tick[i]*abs(ap));
+        farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
 	switch (i)
 	{
           case AZIMUTH:
@@ -1435,8 +1393,6 @@ void PrintMenuPos()
               else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
 	        else printf ("?");
 	    }
-            arcsec=(AZ_TICK*abs(ap));
-            farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
             if (az_fiducial[fiducialidx[i]].mark<0)
               fidsign=-1;
             else
@@ -1451,8 +1407,6 @@ void PrintMenuPos()
               else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
 	        else printf ("?");
 	    }
-            arcsec=(ALT_TICK*abs(ap));
-            farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
             if (alt_fiducial[fiducialidx[i]].mark<0)
               fidsign=-1;
             else
@@ -1466,8 +1420,6 @@ void PrintMenuPos()
 	      if (check_stop_in()) printf ("S");
 	        else printf ("?");
 	    }
-            arcsec=(ROT_TICK*abs(ap));
-            farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
             if (rot_fiducial[fiducialidx[i]].mark<0)
               fidsign=-1;
             else
@@ -2133,6 +2085,7 @@ void PrintInstPos()
   extern struct FIDUCIALS alt_fiducial[];
   extern struct FIDUCIALS rot_fiducial[];
   extern char *get_date();
+  extern double sec_per_tick[];
   int fidsign;
   int state;
   int i;
@@ -2193,6 +2146,8 @@ void PrintInstPos()
 	    default: printf ("?");
 	  }
 	}
+        arcsec=(sec_per_tick[i]*abs(ap));
+        farcsec=(sec_per_tick[i]*abs(az_fiducial[fiducialidx[i]].mark));
 	switch (i)
 	{
           case AZIMUTH:
@@ -2203,8 +2158,6 @@ void PrintInstPos()
               else if (sdssdc.status.i7.il0.az_brake_engaged) printf ("B");
 	        else printf ("?");
 	    }
-            arcsec=(AZ_TICK*abs(ap));
-            farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
             if (az_fiducial[fiducialidx[i]].mark<0)
               fidsign=-1;
             else
@@ -2219,8 +2172,6 @@ void PrintInstPos()
               else if (sdssdc.status.i7.il0.alt_brake_engaged) printf ("B");
 	        else printf ("?");
 	    }
-            arcsec=(ALT_TICK*abs(ap));
-            farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
             if (alt_fiducial[fiducialidx[i]].mark<0)
               fidsign=-1;
             else
@@ -2234,8 +2185,6 @@ void PrintInstPos()
 	      if (check_stop_in()) printf ("S");
 	        else printf ("?");
 	    }
-            arcsec=(ROT_TICK*abs(ap));
-            farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
             if (rot_fiducial[fiducialidx[i]].mark<0)
               fidsign=-1;
             else
@@ -2243,7 +2192,6 @@ void PrintInstPos()
 	    break;
 
 	  default:
-	    arcsec=farcsec=0.;
             fidsign=0;
 	    break;
         }
