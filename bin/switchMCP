@@ -23,7 +23,9 @@ for d in ab bin doc etc fiducial-tables ip mcp-new mei-new params util; do
 	rm $d
     fi
 
-    if [ -d $MCP_DIR/$d ]; then
+    if [ $d = fiducial-tables -a -d "$MCP_FIDUCIALS_DIR" ]; then
+	ln -s $MCP_FIDUCIALS_DIR $d
+    elif [ -d $MCP_DIR/$d ]; then
 	ln -s $MCP_DIR/$d $d
     fi
 done
