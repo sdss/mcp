@@ -124,6 +124,7 @@ int umbildat[NEL*NROT];
  * you do this
  */
 
+void print_umbiltab();
 
 /********************** GETUMBILTAB() **************************************/
 int gotdata=0;
@@ -195,7 +196,17 @@ int getumbiltab()
     gotdata = 1;
     return 0;
 }
-            
+void print_umbiltab()            
+{
+    int i,j;
+    int rot;
+
+    for(i=0;i<NROT;i++){
+        printf("%4d",rot); 
+        for(j=0;j<NEL;j++) printf("%4d",umbiltab[j][i]);
+        printf("\n");
+    }
+}
 /********************** UMBIL() ****************************************/
 /* 
  * this function returns the interpolated value of the target umbilicus 

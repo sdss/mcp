@@ -21,7 +21,10 @@
 #define DIO316_TYPE		2
 
 #define DAC128V_CHANS		8
+#define INST_DEFAULT		16
 
+void cw_set_positionv(int inst, short p1, short p2, short p3, short p4);
+void cw_set_posv(int inst, short *p1, short *p2, short *p3, short *p4);
 #define __CW_H__             /* do only once */
 
 #endif	/* End __CW_H__ */

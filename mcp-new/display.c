@@ -14,7 +14,7 @@ Routines to control the display screen
 These functions can be used with a Vt220 terminal to position the cursor,
 erase the screen etc.
 ******************************************************************************/
-#define SoftwareVersion_	10
+#define SoftwareVersion_	12
 /* INCLUDES */
 #include "display.h"
 #include "stdio.h"
@@ -29,6 +29,7 @@ erase the screen etc.
 #include "taskLib.h"
 #include "axis.h"
 #include "tm.h"
+#include "cw.h"
 void Menu();
 static void PrintMenu();
 static void PrintMenuBanner();
@@ -161,11 +162,13 @@ int Axis_vel_neg[6]={-200000,0,-200000,0,-250000,0};
 int Axis_vel_pos[6]={200000,0,200000,0,250000,0};
 /* 8863 is pinned at .9 degrees; -9471 is zenith 90 degrees before */
 /* 8857 is pinned at 0 degrees; -9504 is zenith 90 degrees 22-Aug-98 */
-float altclino_sf=.0049016925256;/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
-int altclino_off=8857;/*9048;*/         /*9500*/
+float altclino_sf=.0049016925256;
+/*.0048598736;*//*.0047368421 90 deg=19000*//*.0049011599*/
+int altclino_off=8857;
+/*9048;*/         /*9500*/
 double tickperarcs[3]={AZ_TICK,ALT_TICK,ROT_TICK};
 static int refreshing=FALSE;
-static char *limitstatus[]={"UL","U "," L","  "};
+static char *limitstatus[]={"LU","L "," U","  "};
 double ilcpos[6]={90,0,120,0,0,0};
 int ilcvel[6]={200000,0,200000,0,500000,0};
 int ilcacc[6]={10000,10000,10000,10000,10000,10000};
@@ -181,22 +184,16 @@ static void PrintMenu()
 /****************************************************************************/
 static void PrintMenuBanner()
 {
-  float Days;
-  time_t CurrentTime;
-
   CursPos(1,1);
   MenuInput[21]=NULL;
   EraseDisplayRest();
-  time(&CurrentTime);
-  Days=(float)tickGet()/(216000.0*24.0);
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie Briegel        \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
   printf("      //   //   //       //       //      Tag: %-20s            \n", "$Name$");
   printf("     //   //   //       //       //                                            \n");
   printf("//////  ///////    //////   //////                                             \n");  
-  printf("Time Since Boot: %5.2f Days               Date:     \n",
-    Days/*,(char *)get_date()*/);
+  printf("Time Since Boot:       Days               Date:     \n");
   CursPos(1,8);
   printf ("    SA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
   CursPos(1,9);    
@@ -224,7 +221,7 @@ static void PrintMenuBanner()
   printf("/////////////////////////////// SDSS ////////////////////////////////\n\r");
   printf("R=Rotator Z=aZimuth L=aLtitude S=Stop H=Hold ?=help X=eXit......Command->\n\r");
   if (taskIdFigure("menuPos")==ERROR)
-    taskSpawn("menuPos",99,VX_FP_TASK,4000,(FUNCPTR)PrintMenuPos,
+    taskSpawn("menuPos",99,VX_FP_TASK,8000,(FUNCPTR)PrintMenuPos,
 	0,0,0,0,0,0,0,0,0,0);
 }
 void PrintMenuMove()
@@ -255,6 +252,7 @@ void PrintMenuMove()
   printf ("%10ld Cts/Sec",adjvel[Axis]);
 }
 /****************************************************************************/
+int org_pri;
 void Menu()
 /* This services the display terminal.  */
 {
@@ -274,6 +272,7 @@ void Menu()
   extern int amp_reset(int axis);
   extern struct FIDUCIARY fiducial[3];
   extern long fiducial_position[3];
+  int cwpos;
   int cw;
   float fpos;
   int inst;
@@ -285,8 +284,13 @@ void Menu()
 
   Options=ioctl(0,FIOGETOPTIONS,0); /* save present keyboard options */
   ioctl(0,FIOOPTIONS,Options & ~OPT_ECHO & ~OPT_LINE);
+/*  taskPriorityGet(0,&org_pri);*/
+/*  printf("\r\ntask priority=%d is set to 4",org_pri);*/
+/*  taskPrioritySet(0,46);*/
+/*  taskDelay (30);*/
   if (semTake (semMEIUPD,60)!=ERROR)
   {
+    refreshing=TRUE;
     PrintMenuBanner();
     PrintMenuMove();
     semGive (semMEIUPD);
@@ -641,6 +645,7 @@ void Menu()
 	   Running=FALSE;
 	   ioctl(0,FIOOPTIONS,Options); /* back to normal */
            taskDelete(taskIdFigure("menuPos"));
+/*  	   taskPrioritySet(0,org_pri);*/
 	   taskDelay (10);
 	   EraseDisplayAll();
 	   break;
@@ -722,6 +727,44 @@ void Menu()
 	   printf("                                        ");
 	   break;
 
+         case '^': 
+	   CursPos(20,24);
+	   printf("All CW vvv                             ");
+	   if (GetString(&MenuInput[0],20))
+	   {
+	     memcpy(&buf[0],&MenuInput[0],21);
+	     memset(&MenuInput[0],' ',20);
+	     sscanf (buf,"%ld",&cwpos);
+	     CursPos(20,24);
+	     if ((cwpos<10)||(cwpos>800))
+	     {
+	       printf("ERR: Position out of Range (10-800)    ");
+	       break;
+	     }
+             if (taskIdFigure("cw")!=ERROR)
+	     {
+	       printf("ERR: CW task still active...be patient  ");
+	       break;
+	     }
+             if (taskIdFigure("cwp")!=ERROR)
+	     {
+	       printf("ERR: CWP task still active..be patient  ");
+	       break;
+	     }
+	     cw_set_positionv(INST_DEFAULT,cwpos,cwpos,cwpos,cwpos);
+	     if (sdssdc.status.i78.il0.alt_brake_engaged)
+	       taskSpawn ("cw",60,VX_FP_TASK,4000,(FUNCPTR)balance_weight,
+			  (int)INST_DEFAULT,0,0,0,0,0,0,0,0,0);
+	     else
+	     {
+	       printf("ERR: Altitude Brake NOT Engaged         ");
+	       break;
+	     }
+	   }
+	   CursPos(20,24);
+	   printf("                                        ");
+	   break;
+
          case '%':
 	   CursPos(20,24);
            printf ("CW ABORT                               ");
@@ -794,7 +837,7 @@ printf(" K=pos; J=neg; S=Stop Motion; H=Hold Motion I=Set Velocity Increment;   
 	     CursPos(1,5);
 printf(" P=SetPosition; F=SetFiducial; sp=RstScrn X=eXit; A(amp)=*(ok),Stop-in,?(unknown)    \n");
 	     CursPos(1,6);
-printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt                                \n");
+printf(" W=Move CW; !|@|#|$=Move CW 1|2|3|4; %%=CW Halt ^=CW All                       \n");
 
 	 case 'S': case 's':	     
 	   Axis_vel[Axis]=0;
@@ -1079,13 +1122,13 @@ void PrintMenuPos()
 	
   FOREVER
   {  
+    if (refreshing) 
+    {
+      taskDelay(60);
+      refreshing=FALSE;
+    }
     if (semTake (semMEIUPD,60)!=ERROR)
     {
-      if (refreshing) 
-      {
-        taskDelay(60);
-	    refreshing=FALSE;
-      }
       if (rawtick>(50+lasttick))
       {
         lasttick=rawtick;
@@ -1124,7 +1167,8 @@ void PrintMenuPos()
 	  else
 	  {
 	    if (check_stop_in()) printf ("S");
-	    else printf ("?");
+            else if (sdssdc.status.i78.il0.az_brake_engaged) printf ("B");
+	      else printf ("?");
 	  }
           arcsec=(AZ_TICK*abs(ap));
           farcsec=(AZ_TICK*abs(az_fiducial[fiducialidx[i]].mark));
@@ -1139,7 +1183,8 @@ void PrintMenuPos()
 	  else
 	  {
 	    if (check_stop_in()) printf ("S");
-	    else printf ("?");
+            else if (sdssdc.status.i78.il0.alt_brake_engaged) printf ("B");
+	      else printf ("?");
 	  }
           arcsec=(ALT_TICK*abs(ap));
           farcsec=(ALT_TICK*abs(alt_fiducial[fiducialidx[i]].mark));
@@ -1154,7 +1199,7 @@ void PrintMenuPos()
 	  else
 	  {
 	    if (check_stop_in()) printf ("S");
-	    else printf ("?");
+	      else printf ("?");
 	  }
           arcsec=(ROT_TICK*abs(ap));
           farcsec=(ROT_TICK*abs(rot_fiducial[fiducialidx[i]].mark));
@@ -1203,6 +1248,40 @@ void PrintMenuPos()
         ap,
         ap1,
         ap2);
+      semGive (semMEIUPD);
+    }
+    taskDelay(30);
+    if (semTake (semMEIUPD,60)!=ERROR)
+    {
+
+      CursPos(14,13);
+      if (sdssdc.status.i11o12.ol0.clamp_engaged_st)
+        printf("On  ");
+      if (sdssdc.status.i11o12.ol0.clamp_disengaged_st)
+        printf("Off  ");
+      if (sdssdc.status.o910.ol0.clamp_engage_cmd)
+        printf("OnCmd  ");
+      if (sdssdc.status.o910.ol0.clamp_disen_cmd)
+        printf("OffCmd  ");
+      CursPos(14,14);
+      if (sdssdc.status.i78.il0.az_brake_engaged)
+        printf("On  ");
+      if (sdssdc.status.i78.il0.az_brake_disengaged)
+        printf("Off  ");
+      if (sdssdc.status.o910.ol0.az_brake_engage_cmd)
+        printf("OnCmd  ");
+      if (sdssdc.status.o910.ol0.az_brake_disen_cmd)
+        printf("OffCmd  ");
+      CursPos(14,15);
+      if (sdssdc.status.i78.il0.alt_brake_engaged)
+        printf("On  ");
+      if (sdssdc.status.i78.il0.alt_brake_disengaged)
+        printf("Off  ");
+      if (sdssdc.status.o910.ol0.alt_brake_engage_cmd)
+        printf("OnCmd  ");
+      if (sdssdc.status.o910.ol0.alt_brake_disen_cmd)
+        printf("OffCmd  ");
+/*
       printf("\t\tOn=%d\tOff=%d\tOnCmd=%d\tOffCmd=%d\n",
         sdssdc.status.i11o12.ol0.clamp_engaged_st,
         sdssdc.status.i11o12.ol0.clamp_disengaged_st,
@@ -1218,6 +1297,7 @@ void PrintMenuPos()
         sdssdc.status.i78.il0.alt_brake_disengaged,
         sdssdc.status.o910.ol0.alt_brake_engage_cmd,
         sdssdc.status.o910.ol0.alt_brake_disen_cmd);
+*/
       CursPos(1,17);
       for (i=0;i<4;i++)
       {
@@ -1229,12 +1309,12 @@ void PrintMenuPos()
         printf ("%5.2f\" %5.2fv%s\t",
 	  (24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
       }
+      CursPos (60,24);
+      printf ("%s",&MenuInput[0]);
+      CursPos (74,23);
+      semGive (semMEIUPD);
     }
-    CursPos (60,24);
-    printf ("%s",&MenuInput[0]);
-    CursPos (74,23);
-    semGive (semMEIUPD);
-    taskDelay (60);
+    taskDelay (30);
   }
 }
 /****************************************************************************/
@@ -1249,22 +1329,16 @@ static void PrintInst()
 /****************************************************************************/
 static void PrintInstBanner()
 {
-  float Days;
-  time_t CurrentTime;
-
   CursPos(1,1);
   MenuInput[21]=NULL;
   EraseDisplayRest();
-  time(&CurrentTime);
-  Days=(float)tickGet()/(216000.0*24.0);
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
   printf("    //       //   //  //       //           software by Charlie Briegel        \n");
   printf("   //////   //   //  ///////  ///////     Compiled: %s %s\n",__DATE__, __TIME__);
   printf("      //   //   //       //       //                                           \n");
   printf("     //   //   //       //       //                                            \n");
   printf("//////  ///////    //////   //////                                             \n");  
-  printf("Time Since Boot: %5.2f Days               Date:     \n",
-    Days/*,(char *)get_date()*/);
+  printf("Time Since Boot:       Days               Date:     \n");
   CursPos(1,8);
   printf ("    SA DegMinSecMAS   ActualPos      CmdPos  VoltageOut  Fiducial;Pos\n\r");
   CursPos(1,9);    
@@ -1577,13 +1651,13 @@ void PrintInstPos()
 	
   FOREVER
   {  
+    if (refreshing) 
+    {
+      taskDelay(60);
+      refreshing=FALSE;
+    }
     if (semTake (semMEIUPD,60)!=ERROR)
     {
-      if (refreshing) 
-      {
-        taskDelay(60);
-	    refreshing=FALSE;
-      }
       if (rawtick>(50+lasttick))
       {
         lasttick=rawtick;
@@ -1678,16 +1752,16 @@ void PrintInstPos()
         printf ("%5.2f\" %5.2fv%s\t",
 	  (24*adc)/(2048*0.7802),(10*adc)/2048.,limitstatus[limidx]);
       }
+      CursPos(1,19);
+      memset(&inst_msg[10],' ',60);
+      memcpy(&inst_msg[10],inst_display,min(strlen(inst_display),60));
+      inst_msg[70]=NULL;
+      if (inst_display!=NULL) printf ("%s",&inst_msg[0]);
+      CursPos (60,24);
+      printf ("%s",&MenuInput[0]);
+      CursPos (74,23);
+      semGive (semMEIUPD);
     }
-    CursPos(1,19);
-    memset(&inst_msg[10],' ',60);
-    memcpy(&inst_msg[10],inst_display,min(strlen(inst_display),60));
-    inst_msg[70]=NULL;
-    if (inst_display!=NULL) printf ("%s",&inst_msg[0]);
-    CursPos (60,24);
-    printf ("%s",&MenuInput[0]);
-    CursPos (74,23);
-    semGive (semMEIUPD);
     taskDelay (60);
   }
 }
@@ -1895,6 +1969,11 @@ int is_stop_in()
     inst_display = "North Windscreen Stop In";
     return TRUE;
   }
+  if (!sdssdc.status.i56.il0.cr_stop)
+  {
+    inst_display = "Control Room Stop In";
+    return TRUE;
+  }
   if (!sdssdc.status.i78.il0.s_wind_e_stop)
   {
     inst_display = "South Windscreen Stop In";
@@ -1915,6 +1994,7 @@ int check_stop_in()
      (sdssdc.status.i56.il0.s_rail_stop)&&
      (sdssdc.status.i56.il0.n_rail_stop)&&
      (sdssdc.status.i56.il0.n_wind_stop)&&
+     (sdssdc.status.i56.il0.cr_stop)&&
      (sdssdc.status.i78.il0.s_wind_e_stop) )
     return FALSE;
   else

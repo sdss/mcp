@@ -138,7 +138,6 @@ Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 #define INST_13		13
 #define INST_14		14
 #define INST_15		15
-#define INST_DEFAULT	16
 #define INST		17
 char *inst_name[]={"CAMERA","FIBER","EMPTY","INST3",
 			"INST4","INST5","INST6","INST7",
@@ -504,6 +503,23 @@ void cw_position(int cw, double pos)
   cw_set_position (INST_DEFAULT, pos, pos, pos, pos);
   balance (cw, INST_DEFAULT);
 }
+void cw_posv(int cw, short *pos)
+{
+  int fd;
+
+  fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
+  ioTaskStdSet(0,1,fd);
+  ioTaskStdSet(0,2,fd);
+  printf ("pos=%f\r\n",*pos);
+  cw_set_positionv (INST_DEFAULT, *pos, *pos, *pos, *pos);
+  balance (cw, INST_DEFAULT);
+  close (fd);
+}
+void cw_positionv(int cw, short pos)
+{
+  cw_set_position (INST_DEFAULT, pos, pos, pos, pos);
+  balance (cw, INST_DEFAULT);
+}
 
 /* DAC is set for +1 10volts where 0=-10 volts;0x800=0 volts; 0xFFF=+10 volts */
 /* pos and neg voltages provide direction control */
@@ -847,6 +863,29 @@ void cw_set_position (int inst, double p1, double p2, double p3, double p4)
      cw_inst[inst].pos_current[2]=0;
      cw_inst[inst].pos_error[2]=0;
      cw_inst[inst].pos_setting[3]=(short)((p4/24.)*(2048*0.7802));
+     cw_inst[inst].pos_current[3]=0;
+     cw_inst[inst].pos_error[3]=0;
+  }
+}
+void cw_set_positionv (int inst, short p1, short p2, short p3, short p4)
+{
+  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
+  {
+     if ((p1<0)||(p1>1000)) return;
+     if ((p2<0)||(p2>1000)) return;
+     if ((p3<0)||(p3>1000)) return;
+     if ((p4<0)||(p4>1000)) return;
+     printf ("\r\nINST %d: p1=%d, p2=%d, p3=%d, p4=%d",inst,p1,p2,p3,p4);
+     cw_inst[inst].pos_setting[0]=(short)(p1*2.048);
+     cw_inst[inst].pos_current[0]=0;
+     cw_inst[inst].pos_error[0]=0;
+     cw_inst[inst].pos_setting[1]=(short)(p2*2.048);
+     cw_inst[inst].pos_current[1]=0;
+     cw_inst[inst].pos_error[1]=0;
+     cw_inst[inst].pos_setting[2]=(short)(p3*2.048);
+     cw_inst[inst].pos_current[2]=0;
+     cw_inst[inst].pos_error[2]=0;
+     cw_inst[inst].pos_setting[3]=(short)(p4*2.048);
      cw_inst[inst].pos_current[3]=0;
      cw_inst[inst].pos_error[3]=0;
   }

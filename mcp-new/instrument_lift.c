@@ -412,7 +412,7 @@ void il_set_upstrain (short inst, short base_strain,
 void il_set_dnstrain (short inst, short base_strain, 
 	short start_strain, short slew_strain, 
 	short stop_strain, short final_strain);
-void il_umbilical_move_pos(int pos);
+int il_umbilical_move_pos(int pos);
 void IL_help();
 void IL_Verbose();
 void IL_Quiet();
@@ -1401,6 +1401,7 @@ void il_calc (struct IL_LOOP *il)
 {
 
 }
+short umbilical_offset=600;
 int il_umbilical_move(int val) 
 {
    int err;
@@ -1421,7 +1422,7 @@ int il_umbilical_move(int val)
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
    il_ctrl.mcp_umbilical_dn_up_cmd = val;
-   printf ("\r\n mcp_umbilical_dn_up_cmd=%d, ",il_ctrl.mcp_umbilical_dn_up_cmd);
+/*   printf ("\r\n mcp_umbilical_dn_up_cmd=%d, ",il_ctrl.mcp_umbilical_dn_up_cmd);*/
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
@@ -1464,7 +1465,7 @@ int il_umbilical(int val)
 /* printf (" read ctrl = 0x%04x\r\n",ctrl);*/
    swab ((char *)&ctrl,(char *)&il_ctrl,2);
    il_ctrl.mcp_umbilical_off_on_cmd = val;
-   printf ("\r\n mcp_umbilical_off_on_cmd=%d, ",il_ctrl.mcp_umbilical_off_on_cmd);
+/*   printf ("\r\n mcp_umbilical_off_on_cmd=%d, ",il_ctrl.mcp_umbilical_off_on_cmd);*/
    swab ((char *)&il_ctrl,(char *)&ctrl,2);
    printf ("ctrl=%x",ctrl);
    if (semTake (semSLC,60)!=ERROR)
@@ -1489,27 +1490,58 @@ int il_umbilical_off()
 }
 short il_umbilical_position()
 {
+  int err;
   extern struct SDSS_FRAME sdssdc;
+  extern SEM_ID semSLC;
+  short pos,position;
 
-  printf ("\r\nUmbilical Position %d (%2.2f inches)",
-	sdssdc.status.i4.umbilical_dist,
-	(30.*sdssdc.status.i4.umbilical_dist)/4096.);
-  return sdssdc.status.i4.umbilical_dist;
+   if (semTake (semSLC,60)!=ERROR)
+   {
+     err = slc_read_blok(1,9,BIT_FILE,235,&pos,1);
+     swab (&pos,&position,2);
+     semGive (semSLC);
+     if (err)
+     {
+       printf ("R Err=%04x\r\n",err);
+       return err;
+     }
+   }
+   return (position-umbilical_offset);
 }
-void il_umbilical_move_pos(int pos)
-{
-  extern struct SDSS_FRAME sdssdc;
+void print_umbilical_position ()
+{  
+  short position;
 
+  position=il_umbilical_position();
+  printf ("\r\nUmbilical Position %d (%2.2f inches)",
+	position,
+	(28.5*position)/29829.);
+}
+int il_umbilical_move_pos(int pos)
+{
+  short position;
+  short lastpos;
+
+  position=il_umbilical_position();
   printf ("\r\nUmbilical Position %d move to %d",
-	sdssdc.status.i4.umbilical_dist,pos);
-  if (pos<sdssdc.status.i4.umbilical_dist)	/* move down */
+	position,pos);
+  if (pos<position)	/* move down */
   {
     il_umbilical_move_dn();
     il_umbilical_on();
-    while ((pos-30)<sdssdc.status.i4.umbilical_dist) 
+    taskDelay (4);
+    lastpos=32767;
+    while (((position=il_umbilical_position())-pos)>60) 
     {
       printf ("\r\nUmbilical Position %d moving down to %d",
-	sdssdc.status.i4.umbilical_dist,pos);
+	position,pos);
+      if ((lastpos-position)<4)
+      {
+        il_umbilical_off();
+	printf ("\r\nABORT UMBILICAL MOVE: not moving down %d",lastpos-position);
+        return -1;
+      }
+      lastpos=position;
       taskDelay (1);
     }
   }
@@ -1517,18 +1549,30 @@ void il_umbilical_move_pos(int pos)
   {
     il_umbilical_move_up();
     il_umbilical_on();
-    while ((pos+15)>sdssdc.status.i4.umbilical_dist)
+    taskDelay (4);
+    lastpos=0;
+    while ((pos-(position=il_umbilical_position()))>30) 
     {
       printf ("\r\nUmbilical Position %d moving up to %d",
-	sdssdc.status.i4.umbilical_dist,pos);
+	position,pos);
+      if ((position-lastpos)<4)
+      {
+        il_umbilical_off();
+	printf ("\r\nABORT UMBILICAL MOVE: not moving up %d",position-lastpos);
+	return -1;
+      }
+      lastpos=position;
       taskDelay (1);
     }
   }
   il_umbilical_off();
 }
+int il_umbilical_offset(int offset)
+{
+  umbilical_offset=offset;
+}
 int il_umbilical_mgt()
 {
-  extern struct SDSS_FRAME sdssdc;
   extern long *axis2pos;
   extern long *axis4pos;
   extern int umbil();
@@ -1536,19 +1580,38 @@ int il_umbilical_mgt()
   int umbpos;
 
   umbpos=umbil (*axis2pos,*axis4pos);
-  umbpos = (short)(4.096*umbpos);
-  umbilical_pt=sdssdc.status.i4.umbilical_dist;
-  if ((umbpos<(umbilical_pt-30))||(umbpos>(umbilical_pt+15)))
+  umbpos = (short)(29.5*umbpos);
+  umbilical_pt=il_umbilical_position();
+  if ((umbpos<(umbilical_pt-60))||(umbpos>(umbilical_pt+30)))
+  {
+    il_umbilical_move_pos(umbpos);
+  }
+}
+int test_umbilical_mgt(int alt, int rot)
+{
+  extern int umbilGet();
+  short umbilical_pt;
+  int umbpos;
+
+  umbpos=umbilGet (alt,rot);
+  umbpos = (short)(29.5*umbpos);
+  umbilical_pt=il_umbilical_position();
+  printf ("\r\n umpos move to %d from %d",umbpos,umbilical_pt); 
+  if ((umbpos<(umbilical_pt-60))||(umbpos>(umbilical_pt+30)))
   {
     il_umbilical_move_pos(umbpos);
   }
 }
 int test_umbilical_move()
 {
+    print_umbilical_position();
     il_umbilical_move_up();
     il_umbilical_on();
     taskDelay(60*2);
     il_umbilical_off();
+    print_umbilical_position();
+    taskDelay(30);
+    print_umbilical_position();
 
     taskDelay(60*10);
 
@@ -1556,6 +1619,9 @@ int test_umbilical_move()
     il_umbilical_on();
     taskDelay(60*2);
     il_umbilical_off();
+    print_umbilical_position();
+    taskDelay(30);
+    print_umbilical_position();
     printf ("\r\nUmbilical UP/DN test Done");    
 }
 int il_zenith_clamp(int val) 

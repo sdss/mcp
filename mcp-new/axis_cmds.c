@@ -87,6 +87,7 @@ void print_max ();
 void tm_load_frame();
 void load_frames_trigger(int axisnum);
 void lfStart();
+float sdss_delta_time(float t2, float t1);
 
 #define NULLFP (void(*)()) 0
 #define NULLPTR ((void *) 0)
@@ -122,15 +123,19 @@ struct FRAME_QUEUE axis_queue[]={
 		{0,NULLPTR,NULLPTR}
 };
 double max_velocity[]={1.0,1.0,1.5,0,0,0};
-double max_acceleration[]={.4,.4,.8,0,0,0};
+double max_acceleration[]={4.,4.,6.0,0,0,0};
 float time1[3],time2[3];
 int CALC_verbose=FALSE;
+int CALCOFF_verbose=FALSE;
+int CALCADDOFF_verbose=FALSE;
 int CALCFINAL_verbose=FALSE;
 int FRAME_verbose=FALSE;
 #define FRMHZ	20
 #define FLTFRMHZ	20.
 #define MAX_CALC 20
 double tim[3][MAX_CALC],p[3][MAX_CALC],v[3][MAX_CALC],a[3][MAX_CALC],ji[3][MAX_CALC];
+double timoff[3][MAX_CALC],poff[3][MAX_CALC],voff[3][MAX_CALC],
+	aoff[3][MAX_CALC],jioff[3][MAX_CALC];
 float time_off[3]={0.0,0.0,0.0};
 double stop_position[3]={0.0,0.0,0.0};
 double drift_velocity[3]={0.0,0.0,0.0};
@@ -138,6 +143,9 @@ int frame_break[3]={FALSE,FALSE,FALSE};
 int drift_break[3]={FALSE,FALSE,FALSE};
 int DRIFT_verbose=FALSE;
 int drift_modify_enable=TRUE;
+struct FRAME offset[3][2];
+struct FRAME *offset_queue_end[3]={NULL,NULL,NULL};
+int offset_idx[3]={0,0,0};
 
 char *correct_cmd(char *cmd)
 {
@@ -157,7 +165,7 @@ char *drift_cmd(char *cmd)
   float time;
 /*  extern struct TM_M68K *tmaxis[];*/
 
-  printf (" DRIFT command fired\r\n");
+/*  printf (" DRIFT command fired\r\n");*/
   if (semTake (semMEI,60)!=ERROR)
   {
     drift_break[axis_select]=TRUE;
@@ -165,6 +173,8 @@ char *drift_cmd(char *cmd)
     semGive (semMEI);
     velocity=drift_velocity[axis_select];
   }
+  else
+    return "ERR: semMEIUPD";
   while (tm_frames_to_execute(axis_select)>1)
     taskDelay(3);
   taskDelay(3);
@@ -176,11 +186,12 @@ char *drift_cmd(char *cmd)
     taskUnlock();
     semGive (semMEI);
   }
+  else
+    return "ERR: semMEIUPD";
   veldeg=(sec_per_tick[axis_select]*velocity)/3600.;
   arcdeg=(sec_per_tick[axis_select]*position)/3600.;
   sprintf (drift_ans,"%lf %lf %f",arcdeg,veldeg,time);
   return drift_ans;
-  return 0;
 }
 
 char *gp1_cmd(char *cmd)
@@ -344,8 +355,8 @@ char *move_cmd(char *cmd)
         tm_get_vel(axis_select<<1,&velocity);
         position = position/ticks_per_degree[axis_select];
 	velocity /= ticks_per_degree[axis_select];
-	frame->end_time = sdss_get_time()+max_acceleration[axis_select]*
-	fabs(velocity)+1.0;
+	frame->end_time = fmod((double)(sdss_get_time()+(max_acceleration[axis_select]*
+	fabs(velocity))+1.0),(double)86400.);
 */
 /*	frame->end_time = sdss_get_time()+2.5;*/
 /*	frame->end_time = ((queue->active)->nxt)->end_time+4.;*/
@@ -369,17 +380,19 @@ char *move_cmd(char *cmd)
     case 1:
         tm_get_pos(axis_select<<1,&pos);
 	velocity = (double).10;
-	frame->end_time = sdss_get_time()+
-		(abs(pos/ticks_per_degree[axis_select]-position)/velocity);
+	frame->end_time = fmod((double)(sdss_get_time()+
+          abs((pos/ticks_per_degree[axis_select]-position)/velocity)),
+	  (double)86400.0);
 	velocity=0.0;
         break;
     case 2:
         tm_get_pos(axis_select<<1,&pos);
-	frame->end_time = sdss_get_time()+
-		abs((pos/ticks_per_degree[axis_select])-position)/velocity;
+	frame->end_time = fmod((double)(sdss_get_time()+
+          abs((pos/ticks_per_degree[axis_select]-position)/velocity)),
+	  (double)86400.0);
         break;
     case 3:
-        if (frame->end_time<sdss_get_time())
+        if (sdss_delta_time((float)frame->end_time,sdss_get_time())<0.0)
 	{
 	  free (frame);
 	  return 0;
@@ -391,7 +404,7 @@ char *move_cmd(char *cmd)
 		position,velocity,frame->end_time);
 	  taskLock();
           tm_get_pos(axis_select<<1,&pos);
-	  dt=frame->end_time-sdss_get_time();
+	  dt=(double)sdss_delta_time((float)frame->end_time,sdss_get_time());
 	  taskUnlock();
 	  dt -=.043;
 	  pos=(pos+
@@ -456,7 +469,7 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   fframe=iframe->nxt;
   dx=fframe->position-iframe->position;
   dv=fframe->velocity-iframe->velocity;
-  dt=fframe->end_time-iframe->end_time;
+  dt=(double)sdss_delta_time((float)fframe->end_time,(float)iframe->end_time);
   vdot=dx/dt;
   ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
   j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
@@ -527,6 +540,72 @@ int calc_frames (int axis, struct FRAME *iframe, int start)
   else 
     return i;
 }
+int calc_offset (int axis, struct FRAME *iframe, int start, int cnt)
+{
+  double dx,dv,dt,vdot;
+  double ai,j,t;
+  struct FRAME *fframe;
+  int i,ii;
+  
+  fframe=iframe->nxt;
+  dx=fframe->position-iframe->position;
+  dv=fframe->velocity-iframe->velocity;
+  dt=(double)sdss_delta_time((float)fframe->end_time,(float)iframe->end_time);
+/*  dt=fframe->end_time-iframe->end_time;*/
+  vdot=dx/dt;
+  ai=(2/dt)*((3*vdot)-(2*iframe->velocity)-fframe->velocity);
+  j=(6/(dt*dt))*(iframe->velocity+fframe->velocity-(2*vdot));
+/* neccessary if for loop not executed; calc of t*/
+  t=(start+1)/FLTFRMHZ;	/* for end condition */
+  if (CALCOFF_verbose)
+  {
+    printf("\r\n dx=%12.8lf, dv=%12.8lf, dt=%12.8lf, vdot=%lf",dx,dv,dt,vdot);
+    printf("\r\n ai=%12.8lf, j=%12.8lf, t=%f, start=%d, ",ai,j,t,start);
+  }
+  for (i=0;i<(int)min(MAX_CALC-1,
+		(int)(dt*FRMHZ)-start);i++)
+  {
+    t=(i+start+1)/FLTFRMHZ;
+    timoff[axis][i]=1/FLTFRMHZ;
+    poff[axis][i]=iframe->position+(iframe->velocity*t)+(1/2.)*ai*(t*t)+
+    			(1/6.)*j*(t*t*t);
+    voff[axis][i]=iframe->velocity+(ai*t)+(1/2.)*j*(t*t);
+    aoff[axis][i]=ai+(j*t);
+    jioff[axis][i]=j;
+    if (CALCOFF_verbose)
+      printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
+ 	i,t,timoff[axis][i],poff[axis][i],voff[axis][i],aoff[axis][i]);
+  }
+  for (ii=i;ii<cnt;ii++)
+  {         
+    t=(ii+start+1)/FLTFRMHZ;
+    timoff[axis][ii]=1/FLTFRMHZ;
+    poff[axis][ii]=fframe->position+(fframe->velocity*(t-dt));
+    voff[axis][ii]=fframe->velocity;
+    aoff[axis][ii]=0;
+    jioff[axis][ii]=0;
+    if (CALCOFF_verbose)
+      printf ("\r\n%d @%lf Secs: ti=%lf, p=%12.8lf, v=%12.8lf, a=%12.8lf",
+        i,t,timoff[axis][ii],poff[axis][ii],voff[axis][ii],aoff[axis][ii]);
+  }
+  return cnt;
+}
+int addoffset(int axis,int cnt)
+{
+  int i;
+
+  for (i=0;i<cnt;i++)
+  {         
+    p[axis][i]+=poff[axis][i];
+    v[axis][i]+=voff[axis][i];
+    a[axis][i]+=aoff[axis][i];
+    ji[axis][i]+=jioff[axis][i];
+    if (CALCADDOFF_verbose)
+      printf ("\r\n%d:  p=%12.8lf, v=%12.8lf, a=%12.8lf",
+        i,p[axis][i],v[axis][i],a[axis][i]);
+  }
+  return cnt;
+}
 void start_frame(int axis,double time)
 {
 /*
@@ -549,7 +628,7 @@ void start_frame(int axis,double time)
 */
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
-     time-=sdss_get_time();
+     time = (double)sdss_delta_time((float)time,sdss_get_time());
      dsp_dwell (axis<<1,time);
 /*
      set_gate(axis<<1);
@@ -793,7 +872,7 @@ void stop_frame(int axis,double pos,double sf)
       stopped=motion_done(axis<<1);
       semGive (semMEI);
     }
-    printf("\r\nStopping");
+/*    printf("\r\nStopping");*/
     taskDelay(1);
   }
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
@@ -910,7 +989,7 @@ void tm_TCC_test(int axis, struct FRAME *iframe, struct FRAME *fframe)
 
 void tm_TCC(int axis)
 {
-  int cnt, lcnt;
+  int cnt, lcnt, cntoff;
   struct FRAME *frame;
 /*  int i;*/
   int frame_cnt, frame_idx;
@@ -919,6 +998,7 @@ void tm_TCC(int axis)
   double velocity;
   long pos;
   int idx;
+  int status;
   
   tm_controller_run (axis<<1);
   printf ("\r\n Axis=%d;  Ticks per degree=%lf",axis,
@@ -957,15 +1037,17 @@ void tm_TCC(int axis)
 		1*(double)ticks_per_degree[axis],
 		.5*(double)ticks_per_degree[axis],
 		frame->position*(double)ticks_per_degree[axis]);
-        printf ("\r\n Repositioning TCC cmd to position=%lf from pos=%ld, diff=%ld>%ld",
-		frame->position*ticks_per_degree[axis],pos,
+      printf ("\r\nAxis %d Repositioning TCC cmd to position=%lf from pos=%ld, diff=%ld>%ld",
+		axis,frame->position*ticks_per_degree[axis],pos,
 		abs((frame->position*ticks_per_degree[axis])-position),
 		(long)(.01*ticks_per_degree[axis]) );
-      while (abs((frame->position*ticks_per_degree[axis])-pos)>
-		(.01*ticks_per_degree[axis]))
+      status=TRUE;
+      while ((abs((frame->position*ticks_per_degree[axis])-pos)>
+		(.01*ticks_per_degree[axis]))&&status)
       {
         if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
         {
+	  status=in_motion(axis<<1);
           get_position(axis<<1,&position);
           semGive (semMEI);
           pos=(long)position;
@@ -978,7 +1060,8 @@ void tm_TCC(int axis)
       printf("\r\n nonzero vel=%lf",velocity);
 */
 /* check for time */
-    while ((frame!=NULL)&&((frame->end_time-sdss_get_time())<.0))
+    while ((frame!=NULL)&&
+	  (sdss_delta_time((float)frame->end_time,sdss_get_time())<0.0))
     {
       frame = frame->nxt;
       axis_queue[axis].active=frame;
@@ -986,9 +1069,11 @@ void tm_TCC(int axis)
     }
     if (frame!=NULL)
     {
-/*      while ((frame->end_time-sdss_get_time())>4.0)taskDelay (2*60);*/
+/*      while (sdss_delta_time((float)frame->end_time,sdss_get_time())>4.0)
+	taskDelay (2*60);*/
       start_frame (axis,frame->end_time);
-      while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>0.02))
+      while ((frame->nxt==NULL)&&
+	    (sdss_delta_time((float)frame->end_time,sdss_get_time())>0.02))
       {
 /*        printf ("\r\n waiting for second frame");*/
         taskDelay (3);
@@ -1005,9 +1090,31 @@ void tm_TCC(int axis)
         frame_cnt=get_frame_cnt(axis,frame);
 /*      printf ("\r\n frames_cnt=%d",frame_cnt);*/
         frame_idx=0;
+        if (offset_queue_end[axis]==frame)
+	{
+	  if ((offset_idx[axis]/20.)>offset[axis][1].end_time)
+	  {
+	    frame->position+=offset[axis][1].position;
+	    frame->velocity+=offset[axis][1].velocity;
+	  }
+	  else
+	  {
+	    frame->position+=poff[axis][cntoff-1];
+	    frame->velocity+=voff[axis][cntoff-1];
+	  }
+	  offset_idx[axis]=0;
+	  offset_queue_end[axis]=NULL;
+	}
 	while (frame_cnt>0)
         {
           cnt=calc_frames(axis,frame,frame_idx);
+
+	  if (offset_queue_end[axis]!=NULL)
+	  {
+	    cntoff=calc_offset(axis,&offset[axis][0],offset_idx[axis],cnt);
+	    offset_idx[axis]+=cnt;
+	    addoffset(axis,cnt);
+	  }
 
           frame_idx += cnt;
           frame_cnt -= cnt;
@@ -1048,7 +1155,8 @@ void tm_TCC(int axis)
 	}
         frame = frame->nxt;
         axis_queue[axis].active=frame;    
-        while ((frame->nxt==NULL)&&((frame->end_time-sdss_get_time())>.02))
+        while ((frame->nxt==NULL)&&
+	    (sdss_delta_time((float)frame->end_time,sdss_get_time())>.02))
           taskDelay (1);
         while ((frame->nxt==NULL)&&((lcnt=tm_frames_to_execute(axis))>1)) 
 	  taskDelay(1);
@@ -1135,6 +1243,7 @@ char *plus_move_cmd(char *cmd)
     case 0:
         break;		/* NULL offset - does nothing */
     case 1:
+/*
 	if (queue->active!=NULL)
 	{
 	  nxtque = queue->active;
@@ -1144,8 +1253,24 @@ char *plus_move_cmd(char *cmd)
 	    nxtque=nxtque->nxt;
 	  }
 	}
+*/
+        offset[axis_select][0].nxt=&offset[axis_select][1];
+        offset[axis_select][0].position=0;
+        offset[axis_select][1].position=position;
+	offset[axis_select][0].velocity=0;
+	offset[axis_select][1].velocity=0;
+	offset[axis_select][0].end_time=0;
+        if (position<.2)
+	  offset[axis_select][1].end_time=(double).4;
+	else
+	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	offset_queue_end[axis_select]=queue->end;
+/*	printf("\r\n%p: queue_end=%p, position=%lf, end_time=%lf",
+		&offset[axis_select],offset_queue_end[axis_select],
+		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
         break;
     case 2:
+/*
         if (queue->active!=NULL)
         {
           nxtque = queue->active;
@@ -1156,9 +1281,25 @@ char *plus_move_cmd(char *cmd)
             nxtque=nxtque->nxt;
           }
         }
+*/
+        offset[axis_select][0].nxt=&offset[axis_select][1];
+        offset[axis_select][0].position=0;
+        offset[axis_select][1].position=position;
+	offset[axis_select][0].velocity=0;
+	offset[axis_select][1].velocity=velocity;
+	offset[axis_select][0].end_time=0;
+        if (position<.2)
+	  offset[axis_select][1].end_time=(double).4;
+	else
+	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	offset_queue_end[axis_select]=queue->end;
+/*	printf("\r\n%p: queue_end=%p, position=%lf, end_time=%lf",
+		&offset[axis_select],offset_queue_end[axis_select],
+		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
         break;
     case 3:
         if (queue->active!=NULL)
+/*
         {
           nxtque = queue->active;
           while (nxtque!=NULL)
@@ -1169,6 +1310,21 @@ char *plus_move_cmd(char *cmd)
             nxtque=nxtque->nxt;
           }
         }
+*/
+        offset[axis_select][0].nxt=&offset[axis_select][1];
+        offset[axis_select][0].position=0;
+        offset[axis_select][1].position=position;
+	offset[axis_select][0].velocity=0;
+	offset[axis_select][1].velocity=velocity;
+	offset[axis_select][0].end_time=0;
+        if (position<.2)
+	  offset[axis_select][1].end_time=(double).4;
+	else
+	  offset[axis_select][1].end_time=(double)((int)((position/1.0)*20))/20.;
+	offset_queue_end[axis_select]=queue->end;
+/*	printf("\r\n%p: queue_end=%p, position=%lf, end_time=%lf",
+		&offset[axis_select],offset_queue_end[axis_select],
+		offset[axis_select][1].position,offset[axis_select][1].end_time);*/
         break;
   }
   return 0;
@@ -1282,16 +1438,17 @@ char *set_time_cmd(char *cmd)
   }
   t.tm_year -= 1900;
   t.tm_mon -= 1;
-/*  printf (" mon=%d day=%d, year=%d %d:%d:%d\r\n",
-	t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);*/
   tp.tv_sec=mktime(&t)+extrasec;
   tp.tv_nsec=0;
   time1[axis_select]=sdss_get_time();
   SDSStime=tp.tv_sec%ONE_DAY;
-  timer_start (1);
+/*  timer_start (1);*/
   time2[axis_select]=sdss_get_time();
 /*  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);*/
   clock_settime(CLOCK_REALTIME,&tp);
+  printf("\r\nt3=%f (extrasec=%d)",t3,extrasec);
+/*  printf (" mon=%d day=%d, year=%d %d:%d:%d\r\n",
+	t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);*/
   return 0;
 }
 
@@ -1377,19 +1534,23 @@ char *time_cmd(char *cmd)
 {
   static struct tm *t;
   struct timespec tp;
-  unsigned long micro_sec;
+/*  unsigned long micro_sec;*/
 
 /*  printf (" TIME? command fired\r\n");*/
   clock_gettime(CLOCK_REALTIME,&tp);
   printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
-  t = gmtime(&tp.tv_sec);
+  t = localtime(&tp.tv_sec);
   printf ("t=%p, mon=%d day=%d, year=%d %d:%d:%d\r\n",
 	t,t->tm_mon,t->tm_mday,t->tm_year,t->tm_hour,t->tm_min,t->tm_sec);
-  micro_sec = timer_read (1);
+/*  micro_sec = timer_read (1);*/
 
   sprintf (time_ans,"%d %d %d %f",t->tm_mon+1,t->tm_mday,t->tm_year+1900,
+	sdss_get_time()
+/*
 	(t->tm_hour*3600.)+(t->tm_min*60.)+
-	t->tm_sec+((micro_sec%1000000)/1000000.));
+	t->tm_sec+((micro_sec%1000000)/1000000.)
+*/
+);
   return time_ans;
 }
 int print_axis_queue(int axis)
@@ -2360,6 +2521,19 @@ float get_time()
           return ((float)(tp.tv_sec%ONE_DAY)+((micro_sec%1000000)/1000000.));
 }
 #endif
+float sdss_delta_time(float t2, float t1)
+{
+  if ((t2>=0.0)&&(t2<400.)&&(t1>86000.)&&(t1<86400.))
+    return ((86400.-t1)+t2);
+  if ((t1>=0.0)&&(t1<400.)&&(t2>86000.)&&(t2<86400.))
+    return ((t2-86400.)-t1);
+  return (t2-t1);
+}
+int test_dt(int t2,int t1)
+{
+  printf ("\r\ndt=%f",sdss_delta_time((float)t2,(float)t1));
+  return (int)sdss_delta_time((float)t2,(float)t1);
+}
 int latch_done=FALSE;
 void test_latch (int ticks)
 {
