@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                 
    unsigned no_inst_in_place : 1;            
    unsigned disc_cable : 1;                  
-   unsigned version_id : 16;                  /* Version 6 : v6  */
+   unsigned version_id : 16;                  /* Version 7 : v7  */
 } B3_L1;
 
 typedef struct {
@@ -242,31 +242,214 @@ typedef struct {
 } B3_L3;
 
 typedef struct {
-   unsigned : 15;                            
-   unsigned spare_b3_8_0 : 1;                
-   unsigned : 16;                            
+   unsigned lh_grt_17d5 : 1;                 
+   unsigned lh_lim_1d95_18d0 : 1;            
+   unsigned lh_les_2d0 : 1;                  
+   unsigned lh_lim_18d0_22d2 : 1;            
+   unsigned lh_lim_18d0_22d0 : 1;            
+   unsigned lh_lim_18d0_20d99 : 1;           
+   unsigned lh_lim_2d5_18d5 : 1;             
+   unsigned lh_lim_18d0_22d75 : 1;           
+   unsigned lh_lim_18d0_22d5 : 1;            
+   unsigned lh_lim_18d0_21d74 : 1;           
+   unsigned lh_lim_2d2_18d5 : 1;             
+   unsigned lh_lim_18d0_23d0 : 1;            
+   unsigned lh_lim_18d0_22d8 : 1;            
+   unsigned lh_lim_18d0_21d89 : 1;           
+   unsigned lh_les_18d5 : 1;                 
+   unsigned altitude_at_inst_chg : 1;        
+   unsigned lh_lim_20d0_21d89 : 1;           
+   unsigned lf_les_350_3 : 1;                
+   unsigned lf_les_150 : 1;                  
+   unsigned lf_les_200 : 1;                  
+   unsigned lf_les_450 : 1;                  
+   unsigned lf_les_350_2 : 1;                
+   unsigned lf_les_1400 : 1;                 
+   unsigned lf_les_350 : 1;                  
+   unsigned lh_lim_2d0_20d0 : 1;             
+   unsigned lh_lim_0d75_2d0 : 1;             
+   unsigned lf_les_500 : 1;                  
+   unsigned lh_les_0d75 : 1;                 
+   unsigned lh_les_18d5_2 : 1;               
+   unsigned lh_lim_18d0_22d3 : 1;            
+   unsigned lh_lim_22d3_23d1 : 1;            
+   unsigned lh_grt_23d1 : 1;                 
 } B3_L4;
 
 typedef struct {
-   unsigned spare_b3_l5 : 1;                 
-   unsigned : 15;                            
-   unsigned spare_b3_11_15 : 1;              
-   unsigned spare_b3_11_14 : 1;              
-   unsigned spare_b3_11_13 : 1;              
-   unsigned spare_b3_11_12 : 1;              
-   unsigned spare_b3_11_11 : 1;              
-   unsigned spare_b3_11_10 : 1;              
-   unsigned spare_b3_11_9 : 1;               
-   unsigned spare_b3_11_8 : 1;               
-   unsigned spare_b3_11_7 : 1;               
-   unsigned spare_b3_11_6 : 1;               
-   unsigned spare_b3_11_5 : 1;               
-   unsigned spare_b3_11_4 : 1;               
-   unsigned spare_b3_11_3 : 1;               
-   unsigned spare_b3_11_2 : 1;               
-   unsigned spare_b3_11_1 : 1;               
-   unsigned spare_b3_11_0 : 1;               
+   unsigned lh_lim_23d1_23d3 : 1;            
+   unsigned lf_les_1100 : 1;                 
+   unsigned lh_lim_22d3_23d1_2 : 1;          
+   unsigned lf_les_400_2 : 1;                
+   unsigned lf_les_150_3 : 1;                
+   unsigned lf_les_200_3 : 1;                
+   unsigned lf_les_500_3 : 1;                
+   unsigned lf_les_400 : 1;                  
+   unsigned lf_les_1700 : 1;                 
+   unsigned lh_lim_21d89_22d3 : 1;           
+   unsigned lf_les_350_5 : 1;                
+   unsigned lf_les_150_2 : 1;                
+   unsigned lf_les_200_2 : 1;                
+   unsigned lf_les_500_2 : 1;                
+   unsigned lf_les_350_4 : 1;                
+   unsigned lf_les_1650 : 1;                 
+   unsigned lf_grt_310_2 : 1;                
+   unsigned lf_grt_220_2 : 1;                
+   unsigned lf_grt_150_2 : 1;                
+   unsigned lh_lim_20d0_21d89_2 : 1;         
+   unsigned lf_grt_125 : 1;                  
+   unsigned lf_grt_0d0_2 : 1;                
+   unsigned lf_grt_0d0 : 1;                  
+   unsigned lf_grt_310 : 1;                  
+   unsigned lf_grt_220 : 1;                  
+   unsigned lf_grt_1100 : 1;                 
+   unsigned lf_grt_150 : 1;                  
+   unsigned lh_lim_2d0_20d0_2 : 1;           
+   unsigned lh_lim_0d75_3d0 : 1;             
+   unsigned lf_grt_neg_125 : 1;              
+   unsigned lh_les_0d75_2 : 1;               
+   unsigned lf_les_800 : 1;                  
 } B3_L5;
+
+typedef struct {
+   unsigned lh_lim_22d89_23d09 : 1;          
+   unsigned lf_grt_950 : 1;                  
+   unsigned lh_lim_22d85_23d05 : 1;          
+   unsigned lf_grt_1400 : 1;                 
+   unsigned lh_lim_21d8_22d15 : 1;           
+   unsigned lh_lim_22d3_24d0 : 1;            
+   unsigned lf_grt_125_3 : 1;                
+   unsigned lf_grt_0d0_6 : 1;                
+   unsigned lf_grt_0d0_5 : 1;                
+   unsigned lf_grt_310_3 : 1;                
+   unsigned lf_grt_220_3 : 1;                
+   unsigned lf_grt_150_3 : 1;                
+   unsigned lh_lim_21d89_22d3_2 : 1;         
+   unsigned lf_grt_125_2 : 1;                
+   unsigned lf_grt_0d0_4 : 1;                
+   unsigned lf_grt_0d0_3 : 1;                
+   unsigned spare_b3_13_15 : 1;              
+   unsigned spare_b3_13_14 : 1;              
+   unsigned spare_b3_13_13 : 1;              
+   unsigned spare_b3_13_12 : 1;              
+   unsigned spare_b3_13_11 : 1;              
+   unsigned spare_b3_13_10 : 1;              
+   unsigned spare_b3_13_9 : 1;               
+   unsigned lh_les_6d0_5 : 1;                
+   unsigned lh_les_6d0_4 : 1;                
+   unsigned lh_les_6d0_3 : 1;                
+   unsigned lh_les_6d0_2 : 1;                
+   unsigned lh_les_6d0_1 : 1;                
+   unsigned lh_les_6d0 : 1;                  
+   unsigned lf_grt_750 : 1;                  
+   unsigned lh_lim_23d04_23d24 : 1;          
+   unsigned lf_grt_950_1 : 1;                
+} B3_L6;
+
+typedef struct {
+   unsigned spare_b3_14_15 : 1;              
+   unsigned spare_b3_14_14 : 1;              
+   unsigned spare_b3_14_13 : 1;              
+   unsigned spare_b3_14_12 : 1;              
+   unsigned spare_b3_14_11 : 1;              
+   unsigned spare_b3_14_10 : 1;              
+   unsigned spare_b3_14_9 : 1;               
+   unsigned spare_b3_14_8 : 1;               
+   unsigned spare_b3_14_7 : 1;               
+   unsigned spare_b3_14_6 : 1;               
+   unsigned spare_b3_14_5 : 1;               
+   unsigned spare_b3_14_4 : 1;               
+   unsigned spare_b3_14_3 : 1;               
+   unsigned spare_b3_14_2 : 1;               
+   unsigned spare_b3_14_1 : 1;               
+   unsigned spare_b3_14_0 : 1;               
+   unsigned spare_b3_15_15 : 1;              
+   unsigned spare_b3_15_14 : 1;              
+   unsigned spare_b3_15_13 : 1;              
+   unsigned spare_b3_15_12 : 1;              
+   unsigned spare_b3_15_11 : 1;              
+   unsigned spare_b3_15_10 : 1;              
+   unsigned spare_b3_15_9 : 1;               
+   unsigned spare_b3_15_8 : 1;               
+   unsigned spare_b3_15_7 : 1;               
+   unsigned spare_b3_15_6 : 1;               
+   unsigned spare_b3_15_5 : 1;               
+   unsigned spare_b3_15_4 : 1;               
+   unsigned spare_b3_15_3 : 1;               
+   unsigned spare_b3_15_2 : 1;               
+   unsigned spare_b3_15_1 : 1;               
+   unsigned spare_b3_15_0 : 1;               
+} B3_L7;
+
+typedef struct {
+   unsigned spare_b3_16_15 : 1;              
+   unsigned spare_b3_16_14 : 1;              
+   unsigned spare_b3_16_13 : 1;              
+   unsigned spare_b3_16_12 : 1;              
+   unsigned spare_b3_16_11 : 1;              
+   unsigned spare_b3_16_10 : 1;              
+   unsigned spare_b3_16_9 : 1;               
+   unsigned spare_b3_16_8 : 1;               
+   unsigned spare_b3_16_7 : 1;               
+   unsigned spare_b3_16_6 : 1;               
+   unsigned spare_b3_16_5 : 1;               
+   unsigned spare_b3_16_4 : 1;               
+   unsigned spare_b3_16_3 : 1;               
+   unsigned spare_b3_16_2 : 1;               
+   unsigned spare_b3_16_1 : 1;               
+   unsigned spare_b3_16_0 : 1;               
+   unsigned spare_b3_17_15 : 1;              
+   unsigned spare_b3_17_14 : 1;              
+   unsigned spare_b3_17_13 : 1;              
+   unsigned spare_b3_17_12 : 1;              
+   unsigned spare_b3_17_11 : 1;              
+   unsigned spare_b3_17_10 : 1;              
+   unsigned spare_b3_17_9 : 1;               
+   unsigned spare_b3_17_8 : 1;               
+   unsigned spare_b3_17_7 : 1;               
+   unsigned spare_b3_17_6 : 1;               
+   unsigned spare_b3_17_5 : 1;               
+   unsigned spare_b3_17_4 : 1;               
+   unsigned spare_b3_17_3 : 1;               
+   unsigned spare_b3_17_2 : 1;               
+   unsigned spare_b3_17_1 : 1;               
+   unsigned spare_b3_17_0 : 1;               
+} B3_L8;
+
+typedef struct {
+   unsigned spare_b3_18_15 : 1;              
+   unsigned spare_b3_18_14 : 1;              
+   unsigned spare_b3_18_13 : 1;              
+   unsigned spare_b3_18_12 : 1;              
+   unsigned spare_b3_18_11 : 1;              
+   unsigned spare_b3_18_10 : 1;              
+   unsigned spare_b3_18_9 : 1;               
+   unsigned spare_b3_18_8 : 1;               
+   unsigned spare_b3_18_7 : 1;               
+   unsigned spare_b3_18_6 : 1;               
+   unsigned spare_b3_18_5 : 1;               
+   unsigned spare_b3_18_4 : 1;               
+   unsigned spare_b3_18_3 : 1;               
+   unsigned spare_b3_18_2 : 1;               
+   unsigned spare_b3_18_1 : 1;               
+   unsigned spare_b3_18_0 : 1;               
+   unsigned spare_b3_19_15 : 1;              
+   unsigned spare_b3_19_14 : 1;              
+   unsigned spare_b3_19_13 : 1;              
+   unsigned spare_b3_19_12 : 1;              
+   unsigned spare_b3_19_11 : 1;              
+   unsigned spare_b3_19_10 : 1;              
+   unsigned spare_b3_19_9 : 1;               
+   unsigned spare_b3_19_8 : 1;               
+   unsigned spare_b3_19_7 : 1;               
+   unsigned spare_b3_19_6 : 1;               
+   unsigned spare_b3_19_5 : 1;               
+   unsigned spare_b3_19_4 : 1;               
+   unsigned spare_b3_19_3 : 1;               
+   unsigned spare_b3_19_2 : 1;               
+   unsigned spare_b3_19_1 : 1;               
+   unsigned spare_b3_19_0 : 1;               
+} B3_L9;
 
 typedef struct {
    unsigned mcp_clamp_engage_cmd : 1;         /* MCP Clamp engage command */
@@ -304,7 +487,10 @@ typedef struct {
 } B10_L0;
 
 typedef struct {
-   unsigned : 5;                             
+   unsigned : 2;                             
+   unsigned mcp_umbilical_fast : 1;          
+   unsigned mcp_ff_screen2_enabl : 1;        
+   unsigned mcp_ff_scrn2_opn_cmd : 1;        
    unsigned mcp_inst_chg_alert : 1;           /* MCP command to alert the observers for an instrument change malfunction. */
    unsigned mcp_inst_chg_prompt : 1;          /* MCP command to alert the observers for an instrument change prompt. */
    unsigned mcp_sad_latch_opn_cm : 1;         /* MCP command to open the saddle latches. */
@@ -640,7 +826,7 @@ typedef struct {
 
 typedef struct {
    unsigned inst_lift_force : 16;             /* Instrument lift strain gauge value. */
-   unsigned inst_lift_dist : 16;              /* Instrument lift string pot distance value. Scale = .001 per count. */
+   unsigned inst_lift_dist : 16;              /* Instrument lift string pot distance value. Scale = .001 */
 } I4_L2;
 
 typedef struct {
@@ -1032,8 +1218,8 @@ typedef struct {
    unsigned rack_4_grp_5_bit_9 : 1;           /* Spare PLC output bit. */
    unsigned rack_4_grp_5_bit_8 : 1;           /* Spare PLC output bit. */
    unsigned rack_4_grp_5_bit_7 : 1;           /* Spare PLC output bit. */
-   unsigned rack_4_grp_5_bit_6 : 1;           /* Spare PLC output bit. */
-   unsigned rack_4_grp_5_bit_5 : 1;           /* Spare PLC output bit. */
+   unsigned ff_screen2_enable_pm : 1;         /* Spare PLC output bit. */
+   unsigned ff_screen2_open_pmt : 1;          /* Spare PLC output bit. */
    unsigned hgcd_lamps_on_pmt : 1;            /* Mercury cadmium lamps on permit */
    unsigned ne_lamps_on_pmt : 1;              /* Neon lamps on permit */
    unsigned ff_lamps_on_pmt : 1;              /* Flatfield lamps on permit */
@@ -1155,7 +1341,7 @@ typedef struct {
    unsigned out_12_bit_15_spare : 1;          /* Spare PLC Output Bit */
    unsigned out_12_bit_14_spare : 1;          /* Spare PLC Output Bit */
    unsigned out_12_bit_13_spare : 1;          /* Spare PLC Output Bit */
-   unsigned out_12_bit_12_spare : 1;          /* Spare PLC Output Bit */
+   unsigned umbilical_fast : 1;               /* If set the umbilical speed is set to fast */
    unsigned lift_enable : 1;                  /* Old MCP Lift Enable bit. */
    unsigned velocity_trp_rst_out : 1;         /* Output bit to reset a velocity trip in the slip detection module. */
    unsigned velocity_select_bit : 1;          /* This bit is used to select between the 1.0 degree per sec and 3.5 degree per sec velocity limits */
@@ -1191,7 +1377,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 6 : v6";
+   static char plcVersion[] = "Version 7 : v7";
 #endif
 /*
  * End of machine generated code
