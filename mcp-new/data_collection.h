@@ -144,7 +144,14 @@ typedef struct {
    unsigned flip_flop_2 : 1;                  /* Used to debounce the low level lighting switch and latch the light on. */
    unsigned flip_flop_1 : 1;                  /* Used to debounce the low level lighting switch and latch the light on. */
    unsigned flip_flop_0 : 1;                  /* Used to debounce the low level lighting switch and latch the light on. */
-   unsigned : 10;                            
+   unsigned plc_cont_t_bar_latch : 1;        
+   unsigned mcp_cont_t_bar_latch : 1;        
+   unsigned : 2;                             
+   unsigned plc_cont_slit_hd : 1;            
+   unsigned mcp_cont_slit_hd : 1;            
+   unsigned : 2;                             
+   unsigned plc_cont_slit_dr : 1;            
+   unsigned mcp_cont_slit_dr : 1;            
    unsigned e_stop_permit : 1;               
    unsigned dn_inhibit_latch_4 : 1;           /* Altitude Down inhibit latch bit 4 */
    unsigned dn_inhibit_latch_3 : 1;           /* Altitude Down inhibit latch bit 3 */
@@ -154,11 +161,11 @@ typedef struct {
 } B3_L0;
 
 typedef struct {
-   unsigned undefined_3 : 1;                 
+   unsigned img_cam_in_place : 1;            
    unsigned undefined_2 : 1;                 
    unsigned undefined_1 : 1;                 
-   unsigned img_cam : 1;                     
-   unsigned eng_cam : 1;                     
+   unsigned undefined_3 : 1;                 
+   unsigned eng_cam_in_place : 1;            
    unsigned cartridge_9 : 1;                 
    unsigned cartridge_8 : 1;                 
    unsigned cartridge_7 : 1;                 
@@ -168,10 +175,82 @@ typedef struct {
    unsigned cartridge_3 : 1;                 
    unsigned cartridge_2 : 1;                 
    unsigned cartridge_1 : 1;                 
-   unsigned no_device : 1;                   
+   unsigned no_inst_in_place : 1;            
    unsigned disc_cable : 1;                  
-   unsigned version_id : 16;                  /* Version 2 : v2  */
+   unsigned version_id : 16;                  /* Version 5 : v5  */
 } B3_L1;
+
+typedef struct {
+   unsigned sad_not_in_place : 1;            
+   unsigned sad_in_place : 1;                
+   unsigned plc_cont_slit_dr_cls : 1;        
+   unsigned plc_cont_slit_dr_opn : 1;        
+   unsigned mcp_cont_slit_dr_os4 : 1;        
+   unsigned mcp_cont_slit_dr_os3 : 1;        
+   unsigned mcp_cont_slit_dr_os2 : 1;        
+   unsigned mcp_cont_slit_dr_os1 : 1;        
+   unsigned plc_t_bar_tel : 1;               
+   unsigned plc_t_bar_xport : 1;             
+   unsigned plc_cont_t_bar_osr : 1;          
+   unsigned mcp_cont_t_bar_osr : 1;          
+   unsigned plc_cont_slit_hd_osr : 1;        
+   unsigned : 1;                             
+   unsigned plc_cont_slit_dr_osr : 1;        
+   unsigned : 1;                             
+   unsigned lift_empty : 1;                  
+   unsigned sad_latch_cls : 1;               
+   unsigned sad_latch_opn : 1;               
+   unsigned sec_latch_cls : 1;               
+   unsigned sec_latch_opn : 1;               
+   unsigned pri_latch_cls : 1;               
+   unsigned pri_latch_opn : 1;               
+   unsigned cartg_in_place : 1;              
+   unsigned cor_not_in_place : 1;            
+   unsigned cor_in_place : 1;                
+   unsigned plc_cont_slit_hd_lth : 1;        
+   unsigned plc_cont_slit_hd_unl : 1;        
+   unsigned mcp_cont_slit_hd_os4 : 1;        
+   unsigned mcp_cont_slit_hd_os3 : 1;        
+   unsigned mcp_cont_slit_hd_os2 : 1;        
+   unsigned mcp_cont_slit_hd_os1 : 1;        
+} B3_L2;
+
+typedef struct {
+   unsigned speed_4 : 1;                      /* Lift Speed bit */
+   unsigned speed_3 : 1;                      /* Lift Speed bit */
+   unsigned speed_2 : 1;                      /* Lift Speed bit */
+   unsigned speed_1 : 1;                      /* Lift Speed bit */
+   unsigned lift_down_enable : 1;            
+   unsigned lift_up_enable : 1;              
+   unsigned lift_force_dn_enable : 1;        
+   unsigned lift_force_up_enable : 1;        
+   unsigned eng_cam_on_lift_comp : 1;        
+   unsigned eng_cam_on_lift : 1;             
+   unsigned cartg_on_lift_comp : 1;          
+   unsigned cartg_on_lift : 1;               
+   unsigned cam_on_lift_w_j_hok : 1;         
+   unsigned cam_on_lift_wo_j_hok : 1;        
+   unsigned cor_on_lift : 1;                 
+   unsigned auto_mode_enable : 1;            
+   unsigned : 10;                            
+   unsigned flex_io_fault : 1;               
+   unsigned empty_plate_on_lift : 1;         
+   unsigned eng_cam_up_in_place : 1;         
+   unsigned cor_up_in_place : 1;             
+   unsigned cartg_up_in_place : 1;           
+   unsigned img_cam_up_in_place : 1;         
+} B3_L3;
+
+typedef struct {
+   unsigned : 15;                            
+   unsigned btr_enable : 1;                  
+   unsigned : 16;                            
+} B3_L4;
+
+typedef struct {
+   unsigned spare_b3_l5 : 1;                 
+   unsigned : 31;                            
+} B3_L5;
 
 typedef struct {
    unsigned mcp_clamp_engage_cmd : 1;         /* MCP Clamp engage command */
@@ -261,15 +340,18 @@ typedef struct {
 } I1_L0;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l1 : 1;                 
+   unsigned : 31;                            
 } I1_L1;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l2 : 1;                 
+   unsigned : 31;                            
 } I1_L2;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l3 : 1;                 
+   unsigned : 31;                            
 } I1_L3;
 
 typedef struct {
@@ -308,15 +390,18 @@ typedef struct {
 } I1_L4;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l5 : 1;                 
+   unsigned : 31;                            
 } I1_L5;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l6 : 1;                 
+   unsigned : 31;                            
 } I1_L6;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l7 : 1;                 
+   unsigned : 31;                            
 } I1_L7;
 
 typedef struct {
@@ -395,11 +480,13 @@ typedef struct {
 } I1_L10;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l11 : 1;                
+   unsigned : 31;                            
 } I1_L11;
 
 typedef struct {
-   unsigned : 16;                            
+   unsigned spare_i1_l12 : 1;                
+   unsigned : 15;                            
    unsigned rack_3_grp_1_bit_15 : 1;          /* Spare PLC input bit. */
    unsigned rack_3_grp_1_bit_14 : 1;          /* Spare PLC input bit. */
    unsigned rack_3_grp_1_bit_13 : 1;          /* Spare PLC input bit. */
@@ -474,7 +561,8 @@ typedef struct {
 } I1_L14;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_i1_l15 : 1;                
+   unsigned : 31;                            
 } I1_L15;
 
 typedef struct {
@@ -536,7 +624,7 @@ typedef struct {
 
 typedef struct {
    unsigned inst_lift_force : 16;             /* Instrument lift strain gauge value. */
-   unsigned inst_lift_dist : 16;              /* Instrument lift string pot distance value. */
+   unsigned inst_lift_dist : 16;              /* Instrument lift string pot distance value. Scale = .001 per count. */
 } I4_L2;
 
 typedef struct {
@@ -740,11 +828,12 @@ typedef struct {
 } I10_L0;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l0 : 1;                 
+   unsigned : 31;                            
 } O1_L0;
 
 typedef struct {
-   unsigned low_lvl_light_2 : 1;              /* Low level lighting enable bit 2 */
+   unsigned spare_o1_l1 : 1;                 
    unsigned low_lvl_light_1 : 1;              /* Low level lighting enable bit 1 */
    unsigned az_stow_light : 1;                /* Azimuth stow indicator light output bit */
    unsigned stop_bypass_strobe : 1;           /* E-Stop bypass warning strobe enable bit */
@@ -764,15 +853,18 @@ typedef struct {
 } O1_L1;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l2 : 1;                 
+   unsigned : 31;                            
 } O1_L2;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l3 : 1;                 
+   unsigned : 31;                            
 } O1_L3;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l4 : 1;                 
+   unsigned : 31;                            
 } O1_L4;
 
 typedef struct {
@@ -846,15 +938,18 @@ typedef struct {
 } O1_L6;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l7 : 1;                 
+   unsigned : 31;                            
 } O1_L7;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l8 : 1;                 
+   unsigned : 31;                            
 } O1_L8;
 
 typedef struct {
-   unsigned : 16;                            
+   unsigned spare_o1_l9 : 1;                 
+   unsigned : 15;                            
    unsigned rack_2_grp_3_bit_15 : 1;          /* Spare PLC output bit. */
    unsigned rack_2_grp_3_bit_14 : 1;          /* Spare PLC output bit. */
    unsigned rack_2_grp_3_bit_13 : 1;          /* Spare PLC output bit. */
@@ -874,7 +969,8 @@ typedef struct {
 } O1_L9;
 
 typedef struct {
-   unsigned : 16;                            
+   unsigned spare_o1_l10 : 1;                
+   unsigned : 15;                            
    unsigned audio_warning_2 : 1;              /* Audio warning used for instrument change error */
    unsigned rack_2_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
    unsigned rack_2_grp_5_bit_13 : 1;          /* Spare PLC output bit. */
@@ -894,19 +990,23 @@ typedef struct {
 } O1_L10;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l11 : 1;                
+   unsigned : 31;                            
 } O1_L11;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l12 : 1;                
+   unsigned : 31;                            
 } O1_L12;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l13 : 1;                
+   unsigned : 31;                            
 } O1_L13;
 
 typedef struct {
-   unsigned : 16;                            
+   unsigned spare_o1_l14 : 1;                
+   unsigned : 15;                            
    unsigned audio_warning_1 : 1;              /* Audio warning used for instrument change error */
    unsigned rack_4_grp_5_bit_14 : 1;          /* Spare PLC output bit. */
    unsigned rack_4_grp_5_bit_13 : 1;          /* Spare PLC output bit. */
@@ -926,7 +1026,8 @@ typedef struct {
 } O1_L14;
 
 typedef struct {
-   unsigned spare : 32;                      
+   unsigned spare_o1_l15 : 1;                
+   unsigned : 31;                            
 } O1_L15;
 
 typedef struct {
@@ -1039,7 +1140,7 @@ typedef struct {
    unsigned out_12_bit_14_spare : 1;          /* Spare PLC Output Bit */
    unsigned out_12_bit_13_spare : 1;          /* Spare PLC Output Bit */
    unsigned out_12_bit_12_spare : 1;          /* Spare PLC Output Bit */
-   unsigned out_12_bit_11_spare : 1;          /* Spare PLC Output Bit */
+   unsigned lift_enable : 1;                  /* Old MCP Lift Enable bit. */
    unsigned velocity_trp_rst_out : 1;         /* Output bit to reset a velocity trip in the slip detection module. */
    unsigned velocity_select_bit : 1;          /* This bit is used to select between the 1.0 degree per sec and 3.5 degree per sec velocity limits */
    unsigned stow_pos_light : 1;               /* Stow position indicator light on permit */
@@ -1074,7 +1175,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 2 : v2";
+   static char plcVersion[] = "Version 5 : v5";
 #endif
 /*
  * End of machine generated code
@@ -1211,6 +1312,10 @@ struct O12 {
 struct B3 {
    B3_L0 w0;
    B3_L1 w1;
+   B3_L2 w2;
+   B3_L3 w3;
+   B3_L4 w4;
+   B3_L5 w5;
 };
 
 struct B10 {
