@@ -124,6 +124,7 @@ ADC128F1
 #include "stdio.h"
 #include "sysLib.h"
 #include "taskLib.h"
+#include "usrLib.h"
 #include "semLib.h"
 #include "sigLib.h"
 #include "sysSymTbl.h"
