@@ -53,7 +53,7 @@ install :
 tags :
 	@rm -f TAGS
 	@for d in $(DIRS); do \
-		if [ $$d != "etc" ]; then \
+		if [ $$d != "etc" -a $$d != "bin" ]; then \
 			echo $$d; \
 			etags --append -a -t -o TAGS $$d/*.[ch]; \
 		fi; \
