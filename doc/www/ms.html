@@ -285,6 +285,10 @@ e.g.
 
 The file (by default the current one) is read, and the readings of
 the specified encoder for the specified axis are analysed.
+<P>
+
+A complete list of options is available via <CODE>readMcpFiducials -help</CODE>
+<P>
 
 If you specify <CODE>-x</CODE> and <CODE>-y</CODE> a plot of
 <CODE>x</CODE> v. <CODE>y</CODE> is generated; useful choices for
@@ -295,6 +299,11 @@ or <CODE>pos2</CODE> for <CODE>y</CODE>.  Unless you specify
 value subtracted; exactly how that mean is determined is described in
 the next paragraph.
 <P>
+
+If you specify <CODE>-x time</CODE> all the times will have a suitable
+offset subtracted from them (it's given in the axis label).  If you
+choose <CODE>-x index</CODE> the x-axis will be the rank
+of the measurement's timestamps (i.e. the array index), starting at 0.
 
 There are a number of flags to control how the mean value for each
 fiducial is determined:
@@ -316,10 +325,22 @@ value; currently these are:
 
 <DT> -reset
 <DD>
-Everytime the first fiducial in the mcpFiducials file is passed, reset
-the encoders to have the initial value.  This is equivalent to
-refiducialising the telescope just after passing that fiducial, and
-is used to take out secular changes.
+The middle encoder encountered in each sweep in the axis position is found
+(averaged over sweeps), and matters are arranged so that that encoder has
+the same value for every sweep; this is used to take out secular changes
+(and is not needed for the instrument rotator).
+
+<DT> -time0 <t0>
+<DD>
+Discard all measurements taken before time t0.  If t0 is less than
+the first time stamp in the file, it'll be interpreted as being
+relative to the starting time subtracted from all times when they're
+plotted (see above).
+
+<DT> -time1 <t1>
+<DD>
+Discard all measurements taken after <t1>; see <CODE>-time0</CODE>
+for the meaning of small values of <t1>.
 
 <DT> -updown
 <DD>
@@ -333,4 +354,10 @@ values are then averaged together.
 Optionally, a fiducial table in the correct format for MS.READ can be
 generated (using the <CODE>-table</CODE> flag).
 
+<DT> mcpFiducialsPlots
+<DD>
+Make complete (?) sets of plots for a given axis, either to the screen
+or to a set of files.
+
+</DL>
 </HTML>
