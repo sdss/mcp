@@ -18,6 +18,7 @@ ab/std_dhp.h -text
 ab/vmeinst.c -text
 bin/fix-make_make -text
 etc/Makefile -text
+etc/mcp.login -text
 ip/Makefile -text
 ip/acromag/.cvsignore -text
 ip/acromag/Makefile -text
