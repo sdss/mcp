@@ -18,7 +18,7 @@ cd /p/mcpbase
 #
 # Make the links for the MCP directories
 #
-for d in ab bin etc ip mcp-new util; do
+for d in ab bin etc ip mcp-new mei-new util; do
     if [ -l $d ]; then 
 	rm $d
     fi
