@@ -532,7 +532,7 @@ void balance (int cw, int inst)
   int totcnt = 0, cnt, last_error;
 
   if (CW_verbose) printf ("\r\nBALANCE CW %d: for instrument %d",cw,inst);
-  fd=open ("cwp.log",O_RDWR|O_CREAT,0666);
+  fd = open_log("cwp.log");
   ioTaskStdSet(0,1,fd);
   ioTaskStdSet(0,2,fd);
 
@@ -1500,7 +1500,8 @@ int kbd_input()
 ** ROUTINE: cw_get_inst
 **
 ** DESCRIPTION:
-**	Searches the instrument names for a match and returns index.
+**	Searches the instrument names for a match and returns index. It's
+** OK if the instrument string is simply the desired digit
 **
 ** RETURN VALUES:
 **      int 	instrument index or ERROR
@@ -1512,17 +1513,28 @@ int kbd_input()
 **
 **=========================================================================
 */
-int cw_get_inst(char *cmd)
+int
+cw_get_inst(char *cmd)
 {
   int inst;
+  const int ninst = sizeof(inst_name)/sizeof(char *);
 
-  for (inst=0;inst<sizeof(inst_name)/sizeof(char *);inst++)
-    if (!strncmp(cmd,inst_name[inst],strlen(inst_name[inst])))
-    {
-      return inst;
-    }
+  if(sscanf(cmd, "%d", &inst) == 1) {
+     if(inst < 0 || inst >= ninst) {
+	return ERROR;
+     }
+     return(inst);
+  }
+
+  for(inst = 0; inst < ninst; inst++) {
+     if(strncmp(cmd, inst_name[inst], strlen(inst_name[inst])) == 0) {
+	return(inst);
+     }
+  }
+  
   return ERROR;
 }
+
 /*=========================================================================
 **=========================================================================
 **
