@@ -442,6 +442,17 @@ init_cmd(char *cmd)
       semGive(semLatch);
    }
 /*
+ * Update the axis scales from the fiducial tables
+ */
+   switch (axis) {
+    case AZIMUTH:
+      set_axis_scale(axis, fiducial[axis].scale[AZ_ENCODER]);
+      break;
+    case INSTRUMENT:
+      set_axis_scale(axis, fiducial[axis].scale[ROT_ENCODER]);
+      break;
+   }
+/*
  * Clear the status of the bump switches
  */
    clear_sticky_bumps(axis, 0);
@@ -1745,6 +1756,20 @@ set_vel_cmd(char *cmd)
 }
 
 char *
+set_scale_cmd(char *cmd)
+{
+   double ticksize;
+
+   if(sscanf(cmd, "%lf", &ticksize) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   set_axis_scale(ublock->axis_select, ticksize);
+
+   return("");
+}
+
+char *
 bump_clear_cmd(char *cmd)		/* NOTUSED */
 {
    clear_sticky_bumps(ublock->axis_select, 0);
@@ -2040,6 +2065,8 @@ axisMotionInit(void)
    define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 0, 1, "");
    define_cmd("STOP",          stop_cmd, 	  0, 1, 0, 1, "");
    define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0, 0, "");
+   define_cmd("SET.SCALE",     set_scale_cmd,     1, 1, 0, 1,
+	      "Set the scale (arcsec/tick) for the current axis");
    define_cmd("AZ",            az_cmd,          0, 0, 0, 0,
 	      "All succeeding commands apply to azimuth");
    define_cmd("TEL1",          az_cmd,          0, 0, 0, 0,
