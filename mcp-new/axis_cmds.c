@@ -79,8 +79,8 @@ struct FRAME_QUEUE axis_queue[3] = {
  * Maximum allowed velocity/acceleration and arrays to keep account of
  * the maximum |values| actually requested
  */
-double max_velocity[NAXIS] = {2.25, 1.75, 2.25};
-double max_acceleration[NAXIS] = {4.0, 4.0, 6.0};
+double max_velocity[NAXIS] = {2.25, 1.65, 2.25};
+double max_acceleration[NAXIS] = {4.0, 0.11, 6.0};
 double max_velocity_requested[NAXIS] = {0, 0, 0};
 double max_acceleration_requested[NAXIS]={0, 0, 0};
 
@@ -135,11 +135,14 @@ get_axis_encoder_error(int axis)	/* the axis in question */
 
 void
 set_axis_encoder_error(int axis,	/* the axis in question */
-		       int error)	/* value of error */
+		       int error,	/* value of error */
+		       int write_log)	/* write a log entry? */
 {
    assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
 
-   write_fiducial_log("SET_FIDUCIAL_ERROR", axis, 0, 0, 0, 0, error);
+   if(write_log) {
+      write_fiducial_log("SET_FIDUCIAL_ERROR", axis, 0, 0, 0, 0, error, 0);
+   }
 
    axis_encoder_error[2*axis] += error;
    axis_encoder_error[2*axis + 1] = axis_encoder_error[2*axis];
@@ -1195,12 +1198,14 @@ mcp_move_va(int axis,			/* the axis to move */
 	    long acc)			/* desired acceleration */
 {
    int ret;				/* return code from MEI */
+   double sf;				/* scale factor for axis */
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       TRACE(0, "mcp_move_va: illegal axis %d", axis, 0);
 
       return(-1);
    }
+   sf = ticks_per_degree[axis];
 
    if(semTake(semMEI,60) == ERROR) {
       TRACE(0, "mcp_move_va: failed to take semMEI: %s (%d)",
@@ -1218,7 +1223,25 @@ mcp_move_va(int axis,			/* the axis to move */
       }	     
    }
 #endif
-   
+/*
+ * check that acceleration/velocity are within limits
+ */
+   if(fabs(vel) > max_velocity[axis]*sf) {
+      printf("AXIS %d: MAX VEL %f exceeded; limit %f\n",
+	     axis, vel/sf, max_acceleration[axis]);
+      TRACE(2, "Max vel. for %s exceeded: %ld", axis_name(axis), vel);
+      vel = (vel > 0) ? sf*max_velocity[axis] : -sf*max_velocity[axis]*sf;
+   }
+   if(fabs(acc) > sf*max_acceleration[axis]) {
+      printf("AXIS %d: MAX ACC %f exceeded; limit %f\n",
+	     axis, acc/sf, max_acceleration[axis]);
+      TRACE(2, "Max accl. for %s exceeded: %ld", axis_name(axis), acc);
+      
+      acc = (acc > 0) ? sf*max_acceleration[axis] : -sf*max_acceleration[axis];
+   }
+/*
+ * actually do the move
+ */
    if((ret = start_move_corr(2*axis, pos, vel, acc)) != DSP_OK) {
       char *err = _error_msg(ret);
       if(err == NULL) { err = "unknown DSP error"; }
