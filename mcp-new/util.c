@@ -87,9 +87,8 @@ void test_interrupt()
 }
 void test_routine()
 {
-  logMsg ("Test Interrupt Routine fired, status=%lx level=%lx\r\n",
-	(long)*VMECHIP2_LBISR,
-	(long)*VMECHIP2_ILR3,0,0,0,0);
+   TRACE(1, "Test Interrupt Routine fired, status=0x%lx level=0x%lx",
+	 (long)*VMECHIP2_LBISR, (long)*VMECHIP2_ILR3);
 }
 
 unsigned long MCC_timer_read(int timer)

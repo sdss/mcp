@@ -823,37 +823,36 @@ cw_calc(struct CW_LOOP *cw)
 */
 void cw_DIO316_interrupt(int type)
 {
-  unsigned char limit;
-  unsigned char int_bit[4];
-  short vel;
-  int cw;
+   unsigned char limit;
+   unsigned char int_bit[4];
+   short vel;
+   int cw;
+   
+   DIO316ReadISR (cw_DIO316,&int_bit[0]);
+   DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
+   vel-=0x800;
+   DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&limit);
+   cw = cw_rdselect();
+   /* Low Limit Set and going Negative - ABORT */
+   if ((vel<0)&&(((limit>>((cw*2)+1))&0x1)==0))
+     {
+	cw_abort();
+	CW_limit_abort=TRUE;
+     }
+   /* Upper Limit Set and going Positive - ABORT */
+   if ((vel>0)&&(((limit>>(cw*2))&0x1)==0))
+     {
+	cw_abort();
+	CW_limit_abort=TRUE;
+     }
+   
+   DIO316ClearISR (cw_DIO316);
 
-  TRACE0(16, "cw_DIO316_interrupt", 0, 0);
-  
-  DIO316ReadISR (cw_DIO316,&int_bit[0]);
-  DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
-  vel-=0x800;
-  DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&limit);
-  cw = cw_rdselect();
-/* Low Limit Set and going Negative - ABORT */
-  if ((vel<0)&&(((limit>>((cw*2)+1))&0x1)==0))
-  {
-    cw_abort();
-    CW_limit_abort=TRUE;
-  }
-/* Upper Limit Set and going Positive - ABORT */
-  if ((vel>0)&&(((limit>>(cw*2))&0x1)==0))
-  {
-    cw_abort();
-    CW_limit_abort=TRUE;
-  }
-  logMsg ("\r\nCW_INTERRUPT fired: cw=%d Limit %x vel=%d ISR %x abort=%d\r\n",
-		cw,(unsigned long)limit,vel,(unsigned long)int_bit[0],
-		CW_limit_abort,0);
-  DIO316ClearISR (cw_DIO316);
+   TRACE0(16, "cw_DIO316_interrupt CW = %d", cw, 0);
 }
+
 /*=========================================================================
-**=========================================================================
+ **=========================================================================
 **
 ** ROUTINE: cw_DIO316_shutdown
 **
