@@ -444,7 +444,7 @@ TYPE_INFO_STUC UNKNOWN_ID =
 };
 
 /* Text Format 0 */
-char CTR_TEXT[4][1215]=
+char CTR_TEXT[][1215]=
 {
     {"                                      NAK: Bad LSAP Sent........[   ]\n"
     "ACK Timeout..................[   ]    NAK: No Memory Sent.......[   ]\n"
