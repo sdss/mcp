@@ -1,22 +1,4 @@
 #include "copyright.h"
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		AXIS control						*/
-/*   File:	cmd.h							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	cmd_handler : VxWorks					*/
-/*   Modules:	cmd_handler : command parser				*/
-/*		cmd_init    : initialization				*/	
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
---*/
-/*++ Notes:
-	Utilizes cmd.h which specifies the commands.
---*/
-/************************************************************************/
 
 #ifndef __CMD_H__
 /* function prototypes */
