@@ -28,8 +28,9 @@
  * Does this refer to old ticksize of (.0035053554041*4)? RHL.
  * Old AZ_TICK 0.01401671040630 20-Sep-00 DL
  * New AZ_TICK 0.01401678528201 12-Dec-00 DL
+ * New AZ_TICK 0.01401693078832 11-Feb-01 EN-JK
  */
-#define AZ_TICK		0.0140167852820
+#define AZ_TICK		0.01401693078832548
 #if 1
 #  define ALT_TICK	0.01400002855	/* encoder 1 */
 #else
@@ -40,7 +41,7 @@
 #  define ROT_ROTARY_ENCODER 1
 #  define ROT_TICK	0.0127597662202 /* rotary encoder */
 #else
-#  define ROT_TICK      0.0213157852666	/* optical encoder */
+#  define ROT_TICK      0.02131578884483367	/* optical encoder */
 #endif
 #define AZ_TICKS_DEG	(3600/AZ_TICK)
 #define ALT_TICKS_DEG	(3600/ALT_TICK)
