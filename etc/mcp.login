@@ -66,7 +66,7 @@ traceInit(80000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
 traceTtyOn 0, 3
-traceMode 5			/* Entry -> queue -> user-defined fn */
+traceMode 0x5			/* Entry -> queue -> user-defined fn */
 
 taskSwitchHookAdd trc_tskSwHk	/* prepare to trace task switches */
 excHookAdd trc_excHook		/* prepare to trace exceptions */
@@ -211,9 +211,9 @@ barcode_open (3)
 #
 # Load fiducials tables
 #
-axis_select = 1		/* ALT */
+tel2_cmd			/* ALT */
 ms_read_cmd "/p/mcpbase/fiducials/alt-jeg.dat"; ms_define_cmd
-ms_max_cmd 100
+ms_max_cmd "200"
 #
 # Adjust tracing now that we're up
 #
