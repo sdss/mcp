@@ -285,10 +285,9 @@ int getumbiltab()
 void print_umbiltab()            
 {
     int i,j;
-    int rot;
 
     for(i=0;i<NROT;i++){
-        printf("%4d",rot); 
+        printf("%4d",i);
         for(j=0;j<NEL;j++) printf("%4d",umbiltab[j][i]);
         printf("\n");
     }
