@@ -72,10 +72,95 @@
 #include "axis.h"
 #include "cmd.h"
 
+
+/*****************************************************************************/
+/*
+ * Wrappers for MCP commands
+ */
+static char *
+amp_reset_cmd(char *cmd)		/* NOTUSED */
+{
+   mcp_amp_reset(axis_select);
+
+   return("");
+}
+
+static char *
+halt_cmd(char *cmd)			/* NOTUSED */
+{
+   mcp_halt(axis_select);
+
+   return("");
+}
+
+static char *
+stop_cmd(char *cmd)			/* NOTUSED */
+{
+   mcp_stop_axis(axis_select);
+
+   return("");
+}
+
+static char *
+set_fiducial_cmd(char *cmd)			/* NOTUSED */
+{
+   mcp_set_fiducial(axis_select);
+
+   return("");
+}
+
+static char *
+set_pos_cmd(char *cmd)
+{
+   double pos;
+
+   if(sscanf(cmd, "%lf", &pos) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_pos(axis_select, pos);
+
+   return("");
+}
+
+static char *
+set_pos_va_cmd(char *cmd)
+{
+   double pos, vel, acc;
+
+   if(sscanf(cmd, "%lf %lf %lf", &pos, &vel, &acc) != 3) {
+      return("ERR: malformed command argument");
+   }
+   
+   mcp_move_va(axis_select, pos, vel, acc);
+
+   return("");
+}
+
+static char *
+set_vel_cmd(char *cmd)
+{
+   double pos;
+
+   if(sscanf(cmd, "%lf", &pos) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_vel(axis_select, pos);
+
+   return("");
+}
+
+
+/*****************************************************************************/
+
 struct COMMANDS axis_cmds[] = {
 	{"\033",reboot_cmd},
+	{"AMP.RESET",amp_reset_cmd},
+	{"AXIS.STATUS",axis_status_cmd},
 	{"CORRECT",correct_cmd},
 	{"DRIFT",drift_cmd},
+	{"HALT",halt_cmd},
 	{"ID",id_cmd},
 	{"INIT",init_cmd},
 	{"MAXACC",maxacc_cmd},
@@ -87,6 +172,7 @@ struct COMMANDS axis_cmds[] = {
 	{"MC.MINPOS",mc_minpos_cmd},
 	{"MOVE",move_cmd},
 	{"+MOVE",plus_move_cmd},
+	{"SET.POS.VA",set_pos_va_cmd},
 	{"MR.DUMP",mr_dump_cmd},
 	{"MS.DUMP",ms_dump_cmd},
 	{"MS.MAP.DUMP",ms_map_dump_cmd},
@@ -97,11 +183,11 @@ struct COMMANDS axis_cmds[] = {
 	{"REMAP",remap_cmd},
 	{"IR",rot_cmd},
 	{"SET.LIMITS",set_limits_cmd},
-	{"SET.POSITION",set_position_cmd},
 	{"SET.TIME",set_time_cmd},
 	{"STATS",stats_cmd},
 	{"STATUS.LONG",status_long_cmd},
 	{"STATUS",status_cmd},
+	{"STOP",stop_cmd},
 	{"TEL1",tel1_cmd},
 	{"TEL2",tel2_cmd},
 	{"TICKLOST @ .",ticklost_cmd},
@@ -111,10 +197,12 @@ struct COMMANDS axis_cmds[] = {
 	{"CLAMP.ON",clampon_cmd},
 	{"CLAMP.OFF",clampoff_cmd},
 	{"CWMOV",cwmov_cmd},
-	{"CWPOS",cwpos_cmd},
 	{"CWINST",cwinst_cmd},
 	{"CWABORT",cwabort_cmd},
-	{"CWSTATUS",cwstatus_cmd},
+	{"SET.FIDUCIAL",set_fiducial_cmd},
+	{"SET.POSITION",set_pos_cmd},
+	{"SET.VELOCITY",set_vel_cmd},
+	{"CW.STATUS",cwstatus_cmd},
 	{"SP1",sp1_cmd},
 	{"SP2",sp2_cmd},
 	{"SLIT.CLEAR",slitclear_cmd},
@@ -283,3 +371,4 @@ dummy_cmd(char *cmd)
   printf (" DUMMY command fired\r\n");
   return "ERR: Dummy command - no action routine";
 }
+
