@@ -6,7 +6,6 @@ Product=mcp
 Group:
   Flavor=IRIX+6
   Qualifiers=""
-  Qualifiers="build"
 
 Common:
    Action=setup
