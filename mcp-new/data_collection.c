@@ -84,7 +84,7 @@ long *axis4accel=NULL;
 long *axis4tim=NULL;
 long *axis5pos=NULL;
 float sdss_time_dc;
-struct SDSS_FRAME sdssdc={DATA_TYPE,SDSS_FRAME_VERSION};
+struct SDSS_FRAME sdssdc={SDSS_FRAME_VERSION,DATA_TYPE};
 struct TM_M68K *tmaxis[]={(struct TM_M68K *)&sdssdc.axis[0],
 			(struct TM_M68K *)&sdssdc.axis[1],
 			(struct TM_M68K *)&sdssdc.axis[2]};
