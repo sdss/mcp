@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                  /* Cartridge 1 on the telescope */
    unsigned no_inst_in_place : 1;             /* No Instrument on the telescope */
    unsigned disc_cable : 1;                   /* Instrument ID Cable Disconnected */
-   unsigned version_id : 16;                  /* Version 15  $Name$ */
+   unsigned version_id : 16;                  /* Version 16  $Name$ */
 } B3_L1;
 
 typedef struct {
@@ -1378,7 +1378,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 15  $Name$";
+   static char plcVersion[] = "Version 16  $Name$";
 #endif
 /*
  * End of machine generated code
