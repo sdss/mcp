@@ -89,7 +89,9 @@ mei-new/extras.h -text
 mei-new/idsp.h -text
 mei-new/ilsr.h -text
 mei-new/itan.h -text
+mei-new/llfirm.o -text
 mei-new/mboard.h -text
+mei-new/medvxw40.a -text
 mei-new/pcdsp.h -text
 mei-new/sercos.h -text
 mei-new/sercrset.h -text
