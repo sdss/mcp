@@ -120,3 +120,8 @@ Mon Jan 14 07:15:17 MST 2002
 Thu Jan 24 06:01:46 MST 2002
 	cvs rtag -r v5_8 v5_8_7 mcp
 	(no conflicts => no checkins beyond v5_8_7)
+
+	06:34:30 MST 2002
+	cvs tag v5_9_0
+	N.b. Not a branch (yet).
+
