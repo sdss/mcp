@@ -1,8 +1,5 @@
 #include "copyright.h"
 /**************************************************************************
-***************************************************************************
-** FILE:
-**      counter_weight.c
 **
 ** ABSTRACT:
 	Balance the telescope utilizing the four counter weights.  The 
@@ -61,71 +58,7 @@ ADC128F1
 	+/-10 volts is the range for the DAC (direction based on sign)
 	5:1 gear box
 	10 volts is 2500 RPM or 500 RPM after the gear reduction
-**
-** ENTRY POINT          SCOPE   DESCRIPTION
-** ----------------------------------------------------------------------
-** cw_DIO316_shutdown
-** cw_DIO316_interrupt
-** balance_initialize
-** kbd_input
-** balance_weight
-** balance_cmd
-** balance_init
-** balance 
-** cw_pos
-** cw_position
-** cw_calc 
-** cw_DIO316_interrupt
-** cw_DIO316_shutdown
-** read_ADC 
-** read_all_ADC 
-** cw_brake_on
-** cw_brake_off
-** cw_power_on
-** cw_power_off
-** cw_select
-** cw_status
-** cw_abort
-** cw_motor_raw
-** cw_motor
-** cw_list 
-** cw_read_position
-** cw_set_position 
-** cw_set_params 
-** cw_set_const 
-** CW_help
-** CW_Verbose
-** CW_Quiet
-** cw_data_collection	public	counter-weight data collection
-**
-** ENVIRONMENT:
-**      ANSI C.
-**
-** REQUIRED PRODUCTS:
-**
-** AUTHORS:
-**      Creation date:  Aug 30, 1999
-**      Charlie Briegel
-**
-***************************************************************************
-***************************************************************************/
-
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		Counter Weight Control					*/
-/*   File:	counter_weight.c							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	counter_weight : VxWorks				*/
-/*   Modules:	balance : 	    					*/	
-/*++ Version:
-  1.00 - initial --*/
-/*++ Description:
---*/
-/*++ Notes:
---*/
-/************************************************************************/
+	*/
 /*------------------------------*/
 /*	includes		*/
 /*------------------------------*/
@@ -267,82 +200,16 @@ int cw_DAC128V=-1;
 /* Prototypes */
 void cw_DIO316_shutdown(int type);
 void cw_DIO316_interrupt(int type);
-int balance_initialize(unsigned char *addr, unsigned short vecnum);
-int kbd_input();
-char *balance_weight(int inst);
-char *balance_cmd(char *cmd);
-int balance_init();
-void balance (int cw, int inst);
-void cw_pos(int cw, float *pos);
-void cw_position(int cw, double pos);
-void cw_calc (struct CW_LOOP *cw);
-void cw_DIO316_interrupt(int type);
-void cw_DIO316_shutdown(int type);
-void read_ADC (int chan, int cnt);
-void read_all_ADC (int cnt);
-int cw_brake_on();
-int cw_brake_off();
-int cw_power_on();
-int cw_power_off();
-int cw_select(int cw);
-int cw_status();
-int cw_abort ();
-void cw_motor_raw (int cw, int vel);
-void cw_motor (int cw, double vel_rpm);
-void cw_list (int inst);
-void cw_read_position (int cnt);
-void cw_set_position (int inst, double p1, double p2, double p3, double p4);
-void cw_set_params (int inst, double accel, double vel, double decel, double stop_vel);
-void cw_set_const (int inst, int upd, int start_decel_pos, int stop_pos_err, int stop_cnt);
-void CW_help();
-void CW_Verbose();
-void CW_Quiet();
-void cw_data_collection();
+static void cw_calc(struct CW_LOOP *cw);
+static int cw_brake_on(void);
+static int cw_power_on(void);
+static int cw_power_off(void);
+static int cw_select(int cw);
+static int cw_rdselect(void);
+static int cw_status(void);
+static void cw_read_position(int cnt);
+static void cw_set_positionv(int inst, const short p[4]);
 
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: balance_weight   executed from the shell for testing
-**	    balance_cmd      executed from the TCC
-**
-** DESCRIPTION:
-**      Balances for the instrument all four counter-weights in series.
-**
-**
-** RETURN VALUES:
-**      char *       error msg
-**
-** CALLS TO:
-**      balance
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *
-balance_weight(int inst)
-{
-  int cw;
-
-  if (CW_verbose) printf ("\r\nBALANCE WEIGHT\r\n");
-  for (cw=0;cw<NUMBER_CW;cw++)
-    balance (cw,inst);
-  return "";
-}
-char *balance_cmd(char *cmd)
-{
-  int cw,inst;
-
-  if (CW_verbose) printf ("\r\nBALANCE command fired\r\n");
-  if ((inst=cw_get_inst(cmd))!=-1)
-  {
-    for (cw=0;cw<NUMBER_CW;cw++)
-      balance (cw,inst);
-    return "";
-  }
-  else
-    return "BAD NAME";
-}
 /*=========================================================================
 **=========================================================================
 **
@@ -377,108 +244,117 @@ char *balance_cmd(char *cmd)
 **
 **=========================================================================
 */
-int balance_initialize(unsigned char *addr, unsigned short vecnum)
+int
+balance_initialize(unsigned char *addr,
+		   unsigned short vecnum)
 {
-  int i,ii;                          
-  short val;
-  STATUS stat;                               
-  struct IPACK *ip;
-
-  ip = (struct IPACK *)malloc (sizeof(struct IPACK));
-  if (ip==NULL) return ERROR;
-
-/*  Initialize the ADC */
-  Industry_Pack (addr,SYSTRAN_ADC128F1,ip);
-  for (i=0;i<MAX_SLOTS;i++)
-    if (ip->adr[i]!=NULL)
-    {
-      cw_ADC128F1 = ADC128F1Init((struct ADC128F1 *)ip->adr[i]);
-      break;
-    }
-  if (i>=MAX_SLOTS)
-  {
-    printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
-    free (ip);
-    return ERROR;
+   int i,ii;                          
+   short val;
+   STATUS stat;                               
+   struct IPACK ip;
+/*
+ * Initialize the ADC
+ */
+   Industry_Pack(addr, SYSTRAN_ADC128F1, &ip);
+   
+   for(i = 0; i < MAX_SLOTS; i++) {
+      if(ip.adr[i] != NULL) {
+	 cw_ADC128F1 = ADC128F1Init((struct ADC128F1 *)ip.adr[i]);
+	 break;
+      }
+   }
+   
+   if(i >= MAX_SLOTS) {
+      printf ("\r\n****Missing ADC128F1 at %p****\r\n",addr);
+      return ERROR;
+   }
+   ADC128F1_CVT_Update_Control(cw_ADC128F1, ENABLE);
+/*
+ * Initialize the DAC
+ */
+   Industry_Pack(addr, SYSTRAN_DAC128V, &ip);
+   for(i = 0; i < MAX_SLOTS; i++) {
+     if (ip.adr[i]!=NULL) {
+	cw_DAC128V = DAC128VInit((struct DAC128V *)ip.adr[i]);
+	break;
+     }
   }
-  ADC128F1_CVT_Update_Control(cw_ADC128F1,ENABLE);
-
-/*  Initialize the DAC */
-  Industry_Pack (addr,SYSTRAN_DAC128V,ip);
-  for (i=0;i<MAX_SLOTS;i++)
-    if (ip->adr[i]!=NULL)
-    {
-      cw_DAC128V = DAC128VInit((struct DAC128V *)ip->adr[i]);
-      break;
-    }
-  if (i>=MAX_SLOTS)
-  {
-    printf ("\r\n****Missing DAC128V at %p****\r\n",addr);
-    free (ip);
-    return ERROR;
+  
+  if(i >= MAX_SLOTS) {
+     printf ("****Missing DAC128V at %p****\n",addr);
+     return ERROR;
   }
-/* check if voltages are zero */
-  for (i=0;i<DAC128V_CHANS;i++) 
-  {
-    DAC128V_Read_Reg(cw_DAC128V,i,&val);
-    if ((val&0xFFF) != 0x800) 
-      printf ("\r\nDAC128V Chan %d Init error %x",i,val);
+/*
+ * check if voltages are zero
+ */
+  for(i = 0; i < DAC128V_CHANS; i++) {
+     DAC128V_Read_Reg(cw_DAC128V,i,&val);
+     if((val&0xFFF) != 0x800) {
+	printf ("\r\nDAC128V Chan %d Init error %x",i,val);
+     }
   }
+/*
+ * Initialize the DIO316
+ */
+   Industry_Pack (addr,SYSTRAN_DIO316,&ip);
+   for(i = 0; i < MAX_SLOTS; i++) {
+      if (ip.adr[i]!=NULL) {
+	 cw_DIO316 = DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
+	 break;
+      }
+   }
+   
+   if(i >= MAX_SLOTS) {
+      printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
+      return ERROR;
+   }
+/*
+ * set interrupt handlers
+ */
+   stat = intConnect(INUM_TO_IVEC(vecnum),
+		      (VOIDFUNCPTR)cw_DIO316_interrupt,
+		      DIO316_TYPE);
+   printf ("CW vector = %d, interrupt address = %p, result = %8x\r\n",
+	   vecnum,cw_DIO316_interrupt,stat);
+   rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
+   
+   IP_Interrupt_Enable(&ip, DIO316_IRQ);
+   DIO316_OE_Control(cw_DIO316, 3, DIO316_OE_ENA);
+   DIO316_Interrupt_Configuration(cw_DIO316, 0, DIO316_INT_FALL_EDGE);
+   sysIntEnable(DIO316_IRQ);
+   DIO316_Write_Reg(cw_DIO316, 6, 0xF);
 
-/*  Initialize the DIO316 */
-  Industry_Pack (addr,SYSTRAN_DIO316,ip);
-  for (i=0;i<MAX_SLOTS;i++)
-    if (ip->adr[i]!=NULL)
-    {
-      cw_DIO316 = DIO316Init((struct DIO316 *)ip->adr[i], vecnum);
-      break;
-    }
-  if (i>=MAX_SLOTS)
-  {
-    printf ("\r\n****Missing DIO316 at %p****\r\n",addr);
-    free (ip);
-    return ERROR;
-  }
-  stat = intConnect (INUM_TO_IVEC(vecnum),
-                                (VOIDFUNCPTR)cw_DIO316_interrupt,
-                                DIO316_TYPE);
-  printf ("CW vector = %d, interrupt address = %p, result = %8x\r\n",
-                vecnum,cw_DIO316_interrupt,stat);
-  rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
-
-  IP_Interrupt_Enable(ip,DIO316_IRQ);
-  DIO316_OE_Control (cw_DIO316,3,DIO316_OE_ENA);
-  DIO316_Interrupt_Configuration (cw_DIO316,0,DIO316_INT_FALL_EDGE);
-  sysIntEnable(DIO316_IRQ);
-  DIO316_Write_Reg(cw_DIO316,6,0xF);
-
-/* Turned off the interrupts for the limits - unreliable */
-/*  DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);*/
+# if 0					/* Turned off the interrupts
+					   for the limits - unreliable */
+   DIO316_Interrupt_Enable_Control (cw_DIO316,0,DIO316_INT_ENA);
+#endif
   cw_power_off();
-
-/* zero the DAC - there is a 2048 offset on the 12 bit DAC */
-  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
-
-/* Initialize the data structures for nominal operation */
-  for(i = 0; i < NUMBER_INST; i++) {
-    for(ii = 0; ii < NUMBER_CW; ii++) {
-       cw_inst[i].pos_current[ii] = cw_inst[i].pos_error[ii] = 0;
-    }
+/*
+ * zero the DAC - there is a 2048 offset on the 12 bit DAC
+ */
+   DAC128V_Write_Reg(cw_DAC128V, CW_MOTOR, 0x800);
+/*
+ * Initialize the data structures for nominal operation
+ */
+   for(i = 0; i < NUMBER_INST; i++) {
+      for(ii = 0; ii < NUMBER_CW; ii++) {
+	 cw_inst[i].pos_current[ii] = cw_inst[i].pos_error[ii] = 0;
+      }
     
-    cw_inst[i].updates_per_sec=10;
-    cw_inst[i].accel_rpm=12000.;	/* user specified acceleration */
-    cw_inst[i].vel_rpm=500.;		/* user specified velocity */
-    cw_inst[i].decel_rpm=6000.;	/* user specified deceleration */
-    cw_inst[i].stop_vel_rpm=220.;	/* user specified stop velocity */
-    cw_inst[i].start_decel_position=58;/* start position to begin deceleration */
-    cw_inst[i].stop_pos_error=2;	/* stop position error allowed */
-    cw_inst[i].stop_count=6;		/* stop polarity swing counts allowed */
-    cw_calc (&cw_inst[i]);
-  }
-
-  free (ip);
-  return 0;
+      cw_inst[i].updates_per_sec=10;
+      cw_inst[i].accel_rpm=12000.;	/* user specified acceleration */
+      cw_inst[i].vel_rpm=500.;		/* user specified velocity */
+      cw_inst[i].decel_rpm=6000.;	/* user specified deceleration */
+      cw_inst[i].stop_vel_rpm=220.;	/* user specified stop velocity */
+      cw_inst[i].start_decel_position=58;/* start position to begin decel. */
+      cw_inst[i].stop_pos_error=2;	/* stop position error allowed */
+      cw_inst[i].stop_count=6;		/* stop polarity swing counts allowed*/
+      cw_calc(&cw_inst[i]);
+   }
+   
+   return 0;
 }
+
 /*=========================================================================
 **=========================================================================
 **
@@ -497,7 +373,6 @@ int balance_initialize(unsigned char *addr, unsigned short vecnum)
 ** CALLS TO:
 **	DAC128V_Write_Reg
 **	cw_power_on
-**	cw_brake_off
 **	cw_status
 **
 ** GLOBALS REFERENCED:
@@ -523,14 +398,13 @@ balance(int cw,				/* counter weight to move */
   ioTaskStdSet(0,2,fd);
 
 /* set mux for specified counter-weight */
-  cw_select (cw);
+  cw_select(cw);
 
   TRACE(4, "balance cw = %d inst = %d", cw, inst);
 
 /* iterate until good or exceed stop count */
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
   cw_power_on();
-  cw_brake_off();
   CW_limit_abort=FALSE;
 
   for (i=0;i<cw_inst[inst].stop_count;i++)
@@ -641,7 +515,6 @@ balance(int cw,				/* counter weight to move */
     totcnt += cnt;
     cw_brake_on();
     DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
-    cw_brake_off();
     if (CW_verbose) printf ("\r\n SWITCH: ");
   }
   TRACE(4, "CW %d done", cw, 0);
@@ -707,7 +580,9 @@ set_counterweight(int inst,		/* instrument to set for */
 #define MIN_ACCEL	10
 #define MAX_STOP_VEL	4*204	/* absolute ranges */
 #define MIN_STOP_VEL	2*204	/* 100-2.4 rpm range */
-void cw_calc (struct CW_LOOP *cw)
+
+static void
+cw_calc(struct CW_LOOP *cw)
 {
   float val;
   short stop_guess;
@@ -808,7 +683,7 @@ void cw_DIO316_interrupt(int type)
   DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR,&vel);
   vel-=0x800;
   DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&limit);
-  cw=cw_rdselect();
+  cw = cw_rdselect();
 /* Low Limit Set and going Negative - ABORT */
   if ((vel<0)&&(((limit>>((cw*2)+1))&0x1)==0))
   {
@@ -861,63 +736,7 @@ void cw_DIO316_shutdown(int type)
 /*=========================================================================
 **=========================================================================
 **
-** ROUTINE: read_ADC
-**	    read_all_ADC
-**
-** DESCRIPTION:
-**      Diagnositc functions to read ADCs in raw counts and volts a 
-**	specified number of times in succession.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**	ADC128F1_Read_Reg
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void read_ADC (int chan, int cnt)
-{
-  int i;
-  short adc;
-
-  if (cnt==0) cnt=1;
-  for (i=0;i<cnt;i++)
-  {
-      ADC128F1_Read_Reg(cw_ADC128F1,chan,&adc);
-      if ((adc&0x800)==0x800) adc |= 0xF000;
-      else adc &= 0xFFF;
-      printf ("\r\nADC %d: %x %f volts",chan,adc,adc/2048.);
-  }
-}
-void read_all_ADC (int cnt)
-{
-  int i,ii;
-  short adc;
-
-  if (cnt==0) cnt=1;
-  printf ("\r\n");
-  for (i=0;i<8;i++)
-    printf (" ADC %d ",i);
-  for (ii=0;ii<cnt;ii++)
-  {
-    printf ("\r\n");
-    for (i=0;i<8;i++)
-    {
-      ADC128F1_Read_Reg(cw_ADC128F1,i,&adc);
-      if ((adc&0x800)==0x800) adc |= 0xF000;
-      else adc &= 0xFFF;
-      printf (" %04x  ",adc);
-    }
-  }
-}
-/*=========================================================================
-**=========================================================================
-**
 ** ROUTINE: cw_brake_on
-**	    cw_brake_off
 **
 ** DESCRIPTION:
 **      Brake is applied: If positive direction, go below stop limit (i.e. 0)
@@ -939,7 +758,8 @@ void read_all_ADC (int cnt)
 **
 **=========================================================================
 */
-int cw_brake_on()
+static int
+cw_brake_on(void)
 {
 	short vel;
 
@@ -951,11 +771,7 @@ int cw_brake_on()
 	  DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+STOP_LIM);
 	return 0;
 }
-/* not required, but specified for uniformity and was used at one time */
-int cw_brake_off()
-{
-	return 0;
-}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -977,7 +793,8 @@ int cw_brake_off()
 **
 **=========================================================================
 */
-int cw_power_on()
+static int
+cw_power_on(void)
 {
 	unsigned char val;
 
@@ -987,7 +804,9 @@ int cw_power_on()
         taskDelay (60);
 	return 0;
 }
-int cw_power_off()
+
+static int
+cw_power_off(void)
 {
 	unsigned char val;
 
@@ -1018,7 +837,8 @@ int cw_power_off()
 **
 **=========================================================================
 */
-int cw_select(int cw)
+static int
+cw_select(int cw)
 {
 	unsigned char val;
 
@@ -1027,7 +847,9 @@ int cw_select(int cw)
 	DIO316_Write_Port (cw_DIO316,CW_SELECT,(val&(~CW_SELECT))|cw);
 	return 0;
 }
-int cw_rdselect()
+
+static int
+cw_rdselect(void)
 {
 	unsigned char val;
 
@@ -1055,7 +877,8 @@ int cw_rdselect()
 **
 **=========================================================================
 */
-int cw_status()
+static int
+cw_status(void)
 {
 	unsigned char val;
 	int i;
@@ -1102,11 +925,38 @@ int cw_status()
 **
 **=========================================================================
 */
-int cw_abort ()
+int
+cw_abort(void)
 {
     if (cw_brake_on()==0) 
       if (cw_power_off()==0) return 0;
     return ERROR;
+}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: kbd_input
+**
+** DESCRIPTION:
+**	An ugly routine to check for any input to stop cw_motor motion.
+**
+** RETURN VALUES:
+**      TRUE or FALSE depending on if any key is hit.
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+static int
+kbd_input(void)
+{
+  int bytes;
+
+  ioctl (ioTaskStdGet(0,0),FIONREAD,(int)&bytes);
+  if (bytes!=0) return TRUE;
+  return FALSE;
 }
 /*=========================================================================
 **=========================================================================
@@ -1125,7 +975,6 @@ int cw_abort ()
 **	cw_select
 **	DAC128V_Write_Reg
 **	cw_power_on
-**	cw_brake_off
 **
 ** GLOBALS REFERENCED:
 **	cw_DAC128V
@@ -1133,7 +982,8 @@ int cw_abort ()
 **=========================================================================
 */
 #define MOTOR_RAMP	40
-void cw_motor_raw (int cw, int vel)
+static void
+cw_motor_raw(int cw, int vel)
 {
   int i;
 
@@ -1141,7 +991,6 @@ void cw_motor_raw (int cw, int vel)
   cw_select(cw);
   DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
   cw_power_on();
-  cw_brake_off();
   for (i=0;i<abs(vel)/MOTOR_RAMP;i++)
   {
     DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+(i*MOTOR_RAMP));
@@ -1152,12 +1001,14 @@ void cw_motor_raw (int cw, int vel)
   while (!kbd_input());
   cw_abort();
 }
-void cw_motor (int cw, double vel_rpm)
+
+void
+cw_motor(int cw, double vel_rpm)
 {
   int vel;
 
   vel = (vel_rpm*RPM_IN_VOLTS)*ONE_VLT;
-  cw_motor_raw (cw, vel);
+  cw_motor_raw(cw, vel);
 }
 /*=========================================================================
 **=========================================================================
@@ -1177,7 +1028,8 @@ void cw_motor (int cw, double vel_rpm)
 **
 **=========================================================================
 */
-void cw_list (int inst)
+void
+cw_list(int inst)
 {
   int i;
 
@@ -1227,74 +1079,40 @@ void cw_list (int inst)
 **
 **=========================================================================
 */
-void cw_read_position (int cnt)
+void
+cw_read_position(int cnt)
 {
   int i, ii;
   short adc;
 
-  if (cnt==0) cnt=1;
-  printf ("\r\n");
-  for (ii=0;ii<NUMBER_CW;ii++)
-    printf ("       CW %d       ",ii);
-  for (i=0;i<cnt;i++)
-  {
-    printf ("\r\n");
-    for (ii=0;ii<NUMBER_CW;ii++)
-    {
-      ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
-      if ((adc&0x800)==0x800) adc |= 0xF000;
-      else adc &= 0xFFF;
-      printf (" %6.4f\"  %4.2fv  ",(24*adc)/(2048*0.7802),(10*adc)/2048.);
-    }
+  if(cnt == 0) cnt=1;
+
+  for(ii=0;ii<NUMBER_CW;ii++) {
+     printf ("       CW %d       ",ii);
   }
-  printf ("\r\n");
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cw_set_position	inches
-**	    cw_set_positionv	volts
-**
-** DESCRIPTION:
-**	Sets the the four desired positions for a selected instrument
-**	The inches is deprecated, but not deleted.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void cw_set_position (int inst, double p1, double p2, double p3, double p4)
-{
-  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
-  {
-     if ((p1<0.0)||(p1>24.)) return;
-     if ((p2<0.0)||(p2>24.)) return;
-     if ((p3<0.0)||(p3>24.)) return;
-     if ((p4<0.0)||(p4>24.)) return;
-/*     printf ("\r\nINST %d: p1=%f, p2=%f, p3=%f, p4=%f",inst,p1,p2,p3,p4);*/
-     cw_inst[inst].pos_setting[0]=(short)((p1/24.)*(2048*0.7802));
-     cw_inst[inst].pos_current[0]=0;
-     cw_inst[inst].pos_error[0]=0;
-     cw_inst[inst].pos_setting[1]=(short)((p2/24.)*(2048*0.7802));
-     cw_inst[inst].pos_current[1]=0;
-     cw_inst[inst].pos_error[1]=0;
-     cw_inst[inst].pos_setting[2]=(short)((p3/24.)*(2048*0.7802));
-     cw_inst[inst].pos_current[2]=0;
-     cw_inst[inst].pos_error[2]=0;
-     cw_inst[inst].pos_setting[3]=(short)((p4/24.)*(2048*0.7802));
-     cw_inst[inst].pos_current[3]=0;
-     cw_inst[inst].pos_error[3]=0;
+  printf("\n");
+
+  for(i=0;i<cnt;i++) {
+     for(ii=0;ii<NUMBER_CW;ii++) {
+	ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
+	if((adc&0x800) == 0x800) {
+	   adc |= 0xF000;
+	} else {
+	   adc &= 0xFFF;
+	}
+	printf (" %6.4f\"  %4.2fv  ",(24*adc)/(2048*0.7802),(10*adc)/2048.);
+     }
+     printf("\n");
   }
 }
 
-void
+/*=========================================================================
+** Set the the four desired positions for a selected instrument in volts
+**=========================================================================
+*/
+static void
 cw_set_positionv(int inst,		/* instrument to set pos for */
-		 const short p[4])	/* positions of counterweights */
+		 const short p[4])	/* positions of counterweights (V) */
 {
    int i;
 
@@ -1317,167 +1135,7 @@ cw_set_positionv(int inst,		/* instrument to set pos for */
       }
    }
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cw_set_params
-**
-** DESCRIPTION:
-**	Set the instruments acceleration, deceleration, velocity, and stop 
-**	velocity values.  Always recalculates the instrument for these changes.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**	cw_calc
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-void cw_set_params (int inst, double accel, double vel, double decel, double stop_vel)
-{
-  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
-  {
-    cw_inst[inst].accel_rpm=(float)accel;	/* user specified acceleration */
-    cw_inst[inst].vel_rpm=(float)vel;		/* user specified velocity */
-    cw_inst[inst].decel_rpm=(float)decel;	/* user specified deceleration */
-    cw_inst[inst].stop_vel_rpm=(float)stop_vel;	/* user specified stop velocity */
-    cw_calc (&cw_inst[inst]);
-  }
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cw_set_const
-**
-** DESCRIPTION:
-**	Set the instrument's update rate, deceleration position, stop position
-**	error acceptable, and retry count.
-**	Always recalculates the instrument for these changes.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	cw_calc
-**
-**=========================================================================
-*/
-void cw_set_const (int inst, int upd, int start_decel_pos, int stop_pos_err, int stop_cnt)
-{
-  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
-  {
-    cw_inst[inst].updates_per_sec=upd;
-    cw_inst[inst].start_decel_position=start_decel_pos;/* start position to begin deceleration */
-    cw_inst[inst].stop_pos_error=stop_pos_err;	/* stop position error allowed */
-    cw_inst[inst].stop_count=stop_cnt;		/* stop polarity swing counts allowed */
-    cw_calc (&cw_inst[inst]);
-  }
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: CW_help
-**
-** DESCRIPTION:
-**	Help facility for counter-weight.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-char *help_CW[]={
-        "CW_help",
-	"CW_Verbose, CW_Quiet",
-	"char *balance_cmd(char *cmd); cmd=CAMERA,FIBER,INST2...INST15",
-	"int balance_init()",
-	"int balance(int cw, int inst); cw=0-3; inst=0-15",
-	"int cw_position(int cw, double pos)",
-	"void cw_calc(struct CW_LOOP *cw)",
-	"int read_ADC(int chan, int cnt)",
-	"int read_all_ADC (int cnt)",
-	"int cw_brake_on(), int cw_brake_off()",
-	"int cw_power_on(), int cw_power_off()",
-	"int cw_select(int cw)",
-	"int cw_status()",
-	"int cw_abort()",
-	"int cw_motor_raw(int cw, int vel)",
-	"int cw_motor(int cw, double vel_rpm)",
-	"void cw_list(int inst), int cw_get_inst(char *cmd)",
-	"void cw_read_position(int cnt)",
-	"void cw_set_position(int inst, double p1, double p2, double p3, double p4)",
-	"void cw_set_params(int inst,double accel,double vel,double decel,double stop_vel)",
-	"void cw_set_const(int inst,int upd,int start_decel_pos,int stop_pos_err, int stop_cnt)",
-""
-};                                                         
-void CW_help()
-{
-  int i;
 
-  for (i=0;i<sizeof(help_CW)/sizeof(char *);i++)
-    printf ("%s\r\n",help_CW[i]);
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: CW_Verbose
-**	    CW_Quiet
-**
-** DESCRIPTION:
-**	Turns off/on diagnostic verbosity.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**	CW_verbose
-**
-**=========================================================================
-*/
-void CW_Verbose()
-{
-	CW_verbose=TRUE;
-}
-void CW_Quiet()
-{
-	CW_verbose=FALSE;
-}
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: kbd_input
-**
-** DESCRIPTION:
-**	An ugly routine to check for any input to stop cw_motor motion.
-**
-** RETURN VALUES:
-**      TRUE or FALSE depending on if any key is hit.
-**
-** CALLS TO:
-**
-** GLOBALS REFERENCED:
-**
-**=========================================================================
-*/
-int kbd_input()
-{
-  int bytes;
-
-  ioctl (ioTaskStdGet(0,0),FIONREAD,(int)&bytes);
-  if (bytes!=0) return TRUE;
-  return FALSE;
-}
 /*=========================================================================
 **=========================================================================
 **
@@ -1522,6 +1180,51 @@ cw_get_inst(char *cmd)
 /*=========================================================================
 **=========================================================================
 **
+** ROUTINE: cw_data_collection
+**
+** DESCRIPTION:
+**	Read positions and limit status for sdssdc structure.
+**	parameters.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**      ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
+**      DIO316_Read_Port
+**
+** GLOBALS REFERENCED:
+**	cw_ADC128F1
+**	cw_DIO316
+**	sdssdc
+**
+**=========================================================================
+*/
+void
+cw_data_collection(void)
+{
+  short adc;
+  int ii;
+
+  if(cw_ADC128F1 != -1) {
+     for(ii = 0; ii < NUMBER_CW; ii++) {
+	ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
+	if ((adc&0x800) == 0x800) {
+	   sdssdc.weight[ii].pos = adc | 0xF000;
+	} else {
+	   sdssdc.weight[ii].pos = adc & 0xFFF;
+	}
+     }
+  }
+  if(cw_DIO316 != -1) {
+     DIO316_Read_Port(cw_DIO316, CW_LIMIT_STATUS, &cwLimit);
+  }
+}
+
+#if 0
+/*=========================================================================
+**=========================================================================
+**
 ** ROUTINE: set_DAC
 **
 ** DESCRIPTION:
@@ -1538,7 +1241,8 @@ cw_get_inst(char *cmd)
 **
 **=========================================================================
 */
-void set_DAC (int chan)
+void
+set_DAC(int chan)
 {
   if (chan==CW_MOTOR) return;
   if ((chan<0)||(chan>7)) return;
@@ -1548,47 +1252,7 @@ void set_DAC (int chan)
     DAC128V_Write_Reg(cw_DAC128V,chan,0x800+(tickGet()%0x800));
   }
 }
-/*=========================================================================
-**=========================================================================
-**
-** ROUTINE: cw_data_collection
-**
-** DESCRIPTION:
-**	Read positions and limit status for sdssdc structure.
-**	parameters.
-**
-** RETURN VALUES:
-**      void
-**
-** CALLS TO:
-**      ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
-**      DIO316_Read_Port
-**	cw_read_position
-**
-** GLOBALS REFERENCED:
-**	cw_ADC128F1
-**	cw_DIO316
-**	sdssdc
-**
-**=========================================================================
-*/
-void cw_data_collection()
-{
-  short adc;
-  int ii;
 
-  if (cw_ADC128F1!=-1)
-  {
-    for (ii=0;ii<NUMBER_CW;ii++)
-    {
-      ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
-      if ((adc&0x800)==0x800) sdssdc.weight[ii].pos=adc|0xF000;
-      else sdssdc.weight[ii].pos = adc&0xFFF;
-    }
-  }
-  if (cw_DIO316!=-1)
-    DIO316_Read_Port (cw_DIO316,CW_LIMIT_STATUS,&cwLimit);
-}
 /*=========================================================================
 **=========================================================================
 **
@@ -1611,12 +1275,14 @@ void cw_data_collection()
 **
 **=========================================================================
 */
-int cw_power_disengage()
+static int
+cw_power_disengage()
 {
   StopCounter (&sbrd,CW_WD);
   return 0;
 }
-int cw_power_engage()
+static int
+cw_power_engage()
 {
   WriteCounterConstant (&sbrd,CW_WD);         /* 2 Sec */
   StartCounter (&sbrd,CW_WD);
@@ -1650,7 +1316,8 @@ int cw_power_engage()
 **
 **=========================================================================
 */
-int cw_setup_wd ()
+static int
+cw_setup_wd ()
 {
   SetCounterSize (&sbrd,CW_WD,CtrSize32);
   SetCounterConstant (&sbrd,CW_WD,2000000);             /* 2 Sec */
@@ -1664,3 +1331,167 @@ int cw_setup_wd ()
   ConfigureCounterTimer(&sbrd,CW_WD);
   return 0;
 }
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_set_const
+**
+** DESCRIPTION:
+**	Set the instrument's update rate, deceleration position, stop position
+**	error acceptable, and retry count.
+**	Always recalculates the instrument for these changes.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**
+** GLOBALS REFERENCED:
+**	cw_calc
+**
+**=========================================================================
+*/
+void
+cw_set_const(int inst,
+	     int upd,
+	     int start_decel_pos,
+	     int stop_pos_err,
+	     int stop_cnt)
+{
+  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
+  {
+    cw_inst[inst].updates_per_sec=upd;
+    cw_inst[inst].start_decel_position=start_decel_pos;/* start position to begin deceleration */
+    cw_inst[inst].stop_pos_error=stop_pos_err;	/* stop position error allowed */
+    cw_inst[inst].stop_count=stop_cnt;		/* stop polarity swing counts allowed */
+    cw_calc (&cw_inst[inst]);
+  }
+}
+
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: cw_set_params
+**
+** DESCRIPTION:
+**	Set the instruments acceleration, deceleration, velocity, and stop 
+**	velocity values.  Always recalculates the instrument for these changes.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	cw_calc
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+void
+cw_set_params(int inst,
+	      double accel,
+	      double vel,
+	      double decel,
+	      double stop_vel)
+{
+  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
+  {
+    cw_inst[inst].accel_rpm=(float)accel;	/* user specified acceleration */
+    cw_inst[inst].vel_rpm=(float)vel;		/* user specified velocity */
+    cw_inst[inst].decel_rpm=(float)decel;	/* user specified deceleration */
+    cw_inst[inst].stop_vel_rpm=(float)stop_vel;	/* user specified stop velocity */
+    cw_calc (&cw_inst[inst]);
+  }
+}
+
+/*=========================================================================
+**=========================================================================
+**
+** DESCRIPTION:
+**	Sets the the four desired positions for a selected instrument in inches
+**	This is deprecated, but not deleted.
+**=========================================================================
+*/
+void
+cw_set_position(int inst, double p1, double p2, double p3, double p4)
+{
+  if ((inst>=0)&&(inst<(sizeof(cw_inst)/sizeof(struct CW_LOOP))))
+  {
+     if ((p1<0.0)||(p1>24.)) return;
+     if ((p2<0.0)||(p2>24.)) return;
+     if ((p3<0.0)||(p3>24.)) return;
+     if ((p4<0.0)||(p4>24.)) return;
+/*     printf ("\r\nINST %d: p1=%f, p2=%f, p3=%f, p4=%f",inst,p1,p2,p3,p4);*/
+     cw_inst[inst].pos_setting[0]=(short)((p1/24.)*(2048*0.7802));
+     cw_inst[inst].pos_current[0]=0;
+     cw_inst[inst].pos_error[0]=0;
+     cw_inst[inst].pos_setting[1]=(short)((p2/24.)*(2048*0.7802));
+     cw_inst[inst].pos_current[1]=0;
+     cw_inst[inst].pos_error[1]=0;
+     cw_inst[inst].pos_setting[2]=(short)((p3/24.)*(2048*0.7802));
+     cw_inst[inst].pos_current[2]=0;
+     cw_inst[inst].pos_error[2]=0;
+     cw_inst[inst].pos_setting[3]=(short)((p4/24.)*(2048*0.7802));
+     cw_inst[inst].pos_current[3]=0;
+     cw_inst[inst].pos_error[3]=0;
+  }
+}
+/*=========================================================================
+**=========================================================================
+**
+** ROUTINE: read_ADC
+**	    read_all_ADC
+**
+** DESCRIPTION:
+**      Diagnositc functions to read ADCs in raw counts and volts a 
+**	specified number of times in succession.
+**
+** RETURN VALUES:
+**      void
+**
+** CALLS TO:
+**	ADC128F1_Read_Reg
+**
+** GLOBALS REFERENCED:
+**
+**=========================================================================
+*/
+static void
+read_ADC (int chan, int cnt)
+{
+  int i;
+  short adc;
+
+  if (cnt==0) cnt=1;
+  for (i=0;i<cnt;i++)
+  {
+      ADC128F1_Read_Reg(cw_ADC128F1,chan,&adc);
+      if ((adc&0x800)==0x800) adc |= 0xF000;
+      else adc &= 0xFFF;
+      printf ("\r\nADC %d: %x %f volts",chan,adc,adc/2048.);
+  }
+}
+
+static void
+read_all_ADC (int cnt)
+{
+  int i,ii;
+  short adc;
+
+  if (cnt==0) cnt=1;
+  printf ("\r\n");
+  for (i=0;i<8;i++)
+    printf (" ADC %d ",i);
+  for (ii=0;ii<cnt;ii++)
+  {
+    printf ("\r\n");
+    for (i=0;i<8;i++)
+    {
+      ADC128F1_Read_Reg(cw_ADC128F1,i,&adc);
+      if ((adc&0x800)==0x800) adc |= 0xF000;
+      else adc &= 0xFFF;
+      printf (" %04x  ",adc);
+    }
+  }
+}
+#endif
