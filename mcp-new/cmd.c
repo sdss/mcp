@@ -1,44 +1,5 @@
 #include "copyright.h"
-/**************************************************************************
-***************************************************************************
-** FILE:
-**      cmd.c
-**
-** ABSTRACT:
-**	TCC Command handler both receives, distributes, and answers on
-**	behalf of the action routines.
-**	cmd_handler can be invoked from the serial driver, the TCP port,
-**      or the shell so access is arbitrated by a semaphore
-**
-** ENTRY POINT          SCOPE   DESCRIPTION
-** ----------------------------------------------------------------------
-** cmd_ini		public	initialize semaphore
-** cmd_handler		public	command handler
-** dummy_cmd		local	provides default command noop function
-**
-** ENVIRONMENT:
-**      ANSI C.
-**
-** REQUIRED PRODUCTS:
-**
-** AUTHORS:
-**      Creation date:  Aug 30, 1999
-**      Charlie Briegel
-**
-***************************************************************************
-***************************************************************************/
-/************************************************************************/
-/* Project: 	SDSS - Sloan Digital Sky Survey				*/
-/* 		AXIS control						*/
-/*   File:	cmd.c							*/
-/************************************************************************/
-/*   Location:	Fermi National Accelerator Lab				*/
-/*   Author:	Charlie Briegel, X4510, MS 360, ALMOND::[BRIEGEL]	*/
-/*   Program:	cmd_handler : VxWorks					*/
-/*   Modules:	cmd_handler : command parser				*/
-/*		cmd_init    : initialization				*/	
-/*++ Version:
-  1.00 - initial --*/
+
 /*++ Description:
 	Command handler to parse ASCII commands and arguments and call	
  the appropriate routine with the argument count and a pointer to a list
@@ -71,7 +32,13 @@
 #include "pcdsp.h"
 #include "axis.h"
 #include "cmd.h"
+#include "dscTrace.h"
 
+/*****************************************************************************/
+/*
+ * Which spectrograph are we commanding?
+ */
+static int spectograph_select = -1;	/* -1 == ERROR  */
 
 /*****************************************************************************/
 /*
@@ -105,6 +72,20 @@ static char *
 set_fiducial_cmd(char *cmd)			/* NOTUSED */
 {
    mcp_set_fiducial(axis_select);
+
+   return("");
+}
+
+static char *
+set_monitor_cmd(char *cmd)			/* NOTUSED */
+{
+   int on_off;
+
+   if(sscanf(cmd, "%d", &on_off) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_monitor(axis_select, on_off);
 
    return("");
 }
@@ -151,6 +132,108 @@ set_vel_cmd(char *cmd)
    return("");
 }
 
+/*****************************************************************************/
+/*
+ * Commands for the selected spectrograph
+ */
+char *
+sp1_cmd(char *cmd)
+{
+  spectograph_select = SPECTOGRAPH1;
+  
+  return("");
+}
+
+char *
+sp2_cmd(char *cmd)
+{
+  spectograph_select = SPECTOGRAPH2;
+
+  return("");
+}
+
+/*
+ * Neither close nor open the slit door...allow it to be moved by hand
+ */
+static char *
+slitdoor_clear_cmd(char *cmd)		/* NOTUSED */
+{
+   if(mcp_slit_clear(spectograph_select) < 0) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   return "";
+}
+
+/*
+ * open the door
+ */
+static char *
+slitdoor_open_cmd(char *cmd)		/* NOTUSED */
+{
+   if(mcp_slit_open(spectograph_select) < 0) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   return "";
+}
+
+/*
+ * close the door
+ */
+static char *
+slitdoor_close_cmd(char *cmd)		/* NOTUSED */
+{
+   if(mcp_slit_close(spectograph_select) < 0) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   return "";
+}
+
+/*
+ * latch the slithead
+ */
+static char *
+slithead_latch_close_cmd(char *cmd)		/* NOTUSED */
+{
+   if(mcp_slithead_latch_close(spectograph_select) < 0) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   return "";
+}
+
+/*
+ * unlatch the slithead
+ */
+static char *
+slithead_latch_open_cmd(char *cmd)		/* NOTUSED */
+{
+   if(mcp_slithead_latch_open(spectograph_select) < 0) {
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
+   
+   return "";
+}
+
+/*****************************************************************************/
+/*
+ * Control the T-bars
+ */
+static char *
+tbar_latch_cmd(char *cmd)
+{
+   int on_off;
+
+   if(sscanf(cmd, "%d", &on_off) != 1) {
+      return("ERR: malformed command argument");
+   }
+
+   mcp_set_tbars(on_off);
+   
+   return("");
+}
 
 /*****************************************************************************/
 
@@ -158,6 +241,7 @@ struct COMMANDS axis_cmds[] = {
 	{"\033",reboot_cmd},
 	{"AMP.RESET",amp_reset_cmd},
 	{"AXIS.STATUS",axis_status_cmd},
+	{"SYSTEM.STATUS", system_status_cmd},
 	{"CORRECT",correct_cmd},
 	{"DRIFT",drift_cmd},
 	{"HALT",halt_cmd},
@@ -180,6 +264,7 @@ struct COMMANDS axis_cmds[] = {
 	{"MS.OFF",ms_off_cmd},
 	{"MS.ON",ms_on_cmd},
 	{"MS.POS.DUMP",ms_pos_dump_cmd},
+	{"SET.MONITOR", set_monitor_cmd},
 	{"REMAP",remap_cmd},
 	{"IR",rot_cmd},
 	{"SET.LIMITS",set_limits_cmd},
@@ -205,14 +290,16 @@ struct COMMANDS axis_cmds[] = {
 	{"CW.STATUS",cwstatus_cmd},
 	{"SP1",sp1_cmd},
 	{"SP2",sp2_cmd},
-	{"SLIT.CLEAR",slitclear_cmd},
-	{"SLIT.CLOSE",slitclose_cmd},
-	{"SLIT.OPEN",slitopen_cmd},
-	{"CART.LATCH",cartlatch_cmd},
-	{"CART.UNLATCH",cartunlatch_cmd},
+	{"SLITDOOR.CLEAR",slitdoor_clear_cmd},
+	{"SLITDOOR.CLOSE",slitdoor_close_cmd},
+	{"SLITDOOR.OPEN",slitdoor_open_cmd},
+	{"SLITHEADLATCH.CLOSE",slithead_latch_close_cmd},
+	{"SLITHEADLATCH.OPEN",slithead_latch_open_cmd},
 	{"SLIT.STATUS",slitstatus_cmd},
 	{"FFS.CLOSE",ffsclose_cmd},
 	{"FFS.OPEN",ffsopen_cmd},
+	{"FF.ON",fflon_cmd},
+	{"FF.OFF",ffloff_cmd},
 	{"FFL.ON",fflon_cmd},
 	{"FFL.OFF",ffloff_cmd},
 	{"NE.ON",neon_cmd},
@@ -221,6 +308,7 @@ struct COMMANDS axis_cmds[] = {
 	{"HGCD.OFF",hgcdoff_cmd},
 	{"FF.STATUS",ffstatus_cmd},
 	{"AB.STATUS",abstatus_cmd},
+	{"TBAR.LATCH",tbar_latch_cmd},
 	{"VERSION",version_cmd},
 	{NULL,dummy_cmd}		/* termination */
 };
@@ -319,6 +407,8 @@ cmd_handler(char *cmd)
 	  strncmp(cmd,cmd_list->command,strlen(cmd_list->command)) != 0) {
        cmd_list++;
     }
+
+    TRACE(5, "command %s", cmd_list->command, 0);
     
     if(cmd_list->command == NULL) {	/* not a valid command */
       if(CMD_verbose) {
