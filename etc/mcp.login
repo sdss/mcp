@@ -6,7 +6,7 @@ tyBackspaceSet(0x7F)
 memOptionsSet 0x1ff
 #
 hostAdd "sdsshost.apo.nmsu.edu", "192.41.211.171"
-hostAdd "tcc25m.apo.nmsu.edu",   "192.41.211.162"
+hostAdd "tcc25m.apo.nmsu.edu",   "192.41.211.156"
 hostAdd "utc-time.apo.nmsu.edu", "192.41.211.40"
 #
 routeAdd("0", "192.41.211.1")
@@ -96,9 +96,14 @@ traceOn 2, 31,31		/* trace task creation */
 traceOn 3, 31,31		/* trace task deletion */
 
 #
+# Allow gdb to debug tasks called from the shell; 0x2 == VX_UNBREAKABLE
+#
+#taskOptionsSet tShell, 0x2, 0x0
+
+#
 # Spawn idle and timer tasks
 #
-taskSpawn "tIdleTask", 255, 0, 500, idle
+taskSpawn "tIdleTask", 255, 0, 1000, idle
 # RHL
 #ld < util/timerTask.o
 # n.b. timerStart has too small a stack
@@ -173,7 +178,8 @@ tBrakesInit
 
 #BCAST_Enable=0
 #SM_COPY=0
-rebootHookAdd (ip_shutdown)
+#rebootHookAdd disable_trc_excHook
+#rebootHookAdd ip_shutdown
 DID48_initialize(0xFFF58000,0xB8)
 lift_initialize(0xFFFF4000)
 cmd_handler("init")
@@ -202,7 +208,7 @@ tm_setup_wd()
 taskSpawn "ampMgt",45,0,2000,tm_amp_mgt
 taskSpawn "taskTrg",100,8,10000,taskTrg
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
-taskSpawn "barcodcan",85,8,1500,cancel_read
+taskSpawn "barcodcan",85,8,2500,cancel_read
 barcode_init(0xfff58000,0xf022,0xAA,2)
 taskDelay (60)
 #azimuth barcode (2=altitude)
