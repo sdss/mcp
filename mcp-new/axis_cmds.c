@@ -2897,9 +2897,8 @@ void stp_frame(int axis,double pos,double sf)
   double position;
   double velocity;
 
-  printf ("\r\nSTP axis=%d: p=%12.8lf,sf=%lf",
-	axis<<1,(double)pos,sf);
-  stopped=FALSE;	/* ...gets rid of warning */
+/*  printf ("\r\nSTP axis=%d: p=%12.8lf,sf=%lf",
+	axis<<1,(double)pos,sf);*/
 
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
@@ -2922,24 +2921,24 @@ void stp_frame(int axis,double pos,double sf)
       semGive (semMEI);
   }
 
+  stopped=TRUE;	/* ...gets rid of warning */
   if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
   {
-    stopped=motion_done(axis<<1);
-    state=axis_state(axis<<1);
+    stopped=in_motion(axis<<1);
     semGive (semMEI);
   }
-  while (!stopped)
+  while (stopped)
   {  
     if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
     {
-      stopped=motion_done(axis<<1);
+      stopped=in_motion(axis<<1);
 /*      state=axis_state(axis<<1);*/
       semGive (semMEI);
     }
-/*    printf("\r\nStopping");*/
+/*    printf("\r\nStopping,in_motion%d,status=%x",stopped,state);*/
     taskDelay(3);
   }
-  printf("\r\nStopped axis=%d, motion_done=%d, axis_state=%d",axis,stopped,state);
+/*  printf("\r\nStopped axis=%d, in_motion=%d",axis,stopped);*/
 }
 /*=========================================================================
 **=========================================================================
@@ -3121,19 +3120,19 @@ void tm_TCC(int axis)
         printf ("\r\n frames left=%d",lcnt);
         taskDelay(1);
       }
-      printf("\r\nRepositioning");
       tm_start_move (axis<<1,
 		1*(double)ticks_per_degree[axis],
 		.05*(double)ticks_per_degree[axis],
 		frame->position*(double)ticks_per_degree[axis]);
-      printf ("\r\nAxis %d Repositioning TCC cmd to pos=%lf from pos=%lf, diff=%ld>%ld",
+      printf ("\r\nAxis %d Repositioning TCC cmd to pos=%lf from pos=%lf\r\n diff=%ld>%ld",
 		axis,frame->position*ticks_per_degree[axis],position,
 		abs((frame->position*ticks_per_degree[axis])-position),
 		(long)(.01*ticks_per_degree[axis]) );
       status=TRUE;
-      while ((abs((long)((frame->position*ticks_per_degree[axis])-position))>
+      while ((abs((frame->position*ticks_per_degree[axis])-position)>
 		(long)(.01*ticks_per_degree[axis]))&&status)
       {
+        taskDelay (10);
         if (semTake (semMEI,WAIT_FOREVER)!=ERROR)
         {
 	  status=in_motion(axis<<1);
@@ -3141,8 +3140,7 @@ void tm_TCC(int axis)
           semGive (semMEI);
           pos=(long)position;
         }
-        printf("\r\nrepositioning to %lf, status=%d",position,status);
-        taskDelay (10);
+/*        printf("\r\nrepositioning to %lf, status=%d",position,status);*/
       }
       printf("\r\nDone repositioning to %lf",position);
     }
@@ -3209,8 +3207,8 @@ void tm_TCC(int axis)
 	          }
                   frmoff->position+=offset[axis][i][1].position;
 	          frmoff->velocity+=offset[axis][i][1].velocity;
-                  printf ("\r\noffset end=%p, pos=%lf,idx=%d",frmoff,
-		      frmoff->position,offset_idx[axis][i]);
+/*                  printf ("\r\noffset end=%p, pos=%lf,idx=%d",frmoff,
+		      frmoff->position,offset_idx[axis][i]);*/
 	          offset_queue_end[axis][i]=NULL;
 	          taskUnlock();
 	        }
