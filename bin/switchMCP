@@ -50,9 +50,11 @@ done
 code=0
 for host in sdsshost tai-time utc-time; do
     ip=`awk "/hostAdd .$host\.apo\.nmsu\.edu/ { print \\$3 }" etc/mcp.login`
-    ns_ip=\"`nslookup $host.apo.nmsu.edu | awk 'NR==5 { print $2}'`\"
-    if [ $ip != $ns_ip ]; then
-       echo "$host: IP in mcp.login $ip != IP from nslookup $ns_ip" >&2
+    ns_ip=`nslookup $host | \
+     perl -ne 'if(/Server/) { $_=<> } elsif(/^Address:\s*(\S+)/) { print $1 }'`
+     
+    if [ X$ip != X\"$ns_ip\" ]; then
+       echo "$host: IP in mcp.login $ip != IP from nslookup: \"$ns_ip\"" >&2
        code=1
     fi
 done
