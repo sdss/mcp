@@ -948,11 +948,13 @@ struct SDSS_FRAME {
 
 struct AXIS_STAT {
 	unsigned always_zero : 1;
-	unsigned  : 7;
+
+	unsigned  : 6;
+	unsigned ms_on_correction_too_large : 1;
+
 	unsigned  : 6;
 	unsigned clock_slow_signal : 1;
 	unsigned clock_loss_signal : 1;
-
         unsigned : 5;
 	unsigned stop_ok : 1;
 	unsigned amp_ok : 1;
@@ -972,6 +974,7 @@ struct AXIS_STAT {
  * Global variables
  */
 extern struct SDSS_FRAME sdssdc;
-extern struct TM_M68K *tmaxis[3];
+extern struct TM_M68K *tmaxis[];
 extern int rawtick;
 extern struct TM_M68K *tmaxis[];
+extern SEM_ID semSLCDC;
