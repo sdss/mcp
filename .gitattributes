@@ -163,7 +163,6 @@ mei-new/llbm.c -text
 mei-new/llconfig.c -text
 mei-new/llef.c -text
 mei-new/llfirm.c -text
-mei-new/llfirm.o -text
 mei-new/llframe.c -text
 mei-new/llink.c -text
 mei-new/llio.c -text
