@@ -348,7 +348,7 @@ Menu(void)
   int Running = TRUE;
   char buf[255];
   int cw = -1;				/* desired counter weight */
-  extern void manTrg(void);
+
   int cwpos;
   int inst;
   int Options;
@@ -573,11 +573,6 @@ Menu(void)
 	   }
 	   CursPos(20,24);
 	   printf("                                        ");
-	   break;
-
-         case 'T': case 't': CursPos(20,24);
-	   printf("Manual Trigger                          ");
-	   manTrg();
 	   break;
 
          case 'B': case 'b': CursPos(20,24);
