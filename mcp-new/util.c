@@ -352,7 +352,7 @@ extern void slaCldj(int, int, int, double*, int*);
 int
 mjd(void)
 {
-   int stat;
+   int status;
    double ldj;
    time_t t;
    struct tm *Time;
@@ -361,11 +361,12 @@ mjd(void)
    Time = gmtime(&t);
    assert(Time != NULL);
 
-   slaCldj(Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday, &ldj, &stat);
+   slaCldj(Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday,
+	   &ldj, &status);
 
-   if(stat) {
+   if(status) {
       fprintf(stderr,"slaCldj returns %d (Y m d == %d %d %d)\n",
-	      stat, Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
+	      status, Time->tm_year + 1900, Time->tm_mon + 1, Time->tm_mday);
    
       return(-1);
    } else {
