@@ -62,7 +62,7 @@ clk2Start ()			/* VMEchip2 tick timer 2 */
 # A further suggestion is to use an even trace level for subroutine entry
 # and that level, plus one, for trace entries within the subroutine.
 #
-traceInit(20000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
+traceInit(80000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
 traceTtyOn 0, 3
@@ -208,6 +208,12 @@ taskDelay (60)
 #azimuth barcode (2=altitude)
 barcode_open (3)
 #barcode_serial 3
+#
+# Load fiducials tables
+#
+axis_select = 1		/* ALT */
+ms_read_cmd "/p/mcpbase/fiducials/alt-jeg.dat"; ms_define_cmd
+ms_max_cmd 100
 #
 # Adjust tracing now that we're up
 #
