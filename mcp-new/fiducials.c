@@ -1498,6 +1498,29 @@ correct_cmd(char *cmd)			/* NOTUSED */
 
 /*****************************************************************************/
 /*
+ * Initialise an array of FIDUCIALS
+ */
+static void
+reset_fiducials(struct FIDUCIALS *axis_fiducial, /* fiducials data structure */
+		int n_fiducials)	/* number of fiducials */
+{
+   int i, j;
+
+   for(i = 0; i < n_fiducials; i++) {
+      axis_fiducial[i].markvalid = FALSE;
+      axis_fiducial[i].disabled = TRUE;
+      for(j = 0; j <= 2; j++) {
+	 axis_fiducial[i].last[j] = 0;
+	 axis_fiducial[i].fiducial[j] = 0;
+	 axis_fiducial[i].err[j] = 0;
+	 axis_fiducial[i].poserr[j] = 0;
+	 axis_fiducial[i].mark[j] = 0;
+      }
+   }
+}
+
+/*****************************************************************************/
+/*
  * Set the fiducials from a file.
  */
 #define LSIZE 200
@@ -1543,6 +1566,10 @@ read_fiducials(const char *file,	/* file to read from */
       fprintf(stderr,"read_fiducials: illegal axis %d\n", axis);
       return("ERR: illegal axis");
    }
+/*
+ * Initialise fiducials array
+ */
+   reset_fiducials(axis_fiducial, n_fiducials);
 /*
  * Open file, read header and data, and set fiducials array
  */
@@ -1602,20 +1629,18 @@ read_fiducials(const char *file,	/* file to read from */
       nread = sscanf(lptr, "%d  %f +- %f %d  %f +- %f %d",
 		     &fid, &mark1, &error1, &npt1, &mark2, &error2, &npt2);
       if(nread == 4 || nread == 7) {
-	 if(fid < 0 || fid >= n_fiducials) {
+	 if(fid <= 0 || fid >= n_fiducials) {
 	    fprintf(stderr,"Invalid fiducial %d in file %s\n", fid, file);
 	    TRACE(0, "Invalid fiducial %d in file %s", fid, file);
 	    continue;
 	 }
 
+	 axis_fiducial[fid].fiducial[1] = mark1 + bias;
 	 if(error1 >= 0) {		/* valid position */
-	    axis_fiducial[fid].fiducial[1] = mark1 + bias;
-	 } else {
-	    axis_fiducial[fid].fiducial[1] = 0;
-	    axis_fiducial[fid].disabled = TRUE;
+	    axis_fiducial[fid].disabled = FALSE;
 	 }
 
-	 if(nread == 4 || error2 < 0) {
+	 if(nread == 4) {
 	    axis_fiducial[fid].fiducial[2] = 0;
 	 } else {
 	    axis_fiducial[fid].fiducial[2] = mark2 + bias;
@@ -1627,7 +1652,46 @@ read_fiducials(const char *file,	/* file to read from */
    }
 			
    fclose(fil);
-
+/*
+ * Are any fiducials missing?  If so interpolate their positions,
+ * and mark them invalid.  Why bother?  Because for AZ we use
+ * the approximate positions to identify fiducials
+ */
+   for(fid = 0; fid < n_fiducials; fid++) {
+      if(axis_fiducial[fid].disabled) {
+	 int i, j, k;
+	 
+	 for(i = fid - 1; i >= 0; i--) { /* look backwards */
+	    if(!axis_fiducial[i].disabled) {
+	       break;
+	    }
+	 }
+	 if(i < 0) {			/* cannot interpolate */
+	    continue;
+	 }
+	 
+	 for(j = fid + 1; j < n_fiducials; j++) { /* and forwards */
+	    if(!axis_fiducial[j].disabled) {
+	       break;
+	    }
+	 }
+	 if(j >= n_fiducials) {		/* cannot interpolate */
+	    continue;
+	 }
+/*
+ * OK, we have fiducials to the left and right of us.  Set the
+ * position but don't, of course, mark it as valid
+ */
+	 for(k = 1; k <= 2; k++) {
+	    float pi = axis_fiducial[i].fiducial[k];
+	    float pj = axis_fiducial[j].fiducial[k];
+	    axis_fiducial[fid].fiducial[k] = pi + (fid - i)*(pj - pi)/(j - i);
+	 }
+      }
+   }
+/*
+ * Set canonical positions etc.
+ */
    fiducial[axis].canonical_position =
      axis_fiducial[fiducial[axis].canonical].fiducial[1];
 
@@ -1803,7 +1867,7 @@ print_fiducials(int axis,		/* which axis */
 void
 tLatchInit(void)
 {
-   int i, j;
+   int i;
 
    write_fiducial_log("START_FIDUCIAL", NAXIS, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
 /*
@@ -1829,41 +1893,9 @@ tLatchInit(void)
 /*
  * Initialise arrays
  */
-   for(i = 0; i < sizeof(az_fiducial)/sizeof(struct FIDUCIALS); i++) {
-      az_fiducial[i].markvalid = FALSE;
-      az_fiducial[i].disabled = FALSE;
-      for(j = 0; j <= 2; j++) {
-	 az_fiducial[i].last[j] = 0;
-	 az_fiducial[i].fiducial[j] = 0;
-	 az_fiducial[i].err[j] = 0;
-	 az_fiducial[i].poserr[j] = 0;
-	 az_fiducial[i].mark[j] = 0;
-      }
-   }
-   
-   for(i = 0; i < sizeof(alt_fiducial)/sizeof(struct FIDUCIALS); i++) {
-      alt_fiducial[i].markvalid = FALSE;
-      alt_fiducial[i].disabled = FALSE;
-      for(j = 0; j <= 2; j++) {
-	 alt_fiducial[i].last[j] = 0;
-	 alt_fiducial[i].fiducial[j] = 0;
-	 alt_fiducial[i].err[j] = 0;
-	 alt_fiducial[i].poserr[j] = 0;
-	 alt_fiducial[i].mark[j] = 0;
-      }
-   }
-
-   for(i = 0; i < sizeof(rot_fiducial)/sizeof(struct FIDUCIALS); i++) {
-      rot_fiducial[i].markvalid = FALSE;
-      rot_fiducial[i].disabled = FALSE;
-      for(j = 0; j <= 2; j++) {
-	 rot_fiducial[i].last[j] = 0;
-	 rot_fiducial[i].fiducial[j] = 0;
-	 rot_fiducial[i].err[j] = 0;
-	 rot_fiducial[i].poserr[j] = 0;
-	 rot_fiducial[i].mark[j] = 0;
-      }
-   }
+   reset_fiducials(az_fiducial, N_AZ_FIDUCIALS);
+   reset_fiducials(alt_fiducial, N_ALT_FIDUCIALS);
+   reset_fiducials(rot_fiducial, N_ROT_FIDUCIALS);
 /*
  * Initialise fiducial[] array
  */
