@@ -862,7 +862,7 @@ void Menu()
 
          case 'W': case 'w':
 	   CursPos(20,24);
-	   printf("CW Inst dd; 0=CAMERA;1=FIBER;2=EMPTY;3=SCC;etc.");
+	   printf("dd; 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI     ");
 	   if (GetString(&MenuInput[0],20))
 	   {
 	     memcpy(&buf[0],&MenuInput[0],21);
@@ -1089,7 +1089,7 @@ printf(" &=toggel on/off axis monitor                                           
 	     CursPos(1,5);
 printf("MSA is Monitor status,axis State,Amp status(Amp,Brake,EStop)                  \n");
 	     CursPos(1,6);
-printf("                                                                              \n");
+printf("CW Options: 2=EMPTY;3=SCF;4=S;5=SC;6=SE;7=SEC;8=SI                            \n");
 	   }
 	   question_mark = (question_mark+1)%2;
 	   break;

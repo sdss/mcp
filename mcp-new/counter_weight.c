@@ -209,7 +209,14 @@ Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 #define INST_14		14
 #define INST_15		15
 #define INST		17
-char *inst_name[]={"CAMERA","FIBER","EMPTY","SCC",
+/* Mneumonics are as follows:
+	S=Spectograph
+	C=Corrector
+	F=Fiber cartridge
+	E=Engineering camera
+	I=Imager camera
+*/
+char *inst_name[]={"CAMERA","FIBER","EMPTY","SCF",
 			"S","SC","SE","SEC",
 			"SI","INST9","INST10","INST11",
 			"INST12","INST13","INST14","INST15",
@@ -249,14 +256,14 @@ struct CW_LOOP {
 };
 /*                                  1      2     3     4                */
 struct CW_LOOP	cw_inst[] = {	{   50,    50,   50,   50},	/*CAMERA*/
-				{0x400, 0x400,0x400,0x400},	/*FIBER	*/
+				{  600,   600,  600,  600},	/*FIBER	*/
 				{ 1432,  1470, 1470, 1470},	/*EMPTY	*/
-				{  290,   290,  290,  290},	/*SCC	*/
-				{  150,   150,  150,  150},	/*S     */
-				{  220,   220,  220,  220},	/*SC    */
-				{  115,   115,  115,  115},	/*SE    */
-				{  425,   425,  425,  425},	/*SEC   */
-				{  690,   690,  690,  690},	/*SI    */
+				{  594,   594,  594,  594},	/*SCF	*/
+				{  307,   307,  307,  307},	/*S     */
+				{  450,   450,  450,  450},	/*SC    */
+				{  235,   235,  235,  235},	/*SE    */
+				{  870,   870,  870,  870},	/*SEC   */
+				{ 1413,  1413, 1413, 1413},	/*SI    */
 				{0x200, 0x200,0x200,0x200},	/*INST9 */
 				{0x200, 0x200,0x200,0x200},	/*INST10*/
 				{0x200, 0x200,0x200,0x200},	/*INST11*/
