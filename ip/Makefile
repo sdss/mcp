@@ -32,6 +32,8 @@ ARFLAGS = crsv
 
 ASRCS =
 
+DIRS = acromag systran
+
 SRCS =mv162IndPackInit.c ipOctalSerial.c
 
 OBJS =mv162IndPackInit.o ipOctalSerial.o
@@ -49,3 +51,14 @@ OBJS =mv162IndPackInit.o ipOctalSerial.o
 	$(ASM) $(AFLAGS) -o $*.o $*.s
 
 all dg: $(ASRCS) $(OBJS) 
+	@for d in $(DIRS); do \
+		echo $$d; \
+		(cd $$d; $(MAKE) $(MFLAGS) all ); \
+	done
+
+clean :
+	/bin/rm -f *.o *~ *.map *.out
+	@for d in $(DIRS); do \
+		echo $$d; \
+		(cd $$d; $(MAKE) $(MFLAGS) clean ); \
+	done
