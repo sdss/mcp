@@ -1276,11 +1276,11 @@ print_max(void)
    int i;
    
    for(i = 0; i < NAXIS; i++) {
-      printf("%s: MAX ACC limit %f deg/sec^2 maximum requested %f\n",
+      printf("%-10s: MAX ACC limit %f deg/sec^2 maximum requested %f\n",
 	     axis_name(i), max_acceleration[i], max_acceleration_requested[i]);
    }
    for(i = 0; i < NAXIS; i++) {
-      printf("%s: MAX VEL limit %f deg/sec maximum requested %f\n",
+      printf("%-10s: MAX VEL limit %f deg/sec maximum requested %f\n",
 	     axis_name(i), max_velocity[i], max_velocity_requested[i]);
    }
 }
@@ -1386,8 +1386,8 @@ mcp_move_va(int axis,			/* the axis to move */
 	     axis, acc/sf, max_acceleration[axis]);
       TRACE(2, "Max accl. for %s exceeded: %ld", axis_name(axis), acc);
 
-      if(fabs(acc) > fabs(max_acceleration_requested[axis])) {
-	 max_acceleration_requested[axis] = acc;
+      if(fabs(acc) > sf*fabs(max_acceleration_requested[axis])) {
+	 max_acceleration_requested[axis] = acc/sf;
       }
 
       acc = (acc > 0) ? sf*max_acceleration[axis] : -sf*max_acceleration[axis];

@@ -180,6 +180,11 @@ tcc_serial(int port)
   char command_buffer[256];		/* input command */
   int cmd_type;				/* type of command from symb. table */
   char *answer_buffer;			/* reply from command parser */
+#define DEBUG_DELAY 1
+#if DEBUG_DELAY
+  extern double sdss_delta_time(double t2, double t1);
+  float sdsstime_in;			/* time that command was received */
+#endif
 
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
@@ -211,62 +216,91 @@ tcc_serial(int port)
 	TRACE(16, "        time = %f", sdss_get_time(), 0);
      }
      
-     if(status == 0) {
-	if(command_buffer[0] == '\0') {
-	   status = sdss_transmit(stream, command_buffer, " OK");
-	   if(status != 0) {
-	      TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
-	   }
-	   continue;
+     if(status != 0) {
+	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
+	answer_buffer = "ERR: Bad read from TCC";
+
+	status = sdss_transmit(stream, answer_buffer, " OK");
+	if(status != 0) {
+	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
 	}
+	return;
+     }
 
-	status = sdss_transmit(stream, command_buffer, "");
-
+     if(command_buffer[0] == '\0') {
+	status = sdss_transmit(stream, command_buffer, " OK");
 	if(status != 0) {
 	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
 	}
-
-#if 1
-	{
-	   extern SEM_ID semCMD;
-	   int ids[10], nblock;
-	   int j;
-	   
-	   for(j = 0; (nblock = semInfo(semCMD, ids, 10)) > 0; j++) {
-	      int i;
-	      fprintf(stderr, "semCMD: ");
-	      for(i = 0;i < nblock; i++) {
-		 fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]",
-						  ids[i], taskName(ids[i]), j);
-		 TRACE(3, "tcc_serial blocks on %s [%d]", taskName(ids[i]), j);
-	      }
-	      fprintf(stderr,"\n");
-
-	      taskDelay(1);
-	   }
-	}
+	continue;
+     }
+     
+     status = sdss_transmit(stream, command_buffer, "");
+#if DEBUG_DELAY
+     sdsstime_in = sdss_get_time();
 #endif
-	answer_buffer =
-	  cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
-		      command_buffer, &cmd_type);
-	/*
-	 * write logfile of murmurable commands
-	 */
-	log_mcp_command(cmd_type, command_buffer);
-
-	if(answer_buffer == NULL) {
-	   fprintf(stderr,"RHL Command %s returned NULL\n", command_buffer);
-	   answer_buffer = "RHL";
+     
+     if(status != 0) {
+	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+     }
+     
+#if 1
+     {
+	extern SEM_ID semCMD;
+	int ids[10], nblock;
+	int j;
+	
+	for(j = 0; (nblock = semInfo(semCMD, ids, 10)) > 0; j++) {
+	   int i;
+	   fprintf(stderr, "semCMD: ");
+	   for(i = 0;i < nblock; i++) {
+	      fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]",
+		      ids[i], taskName(ids[i]), j);
+	      TRACE(3, "tcc_serial blocks on %s [%d]", taskName(ids[i]), j);
+	   }
+	   fprintf(stderr,"\n");
+	   
+	   taskDelay(1);
 	}
-     } else {
-	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
-	answer_buffer = "ERR: Bad read from TCC";
+     }
+#endif
+     answer_buffer =
+       cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
+		   command_buffer, &cmd_type);
+#if DEBUG_DELAY
+/*
+ * Stop task tracing if delay exceeds 4s
+ */
+     if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
+	TRACE(0, "Too long delay %f; disabling trace",
+	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
+	traceMode(traceModeGet() & ~0x1);
+     }
+#endif
+     if(answer_buffer == NULL) {
+	fprintf(stderr,"RHL Command %s returned NULL\n", command_buffer);
+	answer_buffer = "RHL";
      }
 
      status = sdss_transmit(stream, answer_buffer, " OK");
      if(status != 0) {
 	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
      }
+/*
+ * write logfile of murmurable commands
+ */
+     log_mcp_command(cmd_type, command_buffer);
+
+#if DEBUG_DELAY
+/*
+ * Stop task tracing if delay exceeds 4s
+ */
+     if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
+	TRACE(0, "Too long delay %f after log_mcp_command; disabling trace",
+	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
+	traceMode(traceModeGet() & ~0x1);
+     }
+#endif
   }
 }                                             
 /*=========================================================================

@@ -106,11 +106,28 @@ log_mcp_command(int type,		/* type of command */
 #if 1
    int tick0 = tickGet(), tick1;	/* initial/final tick around semGet */
 #endif
+
+   if(cmd != NULL) {
+      if(log_all_commands < 0) {	/* log no commands */
+	 return;			
+      }
+      
+      if(log_all_commands == 0 && (type == -1 || !(type & CMD_TYPE_MURMUR))) {
+	 return;			/* don't log this command */
+      }
+   }
    
+#if 0
    if(semTake(semLogfile, WAIT_FOREVER) != OK) {
       TRACE(0, "Cannot take semLogfile %d: %s", errno, strerror(errno));
       taskSuspend(0);
    }
+#else
+   if(semTake(semLogfile, 30) != OK) {
+      TRACE(2, "Cannot take semLogfile %d: %s", errno, strerror(errno));
+   }
+#endif
+   
 #if 1
    tick1 = tickGet();
    if(tick1 - tick0 > 30) {		/* 1/2 second */
@@ -144,11 +161,8 @@ log_mcp_command(int type,		/* type of command */
       }
    }
 
-   if(cmd != NULL &&
-      (log_all_commands || (type != -1 && (type & CMD_TYPE_MURMUR)))) {
-      fprintf(mcp_log_fd, "%d:%d:%s\n", time(NULL), ublock->pid, cmd);
-      nline++;
-   }
+   fprintf(mcp_log_fd, "%d:%d:%s\n", time(NULL), ublock->pid, cmd);
+   nline++;
 
    if(nline >= log_command_bufsize) {
       fclose(mcp_log_fd); mcp_log_fd = NULL;
@@ -184,6 +198,7 @@ log_all_cmd(char *cmd)
    sprintf(ublock->buff, "%d", log_all_commands);
 
    log_all_commands = atoi(cmd);
+   log_mcp_command(0, NULL);		/* flush the logfile to disk */
    
    return(ublock->buff);
 }

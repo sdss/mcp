@@ -622,6 +622,24 @@ remap_fiducials(int axis,		/* the axis in question */
    return(fididx);
 }
 
+/*****************************************************************************/
+/*
+ * Control the use of the az barcode reader
+ */
+static int use_az_barcode = 0;			/* Use the azimuth barcode reader? */
+
+char *
+az_barcode_cmd(char *cmd)
+{
+   sprintf(ublock->buff, "%d", use_az_barcode);
+			
+   if(sscanf(cmd, "%d", &use_az_barcode) != 1) {
+      return("ERR: AZ.BARCODE");
+   }
+			
+   return(ublock->buff);
+}
+
 /*=========================================================================
 **=========================================================================
 **
@@ -674,7 +692,6 @@ remap_fiducials(int axis,		/* the axis in question */
 #if LATCH_ALL_AXES
    int print_all_latches = 0;
 #endif
-
 void
 tLatch(const char *name)
 {
@@ -848,18 +865,34 @@ tLatch(const char *name)
 		   latchpos[latchidx].pos1, latchpos[latchidx].pos2);
 	 }
 	 if(true_dio316int_bit & AZIMUTH_INT) {
+	 }
 #endif
-	 
 	 fididx1 = barcode_serial(3); /* backwards from what you'd think */
 	 fididx = barcode_serial(3);	/* read twice...not reliable */
-	 if(fididx <= 0 || fididx > 24) {
+	 if(use_az_barcode && (fididx <= 0 || fididx > 24)) {
 	    TRACE(0, "Invalid barcode in azimuth: fididx = %d, pos = %d",
 		  fididx, latchpos[latchidx].pos1);
 	 } else {
-	    if(sdssdc.status.i7.il0.az_dir_cw) {
-	       fididx += 24;
+	    if(use_az_barcode) {
+	       if(sdssdc.status.i7.il0.az_dir_cw) {
+		  fididx += 24;
+	       }
+	       fididx = remap_fiducials(AZIMUTH, fididx);
+	    } else {
+	       int dist = 0;		/* discrepancy from fiducial table */
+	       int best_dist = -1;	/* Smallest discrepancy from table */
+	       int pos = latchpos[latchidx].pos1; /* latched position */
+	       
+	       fididx = -1;
+	       for(i = 0; i < N_AZ_FIDUCIALS; i++) {
+		  dist = abs(pos - az_fiducial_position[i]);
+		  if(best_dist < 0 || dist < best_dist) {
+		     best_dist = dist;
+		     fididx = i;
+		  }
+	       }
+	       TRACE(3, "az fiducial %d, delta = %d", fididx, best_dist);
 	    }
-	    fididx = remap_fiducials(AZIMUTH, fididx);
 	    
 	    write_fiducial_log("AZ_FIDUCIAL", AZIMUTH, fididx,
 			       az_fiducial_position[fididx],
@@ -2274,4 +2307,8 @@ tLatchInit(void)
    define_cmd("MS.DEFINE",    ms_define_cmd,       0, 1, 0, 1, "");
    define_cmd("MS.WRITE",     ms_write_cmd,        1, 1, 0, 1, "");
    define_cmd("SET.FIDUCIAL", ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
+   define_cmd("AZ.BARCODE",   az_barcode_cmd,      1, 0, 0, 1,
+	      "Tell the fiducials to use (1) or not use (0) the azimuth barcode reader\n"
+	      "to identify fiducials.  If the MCP is totally lost, you can use the\n"
+	      "\"<axis> SET.POSITION <pos>\" command to get close enough");
 }
