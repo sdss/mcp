@@ -780,6 +780,11 @@ tLatch(const char *name)
 	 
 	 semGive(semLatch);
 
+#if 1
+	 fprintf(stderr,"RHL: %s MS.OFF NOW\n", axis_name(axis));
+	 TRACE(3, "RHL: %s MS.OFF NOW\n", axis_name(axis), 0);
+#endif
+	 
 	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0, 0);
 	 continue;
        default:
@@ -1516,15 +1521,15 @@ set_ms_on(int axis)			/* the axis in question */
  */
    switch (axis) {
     case AZIMUTH:
-      (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, 0, 0);
+      (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, ms_off_az_type, 0);
       msg.type = ms_on_az_type;
       break;
     case ALTITUDE:
-      (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, 0, 0);
+      (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, ms_off_alt_type, 0);
       msg.type = ms_on_alt_type;
       break;
     case INSTRUMENT:
-      (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, 0, 0);
+      (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, ms_off_inst_type,0);
       msg.type = ms_on_inst_type;
       break;
    }
@@ -1560,7 +1565,7 @@ set_ms_off(int axis,			/* the desired axis */
  */
    TRACE(6, "Aborting old MS.OFFs", 0, 0);
 
-   (void)timerSend(msg.type, tmr_e_abort_ns, 0, 0, 0);
+   (void)timerSend(msg.type, tmr_e_abort_ns, 0, msg.type, 0);
    taskDelay(1);			/* give the timerTask a chance */
 /*
  * actually set (or schedule) MS.OFF
@@ -1579,8 +1584,8 @@ set_ms_off(int axis,			/* the desired axis */
     } else {				/* wait a while and send MS.OFF */
       TRACE(10, "Sending msg to tTimerTask/msgLatched: type %d delay %d ticks",
 	    msg.type, (int)(delay*60));
-      if(timerSend(msg.type, tmr_e_add,
-		   delay*60, 0, msgLatched) == ERROR) {
+      if(timerSend(msg.type, tmr_e_add, delay*60, msg.type, msgLatched) ==
+								       ERROR) {
 	 TRACE(0, "Failed to send ms_off message to timer task: %s (%d)",
 	       strerror(errno), errno);
 	 return(-1);
