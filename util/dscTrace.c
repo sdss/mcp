@@ -216,8 +216,21 @@ trc_dumpInfo( int tid )
  *                      called).  This function gets called after the task
  *                      gets suspended.
  *
- ******************************************************************************/
+ *****************************************************************************/
 
+static int i_enable_trc_excHook = 1;	/* allow a traceback dump if true */
+
+void
+disable_trc_excHook(void)
+{
+   i_enable_trc_excHook = 0;
+}
+
+void
+enable_trc_excHook(void)
+{
+   i_enable_trc_excHook = 1;
+}
 
 void
 trc_excHook(  int	tid	/* ID   of    offending    task */
@@ -230,7 +243,7 @@ trc_excHook(  int	tid	/* ID   of    offending    task */
     traceMode_sav = traceModeGet();
     traceMode( traceMode_sav & ~0x1);
 
-    if (traceMode_sav & 1)
+    if ((traceMode_sav & 1) && i_enable_trc_excHook)
     {   /* 1 to 0 transition ... dump attempt dump of info */
 
 	/*  It appears that during the execution of this function, if a
