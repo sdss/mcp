@@ -1,6 +1,9 @@
 #ifndef __CMD_H__
 #define __CMD_H__			/* do only once */
 
+extern SEM_ID semCmdPort;		/* semaphore to control permission
+					   to axis motions etc. */
+
 #define CMD_TYPE_NARG 0x7		/* mask in type for number of args */
 #define CMD_TYPE_VARARG 0x10		/* variable number of args */
 #define CMD_TYPE_LOCKED 0x20		/* cmd is locked; needs semCmdPort */
