@@ -599,7 +599,6 @@ stats_cmd(char *cmd)			/* NOTUSED */
 **=========================================================================
 */
 /* returns: "%position %velocity %time %status_word %index_position" */
-static long status=0x40000000;
 
 char *
 status_cmd(char *cmd)
@@ -672,6 +671,7 @@ status_long_cmd(char *cmd)		/* NOTUSED */
 {
    static char status_long_ans[33];
    int i;
+   long status = *(long *)&axis_stat[axis_select][0];
    
    printf (" STATUS.LONG command fired\r\n");
    for(i = 0;i < 32; i++) {
@@ -1487,18 +1487,18 @@ drift_cmd(char *cmd)			/* NOTUSED */
 {
    static char drift_ans[] =
      "360.00000 0.500000 5040.00000                                ";
-   double arcdeg, veldeg, time;		/* as returned by mcp_drift */
+   double arcdeg, veldeg, t;		/* as returned by mcp_drift */
 
    if(axis_select != AZIMUTH && axis_select != ALTITUDE &&
 						   axis_select != INSTRUMENT) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   if(mcp_drift(axis_select, &arcdeg, &veldeg, &time) < 0) {
+   if(mcp_drift(axis_select, &arcdeg, &veldeg, &t) < 0) {
       return("ERR: DRIFT");
    }
 
-   sprintf(drift_ans, "%f %f %f", arcdeg, veldeg, time);
+   sprintf(drift_ans, "%f %f %f", arcdeg, veldeg, t);
    TRACE(3, "DRIFT %s: %s", axis_name(axis_select), drift_ans);
    printf("at end DRIFT %s: %s\n", axis_name(axis_select), drift_ans);
 
