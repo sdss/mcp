@@ -464,6 +464,8 @@ int SM_COPY=TRUE;
 void
 DataCollectionTrigger(void)
 {
+   static unsigned short share_memory_id = 1; /* ID for shared memory */
+
    DC_freq++;
    rawtick=tickGet();
 /*
@@ -494,10 +496,18 @@ DataCollectionTrigger(void)
 
 	 sdssdc.CRC = phCrcCalc(0, (char *)&sdssdc + offset,
 				(int)sizeof(sdssdc) - offset) & 0xFFFF;
+
+	 taskLock();
 	 
-	 *(short *)SHARE_MEMORY = TRUE;
+	 *(short *)SHARE_MEMORY = 0;
 	 memcpy((char *)(SHARE_MEMORY + 2), (char *)&sdssdc, sizeof(sdssdc));
-	 *(short *)SHARE_MEMORY = FALSE;
+	 *(short *)SHARE_MEMORY = share_memory_id++;
+
+	 taskUnlock();
+	 
+	 if(share_memory_id == 0) {
+	    share_memory_id++;		/* don't want it to be 0 */
+	 }
 
 	 semGive(semSDSSDC);
 
