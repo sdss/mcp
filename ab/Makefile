@@ -32,24 +32,15 @@ LFLAGS = -r -M
 AR = ar68k
 ARFLAGS = crsv
 
-DHP_SRC = std_dhp.c dhpd.c diag.c sbslc.c rdslc.c vmeinst.c
 DHP_OBJS = std_dhp.o dhpd.o diag.o sbslc.o rdslc.o vmeinst.o
 
-.SUFFIXES: .o .c .asm .s                                
+.SUFFIXES: .o .c .asm .s
 
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $*.c
 
-.asm.s:
-	$(CPP) $(CPPFLAGS) $*.asm $*.s
-
-.s.o:
-	$(ASM) $(AFLAGS) -o $*.o $*.s
-
-all dg: $(ASRCS) $(DHP_OBJS)
-	$(LINK) $(LFLAGS) -o  dhp.out \
-	$(DHP_OBJS) \
-	>$(DESTDIR)dhp.map
+all dg: $(DHP_OBJS)
+	$(LINK) $(LFLAGS) -o  dhp.out $(DHP_OBJS) > $(DESTDIR)dhp.map
 
 clean:
-	rm -rf *.o
+	rm -rf *.o *.out *.map *.bin
