@@ -204,3 +204,9 @@ Fri Dec  6 15:08:28 MST 2002
 	cvs rtag v5_17_0 mcp
 
 	Changed severity of MJD-debugging murmur messages
+
+Mon Aug 11 15:36:46 MDT 2003
+        cvs rtag v5_19_0 mcp
+        cvs rtag -b -r v5_19_0 v5_19 mcp
+
+        Rebuilding the world on plc v16
