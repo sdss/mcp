@@ -22,6 +22,7 @@
 /*------------------------------*/
 #include "vxWorks.h"                            
 #include "stdio.h"
+#include <errno.h>
 #include "semLib.h"
 #include "sigLib.h"
 #include "tickLib.h"
@@ -1103,7 +1104,8 @@ int tm_brake_status()
 **=========================================================================
 */
 int clamp_cnt;
-int tm_clamp(short val) 
+int
+tm_clamp(short val) 
 {
    int err;
    unsigned short ctrl[2];
@@ -1113,88 +1115,83 @@ int tm_clamp(short val)
    extern struct SDSS_FRAME sdssdc;
    int cnt;
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
    swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
-/*   printf (" read ctrl = 0x%04x\r\n",ctrl);*/
-   if (val==1) 
-   {
-     tm_ctrl.mcp_clamp_engage_cmd = 1;
-     tm_ctrl1.mcp_clamp_disen_cmd = 0;
-   }
-   else
-   {
-     tm_ctrl.mcp_clamp_engage_cmd = 0;
-     tm_ctrl1.mcp_clamp_disen_cmd = 1;
+
+   if(val == 1) {
+      tm_ctrl.mcp_clamp_engage_cmd = 1;
+      tm_ctrl1.mcp_clamp_disen_cmd = 0;
+   } else {
+      tm_ctrl.mcp_clamp_engage_cmd = 0;
+      tm_ctrl1.mcp_clamp_disen_cmd = 1;
    }
    
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl);*/
-   swab ((char *)&tm_ctrl,(char *)&ctrl,2);
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[1],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   swab((char *)&tm_ctrl, (char *)&ctrl[0],2);
+   swab((char *)&tm_ctrl1,(char *)&ctrl[1],2);
+   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+   semGive (semSLC);
+   
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
+   }
+   
+   if(val == 0) {
+      return 0;
+   }
+
+   cnt=60*7;
+   while(sdssdc.status.i9.il0.clamp_en_stat == 0 && cnt > 0) {
+      taskDelay(1);
+      cnt--;
+   }
+   clamp_cnt = cnt;
+
+   if (sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
+      return -1;
+   }
+/*
+ * Failure; turn off clamp and disengage
+ */
+   printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+   if(err) {
+      semGive (semSLC);
+      printf ("R2 Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl,2);
    swab ((char *)&ctrl[1],(char *)&tm_ctrl1,2);
-   cnt=60*7;
-   if (val==1) 
-   {
-     while ((sdssdc.status.i9.il0.clamp_en_stat==0)&&(cnt>0))
-     {
-        taskDelay(1);
-        cnt--;
-     }
-     if (sdssdc.status.i9.il0.clamp_en_stat==0) /* did not work */
-     {
-       tm_ctrl.mcp_clamp_engage_cmd = 0;
-       tm_ctrl1.mcp_clamp_disen_cmd = 1;
-       printf ("\r\n Clamp did NOT engage...turning off and disengaging ");
-     }
+
+   tm_ctrl.mcp_clamp_engage_cmd = 0;
+   tm_ctrl1.mcp_clamp_disen_cmd = 1;
+   
+   swab((char *)&tm_ctrl,(char *)&ctrl[0],2);
+   swab((char *)&tm_ctrl1,(char *)&ctrl[1],2);
+   
+   err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+   semGive(semSLC);
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
    }
-   else
-   {
-/*
-     while ((sdssdc.status.i9.il0.clamp_dis_stat==0)&&(cnt>0)) 
-     {
-       taskDelay(1);
-       cnt--;
-     }
-     taskDelay(60*4);
-     tm_ctrl1.mcp_clamp_diseng_cmd = 0;
-*/
-     return 0;
-   }
-   swab ((char *)&tm_ctrl,(char *)&ctrl[0],2);
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[1],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
-   }
-/*   printf ("\r\n cnt=%d",cnt);
-   tm_clamp_status();*/
-   clamp_cnt=cnt;
+
    return 0;
 }
 void tm_clamp_on()
@@ -1217,24 +1214,28 @@ void tm_sp_clamp_off()
 }
 int tm_clamp_status()
 {
-  int err;
-  unsigned short ctrl[2],sctrl[2];
-  extern SEM_ID semSLC;
+   int err;
+   unsigned short ctrl[2],sctrl[2];
+   extern SEM_ID semSLC;
+   
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
 
-  if (semTake (semSLC,60)!=ERROR)
-  {
-    err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
-    semGive (semSLC);
-    if (err)
-    {
+   err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],2);
+   semGive (semSLC);
+   if(err) {
       printf ("R Err=%04x\r\n",err);
       return err;
-    }
-  }
-  swab ((char *)&ctrl[0],(char *)&sctrl[0],2);
-  swab ((char *)&ctrl[1],(char *)&sctrl[1],2);
-  printf (" read ctrl = 0x%4x 0x%4x\r\n",sctrl[0],sctrl[1]);
-  return 0;
+   }
+   
+   swab ((char *)&ctrl[0],(char *)&sctrl[0],2);
+   swab ((char *)&ctrl[1],(char *)&sctrl[1],2);
+   
+   printf (" read ctrl = 0x%4x 0x%4x\r\n",sctrl[0],sctrl[1]);
+   
+   return 0;
 }
 /*=========================================================================
 **=========================================================================
@@ -1505,7 +1506,8 @@ int tm_slit_status()
 **
 **=========================================================================
 */
-int tm_ffs(short val) 
+int
+tm_ffs(short val)
 {
    int err;
    int cnt;
@@ -1514,68 +1516,76 @@ int tm_ffs(short val)
    extern SEM_ID semSLC;
    int wait_time = 30;			/* FF screen timeout (seconds) */
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
- /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+
    tm_ctrl1.mcp_ff_scrn_opn_cmd = val;
    tm_ctrl1.mcp_ff_screen_enable = 1;
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
    }
 
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,1);
    cnt=60*wait_time;
-   printf("Waiting %ds for flat field to move\n", wait_time);
-   if (val==1) 
-   {
-     while ((!tm_ffs_open_status())&&(cnt>0))
-     {
+   printf("Waiting up to %ds for flat field to move\n", wait_time);
+   if(val == 1) {
+     while ((!tm_ffs_open_status())&&(cnt>0)) {
         taskDelay(1);
         cnt--;
      }
-     if (!tm_ffs_open_status()) /* did not work */
-       printf ("\r\n FFS did NOT all open...disabling ");
-   }
-   else
-   {
-     while ((!tm_ffs_close_status())&&(cnt>0)) 
-     {
-       taskDelay(1);
-       cnt--;
+     if(!tm_ffs_open_status()) {	/* did not work */
+	printf("\r\n FFS did NOT all open...disabling ");
      }
-     if (!tm_ffs_close_status()) /* did not work */
-       printf ("\r\n FFS did NOT all close...disabling ");
+   } else {
+      while ((!tm_ffs_close_status())&&(cnt>0)) {
+	 taskDelay(1);
+	 cnt--;
+      }
+      if(!tm_ffs_close_status()) {	/* did not work */
+	 printf ("\r\n FFS did NOT all close...disabling ");
+      }
    }
+
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore to disable screen: %s",
+	     strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf("R2 Err=%04x\n",err);
+      return err;
+   }
+   swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
+
    tm_ctrl1.mcp_ff_screen_enable = 0;
-   swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+
+   swab((char *)&tm_ctrl1,(char *)&ctrl[0],2);
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
    }
+
    return 0;
 }
 void tm_ffs_open()
@@ -1651,47 +1661,47 @@ int tm_ffs_close_status()
 **
 **=========================================================================
 */
-int tm_ffl(short val) 
+int
+tm_ffl(short val)
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
- /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+
    tm_ctrl1.mcp_ff_lamp_on_cmd = val;
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
    }
+
    return 0;
 }
 void tm_ffl_on()
 {
-    tm_ffl (1);
+   tm_ffl(1);
 }
 void tm_ffl_off()
 {
-    tm_ffl (0);
+   tm_ffl(0);
 }
 void tm_sp_ffl_on()
 {
@@ -1726,38 +1736,38 @@ void tm_sp_ffl_off()
 **
 **=========================================================================
 */
-int tm_neon(short val) 
+int
+tm_neon(short val)
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
- /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+
    tm_ctrl1.mcp_ne_lamp_on_cmd = val;
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+   
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
    }
+
    return 0;
 }
 void tm_neon_on()
@@ -1801,38 +1811,38 @@ void tm_sp_neon_off()
 **
 **=========================================================================
 */
-int tm_hgcd(short val) 
+int
+tm_hgcd(short val)
 {
    int err;
    unsigned short ctrl[1];
    struct B10_1 tm_ctrl1;   
    extern SEM_ID semSLC;
              
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("R Err=%04x\r\n",err);
-       return err;
-     }
+   if(semTake(semSLC,60) == ERROR) {
+      printf("Unable to take semaphore: %s", strerror(errno));
+      return(-1);
+   }
+
+   err = slc_read_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   if(err) {
+      semGive (semSLC);
+      printf ("R Err=%04x\r\n",err);
+      return err;
    }
    swab ((char *)&ctrl[0],(char *)&tm_ctrl1,2);
- /*  printf (" read ctrl = 0x%04x\r\n",ctrl);*/
+
    tm_ctrl1.mcp_hgcd_lamp_on_cmd = val;
-/*   printf (" write ctrl = 0x%4x\r\n",tm_ctrl1);*/
+
    swab ((char *)&tm_ctrl1,(char *)&ctrl[0],2);
-   if (semTake (semSLC,60)!=ERROR)
-   {
-     err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
-     semGive (semSLC);
-     if (err)
-     {
-       printf ("W Err=%04x\r\n",err);
-       return err;
-     }
+   err = slc_write_blok(1,10,BIT_FILE,1,&ctrl[0],1);
+   semGive (semSLC);
+
+   if(err) {
+      printf ("W Err=%04x\r\n",err);
+      return err;
    }
+
    return 0;
 }
 void tm_hgcd_on()
