@@ -284,13 +284,14 @@ define_cmd(char *name,			/* name of command */
 */
 char *
 cmd_handler(int have_sem,		/* we have semCmdPort */
-	    char *cmd,			/* command to execute */
+	    const char *cmd,		/* command to execute */
 	    int *cmd_type)		/* return type; or NULL */
 {
    char *(*addr)(char *);		/* function pointer */
    char *ans;
    char *args;				/* arguments for this command */
-   char *cmd_str = cmd;			/* pointer to cmd; or NULL */
+   char cmd_copy[256 + 1];		/* modifiable copy of cmd */
+   char *cmd_str = cmd_copy;		/* pointer to command; or NULL */
    static int iack_counter = -1;	/* control too many rebootedMsg
 					   messages; wait before the first */
    int lvl;				/* level for TRACE */
@@ -299,6 +300,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    SYM_TYPE type;			/* actually number of arguments */
    int varargs;				/* we don't know how many arguments
 					   to expect */
+
+   strncpy(cmd_copy, cmd, sizeof(cmd_copy) - 1);
 
    if(!iacked) {
       if(iack_counter++%100 == 0) {
