@@ -54,6 +54,13 @@
  */
 #define SWITCH_PID_COEFFS 0
 /*
+ * Status buffers for AXIS.STATUS/SYSTEM.STATUS
+ */
+#define STATUS_BUFF_SIZE 200
+
+extern char axis_status_buff[NAXIS][STATUS_BUFF_SIZE];
+extern char system_status_buff[STATUS_BUFF_SIZE];
+/*
  * function prototypes
  */
 /*
@@ -112,6 +119,7 @@ float read_clinometer(void);
 
 int get_ffstatus(char *ffstatus_ans, int size);
 int get_slitstatus(char *slitstatus_ans, int size);
+void set_status(int axis, char *buff, int size);
 
 int mcp_set_monitor(int axis, int on_off);
 int mcp_set_pos(int axis, double pos);
@@ -140,6 +148,7 @@ extern SEM_ID semMEIDC;
 extern SEM_ID semMEIUPD;
 extern SEM_ID semSLC;
 extern SEM_ID semSDSSDC;
+extern SEM_ID semStatusCmd;
 
 /*
  * extern declarations for globals
