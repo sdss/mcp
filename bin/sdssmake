@@ -1,0 +1,3 @@
+#!/bin/sh
+export SDSSMAKEFLAGS="$SDSSMAKEFLAGS -CC CC68k"
+$(SDSSTOOLS_DIR)/bin "$@"
