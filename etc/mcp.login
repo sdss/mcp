@@ -136,6 +136,11 @@ dhpd (10,0xe000,"chasb")
 #
 ld < /p/tpmbase/bin/mv162/slaLib
 #
+# Load NTP code
+#
+ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
+ld < util/ntp.o
+#
 # Load the MCP itself
 #
 ld < mcp-new/mcpnew.out
@@ -177,9 +182,6 @@ taskPrioritySet (taskIdFigure("tExcTask"),1)
 #
 # Get the current time from the NTP server
 #
-ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
-ld < util/ntp.o
-
 setTimeFromNTP "utc-time.apo.nmsu.edu", 0, 1, 0
 
 ADC128F1_initialize (0xfff58000,0)
@@ -210,4 +212,3 @@ barcode_open (3)
 #
 traceOff barcodcan, 16,16
 traceTtyOn 0, 4
-
