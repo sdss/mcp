@@ -119,10 +119,10 @@ log_mcp_command(int type,		/* type of command */
        case OK:
 	 break;
        case S_objLib_OBJ_UNAVAILABLE:
-	 TRACE(0, "No room on msgQueue to flush logfile", 0, 0);
+	 TRACE(0, "No room on msgQueue to flush logfile", 0, 0, 0, 0);
 	 break;
        default:
-	 TRACE(0, "Failed to flush mcpCmdLog", 0, 0);
+	 TRACE(0, "Failed to flush mcpCmdLog", 0, 0, 0, 0);
 	 break;
       }
 
@@ -140,17 +140,17 @@ log_mcp_command(int type,		/* type of command */
  * We have work to do. 
  */
    msg.msg.type = cmdLog_type;
-   sprintf(msg.msg.u.cmdLog.cmd, "%d:%d:%s\n", time(NULL), ublock->pid, cmd);
-   
+   sprintf(msg.msg.u.cmdLog.cmd, "%ld:%d:%s\n", time(NULL), ublock->pid, cmd);
+
    switch (msgQSend(msgCmdLog, (char *)&msg, sizeof(msg),
 		    NO_WAIT, MSG_PRI_NORMAL)) {
     case OK:
       break;
     case S_objLib_OBJ_UNAVAILABLE:
-      TRACE(0, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd);
+      TRACE(0, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd, 0, 0);
       break;
     default:
-      TRACE(0, "Failed to send message to tCmdLog", 0, 0);
+      TRACE(0, "Failed to send message to tCmdLog", 0, 0, 0, 0);
       break;
    }
 }
@@ -171,7 +171,7 @@ tCmdLog(void)
       ret = msgQReceive(msgCmdLog, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgCmdLog", 0, 0);
+      TRACE(8, "read msg on msgCmdLog", 0, 0, 0, 0);
 
       switch (msg.msg.type) {
        case cmdFlush_type:
@@ -190,7 +190,7 @@ tCmdLog(void)
 	    
 	    sprintf(filename, "mcpCmdLog-%d.dat", get_mjd());
 	    if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
-	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
+	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno), 0, 0);
 	       
 	       continue;
 	    }
@@ -198,8 +198,8 @@ tCmdLog(void)
 
 	 if(fputs(msg.msg.u.cmdLog.cmd, mcp_log_fd) == EOF) {
 	    TRACE(0, "Error logging command: %d (%s)",
-		  errno, strerror(errno));
-	    TRACE(0, "    %s", msg.msg.u.cmdLog.cmd, 0);
+		  errno, strerror(errno), 0, 0);
+	    TRACE(0, "    %s", msg.msg.u.cmdLog.cmd, 0, 0, 0);
 	 } else {
 	    nline++;
 	 }
@@ -213,7 +213,7 @@ tCmdLog(void)
 
 	 break;
        default:
-	 TRACE(0, "Impossible message type: %d", msg.msg.type, 0);
+	 TRACE(0, "Impossible message type: %d", msg.msg.type, 0, 0, 0);
 
 	 continue;
       }
@@ -258,7 +258,7 @@ log_all_cmd(char *cmd)
  * Allocate a UBLOCK for this task
  */
 static UBLOCK ublock_default = {
-   -1, "default", NOINST, NOINST
+   -1, "default", "", NOINST, NOINST
 };
 UBLOCK *ublock = &ublock_default;	/* this task's user block; made a task
 					   variable after initialisation */
@@ -270,7 +270,7 @@ new_ublock(int pid,
    if((ublock = malloc(sizeof(UBLOCK))) == NULL ||
 					 taskVarAdd(0, (int *)&ublock) != OK) {
       TRACE(0, "Failed to allocate ublock private to cpsWorkTask: %s %s",
-	    errno, strerror(errno));
+	    errno, strerror(errno), 0, 0);
       taskSuspend(0);
    }
    ublock->pid = pid;
@@ -374,23 +374,23 @@ define_cmd(char *name,			/* name of command */
    for(j = 0; j < 2; j++) {
       if(j == 0) {			/* upper case the string */
          for(i = 0;i < strlen(name); i++) {
-	    if(islower(name[i])) {
+	    if(islower((int)name[i])) {
 	       name[i] = toupper(name[i]);
 	    }
 	 }
       } else {				/* lower case the string */
          for(i = 0;i < strlen(name); i++) {
-	    if(isupper(name[i])) {
+	    if(isupper((int)name[i])) {
 	       name[i] = tolower(name[i]);
 	    }
 	 }
       }
 
       status = symAdd(cmdSymTbl, name, (char *)addr, type, 0);
-      status = symAdd(docSymTbl, name, doc, 0, 0);
+      status = symAdd(docSymTbl, name, (char *)doc, 0, 0);
       
       if(status != OK) {
-	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg);
+	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg, 0, 0);
       }
    }
 }
@@ -426,7 +426,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    if(!iacked) {
       if(iack_counter++%100 == 0) {
 	 TRACE(0, "%s",
-	       (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0);
+	    (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0, 0, 0);
       }
    }
 
@@ -437,7 +437,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    while((tok = strtok(cmd_str, " \t")) != NULL) {
       cmd_str = NULL;
 
-      while(isspace(*tok)) tok++;	/* skip white space */
+      while(isspace((int)*tok)) tok++;	/* skip white space */
       if(*tok == '\0') {
 	 continue;
       }
@@ -446,13 +446,13 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 nskip--;
 	 continue;
       } else if(varargs) {		/* unknown number of arguments */
-	 if(*tok != '+' && !isalpha(*tok)) {
+	 if(*tok != '+' && !isalpha((int)*tok)) {
 	    continue;
 	 }
       }
       
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
-	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
+	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok, 0, 0);
 	 
 	 semGive(semCMD);
 
@@ -476,7 +476,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    lvl += 2;
 	 }
 	 
-	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
+	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok, 0, 0);
 /*
  * If we are so requested, try to take the semCmdPort semaphore
  */
@@ -504,7 +504,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    varargs = 1;
 	 }
 	 if(nskip == 0 && !varargs) {
-	    TRACE(lvl, "Command %s:", tok, 0);
+	    TRACE(lvl, "Command %s:", tok, 0, 0, 0);
 	    args = "";
 	 } else {
 	    args = strtok(cmd_str, "");
@@ -512,7 +512,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	       args = "";
 	    }
 	    cmd_str = args;
-	    TRACE(lvl, "Command %s: %s", tok, cmd_str);
+	    TRACE(lvl, "Command %s: %s", tok, cmd_str, 0, 0);
 	 }
       }
       
@@ -538,7 +538,7 @@ get_command_names(char *name,		/* name of command */
 		  int ipattern,		/* NOTUSED */
 		  UINT16 group)		/* NOTUSED */
 {
-   if(!isupper(name[1])) {		/* lower case only; +move starts '+' */
+   if(!isupper((int)name[1])) {		/* lower case only; +move starts '+' */
       return(TRUE);
    }
 
