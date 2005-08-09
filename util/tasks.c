@@ -7,10 +7,10 @@
 void
 taskCheckOnCreate(WIND_TCB *tcb)	/* the task that's being created */
 {
-   TRACEPROC("createTaskCheck");
+   TRACEPROC(createTaskCheck, "createTaskCheck");
 
-   TRACEP(31, "Creating task cccccccc == 0x%08x%08x",
-	  ((int *)tcb->name)[0], ((int *)tcb->name)[1]);
+   TRACEP(createTaskCheck, 31, "Creating task cccccccc == 0x%08x%08x",
+	  ((int *)tcb->name)[0], ((int *)tcb->name)[1], 0, 0);
 }
 
 
@@ -19,20 +19,22 @@ taskCheckOnDelete(WIND_TCB *tcb)	/* the task that's dying */
 {
    TASK_DESC desc;			/* task descriptor */
 
-   TRACEPROC("deleteTaskCheck");
+   TRACEPROC(deleteTaskCheck, "deleteTaskCheck");
 
-   TRACEP(31, "Destroying task cccccccc == 0x%08x%08x",
-	  ((int *)tcb->name)[0], ((int *)tcb->name)[1]);
+   TRACEP(deleteTaskCheck, 31, "Destroying task cccccccc == 0x%08x%08x",
+	  ((int *)tcb->name)[0], ((int *)tcb->name)[1], 0, 0);
 
    if(taskInfoGet((int)tcb, &desc) != OK) {
       return;
    }
 
    if(desc.td_stackMargin > 0) {
-      TRACEP(31, "                Margin: %d", desc.td_stackMargin, 0);
+      TRACEP(deleteTaskCheck, 31,
+		"Margin: %d", desc.td_stackMargin, 0, 0, 0);
    } else {
-      TRACEP(0, "Stack overrun for task cccccccc == 0x%08x%08x",
-	     ((int *)tcb->name)[0], ((int *)tcb->name)[1]);
+      TRACEP(deleteTaskCheck, 0,
+		"Stack overrun for task cccccccc == 0x%08x%08x",
+	     ((int *)tcb->name)[0], ((int *)tcb->name)[1], 0, 0);
    }
 }
 
