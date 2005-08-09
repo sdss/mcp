@@ -50,10 +50,10 @@ struct BARCODE {
 ** GLOBAL VARIABLES
 */
 struct SERIAL_CAN cancel[NPORT]= {
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL},
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL},
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL},
-			{FALSE,FALSE,0,0,SERIAL_DELAY,0,NULL}
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0,NULL},
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0,NULL},
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0,NULL},
+			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0,NULL}
 };
 struct BARCODE barcode[256];
 short barcodeidx=0;
@@ -195,18 +195,18 @@ tcc_serial(int port)
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
   if(stream == NULL) {
-     TRACE(0, "Could **NOT** open port", 0, 0);
+     TRACE(0, "Could **NOT** open port", 0, 0, 0, 0);
      taskSuspend(0);
   }
   
-  TRACE(1, "OPEN port %s", serial_port, 0);
+  TRACE(1, "OPEN port %s", serial_port, 0, 0, 0);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
   new_ublock(0, "TCC");			/* task-specific UBLOCK */
   log_mcp_command(CMD_TYPE_MURMUR, "TCC connected");
 
   for(;;) {
-     TRACE(16, "port %d", port, 0);
+     TRACE(16, "port %d", port, 0, 0, 0);
 
      command_buffer[0] = '\0';
      status = sdss_receive(stream, port, command_buffer, 256);
@@ -216,19 +216,19 @@ tcc_serial(int port)
 	if(strstr(command_buffer, "STATUS") != NULL) {
 	   lvl += 2;
 	}
- 	TRACE(lvl, "command from TCC: %s", command_buffer, 0);
+ 	TRACE(lvl, "command from TCC: %s", command_buffer, 0, 0, 0);
 	TRACE(16, "        cccccccc: 0x%08x%08x",
-	      ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
-	TRACE(16, "        time = %f", sdss_get_time(), 0);
+	      ((int *)command_buffer)[0], ((int *)command_buffer)[1], 0, 0);
+	TRACE(16, "        time = %f", sdss_get_time(), 0, 0, 0);
      }
      
      if(status != 0) {
-	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
+	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status, 0, 0);
 	answer_buffer = "ERR: Bad read from TCC";
 
 	status = sdss_transmit(stream, answer_buffer, " OK");
 	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0, 0, 0);
 	}
 	return;
      }
@@ -236,7 +236,7 @@ tcc_serial(int port)
      if(command_buffer[0] == '\0') {
 	status = sdss_transmit(stream, command_buffer, " OK");
 	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0, 0, 0);
 	}
 	continue;
      }
@@ -247,7 +247,7 @@ tcc_serial(int port)
 #endif
      
      if(status != 0) {
-	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0, 0, 0);
      }
      
 #if 1
@@ -262,7 +262,7 @@ tcc_serial(int port)
 	   for(i = 0;i < nblock; i++) {
 	      fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]",
 		      ids[i], taskName(ids[i]), j);
-	      TRACE(3, "tcc_serial blocks on %s [%d]", taskName(ids[i]), j);
+	      TRACE(3, "tcc_serial blocks on %s [%d]", taskName(ids[i]), j, 0, 0);
 	   }
 	   fprintf(stderr,"\n");
 	   
@@ -279,7 +279,7 @@ tcc_serial(int port)
  */
      if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
 	TRACE(0, "Too long delay %f; disabling trace",
-	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
+	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0, 0, 0);
 	traceMode(traceModeGet() & ~0x1);
      }
 #endif
@@ -290,7 +290,7 @@ tcc_serial(int port)
 
      status = sdss_transmit(stream, answer_buffer, " OK");
      if(status != 0) {
-	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0, 0, 0);
      }
 /*
  * write logfile of murmurable commands
@@ -303,7 +303,7 @@ tcc_serial(int port)
  */
      if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
 	TRACE(0, "Too long delay %f after log_mcp_command; disabling trace",
-	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
+	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0, 0, 0);
 	traceMode(traceModeGet() & ~0x1);
      }
 #endif
@@ -345,7 +345,7 @@ void barcode_init(unsigned char *ip_base, unsigned short model,
     if (ip.adr[i]!=0)
     {
       base = *((short *)(IP_MEM_BASE_BASE+(i*2)));
-      printf ("\r\n base=%x, %p, %p",base, (char *)(base<<16),
+      printf ("\r\n base=%lx, %p, %p",base, (char *)(base<<16),
 		(char *)((long)base<<16));
       pOctSerDv=octSerModuleInit((unsigned char *)(((long)(base)<<16)+1),
 		ip.adr[i],vec);
@@ -435,7 +435,7 @@ void barcode_shutdown(int type)
 
     printf("BARCODE OCTAL232 shutdown:\r\n");
     for (i=0;i<NPORT;i++) {
-       if (cancel[i].fd!=NULL) {
+       if (cancel[i].fd != 0) {
 	  close(cancel[i].fd);
 	  cancel[i].fd=0;
 	  printf ("\r\n close fd=%x",cancel[i].fd);
@@ -561,7 +561,7 @@ barcode_serial(int port)
    int fiducial;
    int charcnt;
    
-   if(cancel[port].fd == NULL) {
+   if(cancel[port].fd == 0) {
       stream = barcode_open(port);
    } else {
       stream = cancel[port].stream;
@@ -707,28 +707,28 @@ cancel_read(void)
     taskDelay (1);
 
     for(i = 0; i < NPORT; i++) {
-       TRACE(16, "port %d", i, 0);
+       TRACE(16, "port %d", i, 0, 0, 0);
        
        taskLock();
-       TRACE(16, "task is locked", 0, 0);
+       TRACE(16, "task is locked", 0, 0, 0, 0);
        if(cancel[i].tmo > 0 && cancel[i].active) cancel[i].tmo--;
        
        if (cancel[i].tmo > 0 && !cancel[i].active) {
 	  taskUnlock();
-	  TRACE(4, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo);
+	  TRACE(4, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo, 0, 0);
 	  cancel[i].tmo = 0;
        } else {
 	  taskUnlock();
        }
-       TRACE(16, "task is unlocked", 0, 0);
+       TRACE(16, "task is unlocked", 0, 0, 0, 0);
        
        if(cancel[i].tmo == 1) {
 	  status = ioctl(cancel[i].fd, FIOCANCEL, 0);
 	  cancel[i].cancel = TRUE;
 	  cancel[i].count++;
-	  TRACE(4, "barcode canceled port %d (status=0x%x)", i, status);
+	  TRACE(4, "barcode canceled port %d (status=0x%x)", i, status, 0, 0);
        } else {
-	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo);
+	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo, 0, 0);
        }
     }
   }
