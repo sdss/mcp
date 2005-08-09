@@ -1,6 +1,8 @@
 #include "vxWorks.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <time.h>
 #include <assert.h>
 #include <sysLib.h>
@@ -71,7 +73,7 @@ unsigned long VMEC2_software_interrupt_clear (int interrupt)
 }
 void VME2_sft_int(int interrupt)
 {
-  TRACE0(16, "VME2_sft_int", 0, 0);
+  TRACE0(16, "VME2_sft_int", 0, 0, 0, 0);
 
   if (sft_int_routines[interrupt]!=NULL)
     (*sft_int_routines[interrupt])();
@@ -90,7 +92,7 @@ void test_interrupt()
 void test_routine()
 {
    TRACE(1, "Test Interrupt Routine fired, status=0x%lx level=0x%lx",
-	 (long)*VMECHIP2_LBISR, (long)*VMECHIP2_ILR3);
+	 (long)*VMECHIP2_LBISR, (long)*VMECHIP2_ILR3, 0, 0);
 }
 
 unsigned long MCC_timer_read(int timer)
@@ -272,7 +274,7 @@ fopen_logfile(const char *file,		/* desired file */
  */
    mjd = get_mjd();
    if(mjd < 0) {
-      TRACE(1, "Cannot determine MJD for %s; assuming MJD == 0", file, 0);
+      TRACE(1, "Cannot determine MJD for %s; assuming MJD == 0", file, 0, 0, 0);
       mjd = 0;
    }
    sprintf(filename, "/mcptpm/%d", mjd); /* directory */
@@ -283,13 +285,13 @@ fopen_logfile(const char *file,		/* desired file */
       (void)mkdir(filename); s_errno = errno;
 
       if(stat(filename, &status) == ERROR) { /* still doesn't exist */
-	 TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
+	 TRACE(0, "Can't create %s: %s", filename, strerror(s_errno), 0, 0);
 	 return(NULL);
       }
    }
       
    if(!S_ISDIR(status.st_mode)) {
-      TRACE(0, "%s isn't a directory", filename, 0);
+      TRACE(0, "%s isn't a directory", filename, 0, 0, 0);
       return(NULL);
    }
 /*
@@ -299,7 +301,7 @@ fopen_logfile(const char *file,		/* desired file */
  */
    strncat(filename, "/", sizeof(filename));
    strncat(filename, file, sizeof(filename));
-   TRACE(trace_open_lvl, "Opening %s", filename, 0);
+   TRACE(trace_open_lvl, "Opening %s", filename, 0, 0, 0);
 /*
  * Translate an fopen() mode into an open() mode; ignore any '+' modifiers
  */
@@ -316,18 +318,18 @@ fopen_logfile(const char *file,		/* desired file */
 	 (void)unlink(filename);	/* the open() call doesn't truncate */
       }
    } else {
-      TRACE(0, "Unknown mode for fopen_logfile: %s", fmode, 0);
+      TRACE(0, "Unknown mode for fopen_logfile: %s", fmode, 0, 0, 0);
    }
 
    fd = open(filename, mode, 0664);
    if(fd < 0) {
-      TRACE(0, "Open failed: %d %d", errno, strerror(errno));
+      TRACE(0, "Open failed: %d %d", errno, strerror(errno), 0, 0);
       return(NULL);
    }
 
    fil = fdopen(fd, fmode);
    if(fil == NULL) {
-      TRACE(0, "Fdopen failed: %d %s", errno, strerror(errno));
+      TRACE(0, "Fdopen failed: %d %s", errno, strerror(errno), 0, 0);
    }
 
    return(fil);
@@ -396,8 +398,8 @@ s_slaCldj ( int iy, int im, int id, double *djm, int *j )
         - ( 3L * ( ( iyL - ( 12L - imL ) / 10L + 4900L ) / 100L ) ) / 4L
         + (long) id - 2399904L );
 
-   TRACE(3, "MJD      iy = %d im = %d", iy, im);
-   TRACE(3, "MJD CONT id = %d djm = %d", id, (int)*djm);
+   TRACE(6, "MJD      iy = %d im = %d", iy, im, 0, 0);
+   TRACE(6, "MJD CONT id = %d djm = %d", id, (int)*djm, 0, 0);
 }
 
 int
@@ -436,7 +438,7 @@ get_mjd(void)
    if(status) {
       static char buff[100];
       sprintf(buff, "%d %d %d", tm_year + 1900, tm_mon + 1, tm_mday);
-      TRACE(2, "MJD: %d (%s)", status, buff);
+      TRACE(6, "MJD: %d (%s)", status, buff, 0, 0);
    
       return(-1);
    } else {
@@ -444,8 +446,8 @@ get_mjd(void)
       ldj += 0.3;
 
 #if 1
-      TRACE(3, "MJD CONT hr=%d min=%d", tm_hour, tm_min);
-      TRACE(3, "MJD CONT sec=%d LDJ %d", tm_sec, (int)ldj);
+      TRACE(6, "MJD CONT hr=%d min=%d", tm_hour, tm_min, 0, 0);
+      TRACE(6, "MJD CONT sec=%d LDJ %d", tm_sec, (int)ldj, 0, 0);
 #endif
 	      
       return((int)ldj);
@@ -477,10 +479,10 @@ mcpVersion(char *version,		/* string to fill out, or NULL */
       strncpy(version, tag, len - 1);
    } else {
       ptr++;
-      while(isspace(*ptr)) ptr++;
+      while(isspace((int)*ptr)) ptr++;
       
       if(*ptr != '$') {			/* a CVS tag */
-	 for(i = 0; ptr[i] != '\0' && !isspace(ptr[i]) && i < 100; i++) {
+	 for(i = 0; ptr[i] != '\0' && !isspace((int)ptr[i]) && i < 100; i++) {
 	    version[i] = ptr[i];
 	 }
 	 version[i] = '\0';
