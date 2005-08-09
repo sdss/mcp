@@ -1,3 +1,4 @@
+#if 0
 #include "copyright.h"
 /**************************************************************************/
 #include <stdio.h>
@@ -183,7 +184,7 @@ int GetString(char *buf, int cnt)
     taskDelay (10);
     *buf=getchar();
   }
-  *buf=NULL;  /* terminate the string overwrite the LF */
+  *buf='\0';  /* terminate the string overwrite the LF */
   semTake (semMEIUPD,60);
   if (i==1) return (FALSE);
   return(TRUE);
@@ -239,7 +240,7 @@ static void
 PrintMenuBanner(void)
 {
   CursPos(1,1);
-  MenuInput[21]=NULL;
+  MenuInput[21]='\0';
   last_clamp=last_door1=last_door2=last_azbrake=last_altbrake=-1;
   EraseDisplayRest();
   printf("     /////// ///////   ///////  ///////   Sloan Digital Sky Survey  Version: %d\n",SoftwareVersion_); 
@@ -736,7 +737,7 @@ Menu(void)
 	      memcpy(&buf[0],&MenuInput[0],21);
 	      memset(&MenuInput[0],' ',20);
 	      
-	      if(isdigit(buf[0])) {
+	      if(isdigit((int)buf[0])) {
 		 (void)sscanf(buf, "%d", &inst); /* must succeed */
 		 if(inst < 0 || inst >= NUMBER_INST) {
 		    printf("ERR: Inst Out of Range (0-%d)           ",
@@ -1026,7 +1027,7 @@ PrintMenuPos()
   int state;
   int fidsign;
   int i;
-  long ap,cp,ap1,ap2,vlt;
+  long ap,ccp,ap1,ap2,vlt;
   double arcsec, farcsec;
   int lasttick;
   long marcs,arcs,arcm,arcd;
@@ -1055,7 +1056,7 @@ PrintMenuPos()
       {
         CursPos(5,9+i);
         ap=(*tmaxis[i]).actual_position;
-        cp=(*tmaxis[i]).position,
+        ccp=(*tmaxis[i]).position,
         vlt=(*tmaxis[i]).voltage;
 	if (monitor_on[i]) printf ("*");
 	else printf ("U");
@@ -1143,7 +1144,7 @@ PrintMenuPos()
             printf("-%03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
           else
             printf(" %03ld:%02ld:%02ld:%03ld",arcd,arcm,arcs,marcs);
-          printf(" %10ld  %10ld  %10ld",ap,cp,vlt);
+          printf(" %10ld  %10ld  %10ld",ap,ccp,vlt);
           arcd=(long)(farcsec)/3600;	     
           arcm=((long)(farcsec)-(arcd*3600))/60;	     
           arcs=((long)(farcsec)-(arcd*3600)-(arcm*60));	     
@@ -1321,3 +1322,6 @@ PrintMenuPos()
     taskDelay (30);
   }
 }
+#else
+void dummy_display_c(void){}
+#endif
