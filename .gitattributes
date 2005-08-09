@@ -52,6 +52,7 @@ ip/ipOctalSerial.c -text
 ip/ipOctalSerial.h -text
 ip/mv162IndPackInit.c -text
 ip/mv162IndPackInit.h -text
+ip/scc2698.h -text
 ip/systran/.cvsignore -text
 ip/systran/Makefile -text
 ip/systran/ad12f1dr.h -text
