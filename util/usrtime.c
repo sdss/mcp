@@ -135,7 +135,7 @@ long set_date_hdw ( void )
         t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
   tp.tv_sec=mktime(&t);
   tp.tv_usec=0;
-  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_usec);
+  printf (" sec=%ld, nano_sec=%ld\r\n",tp.tv_sec,tp.tv_usec);
   clock_settime(CLOCK_REALTIME,(struct timespec *)&tp);
   return 0;
 }
@@ -150,7 +150,7 @@ long set_date ( void )
         t.tm_mon,t.tm_mday,t.tm_year,t.tm_hour,t.tm_min,t.tm_sec);
   tp.tv_sec=mktime(&t);
   tp.tv_usec=0;
-  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_usec);
+  printf (" sec=%ld, nano_sec=%ld\r\n",tp.tv_sec,tp.tv_usec);
   clock_settime(CLOCK_REALTIME,(struct timespec *)&tp);
   return 0;
 }
@@ -310,9 +310,9 @@ void test_tod()
   for (i=0;i<20;i++)
 	get_tod_stamp(CLOCK_REALTIME,&tp[i]);
   for (i=0;i<20;i++)
-    printf ("\nsecs=%d, nsecs=%d",tp[i].tv_sec,tp[i].tv_nsec);
+    printf ("\nsecs=%ld, nsecs=%ld",tp[i].tv_sec,tp[i].tv_nsec);
   for (i=0;i<20;i++)
 	get_tod_stamp((timer_t)(CLOCK_REALTIME+1),&tp[i]);
   for (i=0;i<20;i++)
-    printf ("\nsecs=%d, nsecs=%d",tp[i].tv_sec,tp[i].tv_nsec);
+    printf ("\nsecs=%ld, nsecs=%ld",tp[i].tv_sec,tp[i].tv_nsec);
 }

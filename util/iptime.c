@@ -217,7 +217,7 @@ void iptimeSet (char *node, int tzadj)
     tp.tv_sec=mktime(&t);
     tp.tv_sec += tzadj*3600;  /* for SDSS */     
     tp.tv_usec=0;
-    printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_usec);
+    printf (" sec=%ld, nano_sec=%ld\r\n",tp.tv_sec,tp.tv_usec);
     stime ((long*)&tp);
     clock_settime(CLOCK_REALTIME,(struct timespec *)&tp);
 }
