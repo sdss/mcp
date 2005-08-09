@@ -29,7 +29,6 @@
 #include "abdh.h"
 #include "instruments.h"
 #include "axis.h"
-#include "display.h"
 #include "dscTrace.h"
 #include "acromag.h"
 
@@ -102,7 +101,7 @@ wd_isr(struct conf_blk *cblk)
       cblk->event_status |= (BYTE)(i_stat >> 8);   /* update event */
 
         /* service the hardware */
-      TRACE(16, "IP480 ABORT fired %d, istat=%d", wdog++, i_stat);
+      TRACE(16, "IP480 ABORT fired %d, istat=%d", wdog++, i_stat, 0, 0);
         /* check each bit for an interrupt pending state */
       for(i = 0; i < j; i++) {		/* check each c */
 	 if(i_stat & (1 << (i + 8))) {	/* build interr */
@@ -118,13 +117,13 @@ wd_isr(struct conf_blk *cblk)
 
 int
 setup_wd(char *addr,
-	 char vec,
+	 int vec,
 	 int irq)
 {
    sbrd.brd_ptr=(BYTE *)addr;
    
    SetInterruptVector(&sbrd,vec);
-   attach_ihandler(0,sbrd.m_InterruptVector,0,(void (*)(int))wd_isr,
+   attach_ihandler(0,sbrd.m_InterruptVector,0,(FUNCPTR)wd_isr,
 		   (struct handler_data *)&sbrd);
    rebootHookAdd((FUNCPTR)shutdown_wd);
 
@@ -284,7 +283,7 @@ int lift_initialize(unsigned char *addr)
   for (i=0;i<MAX_SLOTS;i++)
     if (ip->adr[i]!=NULL)
     {
-      setup_wd((char *)ip->adr[i], 0xB4,3);
+      setup_wd((char *)ip->adr[i], 0xB4, 3);
       il_setup_wd();
  /* VIPC610_IP_Interrupt_Enable (addr, 0, irq);*/
 /*  VMESC5_IP_Interrupt_Enable (addr, 0, irq);*/
