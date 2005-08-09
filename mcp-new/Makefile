@@ -119,7 +119,6 @@ display.o : copyright.h
 display.o : cw.h
 display.o : cw.h
 display.o : data_collection.h
-display.o : display.h
 display.o : frame.h
 display.o : frame.h
 display.o : instruments.h
@@ -141,7 +140,6 @@ instrument_lift.o : abdh.h
 instrument_lift.o : axis.h
 instrument_lift.o : cw.h
 instrument_lift.o : data_collection.h
-instrument_lift.o : display.h
 instrument_lift.o : instruments.h
 instrument_lift.o : tm.h
 ipsym.o : mcpUtils.h
