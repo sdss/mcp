@@ -29,7 +29,7 @@ serverDCStart()
 {
    int frequency = 1;			/* how many ticks to wait before
 					   fireing semDC trigger */
-   TRACE0(16, "serverDCStart", 0, 0);
+   TRACE0(16, "serverDCStart", 0, 0, 0, 0);
 
    freqtick++;
    if(frequency == 0 || freqtick%frequency == 0) {
@@ -75,8 +75,8 @@ serverData(int hz,			/* frequency at which to call */
    for(;;) {
       if(semTake(semDC, WAIT_FOREVER) == ERROR) {
 	 TRACE(0, "couldn't take semDC semaphore: %d %s",
-	       errno, strerror(errno));
-	 taskSuspend(NULL);
+	       errno, strerror(errno), 0, 0);
+	 taskSuspend(0);
       }
       
       data_routine();
