@@ -55,12 +55,12 @@ tMoveCW(void)
       status = msgQReceive(msgMoveCW, (char*)&msg, sizeof(msg), WAIT_FOREVER);
       assert(status != ERROR);
 
-      TRACE(6, "tMoveCW: received message %d", msg.type, 0);
+      TRACE(6, "tMoveCW: received message %d", msg.type, 0, 0, 0);
       
       assert(msg.type == moveCW_type);
       
       if(semTake(semMoveCWBusy, 0) != OK) { /* task is busy */
-	 TRACE(0, "moveCW task is already already busy", 0, 0);
+	 TRACE(0, "moveCW task is already already busy", 0, 0, 0, 0);
 	 return;
       }
       
@@ -87,7 +87,7 @@ mcp_cw_abort(void)
       msg.type = moveCWAbort_type;
       msg.u.moveCWAbort.abort = 1;
 
-      TRACE(1, "Sending abort msg to msgMoveCWAbort", 0, 0);
+      TRACE(1, "Sending abort msg to msgMoveCWAbort", 0, 0, 0, 0);
       status = msgQSend(msgMoveCWAbort, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
       assert(status == OK);
@@ -296,7 +296,7 @@ struct CW_LOOP {
 	short velocity;			/* velocity in units for DAC */
 	short accel;			/* acceleration in units for DAC */
 	short decel;			/* deceleration in units for DAC */
-	short stop_velocity;			/* stopping velocity in units for DAC */
+	short stop_velocity;		/* stopping velocity in units for DAC */
 	short start_decel_position;	/* start position to begin deceleration */
 	short stop_pos_error;		/* stop position error allowed */
 	short stop_count;		/* stop polarity swing counts allowed */
@@ -304,23 +304,23 @@ struct CW_LOOP {
 
 /*     1      2     3     4                */
 struct CW_LOOP	cw_inst[NUMBER_INST] = {
-   {   50,    50,   50,   50},		/*CAMERA*/
-   {  600,   600,  600,  600},		/*FIBER	*/
-   { 1432,  1470, 1470, 1470},		/*EMPTY	*/
-   {  594,   594,  594,  594},		/*SCF	*/
-   {  307,   307,  307,  307},		/*S     */
-   {  450,   450,  450,  450},		/*SC    */
-   {  235,   235,  235,  235},		/*SE    */
-   {  870,   870,  870,  870},		/*SEC   */
-   { 1413,  1413, 1413, 1413},		/*SI    */
-   {0x200, 0x200,0x200,0x200},		/*INST9 */
-   {0x200, 0x200,0x200,0x200},		/*INST10*/
-   {0x200, 0x200,0x200,0x200},		/*INST11*/
-   {0x200, 0x200,0x200,0x200},		/*INST12*/
-   {0x200, 0x200,0x200,0x200},		/*INST13*/
-   {0x200, 0x200,0x200,0x200},		/*INST14*/
-   {0x200, 0x200,0x200,0x200},		/*INST15*/
-   {0x200, 0x200,0x200,0x200}		/*DEFAULT*/
+   {{   50,    50,   50,   50}},		/*CAMERA*/
+   {{  600,   600,  600,  600}},		/*FIBER	*/
+   {{ 1432,  1470, 1470, 1470}},		/*EMPTY	*/
+   {{  594,   594,  594,  594}},		/*SCF	*/
+   {{  307,   307,  307,  307}},		/*S     */
+   {{  450,   450,  450,  450}},		/*SC    */
+   {{  235,   235,  235,  235}},		/*SE    */
+   {{  870,   870,  870,  870}},		/*SEC   */
+   {{ 1413,  1413, 1413, 1413}},		/*SI    */
+   {{0x200, 0x200,0x200,0x200}},		/*INST9 */
+   {{0x200, 0x200,0x200,0x200}},		/*INST10*/
+   {{0x200, 0x200,0x200,0x200}},		/*INST11*/
+   {{0x200, 0x200,0x200,0x200}},		/*INST12*/
+   {{0x200, 0x200,0x200,0x200}},		/*INST13*/
+   {{0x200, 0x200,0x200,0x200}},		/*INST14*/
+   {{0x200, 0x200,0x200,0x200}},		/*INST15*/
+   {{0x200, 0x200,0x200,0x200}}		/*DEFAULT*/
 };
 
 int CW_verbose=FALSE;
@@ -399,7 +399,7 @@ balance_initialize(unsigned char *addr,
    }
    
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing ADC128F1 at %p****", addr, 0);
+      TRACE(0, "****Missing ADC128F1 at %p****", addr, 0, 0, 0);
       return ERROR;
    }
    ADC128F1_CVT_Update_Control(cw_ADC128F1, ENABLE);
@@ -415,7 +415,7 @@ balance_initialize(unsigned char *addr,
   }
   
   if(i >= MAX_SLOTS) {
-     TRACE(0, "****Missing DAC128V at %p****", addr, 0);
+     TRACE(0, "****Missing DAC128V at %p****", addr, 0, 0, 0);
      return ERROR;
   }
 /*
@@ -424,7 +424,7 @@ balance_initialize(unsigned char *addr,
   for(i = 0; i < DAC128V_CHANS; i++) {
      DAC128V_Read_Reg(cw_DAC128V,i,&val);
      if((val&0xFFF) != 0x800) {
-	TRACE(0, "DAC128V Chan %d Init error %x", i, val);
+	TRACE(0, "DAC128V Chan %d Init error %x", i, val, 0, 0);
      }
   }
 /*
@@ -439,7 +439,7 @@ balance_initialize(unsigned char *addr,
    }
    
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing DIO316 at %p****", addr, 0);
+      TRACE(0, "****Missing DIO316 at %p****", addr, 0, 0, 0);
       return ERROR;
    }
 /*
@@ -448,7 +448,7 @@ balance_initialize(unsigned char *addr,
    status = intConnect(INUM_TO_IVEC(vecnum),
 		      (VOIDFUNCPTR)cw_DIO316_interrupt,
 		      DIO316_TYPE);
-   TRACE(5, "CW vector = %d, result = 0x%8x", vecnum, status);
+   TRACE(5, "CW vector = %d, result = 0x%8x", vecnum, status, 0, 0);
    rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
    
    IP_Interrupt_Enable(&ip, DIO316_IRQ);
@@ -522,7 +522,7 @@ balance(int cw,				/* counter weight to move */
  */
       cw_select(cw);
       
-      TRACE(5, "balance cw = %d inst = %d", cw, inst);
+      TRACE(5, "balance cw = %d inst = %d", cw, inst, 0, 0);
 /*
  * iterate until good or exceed stop count
  */
@@ -539,7 +539,7 @@ balance(int cw,				/* counter weight to move */
 	 }
 	 delta = abs(pos - cw_inst[inst].pos_setting[cw]);
 	 
-	 TRACE(5, "balance i = %d delta = %d", i, delta);
+	 TRACE(5, "balance i = %d delta = %d", i, delta, 0, 0);
 	 
 	 last_error = delta;
 	 cw_inst[inst].pos_current[cw] = pos;
@@ -552,21 +552,21 @@ balance(int cw,				/* counter weight to move */
 	 cnt = 0;
 	 while(delta > cw_inst[inst].stop_pos_error) {
 	    TRACE(6, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
-		  delta, cw_inst[inst].stop_pos_error);
+		  delta, cw_inst[inst].stop_pos_error, 0, 0);
 	    
 	    taskDelay(60/cw_inst[inst].updates_per_sec);
 	    
 	    if(msgQReceive(msgMoveCWAbort, (char*)&msg, sizeof(msg), NO_WAIT)
 								    != ERROR) {
 	       assert(msg.type == moveCWAbort_type);
-	       TRACE(0, "Counterweight %d motion abort", cw + 1, 0);
+	       TRACE(0, "Counterweight %d motion abort", cw + 1, 0, 0, 0);
 	       printf("CWABORT\n");
 	       cw_abort();
 	       return;
 	    }
 	 
 	    if(CW_limit_abort) {
-	       TRACE(2, "Counterweight %d: limit abort", cw + 1, 0);
+	       TRACE(2, "Counterweight %d: limit abort", cw + 1, 0, 0, 0);
 	       cw_status();
 
 	       CW_next = 1;
@@ -578,7 +578,7 @@ balance(int cw,				/* counter weight to move */
 	    if(cnt%(cw_inst[inst].updates_per_sec*6) == 0) {
 	       if(delta > last_error - 4) {
 		  TRACE(2, "Not Closing in on position for CW %d; aborting",
-								    cw + 1, 0);
+								    cw + 1, 0, 0, 0);
 		  cw_status();
 		  
 		  CW_next = 1;
@@ -684,10 +684,10 @@ balance(int cw,				/* counter weight to move */
 
       if(i == cw_inst[inst].stop_count) {
 	 TRACE(2, "CW %d exceeded stop_count %d",
-	       cw + 1, cw_inst[inst].stop_count);
+	       cw + 1, cw_inst[inst].stop_count, 0, 0);
       }
       
-      TRACE(5, "CW %d done", cw + 1, 0);
+      TRACE(5, "CW %d done", cw + 1, 0, 0, 0);
    }
 
    cw_brake_on();
@@ -866,7 +866,7 @@ void cw_DIO316_interrupt(int type)
    
    DIO316ClearISR (cw_DIO316);
 
-   TRACE0(16, "cw_DIO316_interrupt CW = %d", cw, 0);
+   TRACE0(16, "cw_DIO316_interrupt CW = %d", cw, 0, 0, 0);
 }
 
 /*=========================================================================
@@ -1294,7 +1294,7 @@ cw_set_positionv(int inst,		/* instrument to set pos for */
    int i;
 
    if(inst < 0 || inst >= sizeof(cw_inst)/sizeof(struct CW_LOOP)) {
-      TRACE(0, "cw_set_positionv: invalid instrument %d", inst, 0);
+      TRACE(0, "cw_set_positionv: invalid instrument %d", inst, 0, 0, 0);
       return;
    }
 
@@ -1302,7 +1302,7 @@ cw_set_positionv(int inst,		/* instrument to set pos for */
       if(p[i] != 0) {
 	 if(p[i] < 0 || p[i] > 1000) {
 	    TRACE(0, "cw_set_positionv: invalid position %d for cw %d",
-		  p[i], i + 1);
+		  p[i], i + 1, 0, 0);
 	    return;
 	 }
 	 
@@ -1389,7 +1389,7 @@ cw_data_collection(void)
 	
 	if(semTake(semSDSSDC, 60) == ERROR) {
 	   TRACE(2, "cw_data_collection failed to take semSDSSDC: %s",
-							   strerror(errno), 0);
+							   strerror(errno), 0, 0, 0);
 	} else {
 	   if((adc & 0x800) == 0x800) {
 	      sdssdc.weight[ii].pos = adc | 0xF000;
@@ -1795,7 +1795,7 @@ cwstatus_cmd(char *cmd)
 {
    if(semTake(semMEIUPD,60) == ERROR) {
       TRACE(6, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)",
-	    strerror(errno), errno);
+	    strerror(errno), errno, 0, 0);
       return "ERR: semMEIUPD";
    }
 
@@ -1865,7 +1865,7 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
  */   
    if(taskSpawn("tMoveCW", 60, VX_FP_TASK, 10000,
 		(FUNCPTR)tMoveCW, 0,0,0,0,0,0,0,0,0,0) == ERROR) {
-      TRACE(0, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
+      TRACE(0, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno, 0, 0);
    }
 }
 
