@@ -3,7 +3,7 @@
 
 CPU = MC68040
 
-VW = $(VX_DSC_DIR)/
+VW = $(VXWORKS_DIR)/target/
 VWINC		= $(VW)h/
 CONFIG		= $(VW)/config/mv162/
 VWSYSINC	= $(VWINC)drv/
@@ -22,20 +22,13 @@ OBJECTS		= iptime.o usrtime.o rtc.o microtime.o
 EXTRA_OBJS      = dscTrace.o timer.o tasks.o ntp.o
 
 ## tools
-CC		= cc68k
-LD		= ld68k
-RM		= rm -f
-AR		= ar68k
-RANLIB		= ranlib68k
 LINK = ld68k
 
 ## flags
 
 INCLUDEFLAGS	= -I. -I$(VWINC) -I$(CONFIG) -I$(VWSYSINC) \
 			-I$(VX_TOOLS_DIR)/include \
-			-I$(ASTRODA_DIR)/include \
-                        -I$(MURMUR_CLIENT_VX_DIR)/include \
-			-I$(NTPVX_DIR)/ntp
+                        -I$(MURMUR_CLIENT_VX_DIR)/include
 DEBUGFLAG	=
 CFLAGS		= -g -ansi -pipe -Wall $(DEBUGFLAG) $(INCLUDEFLAGS) \
 		  -DCPU=MC68040 -m68040 $(FEATURES)
