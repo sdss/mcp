@@ -171,7 +171,7 @@ setSDSStimeFromNTP(int quiet)
    taskLock();
    
    if(setTimeFromNTP(taiServer, 0, 1, 0, &tai) < 0) {
-      TRACE(0, "failed to get time from %s: %s", taiServer, strerror(errno));
+      TRACE(0, "failed to get time from %s: %s", taiServer, strerror(errno), 0, 0);
       taskUnlock();
       return;
    }
@@ -195,7 +195,7 @@ setSDSStimeFromNTP(int quiet)
    taskLock();
 
    if(setTimeFromNTP(utcServer, 0, 1, 0, NULL) < 0) {
-      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno));
+      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno), 0, 0);
    }
 
    taskUnlock();
@@ -263,7 +263,7 @@ time_cmd(char *cmd)
   struct timespec tp;
 
   clock_gettime(CLOCK_REALTIME,&tp);
-  printf (" sec=%d, nano_sec=%d\r\n",tp.tv_sec,tp.tv_nsec);
+  printf(" sec=%ld, nano_sec=%ld\r\n",tp.tv_sec,tp.tv_nsec);
 
   t = localtime(&tp.tv_sec);
   sprintf(ublock->buff,"%d %d %d %f",
@@ -301,13 +301,13 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    Industry_Pack (addr,SYSTRAN_DIO316,&ip);
    for(i = 0; i < MAX_SLOTS; i++) { 
       if (ip.adr[i]!=NULL) {
-	 TRACE(30, "Found at %d, %p", i, ip.adr[i]);
+	 TRACE(30, "Found at %d, %p", i, ip.adr[i], 0, 0);
 	 tm_DIO316=DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
 	 break;
       }
    }
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing DIO316 at %p****", addr, 0);
+      TRACE(0, "****Missing DIO316 at %p****", addr, 0, 0, 0);
       return ERROR;
    }
    
@@ -324,7 +324,7 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
 		      (VOIDFUNCPTR)DIO316_interrupt, DIO316_TYPE);
    assert(stat == OK);
    TRACE(30, "DIO316 vector = %d, interrupt address = %p\n",
-	  vecnum, DIO316_interrupt);
+	  vecnum, DIO316_interrupt, 0, 0);
    rebootHookAdd((FUNCPTR)axis_DIO316_shutdown);
 
 #if 0
@@ -386,13 +386,13 @@ DIO316_interrupt(int type)
 {
    unsigned char dio316int_bit = 0;
 
-   TRACE0(16, "DIO316_interrupt", 0, 0);	 
+   TRACE0(16, "DIO316_interrupt", 0, 0, 0, 0);
 
    DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
       TRACE0(0, "NIST_INT bit is set in dio316_interrupt: 0x%x",
-	     dio316int_bit, 0);
+	     dio316int_bit, 0, 0, 0);
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
@@ -414,10 +414,10 @@ DIO316_interrupt(int type)
 	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);
 	 if(stat != OK) {
-	    TRACE0(0, "Failed to send msg to msgLatched: %d", errno, 0);
+	    TRACE0(0, "Failed to send msg to msgLatched: %d", errno, 0, 0, 0);
 	 }
       }
-      TRACE0(8, "Sent message to msgLatched at %d", time, 0);
+      TRACE0(8, "Sent message to msgLatched at %d", time, 0, 0, 0);
    }
 }
 
@@ -466,7 +466,7 @@ DID48_interrupt(int type)
    int dt = 200;			/* maximum allowed fuzz in arrival
 					   of GPS pulse; microseconds */
 
-   TRACE0(16, "DID48_interrupt", 0, 0);
+   TRACE0(16, "DID48_interrupt", 0, 0, 0, 0);
    
    DID48_Read_Port(tm_DID48,5,&did48int_bit);
    if(did48int_bit & NIST_INT) {
@@ -485,11 +485,11 @@ DID48_interrupt(int type)
 
       if(NIST_sec < 1000000 - dt) {
 	 if(SDSS_cnt > 1) {		/* not just the first partial second */
-	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
+	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0, 0, 0);
 	 }
       } else if(NIST_sec > 1000000 + dt) {
 	 if(SDSS_cnt > 1) {		/* not just the first partial second */
-	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
+	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0, 0, 0);
 	    
 	    axis_stat[AZIMUTH][0].clock_loss_signal = 
 	      axis_stat[ALTITUDE][0].clock_loss_signal =
@@ -534,14 +534,14 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    Industry_Pack (addr,SYSTRAN_DID48,&ip);
    for(i = 0; i < MAX_SLOTS; i++) {
       if(ip.adr[i] != NULL) {
-	 TRACE(30, "Found at %d, %p", i, ip.adr[i]);
+	 TRACE(30, "Found at %d, %p", i, ip.adr[i], 0, 0);
 	 tm_DID48 = DID48Init((struct DID48 *)ip.adr[i], vecnum);
 	 break;
       }
    }
 
    if(i == MAX_SLOTS) {
-      TRACE(0, "****Missing DID48 at %p****", addr, 0);
+      TRACE(0, "****Missing DID48 at %p****", addr, 0, 0, 0);
       return ERROR;
    }
    
@@ -555,7 +555,7 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
 		     (VOIDFUNCPTR)DID48_interrupt, DID48_TYPE);
    assert(stat == OK);
    TRACE(30, "DID48 vector = %d, interrupt address = %p",
-	 vecnum, DID48_interrupt);
+	 vecnum, DID48_interrupt, 0, 0);
    
    rebootHookAdd((FUNCPTR)axis_DID48_shutdown);
    
