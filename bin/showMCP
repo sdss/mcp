@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
 #
 # -*- perl -*-
 #
@@ -7,8 +7,15 @@
 # From iop, the "mcpVersion" command will tell you which version is
 # actually running; this information is also available from the MCP Menu
 #
-$dir = readlink("/p/mcpbase/etc");
-$dir =~ s|/etc$||;
-$dir =~ s|/p/mcp/||;
+foreach $base ("/p/mcpbase", "/linuxp/mcpbase") {
+   if(-d $base) {
+      $dir = readlink("$base/etc");
+      $dir =~ s|/etc$||;
+      $dir =~ s|^/.*/mcp/||;
+      
+      print "$dir\n";
 
-print "$dir\n";
+      exit;
+   }
+}
+
