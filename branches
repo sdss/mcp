@@ -213,3 +213,7 @@ Mon Aug 11 15:36:46 MDT 2003
 
 Fri Jan 30 2004
   made v5_25 branch for PLC v18 rebuild 
+
+Tue Aug  9 12:56:54 MDT 2005
+	cvs rtag v6_0_0 mcp
+	N.b. no branch.  Initial build of mcp on galileo with vxWorks 5.5
