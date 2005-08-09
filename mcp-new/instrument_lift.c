@@ -117,7 +117,7 @@ wd_isr(struct conf_blk *cblk)
 
 int
 setup_wd(char *addr,
-	 int vec,
+	 unsigned char vec,
 	 int irq)
 {
    sbrd.brd_ptr=(BYTE *)addr;
