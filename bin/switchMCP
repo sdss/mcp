@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 UPS_SHELL=sh;  export UPS_SHELL
 
@@ -13,13 +13,20 @@ if [ ! -d $MCP_DIR ]; then
 fi
 umask 002
 
-cd /p/mcpbase
+if [ -d /linuxp/mcpbase ]; then
+    cd /linuxp/mcpbase
+elif [ -d /p/mcpbase ]; then
+    cd /p/mcpbase
+else
+    echo "I cannot find mcpbase" >&2
+    exit 1
+fi
 
 #
 # Make the links for the MCP directories
 #
 for d in ab bin doc etc fiducial-tables ip mcp-new mei-new params util; do
-    if [ -l $d ]; then 
+    if [ -L $d ]; then 
 	rm $d
     fi
 
@@ -39,7 +46,7 @@ for d in ASTRODA MURMUR_CLIENT_VX VX_TOOLS; do
 	exit 1
     fi
 
-    if [ -l $ld ]; then 
+    if [ -L $ld ]; then 
 	rm $ld
     fi
 
