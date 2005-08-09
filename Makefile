@@ -57,11 +57,6 @@ install :
 	@chmod -R g+w $(MCP_DIR)
 
 tags :
-	@ if [ X"$(EMACS_DIR)" = X"" ]; then \
-		echo "Not creating tag file (emacs isn't set up)" >&2 ; \
-		exit 1; \
-	fi
-
 	@rm -f TAGS
 	@for d in $(DIRS); do \
 		if [ $$d != "bin" -a $$d != "etc" -a $$d != "ups" ]; then \
