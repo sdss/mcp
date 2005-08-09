@@ -62,7 +62,7 @@ tm_move_instchange(void)
    int axis;
    
    if(semTake(semMEI, 60) == ERROR) {
-      TRACE(0, "tm_move_instchange: could not take semMEI semphore", 0, 0);
+      TRACE(0, "tm_move_instchange: could not take semMEI semphore", 0, 0, 0, 0);
       return ERROR;
    }
 
@@ -244,14 +244,14 @@ tm_adjust_position(int axis,		/* desired axis */
    double vel;				/* velocity of axis */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "tm_adjust_position: invalid axis %d", axis, 0);
+      TRACE(0, "tm_adjust_position: invalid axis %d", axis, 0, 0, 0);
       
       return(-1);
    }
 
    if(semTake(semMEI,60) != OK) {
       TRACE(0, "adjusting axis %s position: unable to take semaphore: %s",
-	    axis_name(axis), strerror(errno));
+	    axis_name(axis), strerror(errno), 0, 0);
       return(-1);
    }
    
@@ -262,7 +262,7 @@ tm_adjust_position(int axis,		/* desired axis */
       taskUnlock();
       semGive(semMEI);
       TRACE(0, "adjusting position for axis %s: unable to read positions",
-	    axis_name(axis), 0);
+	    axis_name(axis), 0, 0, 0);
       return(-1);
    }
 
@@ -644,14 +644,14 @@ rot_amp_ok(int update)			/* update status before reporting? */
       unsigned short ctrl[2];
 
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno, 0, 0);
       } else {
 	 const int offset =
 	   (char *)&sdssdc.status.i7 - (char *)&sdssdc.status.i1;
 	 int err = slc_read_blok(1, 9, BIT_FILE, offset/2,
 						     &ctrl[0], sizeof(ctrl)/2);
 	 if(err) {
-	    TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
+	    TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0, 0, 0);
 	 }
 	 semGive(semSLC);
 
@@ -693,7 +693,7 @@ rot_amp_ok(int update)			/* update status before reporting? */
 void
 mgt_shutdown(int type)
 {
-   TRACE(1, "Safely halting the telescope by braking AZ and ALT", 0, 0);
+   TRACE(1, "Safely halting the telescope by braking AZ and ALT", 0, 0, 0, 0);
    mcp_set_brake(AZIMUTH);
    mcp_set_brake(ALTITUDE);
 }
@@ -717,7 +717,7 @@ tm_amp_mgt(void)
 	 if(monitor_axis[AZIMUTH] && sdssdc.status.i9.il0.az_brake_dis_stat) {
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
 	       TRACE(0, "MGT: bad az state %s: %s",
-		     axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH));
+		     axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH), 0, 0);
 	       mcp_set_brake(AZIMUTH);
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
@@ -727,9 +727,9 @@ tm_amp_mgt(void)
 	       taskDelay(60);
 	       amp_ok1 = az_amp_ok(1);
 	       
-	       TRACE(2, "MGT: bad az amp (%d now %d)", amp_ok, amp_ok1);
+	       TRACE(2, "MGT: bad az amp (%d now %d)", amp_ok, amp_ok1, 0, 0);
 	       if(!amp_ok1) {
-		  TRACE(0, "MGT: bad az amp; aborting", 0, 0);
+		  TRACE(0, "MGT: bad az amp; aborting", 0, 0, 0, 0);
 		  tm_sem_controller_idle(2*AZIMUTH);
 		  mcp_set_brake(AZIMUTH);
 		  monitor_axis[AZIMUTH]=FALSE;
@@ -743,7 +743,7 @@ tm_amp_mgt(void)
 	    sdssdc.status.i9.il0.alt_brake_dis_stat) {
 	    if((state = tm_axis_state(2*ALTITUDE)) > 2 && state != STOP_EVENT){
 	       TRACE(0, "MGT: bad alt state %s: %s", 
-		     axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE));
+		     axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE), 0, 0);
 
 	       mcp_set_brake(ALTITUDE);
 	       monitor_axis[ALTITUDE] = FALSE;
@@ -754,9 +754,9 @@ tm_amp_mgt(void)
 	       taskDelay(60);
 	       amp_ok1 = alt_amp_ok(1);
 
-	       TRACE(2, "MGT: bad alt amp (%d now %d)", amp_ok, amp_ok1);
+	       TRACE(2, "MGT: bad alt amp (%d now %d)", amp_ok, amp_ok1, 0, 0);
 	       if(!amp_ok1) {
-		  TRACE(0, "MGT: bad alt amp; aborting", 0, 0);
+		  TRACE(0, "MGT: bad alt amp; aborting", 0, 0, 0, 0);
 		  tm_sem_controller_idle(2*ALTITUDE);
 		  mcp_set_brake(ALTITUDE);
 		  monitor_axis[ALTITUDE] = FALSE;
@@ -771,7 +771,7 @@ tm_amp_mgt(void)
 							  state != STOP_EVENT){
 	       TRACE(0, "MGT: bad rot state %s: %s", 
 		     axis_state_str(2*INSTRUMENT),
-		     axis_source_str(2*INSTRUMENT));
+		     axis_source_str(2*INSTRUMENT), 0, 0);
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
 	    if(!rot_amp_ok(0)) {
@@ -779,10 +779,10 @@ tm_amp_mgt(void)
 	       amp_ok = rot_amp_ok(1);
 	       taskDelay(60);
 	       amp_ok1 = rot_amp_ok(1);
-	       TRACE(2, "MGT: bad rot amp (%d now %d)", amp_ok, amp_ok1);
+	       TRACE(2, "MGT: bad rot amp (%d now %d)", amp_ok, amp_ok1, 0, 0);
 
 	       if(!amp_ok1) {
-		  TRACE(0, "MGT: bad rot amp; aborting", 0, 0);
+		  TRACE(0, "MGT: bad rot amp; aborting", 0, 0, 0, 0);
 		  
 		  tm_sem_controller_idle(2*INSTRUMENT);
 		  monitor_axis[INSTRUMENT] = FALSE;
@@ -1085,7 +1085,7 @@ clear_sticky_bumps(int axis, int which)
     case INSTRUMENT:
       break;
     default:
-      TRACE(0, "Illegal axis %d in clear_sticky_bumps", axis, 0);
+      TRACE(0, "Illegal axis %d in clear_sticky_bumps", axis, 0, 0, 0);
    }
 }
 

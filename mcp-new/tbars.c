@@ -41,7 +41,7 @@ tBars(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgTbars", 0, 0);
+      TRACE(8, "read msg on msgTbars", 0, 0, 0, 0);
 
       switch (msg.type) {
        case TbarsLatch_type:
@@ -67,35 +67,35 @@ tBars(void)
 	 }
 	 
 	 if(latch_status && unlatch_status) {
-	    TRACE(0, "Imager T-bars are both latched and unlatched", 0, 0);
+	    TRACE(0, "Imager T-bars are both latched and unlatched", 0, 0, 0, 0);
 	 } else if(!latch_status && !unlatch_status) {
-	    TRACE(0, "Imager T-bars are neither latched nor unlatched", 0, 0);
+	    TRACE(0, "Imager T-bars are neither latched nor unlatched", 0, 0, 0, 0);
 	 } else {
 	    if(latch_tbars == latch_status) {
-	       TRACE(1, "tbar latches moved", 0, 0);
+	       TRACE(1, "tbar latches moved", 0, 0, 0, 0);
 	    } else {
 	       TRACE(0, "Imager T-bars failed to go to %s state",
-		     (latch_tbars ? "latched" : "unlatched"), 0);
+		     (latch_tbars ? "latched" : "unlatched"), 0, 0, 0);
 	    }
 	 }
 	 
 	 latch_tbars = -1;		/* set both to 0 */
 	 break;
        default:
-	 TRACE(0, "Impossible message type on msgTbars: %d", msg.type, 0);
+	 TRACE(0, "Impossible message type on msgTbars: %d", msg.type, 0, 0, 0);
 	 continue;
       }
 
       if(semTake(semSLC,60) == ERROR) {
 	 TRACE(0, "mcp_set_tbars: failed to get semSLC: %s (%d)",
-	       strerror(errno), errno);
+	       strerror(errno), errno, 0, 0);
 	 continue;
       }
       
       err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
       if(err) {
 	 semGive(semSLC);
-	 TRACE(0, "tBars: error reading slc: 0x%04x", err, 0);
+	 TRACE(0, "tBars: error reading slc: 0x%04x", err, 0, 0, 0);
 	 continue;
       }
       swab((char *)ctrl, (char *)&b10, sizeof(b10));
@@ -112,7 +112,7 @@ tBars(void)
       semGive (semSLC);
       
       if(err) {
-	 TRACE(0, "tBars: error writing slc: 0x%04x", err, 0);
+	 TRACE(0, "tBars: error writing slc: 0x%04x", err, 0, 0, 0);
 	 continue;
       }
 /*
@@ -122,13 +122,13 @@ tBars(void)
 	 continue;
       }
       
-      TRACE(1, "Waiting %ds for tbar latches to move", wait, 0);
+      TRACE(1, "Waiting %ds for tbar latches to move", wait, 0, 0, 0);
 
       msg.type = latch_tbars ? TbarsLatchCheck_type : TbarsUnlatchCheck_type;
       if(timerSend(msg.type, tmr_e_add,
 		   wait*60, msg.type, msgTbars) == ERROR) {
 	 TRACE(0, "Failed to send message to timer task: %s (%d)",
-	       strerror(errno), errno);
+	       strerror(errno), errno, 0, 0);
       }
    }
 }
