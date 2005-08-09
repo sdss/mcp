@@ -19,8 +19,7 @@ H5 = $(VWH)private/
 
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) -I$(MEIDSP) -I$(DESTDIR) \
 	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) -I$(UTIL) \
-	-I$(VX_TOOLS_DIR)/include -I$(ASTRODA_DIR)/include \
-	-I$(MURMUR_CLIENT_VX_DIR)/include
+	-I$(VX_TOOLS_DIR)/include -I$(MURMUR_CLIENT_VX_DIR)/include
 
 CFLAGS = $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__
 
