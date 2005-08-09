@@ -37,12 +37,12 @@ void
 trc_tskSwHk(WIND_TCB	*pOldTcb,
 	    WIND_TCB	*pNewTcb )
 {							/* @-Public-@ */
-   TRACEPROC("pSwHook");
+   TRACEPROC(swHook, "pSwHook");
    
 #if WATCH_MEMORY
-   TRACEP(31, "switching to 0x%x%x",
+   TRACEP(swHook, 31, "switching to 0x%x%x",
 	  ((int *)taskName((int)pNewTcb))[0],
-	  ((int *)taskName((int)pNewTcb))[1]);
+	  ((int *)taskName((int)pNewTcb))[1], 0, 0);
 
    if(*watch != watch_val || watch == NULL || *taskName((int)pOldTcb) == '/') {
       TRACE(31, "Suspending task %p", pOldTcb, 0);
@@ -51,9 +51,9 @@ trc_tskSwHk(WIND_TCB	*pOldTcb,
       traceMode(traceModeGet() & ~0x1);
    }
 #else
-   TRACEP(31, "switching to 0x%x%x",
+   TRACEP(swHook, 31, "switching to 0x%x%x",
 	  ((int *)taskName((int)pNewTcb))[0],
-	  ((int *)taskName((int)pNewTcb))[1]);
+	  ((int *)taskName((int)pNewTcb))[1], 0, 0);
 #endif
 }	/* trc_tskSwHk */
 
@@ -145,10 +145,10 @@ trc_dumpInfo( int tid )
     printf( "ti 0x%x\n", tid );
     taskShow( (int)&trc_Tcb, 1 );
     taskRegsGet( tid, &Reg );
-    printf(  "\nd0     = %8x   d1     = %8x   d2     = %8x   d3     = %8x\n"
-	     "d4     = %8x   d5     = %8x   d6     = %8x   d7     = %8x\n"
-	     "a0     = %8x   a1     = %8x   a2     = %8x   a3     = %8x\n"
-	     "a4     = %8x   a5     = %8x   a6/fp  = %8x   a7/sp  = %8x\n"
+    printf(  "\nd0     = %8lx   d1     = %8lx   d2     = %8lx   d3     = %8lx\n"
+	     "d4     = %8lx   d5     = %8lx   d6     = %8lx   d7     = %8lx\n"
+	     "a0     = %8lx   a1     = %8lx   a2     = %8lx   a3     = %8lx\n"
+	     "a4     = %8lx   a5     = %8lx   a6/fp  = %8lx   a7/sp  = %8lx\n"
 	     "sr     = %8x   pc     = %8x\n"
 	   , Reg.dataReg[0], Reg.dataReg[1], Reg.dataReg[2], Reg.dataReg[3]
 	   , Reg.dataReg[4], Reg.dataReg[5], Reg.dataReg[6], Reg.dataReg[7]
@@ -187,7 +187,7 @@ trc_dumpInfo( int tid )
 #       else
         num = 0x100;
 #       endif
-	printf( "\n\nd 0x%x,0x%x,2\n", Reg.addrReg[7], num );
+	printf( "\n\nd 0x%lx,0x%x,2\n", Reg.addrReg[7], num );
 	d( (void *)(Reg.addrReg[7]), num, 2 );
     }
     else
@@ -239,7 +239,7 @@ trc_excHook(  int	tid	/* ID   of    offending    task */
 {							/* @-Public-@ */
 	int	traceMode_sav;
 
-    TRACE( 30, "trc_excHook freezing trace buffer", 0,0 );
+    TRACE( 30, "trc_excHook freezing trace buffer", 0, 0, 0, 0);
     traceMode_sav = traceModeGet();
     traceMode( traceMode_sav & ~0x1);
 
