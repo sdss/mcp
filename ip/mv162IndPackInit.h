@@ -5,7 +5,7 @@
 * Copyright (c) 1994 The Svedberg Laboratory.
 */
 
-#pragma ident "@(#)mv162IndPackInit.h	1.1    23 May 1994 TSL"
+/* #pragma ident "@(#)mv162IndPackInit.h	1.1    23 May 1994 TSL" */
 
 /*
 modification history

@@ -5,7 +5,7 @@
 * Copyright (c) 1994 The Svedberg Laboratory.
 */
 
-#pragma ident "@(#)ipOctalSerial.h	1.1    27 May 1994 TSL"
+/* #pragma ident "@(#)ipOctalSerial.h	1.1    27 May 1994 TSL" */
 
 
 /*
