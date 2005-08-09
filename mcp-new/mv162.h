@@ -14,7 +14,6 @@ Motorola MVME162.
 #ifndef	INCmv162h
 #define	INCmv162h
 
-#include "drv/serial/z8530.h"
 #include "drv/multi/mcchip.h"
 #include "drv/vme/vmechip2.h"
 #include "drv/timer/timerDev.h"
