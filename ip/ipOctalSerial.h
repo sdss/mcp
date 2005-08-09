@@ -22,8 +22,7 @@ extern "C" {
 #endif
 
 #include "tyLib.h"
-#include "drv/serial/scc2698.h"
-
+#include "scc2698.h"
 
 /*
 * Bit values for parity settings 
