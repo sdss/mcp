@@ -80,7 +80,7 @@ give_semCmdPort(int force)		/* force the giving? */
 char *
 sem_take_cmd(char *str)			/* NOTUSED */
 {
-   TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
+   TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0, 0, 0);
    
    sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
    (void)take_semCmdPort(60, ublock->buff);
@@ -97,7 +97,7 @@ sem_take_cmd(char *str)			/* NOTUSED */
 char *
 sem_steal_cmd(char *str)		/* NOTUSED */
 {
-   TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0);
+   TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0, 0, 0);
    
    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
       (void)give_semCmdPort(1);
@@ -121,7 +121,7 @@ sem_give_cmd(char *str)
 {
    int force = 0;
    
-   TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0);
+   TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0, 0, 0);
    
    (void)sscanf(str, "%d", &force);
    
@@ -204,7 +204,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	  case 2:
 	    ublock->pid = pid;
 	    for(ptr = buff; *ptr != '\0'; ptr++) {
-	       if(isupper(*ptr)) { *ptr = tolower(*ptr); }
+	       if(isupper((int)*ptr)) { *ptr = tolower(*ptr); }
 	    }
 	    strncpy(ublock->uname, buff, UNAME_SIZE);
 
@@ -219,7 +219,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 }
 #if 0
       } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
-	 TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
+	 TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0, 0, 0);
 
 	 sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
 	 (void)take_semCmdPort(60, buff);
@@ -232,7 +232,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = buff;
 	 }
       } else if(strncmp(cmd, "SEM.STEAL", 8) == 0) {
-	 TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0);
+	 TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0, 0, 0);
 	 reply = NULL;
 	 
 	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
@@ -254,7 +254,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       } else if(strncmp(cmd, "SEM.GIVE", 8) == 0) {
 	 int force = 0;
 
-	 TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0);
+	 TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0, 0, 0);
 
 	 (void)sscanf(cmd, "SEM.GIVE %d", &force);
 
@@ -290,13 +290,13 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
 	 reply = buff;
       } else if(strncmp(cmd, "TELNET.RESTART", 11) == 0) {
-	 TRACE(5, "PID %d: command TELNET.RESTART", ublock->pid, 0);
+	 TRACE(5, "PID %d: command TELNET.RESTART", ublock->pid, 0, 0, 0);
 	 if(taskDelete(taskIdFigure("tTelnetd")) != OK) {
 	    TRACE(0, "Failed to kill tTelnetd task: %s (%d)",
-		  strerror(errno), errno);
+                  strerror(errno), errno, 0, 0);
 	    reply = "failed to kill tTelnetd";
 	 } else {
-	    telnetInit();		/* restart the telnet daemon */
+	    telnetdInit(10, 0);		/* [re]start the telnet daemon */
 	    reply = "restarted the tTelnetd";
 	 }
       } else {
@@ -315,13 +315,13 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       }
 
       if(reply == NULL) {
-	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0);
+	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0, 0, 0);
 	 reply = "";
       }
-      TRACE(16, "PID %d: reply = %s", ublock->pid, reply)
+      TRACE(16, "PID %d: reply = %s", ublock->pid, reply, 0, 0)
 
       ptr = reply + strlen(reply) - 1;	/* strip trailing white space */
-      while(ptr >= reply && isspace(*ptr)) {
+      while(ptr >= reply && isspace((int)*ptr)) {
 	 *ptr-- = '\0';
       }
       
