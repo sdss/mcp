@@ -110,7 +110,6 @@ mcp-new/cw.h -text
 mcp-new/data_collection.c -text
 mcp-new/data_collection.h -text
 mcp-new/display.c -text
-mcp-new/display.h -text
 mcp-new/fiducials.c -text
 mcp-new/frame.h -text
 mcp-new/instrument_lift.c -text
