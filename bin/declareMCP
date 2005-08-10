@@ -64,7 +64,8 @@ if [ X"$version" = X"" ]; then
 fi
 
 if [ "$MCP_DIR" = "" ]; then
-	for guess in /p/mcp/$version /p/$flavor/mcp/$version; do
+	for guess in /p/mcp/$version /linuxp/prd/mcp/$version \
+	/p/$flavor/mcp/$version; do
 		if [ -d $guess ]; then
 			MCP_DIR=$guess
 			break
