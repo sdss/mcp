@@ -5,13 +5,15 @@ tyBackspaceSet(0x7F)
 #
 memOptionsSet 0x1ff
 #
+_tzname = "GMT"
+#
 hostAdd "sdsshost.apo.nmsu.edu", "192.41.211.171"
 hostAdd "tai-time.apo.nmsu.edu", "192.41.211.156"
 hostAdd "utc-time.apo.nmsu.edu", "192.41.211.40"
 #
 routeAdd("0", "192.41.211.1")
 #
-nfsMount("sdsshost.apo.nmsu.edu", "/p", "/p")
+nfsMount("devel1.apo.nmsu.edu", "/linuxp", "/p")
 nfsMount("sdsshost.apo.nmsu.edu", "/home", "/home")
 nfsMount("sdsshost.apo.nmsu.edu", "/usrdevel", "/usrdevel")
 nfsMount("sdsshost.apo.nmsu.edu", "/mcptpm", "/mcptpm")
@@ -23,12 +25,12 @@ nfsAuthUnixSet "sdsshost.apo.nmsu.edu", 5036, 5530, 1, au_p
 #
 # Go to the version root
 #
-cd "/p/mcpbase"
+cd "/linuxp/mcpbase"
 #
 # Remove MCP main RAM Slave Map that is defined in the vxWorks image.
 #
-ld < vx_tools/objects/mvsup.mv162.o
-vmeSlaveMap1 0
+#ld < vx_tools/objects/mvsup.mv162.o
+#vmeSlaveMap1 0
 #
 # Load Ron's tracing tools from vx_tools
 #
@@ -83,7 +85,7 @@ traceOn 1, 31,31		/* trace task switches */
 #
 mur_set_proc_name "MCP"
 
-taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdsshost.apo.nmsu.edu"
+taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "devel1.apo.nmsu.edu"
 taskSpawn "tMurServerRetry", 100, 0, 10000, mur_server_retry, 30
 taskSpawn "tMurRouter", 70, 0, 20000, mur_route_start, 200
 
@@ -117,7 +119,7 @@ taskSpawn "tTimerTask", 5, 0, 7000, timerTask, 0,0
 #
 # IndustryPack serial drivers
 #
-ld < ip/ipOctalSerial.o
+#ld < ip/ipOctalSerial.o
 ld < ip/mv162IndPackInit.o
 ld < ip/systran/dio316.out
 ld < ip/systran/dac128v.out
@@ -149,7 +151,7 @@ dhpd (10,0xe000,"chasb")
 #
 # Load NTP code
 #
-ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
+#ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
 ld < util/ntp.o
 #
 # Load the MCP itself
@@ -217,11 +219,11 @@ DIO316_initialize(0xFFF58000,0xB0)
 tm_setup_wd()
 taskSpawn "ampMgt",45,0,2000,tm_amp_mgt
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
-taskSpawn "barcodcan",85,8,2500,cancel_read
-barcode_init(0xfff58000,0xf022,0xAA,2)
-taskDelay (60)
+#taskSpawn "barcodcan",85,8,2500,cancel_read
+#barcode_init(0xfff58000,0xf022,0xAA,2)
+#taskDelay (60)
 #azimuth barcode (2=altitude)
-barcode_open (3)
+#barcode_open (3)
 #barcode_serial 3
 #
 # Start the task that controls the umbilical tower; argument is
@@ -232,17 +234,17 @@ tUmbilicalInit 1
 # Load fiducials tables
 #
 az_cmd
-ms_read_cmd "/p/mcpbase/fiducial-tables/az.dat"
+ms_read_cmd "/linuxp/mcpbase/fiducial-tables/az.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
 alt_cmd
-ms_read_cmd "/p/mcpbase/fiducial-tables/alt.dat"
+ms_read_cmd "/linuxp/mcpbase/fiducial-tables/alt.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
 rot_cmd
-ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"
+ms_read_cmd "/linuxp/mcpbase/fiducial-tables/rot.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
@@ -254,7 +256,7 @@ taskSpawn "TCC",46,8,10000,tcc_serial,1
 #
 # Adjust tracing now that we're up
 #
-traceOff barcodcan, 16,16
+#traceOff barcodcan, 16,16
 traceTtyOn 0, 4
 #
 # List all tasks in case we get a task ID later; can help with debugging
