@@ -577,9 +577,13 @@ az_barcode_cmd(char *cmd)
 {
    sprintf(ublock->buff, "%d", use_az_barcode);
 			
+#if USE_BARCODE
    if(sscanf(cmd, "%d", &use_az_barcode) != 1) {
       return("ERR: AZ.BARCODE");
    }
+#else
+      return("ERR: AZ.BARCODE is disabled");
+#endif
 			
    return(ublock->buff);
 }
@@ -639,7 +643,9 @@ tLatch(const char *name)
    unsigned char dio316int_bit = 0;	/* bits set by DIO316_interrupt */
    int i;
    int fididx;
+#if USE_BARCODE
    int fididx1;
+#endif
    MCP_MSG msg;				/* message to pass around */
    int pos_is_mark;			/* is this a "real" mark on
 					   the rotator, not one of the dithered
@@ -824,8 +830,11 @@ tLatch(const char *name)
 	 get_velocity(2*AZIMUTH, &vel);
 	 semGive(semMEI);
 
+
+#if USE_BARCODE
 	 fididx1 = barcode_serial(3); /* backwards from what you'd think */
 	 fididx = barcode_serial(3);	/* read twice...not reliable */
+#endif
 	 if(use_az_barcode && (fididx <= 0 || fididx > 24)) {
 	    TRACE(0, "Invalid barcode in azimuth: fididx = %d, pos = %d",
 		  fididx, latchpos[latchidx].pos[1], 0, 0);
