@@ -55,6 +55,9 @@ struct SERIAL_CAN cancel[NPORT]= {
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0,NULL},
 			{FALSE,FALSE,0,0,SERIAL_DELAY,0,0,NULL}
 };
+
+
+#if USE_BARCODE
 struct BARCODE barcode[256];
 short barcodeidx=0;
 int BARCODE_verbose=FALSE;
@@ -62,6 +65,7 @@ int BARCODE_verbose=FALSE;
  * prototypes
  */
 void barcode_shutdown(int type);
+#endif
 
 /*
  * Send a string, possibly followed by a second string, then a \n\r to
@@ -112,23 +116,33 @@ sdss_receive(FILE *input_stream,
 	     char *buffer,
 	     int size)			/* size of buffer */
 {
+   /* Receive data from the TCC */
+   int status = 0;
+
+#define USE_GETC 1
+#if !USE_GETC
+   if(fgets(buffer, size, input_stream) == NULL) {
+      TRACE(2, "failed to read buffer from serial port %d: %s\n", port,
+			strerror(errno), 0, 0);
+      return -1;
+   }
+#else
    int c;
-   int status;
    char *ptr;
    int charcnt;
+   FILE *dbg = fopen_logfile("serial.out", "a");
+   if(dbg == NULL) {
+      dbg = stderr;
+   }
 
-   /* Initialize if necessary */
-   status = 0;
-
-   /* Receive data from the TCC */
-/*#define __USE_GETC__	1*/
-#ifndef __USE_GETC__
-   fgets(buffer, size, input_stream);
-#else
    ptr    = buffer;
    charcnt=0;
    while ( ((c = getc(input_stream)) != EOF)&&(charcnt<size))
    {
+#if 1
+      fprintf(dbg, "C: %03o %c\n", c, c); fflush(dbg);
+#endif
+
       *ptr=c;
       if ( *ptr == '\015' )                 /* All done */
          break;
@@ -139,7 +153,11 @@ sdss_receive(FILE *input_stream,
    while (*(--ptr)==0x20);
    ptr++;
    *ptr = '\0';
-#endif          /* End __USE_GETC__ */
+
+   if(dbg != stderr) {
+      fclose(dbg); dbg = NULL;
+   }
+#endif
 
    /* Check the length */
 #if 0
@@ -260,9 +278,10 @@ tcc_serial(int port)
 	   int i;
 	   fprintf(stderr, "semCMD: ");
 	   for(i = 0;i < nblock; i++) {
-	      fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]",
+	      fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]\n",
 		      ids[i], taskName(ids[i]), j);
-	      TRACE(3, "tcc_serial blocks on %s [%d]", taskName(ids[i]), j, 0, 0);
+	      TRACE(3, "tcc_serial blocks on %s [%d]",
+					taskName(ids[i]), j, 0, 0);
 	   }
 	   fprintf(stderr,"\n");
 	   
@@ -309,6 +328,9 @@ tcc_serial(int port)
 #endif
   }
 }                                             
+
+
+#if USE_BARCODE
 /*=========================================================================
 **=========================================================================
 **
@@ -688,7 +710,7 @@ print_barcode(void)
 **
 **=========================================================================
 */
-#ifdef __USE_GETC__
+#if USE_GETC
 void
 cancel_read(void)
 {
@@ -733,4 +755,5 @@ cancel_read(void)
     }
   }
 }
-#endif          /* End __USE_GETC__ */
+#endif
+#endif
