@@ -217,64 +217,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "Garbled USER.ID command";
 	    break;
 	 }
-#if 0
-      } else if(strncmp(cmd, "SEM.TAKE", 8) == 0) {
-	 TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0, 0, 0);
-
-	 sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
-	 (void)take_semCmdPort(60, buff);
-
-	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
-	    reply = "took semaphore";
-	 } else {
-	    sprintf(buff, "Unable to take semaphore owner %s: %s",
-		    semCmdPortOwner, strerror(errno));
-	    reply = buff;
-	 }
-      } else if(strncmp(cmd, "SEM.STEAL", 8) == 0) {
-	 TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0, 0, 0);
-	 reply = NULL;
-	 
-	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
-	    (void)give_semCmdPort(1);
-
-	    sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
-	    (void)take_semCmdPort(60, buff);
-	 }
-
-	 if(getSemTaskId(semCmdPort) == taskIdSelf()) {
-	    reply = "took semaphore";
-	 } else {
-	    if(reply == NULL) {
-	       sprintf(buff, "Unable to take semCmdPort semaphore: %s",
-		       strerror(errno));
-	       reply = buff;
-	    }
-	 }
-      } else if(strncmp(cmd, "SEM.GIVE", 8) == 0) {
-	 int force = 0;
-
-	 TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0, 0, 0);
-
-	 (void)sscanf(cmd, "SEM.GIVE %d", &force);
-
-	 (void)give_semCmdPort(0);
-
-	 if(getSemTaskId(semCmdPort) != taskIdSelf()) {
-	    reply = "gave semaphore";
-	 } else {
-	    if(force) {
-	       (void)give_semCmdPort(1);
-	    }
-
-	    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
-	       reply = "gave semaphore";
-	    } else {
-	       sprintf(buff, "Unable to give semaphore: %s", strerror(errno));
-	    }
-	    reply = buff;
-	 }
-#endif
       } else if(strncmp(cmd, "SEM.SHOW", 8) == 0) {
 	 int full;
 	 if(sscanf(cmd, "SEM.SHOW %d", &full) == 1 && full) {
