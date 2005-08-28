@@ -1,0 +1,46 @@
+#!/usr/bin/env perl
+
+if(grep("^(-h|--help)", @ARGV)) {
+   usage();
+   exit 1;
+}
+
+if(@ARGV < 2) {
+   printf STDERR "Too few arguments\n";
+   usage();
+   exit 1;
+}
+
+open(FID, "$ARGV[0]") or die("Failed to open $ARGV[0]: $!\n");
+$dval = eval "int($ARGV[1] + 0.5)";
+
+while (($line = <FID>)) {
+   if ($line =~ /^\#/) {
+      print $line;
+      if ($line =~ /^\# Arguments/) {
+	 print "# fiddling fiducials:\t" . join(" ", @ARGV) . "\n";
+      }
+   } else {
+      ($fid, $val1, undef, $err1, $n1, $val2, undef, $err2, $n2) = split(" ", $line);
+      $val1 += $dval; $val2 += $dval;
+      printf "%-3d    %12d +- %5.1f %3d  %12d +- %5.1f %3d\n",
+          $fid, $val1, $err1, $n1,  $val2, $err2, $n2;
+   }
+}
+
+###############################################################################
+
+sub usage
+{
+   printf STDERR "Usage: fiddle-fiducial FILE OFFSET\n";
+   printf STDERR "Add OFFSET to all fiducial values in FILE\n";
+   printf STDERR "\n";
+   printf STDERR "E.g.\n";
+   printf STDERR "   fiddle-fiducial rot.dat 0.14*3600/0.021315787526207226\n";
+   printf STDERR "Where 0.14 is the desired offset in degrees, and 0.021...\n";
+   printf STDERR "is the rotator scale\n";
+   printf STDERR "If you'd prefer, you could write\n";
+   printf STDERR "   fiddle-fiducial rot.dat 23644\n";
+   printf STDERR "You probably really want to save the results:\n";
+   printf STDERR "   fiddle-fiducial rot.dat 23644 > rot.dat-new\n";
+}
