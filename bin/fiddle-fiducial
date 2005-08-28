@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-if(grep("^(-h|--help)", @ARGV)) {
+if(grep(/^(-h|--help)/, @ARGV)) {
    usage();
    exit 1;
 }
