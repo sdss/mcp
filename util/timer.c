@@ -57,7 +57,7 @@ static void initStats(void)
 static void
 intRoutine()
 {
-   TRACE0(16, "intRoutine: intFunc = %p", intFunc, 0, 0, 0);
+   TRACE0(16, "intRoutine: intFunc = %p", intFunc, 0);
 	stat.totalInterrupts++;
 
 	if (intFunc)
