@@ -7,25 +7,21 @@ memOptionsSet 0x1ff
 #
 _tzname = "GMT"
 #
-hostAdd "sdsshost.apo.nmsu.edu", "192.41.211.171"
-hostAdd "tai-time.apo.nmsu.edu", "192.41.211.156"
-hostAdd "utc-time.apo.nmsu.edu", "192.41.211.40"
+hostAdd "sdsshost2.apo.nmsu.edu", "10.25.1.3"
+hostAdd "tai-time.apo.nmsu.edu", "10.25.1.13"
+hostAdd "utc-time.apo.nmsu.edu", "10.25.1.3"
 #
-routeAdd("0", "192.41.211.1")
+nfsMount("sdsshost2.apo.nmsu.edu", "/linuxp", "/linuxp")
+nfsMount("sdsshost2.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
-nfsMount("devel1.apo.nmsu.edu", "/linuxp", "/p")
-nfsMount("sdsshost.apo.nmsu.edu", "/home", "/home")
-nfsMount("sdsshost.apo.nmsu.edu", "/usrdevel", "/usrdevel")
-nfsMount("sdsshost.apo.nmsu.edu", "/mcptpm", "/mcptpm")
-#
-# Add user vxboot (pid 5036, gid 5530) to group products
+# Add user vxworks (pid 10003, gid 3532) to group products
 #
 au_p = malloc(4); *au_p = 4525		/* group products */
-nfsAuthUnixSet "sdsshost.apo.nmsu.edu", 5036, 5530, 1, au_p
+nfsAuthUnixSet "sdsshost2.apo.nmsu.edu", 10003, 3532, 1, au_p
 #
 # Go to the version root
 #
-cd "/linuxp/mcpbase"
+cd "/linuxp/prd/mcpbase"
 #
 # Remove MCP main RAM Slave Map that is defined in the vxWorks image.
 #
@@ -34,6 +30,7 @@ cd "/linuxp/mcpbase"
 #
 # Load Ron's tracing tools from vx_tools
 #
+# traceClk = 0
 ld < vx_tools/lib/vxt.mv162.o
 #
 # Load murmur
@@ -85,7 +82,7 @@ traceOn 1, 31,31		/* trace task switches */
 #
 mur_set_proc_name "MCP"
 
-taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "devel1.apo.nmsu.edu"
+taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdsshost2.apo.nmsu.edu"
 taskSpawn "tMurServerRetry", 100, 0, 10000, mur_server_retry, 30
 taskSpawn "tMurRouter", 70, 0, 20000, mur_route_start, 200
 
@@ -147,11 +144,11 @@ dhpd (10,0xe000,"chasb")
 # Load slalib for the sake of the MJD.  We now use our copy as this
 # version doesn't appear to be reentrant
 #
-# ld < /p/tpmbase/bin/mv162/slaLib
+# ld < /linuxp/prd/tpmbase/bin/mv162/slaLib
 #
 # Load NTP code
 #
-#ld < /p/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
+#ld < /linuxp/prd/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
 ld < util/ntp.o
 #
 # Load the MCP itself
@@ -234,17 +231,17 @@ tUmbilicalInit 1
 # Load fiducials tables
 #
 az_cmd
-ms_read_cmd "/linuxp/mcpbase/fiducial-tables/az.dat"
+ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/az.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
 alt_cmd
-ms_read_cmd "/linuxp/mcpbase/fiducial-tables/alt.dat"
+ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/alt.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
 rot_cmd
-ms_read_cmd "/linuxp/mcpbase/fiducial-tables/rot.dat"
+ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/rot.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
