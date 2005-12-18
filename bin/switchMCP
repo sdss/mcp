@@ -39,8 +39,8 @@ done
 #
 # And for required products
 #
-for d in ASTRODA MURMUR_CLIENT_VX VX_TOOLS; do
-    ld=`echo $d | tr A-Z a-z`
+for d in MURMUR_CLIENT_VX VX_TOOLS; do
+    ld=`echo $d | tr '[A-Z]' '[a-z]'`
     if [ X`eval echo \$''${d}_DIR` = X"" ]; then
 	echo "Please setup $ld and try again" >&2
 	exit 1
@@ -57,7 +57,7 @@ done
 # Check the IP addresses in the mcp.login script
 #
 code=0
-for host in sdsshost tai-time utc-time; do
+for host in sdsshost2 tai-time utc-time; do
     ip=`awk "/hostAdd .$host\.apo\.nmsu\.edu/ { print \\$3 }" etc/mcp.login`
     ns_ip=`nslookup $host | \
      perl -ne 'if(/Server/) { $_=<> } elsif(/^Address:\s*(\S+)/) { print $1 }'`
