@@ -25,6 +25,8 @@ int DID48_Init = FALSE;
 int tm_DIO316;
 int DIO316_Init = FALSE;
 
+SEM_ID ppsSem;
+
 /*=========================================================================
 **=========================================================================
 **
@@ -135,7 +137,8 @@ test_dt(int t2,int t1)
  */
 long SDSStime = -1;			/* integral part of TAI */
 
-static void
+
+void
 setSDSStimeFromNTP(int quiet)
 {
    const char *taiServer = "tai-time.apo.nmsu.edu";
@@ -143,59 +146,68 @@ setSDSStimeFromNTP(int quiet)
    struct tm tm;
    time_t t;
    struct timeval tai;			/* TAI from NTP */
-/*
- * Wait until we are more than 200ms away from a GPS tick
- */
-   {
-      int delay = 0;			/* number of ticks to delay */
-      double sdss_timep1 = sdss_get_time() + 1; /* SDSStime may == -1 */
-      float sdss_frac_s = sdss_timep1 - (int)sdss_timep1;
+   int    tries = 3;
+   int    ret = ERROR;
 
-      if(sdss_frac_s < 0.20) {
-	 delay = 60*(0.2 - sdss_frac_s);
-      } else if(sdss_frac_s > 0.80) {
-	 delay = 60*(1.2 - sdss_frac_s);
-      }
-      
-      if(delay > 0) {
-	 if(!quiet) {
-	    fprintf(stderr,"setSDSStimeFromNTP: Delaying %d ticks\n", delay);
-	 }
-	 
-	 taskDelay(delay);
-      }
-   }
+
 /*
  * Find how many seconds it is after midnight TAI, and set SDSStime accordingly
  */
-   taskLock();
    
-   if(setTimeFromNTP(taiServer, 0, 1, 0, &tai) < 0) {
-      TRACE(0, "failed to get time from %s: %s", taiServer, strerror(errno), 0, 0);
-      taskUnlock();
-      return;
-   }
-   
-   t = tai.tv_sec;
-   tm = *localtime(&t);
-   
-   SDSStime = tm.tm_sec + 60*(tm.tm_min + 60*tm.tm_hour);
-   
-   if(!quiet) {
-      printf("RHL setting:  %d %d %d %d %d %f\n",
-	     tm.tm_mon + 1, tm.tm_mday, 1900 + tm.tm_year,
-	     tm.tm_hour, tm.tm_min,
-	     tm.tm_sec + 1e-6*timer_read(1));
+   while (tries-- > 0 && ret != OK) {
+     /* Give ourselves the largest good window by syncing to the next 1PPS tick. */
+     semTake(ppsSem, NO_WAIT);	/* semClear is not declared, the sillies. */
+     if (semTake(ppsSem, sysClkRateGet() * 2) < 0) {
+       TRACE(0, "NO 1PPS !!!", 0, 0);
+       return;
+     }
+     /* And now wait long enough to get over the ntp inaccuracies. */
+     taskDelay(sysClkRateGet() * 0.2);
+
+     taskLock();
+
+     /* I know, that 1.0 timeout should be < 1.0, but there's a bug in sntpcLib */
+     ret = setTimeFromNTP(taiServer, 1.0, 0, 0, &tai);
+     if (ret != OK) {
+       logMsg("failed to get time from %s: %s\n", 
+	      (int)taiServer, (int)strerror(errno),0,0,0,0);
+       taskUnlock();
+       continue;
+     }
+
+     t = tai.tv_sec;
+     tm = *localtime(&t);
+
+     SDSStime = tm.tm_sec + 60*(tm.tm_min + 60*tm.tm_hour);
+
+     if(!quiet) {
+       fprintf(stderr,"RHL setting:  %d %d %d %d %d %f\n",
+	       tm.tm_mon + 1, tm.tm_mday, 1900 + tm.tm_year,
+	       tm.tm_hour, tm.tm_min,
+	       tm.tm_sec + 1e-6*timer_read(1));
+     }
+
+     taskUnlock();
    }
 
-   taskUnlock();
+   if (ret == ERROR) {
+     logMsg("failed to get time from %s: %s\n", 
+	    (int)taiServer, (int)strerror(errno),0,0,0,0);
+     TRACE(0, "failed to get time from %s: %s", taiServer, strerror(errno));
+     return;
+   }
+
+   axis_stat[AZIMUTH][1].clock_not_set = 
+     axis_stat[ALTITUDE][1].clock_not_set =
+     axis_stat[INSTRUMENT][1].clock_not_set = 0;
+
 /*
  * synchronise the system clock to UTC; this seems as good a place as any
  */
    taskLock();
 
-   if(setTimeFromNTP(utcServer, 0, 1, 0, NULL) < 0) {
-      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno), 0, 0);
+   if(setTimeFromNTP(utcServer, 1.0, 3, 0, NULL) < 0) {
+      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno));
    }
 
    taskUnlock();
@@ -301,13 +313,13 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    Industry_Pack (addr,SYSTRAN_DIO316,&ip);
    for(i = 0; i < MAX_SLOTS; i++) { 
       if (ip.adr[i]!=NULL) {
-	 TRACE(30, "Found at %d, %p", i, ip.adr[i], 0, 0);
+	 TRACE(30, "Found at %d, %p", i, ip.adr[i]);
 	 tm_DIO316=DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
 	 break;
       }
    }
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing DIO316 at %p****", addr, 0, 0, 0);
+      TRACE(0, "****Missing DIO316 at %p****", addr, 0);
       return ERROR;
    }
    
@@ -324,7 +336,7 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
 		      (VOIDFUNCPTR)DIO316_interrupt, DIO316_TYPE);
    assert(stat == OK);
    TRACE(30, "DIO316 vector = %d, interrupt address = %p\n",
-	  vecnum, DIO316_interrupt, 0, 0);
+	  vecnum, DIO316_interrupt);
    rebootHookAdd((FUNCPTR)axis_DIO316_shutdown);
 
 #if 0
@@ -386,13 +398,13 @@ DIO316_interrupt(int type)
 {
    unsigned char dio316int_bit = 0;
 
-   TRACE0(16, "DIO316_interrupt", 0, 0, 0, 0);
+   TRACE0(16, "DIO316_interrupt", 0, 0);
 
    DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
       TRACE0(0, "NIST_INT bit is set in dio316_interrupt: 0x%x",
-	     dio316int_bit, 0, 0, 0);
+	     dio316int_bit, 0);
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
@@ -414,10 +426,10 @@ DIO316_interrupt(int type)
 	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);
 	 if(stat != OK) {
-	    TRACE0(0, "Failed to send msg to msgLatched: %d", errno, 0, 0, 0);
+	    TRACE0(0, "Failed to send msg to msgLatched: %d", errno, 0);
 	 }
       }
-      TRACE0(8, "Sent message to msgLatched at %d", time, 0, 0, 0);
+      TRACE0(8, "Sent message to msgLatched at %d", time, 0);
    }
 }
 
@@ -466,15 +478,30 @@ DID48_interrupt(int type)
    int dt = 200;			/* maximum allowed fuzz in arrival
 					   of GPS pulse; microseconds */
 
-   TRACE0(16, "DID48_interrupt", 0, 0, 0, 0);
+   TRACE0(16, "DID48_interrupt", 0, 0);
    
    DID48_Read_Port(tm_DID48,5,&did48int_bit);
    if(did48int_bit & NIST_INT) {
+      /* Wake the setSDSStimeFromNTP routine up at the tick. */
+      semGive(ppsSem);
+
       if(SDSStime < 0) {		/* we haven't set time yet */
+	 axis_stat[AZIMUTH][0].clock_not_set = 
+	   axis_stat[ALTITUDE][0].clock_not_set =
+	   axis_stat[INSTRUMENT][0].clock_not_set = 1;
+	    
+	 axis_stat[AZIMUTH][1].clock_not_set = 
+	   axis_stat[ALTITUDE][1].clock_not_set =
+	   axis_stat[INSTRUMENT][1].clock_not_set = 1;
+
+	 TRACE0(0, "DID48 interrupt with no set time", 0, 0);
 	 timer_start(1);		/* reset microsecond timer */
+
+	 /* Keep the task from spinning. Clears interrupts? */
+	 DID48_Write_Reg (tm_DID48,4,0x20);
+	 
 	 return;
       }
-
       SDSS_cnt++;
 /*
  * N.b. taskLock() is not callable from interrupt routines
@@ -485,11 +512,11 @@ DID48_interrupt(int type)
 
       if(NIST_sec < 1000000 - dt) {
 	 if(SDSS_cnt > 1) {		/* not just the first partial second */
-	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0, 0, 0);
+	    TRACE0(0, "Extra GPS pulse? NIST_sec = %d", NIST_sec, 0);
 	 }
       } else if(NIST_sec > 1000000 + dt) {
 	 if(SDSS_cnt > 1) {		/* not just the first partial second */
-	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0, 0, 0);
+	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
 	    
 	    axis_stat[AZIMUTH][0].clock_loss_signal = 
 	      axis_stat[ALTITUDE][0].clock_loss_signal =
@@ -534,17 +561,19 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    Industry_Pack (addr,SYSTRAN_DID48,&ip);
    for(i = 0; i < MAX_SLOTS; i++) {
       if(ip.adr[i] != NULL) {
-	 TRACE(30, "Found at %d, %p", i, ip.adr[i], 0, 0);
+	 TRACE(30, "Found at %d, %p", i, ip.adr[i]);
 	 tm_DID48 = DID48Init((struct DID48 *)ip.adr[i], vecnum);
 	 break;
       }
    }
 
    if(i == MAX_SLOTS) {
-      TRACE(0, "****Missing DID48 at %p****", addr, 0, 0, 0);
+      TRACE(0, "****Missing DID48 at %p****", addr, 0);
       return ERROR;
    }
    
+   ppsSem = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
+
    DID48_Init = TRUE;
 #if 0
    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
@@ -555,7 +584,7 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
 		     (VOIDFUNCPTR)DID48_interrupt, DID48_TYPE);
    assert(stat == OK);
    TRACE(30, "DID48 vector = %d, interrupt address = %p",
-	 vecnum, DID48_interrupt, 0, 0);
+	 vecnum, DID48_interrupt);
    
    rebootHookAdd((FUNCPTR)axis_DID48_shutdown);
    
