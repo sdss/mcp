@@ -3,7 +3,7 @@
 /*
  * The MCP's NTP command
  */
-int setTimeFromNTP(const char *NTPserver_name, int retryDelay,		
+int setTimeFromNTP(const char *NTPserver_name, float timeout,		
 		   unsigned long retryCnt, int forceStep, struct timeval *t);
 
 #endif
