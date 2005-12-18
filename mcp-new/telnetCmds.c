@@ -80,7 +80,7 @@ give_semCmdPort(int force)		/* force the giving? */
 char *
 sem_take_cmd(char *str)			/* NOTUSED */
 {
-   TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0, 0, 0);
+   TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
    
    sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
    (void)take_semCmdPort(60, ublock->buff);
@@ -97,7 +97,7 @@ sem_take_cmd(char *str)			/* NOTUSED */
 char *
 sem_steal_cmd(char *str)		/* NOTUSED */
 {
-   TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0, 0, 0);
+   TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0);
    
    if(getSemTaskId(semCmdPort) != taskIdSelf()) {
       (void)give_semCmdPort(1);
@@ -121,7 +121,7 @@ sem_give_cmd(char *str)
 {
    int force = 0;
    
-   TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0, 0, 0);
+   TRACE(5, "PID %d: command SEM.GIVE", ublock->pid, 0);
    
    (void)sscanf(str, "%d", &force);
    
@@ -232,10 +232,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
 	 reply = buff;
       } else if(strncmp(cmd, "TELNET.RESTART", 11) == 0) {
-	 TRACE(5, "PID %d: command TELNET.RESTART", ublock->pid, 0, 0, 0);
+	 TRACE(5, "PID %d: command TELNET.RESTART", ublock->pid, 0);
 	 if(taskDelete(taskIdFigure("tTelnetd")) != OK) {
 	    TRACE(0, "Failed to kill tTelnetd task: %s (%d)",
-                  strerror(errno), errno, 0, 0);
+                  strerror(errno), errno);
 	    reply = "failed to kill tTelnetd";
 	 } else {
 	    telnetdInit(10, 0);		/* [re]start the telnet daemon */
@@ -257,10 +257,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       }
 
       if(reply == NULL) {
-	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0, 0, 0);
+	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0);
 	 reply = "";
       }
-      TRACE(16, "PID %d: reply = %s", ublock->pid, reply, 0, 0)
+      TRACE(16, "PID %d: reply = %s", ublock->pid, reply);
 
       ptr = reply + strlen(reply) - 1;	/* strip trailing white space */
       while(ptr >= reply && isspace((int)*ptr)) {

@@ -78,7 +78,7 @@ instrument_id(void)
       if(notify == 0) {
 	 static char buff[20];
 	 sprintf(buff,"%d %d %d", inst_id1, inst_id2, inst_id3);
-	 TRACE(2, "Inconsistent instrument ID switches: %s", buff, 0, 0, 0);
+	 TRACE(2, "Inconsistent instrument ID switches: %s", buff, 0);
 	 return(-1);
       }
    }
@@ -386,14 +386,14 @@ umbilical_move(int val)
    
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical_move: failed to get semSLC: %s (%d)",
-	    strerror(errno), errno, 0, 0);
+	    strerror(errno), errno);
       return(-1);
    }
    
    err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(tm_ctrl)/2);
    if(err) {
       semGive(semSLC);
-      TRACE(0, "umbilical_move: error reading slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "umbilical_move: error reading slc: 0x%04x", err, 0);
       return(err);
    }
    
@@ -405,7 +405,7 @@ umbilical_move(int val)
    semGive (semSLC);
 
    if(err) {
-      TRACE(0, "umbilical_move: error writing slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "umbilical_move: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -437,14 +437,14 @@ umbilical_onoff(int val)
              
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical: failed to get semSLC: %s (%d)",
-	    strerror(errno), errno, 0, 0);
+	    strerror(errno), errno);
       return(-1);
    }
 
    err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    if(err) {
       semGive(semSLC);
-      TRACE(0, "umbilical: error reading slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "umbilical: error reading slc: 0x%04x", err, 0);
       return(err);
    }
 
@@ -456,7 +456,7 @@ umbilical_onoff(int val)
    semGive(semSLC);
 
    if(err) {
-      TRACE(0, "umbilical: error writing slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "umbilical: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -489,7 +489,7 @@ umbilical_position(void)
    
    if(semTake(semSLC,60) == ERROR) {
       TRACE(0, "umbilical_position: failed to get semSLC: %s (%d)",
-	    strerror(errno), errno, 0, 0);
+	    strerror(errno), errno);
       return(-1);
    }
 
@@ -497,7 +497,7 @@ umbilical_position(void)
    semGive(semSLC);
    
    if(err) {
-      TRACE(0, "umbilical_position: error reading slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "umbilical_position: error reading slc: 0x%04x", err, 0);
       return(err);
    }
 
@@ -531,7 +531,7 @@ umbilical_move_pos(int pos)		/* desired tower position (counts) */
    umbilical_abort = 0;
    
    position = umbilical_position();
-   TRACE(6, "Umbilical Position %d move to %d", position, pos, 0, 0);
+   TRACE(6, "Umbilical Position %d move to %d", position, pos);
 
    if(pos < position) {			/* move down */
       umbilical_move_dn();
@@ -546,14 +546,14 @@ umbilical_move_pos(int pos)		/* desired tower position (counts) */
 	 }
 	    
 	 TRACE(6, "Umbilical Position %d moving down to %d",
-	       position, pos, 0, 0);
+	       position, pos);
 	 if((lastpos - position) < 4) {
 	    position = umbilical_position(); taskDelay(2);
 
 	    if((lastpos - position) < 4) {
 	       umbilical_off();
 	       TRACE(6, "umbilical_move_pos: stopped moving down to %d (%d)",
-		     position, lastpos - positio, 0, 0n)
+		     position, lastpos - position);
 		 return(-1);
 	    }
 	 }
@@ -573,7 +573,7 @@ umbilical_move_pos(int pos)		/* desired tower position (counts) */
 	 }
 	    
 	 TRACE(6, "Umbilical Position %d moving up to %d",
-	       position, pos, 0, 0);
+	       position, pos);
 	 
 	 position = umbilical_position(); taskDelay(2);
 	 
@@ -581,7 +581,7 @@ umbilical_move_pos(int pos)		/* desired tower position (counts) */
 	    if(position - lastpos < 4) {
 	       umbilical_off();
 	       TRACE(6, "umbilical_move_pos: stopped moving up to %d (%d)",
-		     position, position - lastpo, 0, 0s)
+		     position, position - lastpos);
 		 return(-1);
 	    }
 	 }
@@ -685,7 +685,7 @@ tUmbilical(void)
 	 
       position = umbilical_position();
       TRACE(6, "Umbilical Position %d move to %d",
-	    position, umbilical_set_position, 0, 0);
+	    position, umbilical_set_position);
 
       if(abs(position - umbilical_set_position) <
 					      min_motion*tower_encoder_scale) {
@@ -721,12 +721,12 @@ tUmbilical(void)
 	 }
 	       
 	 TRACE(6, "Umbilical Position %d moving down to %d",
-	       position, umbilical_set_position, 0, 0);
+	       position, umbilical_set_position);
 
 	 if(abs(lastpos - position) < 4) {
 	    umbilical_off();
 	    TRACE(6, "umbilical_move_pos: stopped moving down to %d (%d)",
-		  position, lastpos - position, 0, 0)
+		  position, lastpos - position);
 	      break;
 	 }
 

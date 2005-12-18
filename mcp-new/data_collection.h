@@ -1612,7 +1612,8 @@ struct AXIS_STAT {
 	unsigned  : 4;
 	unsigned ms_on_correction_too_large : 1;
 
-	unsigned  : 6;
+	unsigned  : 5;
+	unsigned clock_not_set : 1;
 	unsigned clock_slow_signal : 1;
 	unsigned clock_loss_signal : 1;
 

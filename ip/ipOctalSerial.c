@@ -603,7 +603,7 @@ LOCAL void octSerInt
 	char    inChar;
 	int	i;
 
-	TRACE0(16, "octSerInt", 0, 0, 0, 0);
+	TRACE0(16, "octSerInt", 0, 0);
 
 	/* We need to find out which channel interrupted.  */
 	for(i=0; i<N_CHANNELS; i++, pOctSerDv++)	{

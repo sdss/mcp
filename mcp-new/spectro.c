@@ -49,7 +49,7 @@ tAlgnClmp(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgAlignClamp", 0, 0, 0, 0);
+      TRACE(8, "read msg on msgAlignClamp", 0, 0);
 /*
  * What sort of message?
  *   alignClamp_type        A request from the outside world to move clamp
@@ -66,26 +66,26 @@ tAlgnClmp(void)
 	    continue;
 	 } else {			/* Failure; turn off and disengage */
 	    TRACE(0, "Alignment clamp did NOT engage..."
-		  "turning off and disengaging", 0, 0, 0, 0);
+		  "turning off and disengaging", 0, 0);
 	    engage = 0;
 	 }
 	 break;
        default:
-	 TRACE(0, "Impossible message type: %d", msg.type, 0, 0, 0);
+	 TRACE(0, "Impossible message type: %d", msg.type, 0);
 	 continue;	 
       }
 /*
  * Time to do the work
  */
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno, 0, 0);
+	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
 	 continue;
       }
       
       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
-	 TRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0, 0, 0);
+	 TRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0);
 	 continue;
       }
       
@@ -104,18 +104,18 @@ tAlgnClmp(void)
       semGive(semSLC);
    
       if(err) {
-	 TRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0, 0, 0);
+	 TRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0);
 	 continue;
       }
       
       if(engage) {			/* wait, then see if we succeeded */
 	 int wait = 15;			/* how many seconds to wait */
-	 TRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0, 0, 0);
+	 TRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0);
 	 
 	 if(timerSend(alignClampCheck_type, tmr_e_add,
 		      wait*60, alignClampCheck_type, msgAlignClamp) == ERROR) {
 	    TRACE(0, "Failed to send message to timer task: %s (%d)",
-		  strerror(errno), errno, 0, 0);
+		  strerror(errno), errno);
 	 }
       }
    }
@@ -153,25 +153,25 @@ tSpecDoor(void)
       ret = msgQReceive(msgSpecDoor, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg in tSpecDoor", 0, 0, 0, 0);
+      TRACE(8, "read msg in tSpecDoor", 0, 0);
       assert(msg.type == specDoor_type);
       spec = msg.u.specDoor.spec;
       
       if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
-	 TRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0, 0, 0);
+	 TRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0);
 	 continue;
       }
 
       if(semTake(semSLC,60) == ERROR) {
 	 TRACE(0, "tSpecDoor: SP%d unable to take semSLM semaphore: %s",
-	       spec, strerror(errno), 0, 0);
+	       spec, strerror(errno));
 	 continue;
       }
 
       err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
-	 TRACE(0, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err, 0, 0);
+	 TRACE(0, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err);
 	 continue;
       }
       swab ((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
@@ -205,7 +205,7 @@ tSpecDoor(void)
 	 }
 	 break;
        default:
-	 TRACE(0, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op, 0, 0);
+	 TRACE(0, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op);
 	 break;
       }
       
@@ -214,7 +214,7 @@ tSpecDoor(void)
 
       semGive(semSLC);
       if(err) {
-	 TRACE(0, "tSpecDoor: SP%d error writing slc: 0x%04x", spec + 1, err, 0, 0);
+	 TRACE(0, "tSpecDoor: SP%d error writing slc: 0x%04x", spec + 1, err);
 	 continue;
       }
    }
@@ -311,7 +311,7 @@ tm_slithead(short val)
              
    if(semTake (semSLC,60) == ERROR) {
       printf("tm_slithead: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0, 0, 0);
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -342,7 +342,7 @@ tm_slithead(short val)
    err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
    if(err) {
-      TRACE(0, "tm_slithead: error writing slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "tm_slithead: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -370,7 +370,7 @@ tm_slit_status()
 
    if(semTake(semSLC,60) == ERROR) {
       printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0, 0, 0);
+      TRACE(0, "Unable to take semaphore: %d", errno, 0);
       return(-1);
    }
 
@@ -455,7 +455,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    int err;
    int val1, val2;			/* operations for screen[12] */
              
-   TRACE(3, "Setting FFS: %d %d", val, enab, 0, 0); /* XXX */
+   TRACE(3, "Setting FFS: %d %d", val, enab); /* XXX */
 /*
  * What do they want us to do?
  */
@@ -482,7 +482,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 	sdssdc.status.b10.w1.mcp_ff_scrn2_opn_cmd != val2))) {
       int ntick = sysClkRateGet();		/* 1 second */
 
-      TRACE(3, "Disabling FFS for %d ticks: %d", ntick, val, 0, 0);
+      TRACE(3, "Disabling FFS for %d ticks: %d", ntick, val);
       set_mcp_ffs_bits(val, 0);
 
       taskDelay(ntick);
@@ -491,14 +491,14 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
  * Do what is asked of us
  */
    if(semTake(semSLC,60) == ERROR) {
-      TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno, 0, 0);
+      TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       return(-1);
    }
 
    err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
    if(err) {
       semGive (semSLC);
-      TRACE(0, "set_mcp_ffs_bits: error reading slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "set_mcp_ffs_bits: error reading slc: 0x%04x", err, 0);
       return err;
    }
    swab((char *)ctrl, (char *)&b10, sizeof(b10));
@@ -522,7 +522,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
       
    if(err) { 
       semGive (semSLC);
-      TRACE(0, "set_mcp_ffs_bits: error writing slc: 0x%04x", err, 0, 0, 0);
+      TRACE(0, "set_mcp_ffs_bits: error writing slc: 0x%04x", err, 0);
       return err;
    }
 
@@ -564,12 +564,12 @@ ffs_open_status(int which,
       nopen = nopen1 + nopen2;
       if(nopen >= 6) {
 	 if(!silent && nopen != 8) {
-	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0, 0, 0);
+	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nopen != 0) {
-	    TRACE(0, "%d flat field screen petals are still open", nopen, 0, 0, 0);
+	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
 	 }
 	 return(FALSE);
       }
@@ -577,12 +577,12 @@ ffs_open_status(int which,
       nopen = (which & 0x1) ? nopen1 : nopen2;
       if(nopen >= 3) {
 	 if(!silent && nopen != 4) {
-	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0, 0, 0);
+	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nopen != 0) {
-	    TRACE(0, "%d flat field screen petals are still open", nopen, 0, 0, 0);
+	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
 	 }
 	 return(FALSE);
       }
@@ -609,12 +609,12 @@ ffs_close_status(int which,
       nclosed = nclosed1 + nclosed2;
       if(nclosed >= 6) {
 	 if(!silent && nclosed != 8) {
-	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0, 0, 0);
+	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nclosed != 0) {
-	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0, 0, 0);
+	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
 	 }
 	 return(FALSE);
       }
@@ -622,12 +622,12 @@ ffs_close_status(int which,
       nclosed = (which & 0x1) ? nclosed1 : nclosed2;
       if(nclosed >= 3) {
 	 if(!silent && nclosed != 4) {
-	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0, 0, 0);
+	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nclosed != 0) {
-	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0, 0, 0);
+	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
 	 }
 	 return(FALSE);
       }
@@ -652,7 +652,7 @@ tFFS(void)
       ret = msgQReceive(msgFFS, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgFFS", 0, 0, 0, 0);
+      TRACE(8, "read msg on msgFFS", 0, 0);
 /*
  * What sort of message?
  *   FFS_type            A request from the outside world to move screens
@@ -669,24 +669,24 @@ tFFS(void)
 	    if(FFS_vals[i] == FFS_OPEN) {
 	       if(!ffs_open_status(i, 0)) {
 		  move_ok = 0;
-		  TRACE(0, "FFS %d did NOT all open; closing", i, 0, 0, 0);
+		  TRACE(0, "FFS %d did NOT all open; closing", i, 0);
 		  ffsclose_cmd(NULL);
 	       }
 	    } else {
 	       if(!ffs_close_status(i, 0)) {
 		  move_ok = 0;
-		  TRACE(0, "FFS %d did NOT all close", i, 0, 0, 0);
+		  TRACE(0, "FFS %d did NOT all close", i, 0);
 	       }
 	    }
 	 }
 
 	 if(move_ok) {
-	    TRACE(1, "Flat field screen moved OK", 0, 0, 0, 0);
+	    TRACE(1, "Flat field screen moved OK", 0, 0);
 	 }
 
 	 continue;
       } else {
-	 TRACE(0, "Impossible message type: %d", msg.type, 0, 0, 0);
+	 TRACE(0, "Impossible message type: %d", msg.type, 0);
 	 continue;
       }
 /*
@@ -724,13 +724,13 @@ tFFS(void)
 	 continue;
       }
       
-      TRACE(1, "Waiting %ds for flat field screen to move", wait, 0, 0, 0);
+      TRACE(1, "Waiting %ds for flat field screen to move", wait, 0);
 /*
  * And schedule the check
  */
       if(timerSend(msg_type, tmr_e_add, wait*60, msg_type, msgFFS) == ERROR) {
 	 TRACE(0, "Failed to send message to timer task: %s (%d)",
-	       strerror(errno), errno, 0, 0);
+	       strerror(errno), errno);
       }
    }
 }
@@ -754,7 +754,7 @@ tLamps(void)
       ret = msgQReceive(msgLamps, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgLamps", 0, 0, 0, 0);
+      TRACE(8, "read msg on msgLamps", 0, 0);
       assert(msg.type == lamps_type);
       
       b10_l0 = -1;
@@ -775,7 +775,7 @@ tLamps(void)
 	 b10_l0 = 0;
 	 break;
        default:
-	 TRACE(0, "Impossible lamp type: %d", msg.type, 0, 0, 0);
+	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
 	 break;
       }
 
@@ -785,7 +785,7 @@ tLamps(void)
 
       if(semTake(semSLC,60) == ERROR) {
 	 printf("Unable to take semaphore: %s", strerror(errno));
-	 TRACE(0, "Unable to take semaphore: %d", errno, 0, 0, 0);
+	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
       }
 
       if(b10_l0) {
@@ -818,7 +818,7 @@ tLamps(void)
 	 tm_ctrl1.mcp_im_ff_wht_req = msg.u.lamps.on_off;
 	 break;
        default:
-	 TRACE(0, "Impossible lamp type: %d", msg.type, 0, 0, 0);
+	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
 	 break;
       }
       
@@ -999,7 +999,7 @@ ffsselect_cmd(char *cmd)
    }
    
    if(which < 0 || which > 3) {
-      TRACE(0, "Invalid FFS.SELECT argument: %s", cmd, 0, 0, 0);
+      TRACE(0, "Invalid FFS.SELECT argument: %s", cmd, 0);
       return("Invalid FFS.SELECT argument");
    }
 

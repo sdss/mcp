@@ -123,7 +123,7 @@ sdss_receive(FILE *input_stream,
 #if !USE_GETC
    if(fgets(buffer, size, input_stream) == NULL) {
       TRACE(2, "failed to read buffer from serial port %d: %s\n", port,
-			strerror(errno), 0, 0);
+			strerror(errno));
       return -1;
    }
 #else
@@ -139,7 +139,7 @@ sdss_receive(FILE *input_stream,
    charcnt=0;
    while ( ((c = getc(input_stream)) != EOF)&&(charcnt<size))
    {
-#if 1
+#if 0
       fprintf(dbg, "C: %03o %c\n", c, c); fflush(dbg);
 #endif
 
@@ -213,18 +213,18 @@ tcc_serial(int port)
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
   if(stream == NULL) {
-     TRACE(0, "Could **NOT** open port", 0, 0, 0, 0);
+     TRACE(0, "Could **NOT** open port", 0, 0);
      taskSuspend(0);
   }
   
-  TRACE(1, "OPEN port %s", serial_port, 0, 0, 0);
+  TRACE(1, "OPEN port %s", serial_port, 0);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
   new_ublock(0, "TCC");			/* task-specific UBLOCK */
   log_mcp_command(CMD_TYPE_MURMUR, "TCC connected");
 
   for(;;) {
-     TRACE(16, "port %d", port, 0, 0, 0);
+     TRACE(16, "port %d", port, 0);
 
      command_buffer[0] = '\0';
      status = sdss_receive(stream, port, command_buffer, 256);
@@ -234,19 +234,19 @@ tcc_serial(int port)
 	if(strstr(command_buffer, "STATUS") != NULL) {
 	   lvl += 2;
 	}
- 	TRACE(lvl, "command from TCC: %s", command_buffer, 0, 0, 0);
+ 	TRACE(lvl, "command from TCC: %s", command_buffer, 0);
 	TRACE(16, "        cccccccc: 0x%08x%08x",
-	      ((int *)command_buffer)[0], ((int *)command_buffer)[1], 0, 0);
-	TRACE(16, "        time = %f", sdss_get_time(), 0, 0, 0);
+	      ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
+	TRACE(16, "        time = %f", sdss_get_time(), 0);
      }
      
      if(status != 0) {
-	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status, 0, 0);
+	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
 	answer_buffer = "ERR: Bad read from TCC";
 
 	status = sdss_transmit(stream, answer_buffer, " OK");
 	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0, 0, 0);
+	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
 	}
 	return;
      }
@@ -254,7 +254,7 @@ tcc_serial(int port)
      if(command_buffer[0] == '\0') {
 	status = sdss_transmit(stream, command_buffer, " OK");
 	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0, 0, 0);
+	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
 	}
 	continue;
      }
@@ -265,7 +265,7 @@ tcc_serial(int port)
 #endif
      
      if(status != 0) {
-	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0, 0, 0);
+	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
      }
      
 #if 1
@@ -281,7 +281,7 @@ tcc_serial(int port)
 	      fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]\n",
 		      ids[i], taskName(ids[i]), j);
 	      TRACE(3, "tcc_serial blocks on %s [%d]",
-					taskName(ids[i]), j, 0, 0);
+					taskName(ids[i]), j);
 	   }
 	   fprintf(stderr,"\n");
 	   
@@ -298,7 +298,7 @@ tcc_serial(int port)
  */
      if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
 	TRACE(0, "Too long delay %f; disabling trace",
-	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0, 0, 0);
+	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
 	traceMode(traceModeGet() & ~0x1);
      }
 #endif
@@ -309,7 +309,7 @@ tcc_serial(int port)
 
      status = sdss_transmit(stream, answer_buffer, " OK");
      if(status != 0) {
-	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0, 0, 0);
+	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
      }
 /*
  * write logfile of murmurable commands
@@ -322,7 +322,7 @@ tcc_serial(int port)
  */
      if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
 	TRACE(0, "Too long delay %f after log_mcp_command; disabling trace",
-	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0, 0, 0);
+	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
 	traceMode(traceModeGet() & ~0x1);
      }
 #endif
@@ -729,28 +729,28 @@ cancel_read(void)
     taskDelay (1);
 
     for(i = 0; i < NPORT; i++) {
-       TRACE(16, "port %d", i, 0, 0, 0);
+       TRACE(16, "port %d", i, 0);
        
        taskLock();
-       TRACE(16, "task is locked", 0, 0, 0, 0);
+       TRACE(16, "task is locked", 0, 0);
        if(cancel[i].tmo > 0 && cancel[i].active) cancel[i].tmo--;
        
        if (cancel[i].tmo > 0 && !cancel[i].active) {
 	  taskUnlock();
-	  TRACE(4, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo, 0, 0);
+	  TRACE(4, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo);
 	  cancel[i].tmo = 0;
        } else {
 	  taskUnlock();
        }
-       TRACE(16, "task is unlocked", 0, 0, 0, 0);
+       TRACE(16, "task is unlocked", 0, 0);
        
        if(cancel[i].tmo == 1) {
 	  status = ioctl(cancel[i].fd, FIOCANCEL, 0);
 	  cancel[i].cancel = TRUE;
 	  cancel[i].count++;
-	  TRACE(4, "barcode canceled port %d (status=0x%x)", i, status, 0, 0);
+	  TRACE(4, "barcode canceled port %d (status=0x%x)", i, status);
        } else {
-	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo, 0, 0);
+	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo);
        }
     }
   }

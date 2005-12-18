@@ -119,10 +119,10 @@ log_mcp_command(int type,		/* type of command */
        case OK:
 	 break;
        case S_objLib_OBJ_UNAVAILABLE:
-	 TRACE(0, "No room on msgQueue to flush logfile", 0, 0, 0, 0);
+	 TRACE(0, "No room on msgQueue to flush logfile", 0, 0);
 	 break;
        default:
-	 TRACE(0, "Failed to flush mcpCmdLog", 0, 0, 0, 0);
+	 TRACE(0, "Failed to flush mcpCmdLog", 0, 0);
 	 break;
       }
 
@@ -147,10 +147,10 @@ log_mcp_command(int type,		/* type of command */
     case OK:
       break;
     case S_objLib_OBJ_UNAVAILABLE:
-      TRACE(0, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd, 0, 0);
+      TRACE(0, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd);
       break;
     default:
-      TRACE(0, "Failed to send message to tCmdLog", 0, 0, 0, 0);
+      TRACE(0, "Failed to send message to tCmdLog", 0, 0);
       break;
    }
 }
@@ -171,7 +171,7 @@ tCmdLog(void)
       ret = msgQReceive(msgCmdLog, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgCmdLog", 0, 0, 0, 0);
+      TRACE(8, "read msg on msgCmdLog", 0, 0);
 
       switch (msg.msg.type) {
        case cmdFlush_type:
@@ -190,7 +190,7 @@ tCmdLog(void)
 	    
 	    sprintf(filename, "mcpCmdLog-%d.dat", get_mjd());
 	    if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
-	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno), 0, 0);
+	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
 	       
 	       continue;
 	    }
@@ -198,8 +198,8 @@ tCmdLog(void)
 
 	 if(fputs(msg.msg.u.cmdLog.cmd, mcp_log_fd) == EOF) {
 	    TRACE(0, "Error logging command: %d (%s)",
-		  errno, strerror(errno), 0, 0);
-	    TRACE(0, "    %s", msg.msg.u.cmdLog.cmd, 0, 0, 0);
+		  errno, strerror(errno));
+	    TRACE(0, "    %s", msg.msg.u.cmdLog.cmd, 0);
 	 } else {
 	    nline++;
 	 }
@@ -213,7 +213,7 @@ tCmdLog(void)
 
 	 break;
        default:
-	 TRACE(0, "Impossible message type: %d", msg.msg.type, 0, 0, 0);
+	 TRACE(0, "Impossible message type: %d", msg.msg.type, 0);
 
 	 continue;
       }
@@ -270,7 +270,7 @@ new_ublock(int pid,
    if((ublock = malloc(sizeof(UBLOCK))) == NULL ||
 					 taskVarAdd(0, (int *)&ublock) != OK) {
       TRACE(0, "Failed to allocate ublock private to cpsWorkTask: %s %s",
-	    errno, strerror(errno), 0, 0);
+	    errno, strerror(errno));
       taskSuspend(0);
    }
    ublock->pid = pid;
@@ -390,7 +390,7 @@ define_cmd(char *name,			/* name of command */
       status = symAdd(docSymTbl, name, (char *)doc, 0, 0);
       
       if(status != OK) {
-	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg, 0, 0);
+	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg);
       }
    }
 }
@@ -426,7 +426,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    if(!iacked) {
       if(iack_counter++%100 == 0) {
 	 TRACE(0, "%s",
-	    (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0, 0, 0);
+	    (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0);
       }
    }
 
@@ -452,7 +452,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
       }
       
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
-	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok, 0, 0);
+	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
 	 
 	 semGive(semCMD);
 
@@ -476,7 +476,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    lvl += 2;
 	 }
 	 
-	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok, 0, 0);
+	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
 /*
  * If we are so requested, try to take the semCmdPort semaphore
  */
@@ -504,7 +504,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    varargs = 1;
 	 }
 	 if(nskip == 0 && !varargs) {
-	    TRACE(lvl, "Command %s:", tok, 0, 0, 0);
+	    TRACE(lvl, "Command %s:", tok, 0);
 	    args = "";
 	 } else {
 	    args = strtok(cmd_str, "");
@@ -512,7 +512,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	       args = "";
 	    }
 	    cmd_str = args;
-	    TRACE(lvl, "Command %s: %s", tok, cmd_str, 0, 0);
+	    TRACE(lvl, "Command %s: %s", tok, cmd_str);
 	 }
       }
       

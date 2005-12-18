@@ -38,7 +38,7 @@ tBrakes(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgBrakes", 0, 0, 0, 0);
+      TRACE(8, "read msg on msgBrakes", 0, 0);
 
       switch (msg.type) {
        case brakesSet_type:
@@ -50,7 +50,7 @@ tBrakes(void)
 	 axis = msg.u.brakes.axis;
 	 break;
        default:
-	 TRACE(0, "Impossible message type on msgBrakes: %d", msg.type, 0, 0, 0);
+	 TRACE(0, "Impossible message type on msgBrakes: %d", msg.type, 0);
 	 continue;
       }
 /*
@@ -61,24 +61,24 @@ tBrakes(void)
       } else if(axis == INSTRUMENT) {
 	 continue;
       } else {
-	 TRACE(0, "illegal axis %d", axis, 0, 0, 0);
+	 TRACE(0, "illegal axis %d", axis, 0);
 	 continue;
       }
 /*
  * set the bits that control the brakes
  */
-      TRACE(10, "Taking semSLC semaphore", 0, 0, 0, 0);
+      TRACE(10, "Taking semSLC semaphore", 0, 0);
       if(semTake(semSLC,60) == ERROR) {
 	 TRACE(0, "failed to take semaphore to %s %s brake",
-	       (set_brake ? "set" : "unset"), axis_name(axis), 0, 0);
-	 TRACE(1, "    %s %d", strerror(errno), errno, 0, 0);
+	       (set_brake ? "set" : "unset"), axis_name(axis));
+	 TRACE(1, "    %s %d", strerror(errno), errno);
 	 continue;
       }
       
-      TRACE(10, "Reading blok", 0, 0, 0, 0);
+      TRACE(10, "Reading blok", 0, 0);
       ret = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(ret) {
-	 TRACE(0, "%s: error reading slc: 0x%04x", axis_name(axis), ret, 0, 0);
+	 TRACE(0, "%s: error reading slc: 0x%04x", axis_name(axis), ret);
 	 semGive(semSLC);
 	 continue;
       }
@@ -91,7 +91,7 @@ tBrakes(void)
 	 tm_ctrl.mcp_az_brk_en_cmd =  set_brake ? 1 : 0;
 	 tm_ctrl.mcp_az_brk_dis_cmd = set_brake ? 0 : 1;
       } else {
-	 TRACE(0, "Impossible instrument %d", axis, 0, 0, 0);
+	 TRACE(0, "Impossible instrument %d", axis, 0);
 	 abort();
       }
       
@@ -99,24 +99,24 @@ tBrakes(void)
       ret = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive(semSLC);
       if(ret) {
-	 TRACE(0, "%s: error writing slc: 0x%04x", axis_name(axis), ret, 0, 0);
+	 TRACE(0, "%s: error writing slc: 0x%04x", axis_name(axis), ret);
 	 continue;
       }
 /*
  * done with setting the bits; now deal with the MEI
  */
-      TRACE(10, "Taking semMEI semaphore", 0, 0, 0, 0);
+      TRACE(10, "Taking semMEI semaphore", 0, 0);
       if(semTake(semMEI, 60) == ERROR) {
-	 TRACE(0, "failed to take semMEI: %s (%d)", strerror(errno), errno, 0, 0);
+	 TRACE(0, "failed to take semMEI: %s (%d)", strerror(errno), errno);
 	 continue;
       }
 
       if(set_brake) {
-	 TRACE(3, "Taking axis %s out of closed loop", axis_name(axis), 0, 0, 0);
+	 TRACE(3, "Taking axis %s out of closed loop", axis_name(axis), 0);
 	 sem_controller_idle(2*axis);
 	 reset_integrator(2*axis);
       } else {
-	 TRACE(3, "Putting axis %s into closed loop", axis_name(axis), 0, 0, 0);
+	 TRACE(3, "Putting axis %s into closed loop", axis_name(axis), 0);
 	 sem_controller_run(2*axis);
 	 
 #if SWITCH_PID_COEFFS
@@ -127,7 +127,7 @@ tBrakes(void)
 	 }
 #endif
 	 
-	 TRACE(3, "Stopping axis %s", axis_name(axis), 0, 0, 0);
+	 TRACE(3, "Stopping axis %s", axis_name(axis), 0);
  	 v_move(2*axis, (double)0, (double)5000);
       }
       
@@ -146,12 +146,12 @@ mcp_set_brake(int axis)
    int ret;				/* return code */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "mcp_set_brake: illegal axis %d", axis, 0, 0, 0);
+      TRACE(0, "mcp_set_brake: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   TRACE(3, "Setting brake for axis %s", axis_name(axis), 0, 0, 0);
+   TRACE(3, "Setting brake for axis %s", axis_name(axis), 0);
 
    msg.type = brakesSet_type;;
    msg.u.brakes.axis = axis;
@@ -173,12 +173,12 @@ mcp_unset_brake(int axis)		/* axis to set */
    int ret;				/* return code */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "mcp_unset_brake: illegal axis %d", axis, 0, 0, 0);
+      TRACE(0, "mcp_unset_brake: illegal axis %d", axis, 0);
 
       return(-1);
    }
 
-   TRACE(3, "Clearing brake for axis %s", axis_name(axis), 0, 0, 0);
+   TRACE(3, "Clearing brake for axis %s", axis_name(axis), 0);
 
    msg.type = brakesUnset_type;;
    msg.u.brakes.axis = axis;

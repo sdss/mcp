@@ -40,7 +40,7 @@ ipsdss_ini(void)
    
    cast_s = socket(AF_INET, SOCK_DGRAM, 0);	/* get a udp socket */
    if(cast_s < 0) {
-      TRACE(0, "ipsdss_ini: creating socket: %d %s", errno, strerror(errno), 0, 0);
+      TRACE(0, "ipsdss_ini: creating socket: %d %s", errno, strerror(errno));
       return ERROR;
    }
    
@@ -53,7 +53,7 @@ ipsdss_ini(void)
    optval = 1;				/* turn on broadcast */
    if(setsockopt(cast_s, SOL_SOCKET, SO_BROADCAST,
 		 (caddr_t)&optval, sizeof(optval)) < 0) {
-      TRACE(0, "ipsdss_ini: setsockopt: %d %s", errno, strerror(errno), 0, 0);
+      TRACE(0, "ipsdss_ini: setsockopt: %d %s", errno, strerror(errno));
       return ERROR;
    }
    
@@ -75,6 +75,6 @@ ipsdss_send(char *sdss_msg,		/* message to broadcast */
     if(sendto(cast_s, sdss_msg, sdss_size, 0,
 	      (struct sockaddr *)&cast_sockaddr, sizeof(cast_sockaddr)) < 0) {
        TRACE(0, "couldn't broadcast sdss_msg: %d %s",
-	     errno, strerror(errno), 0, 0);
+	     errno, strerror(errno));
     }
 }
