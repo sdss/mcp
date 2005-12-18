@@ -28,7 +28,7 @@
 
 int
 setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
-	       int retryDelay,		/* Delay between retries (ticks) */
+	       float timeout,		/* How long to wait for reply (seconds) */
 	       unsigned long retryCnt,	/* Retry count (0 means none) */
 	       int forceStep,		/* Force step adjustment? */
 	       struct timeval *time)	/* if NULL set the time, otherwise
@@ -36,17 +36,24 @@ setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
 {
    struct timeval time_s;		/* the time to set it time == NULL */
    struct timespec timespec;		/* storage for retrieved time value */
-   int timeout = retryDelay*(1 + retryCnt)*sysClkRateGet();
-					/* timeout, in ticks */
+   int    NTPtimeout = timeout * sysClkRateGet(); /* timeout in ticks */
+   int    ret;
+
+   /* Bleeping sntpcLib turns sub-second TimeGet timeouts to 0s. */
+   if (NTPtimeout < sysClkRateGet()) NTPtimeout = sysClkRateGet();
 
    assert (forceStep > -100);		/* otherwise it's unused */
 
-   if(sntpcTimeGet((char *)NTPserver_name, timeout, &timespec) != OK) {
-      TRACE(0, "Failed to get time from NTP server %s: %s",
-	      NTPserver_name, strerror(errno), 0, 0);
-      return(-1);
+   do {
+     ret = sntpcTimeGet((char *)NTPserver_name, NTPtimeout, &timespec);
+   } while (ret != OK && retryCnt-- != 0);
+
+   if (ret != OK) {
+     TRACE(0, "Failed to get time from NTP server %s: %s",	
+	   NTPserver_name, strerror(errno));	
+     return(ERROR);
    }
-   
+
    if(time == NULL) {
       time = &time_s;
    }
@@ -60,5 +67,5 @@ setTimeFromNTP(const char *NTPserver_name, /* name of NTP server */
       settimeofday(time, NULL);
    }
 
-   return(0);
+   return(OK);
 }
