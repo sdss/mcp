@@ -37,12 +37,12 @@ void
 trc_tskSwHk(WIND_TCB	*pOldTcb,
 	    WIND_TCB	*pNewTcb )
 {							/* @-Public-@ */
-   TRACEPROC(swHook, "pSwHook");
+   TRACEPROC("pSwHook");
    
 #if WATCH_MEMORY
-   TRACEP(swHook, 31, "switching to 0x%x%x",
+   TRACEP(31, "switching to 0x%x%x",
 	  ((int *)taskName((int)pNewTcb))[0],
-	  ((int *)taskName((int)pNewTcb))[1], 0, 0);
+	  ((int *)taskName((int)pNewTcb))[1]);
 
    if(*watch != watch_val || watch == NULL || *taskName((int)pOldTcb) == '/') {
       TRACE(31, "Suspending task %p", pOldTcb, 0);
@@ -51,9 +51,9 @@ trc_tskSwHk(WIND_TCB	*pOldTcb,
       traceMode(traceModeGet() & ~0x1);
    }
 #else
-   TRACEP(swHook, 31, "switching to 0x%x%x",
+   TRACEP(31, "switching to 0x%x%x",
 	  ((int *)taskName((int)pNewTcb))[0],
-	  ((int *)taskName((int)pNewTcb))[1], 0, 0);
+	  ((int *)taskName((int)pNewTcb))[1]);
 #endif
 }	/* trc_tskSwHk */
 
@@ -239,7 +239,7 @@ trc_excHook(  int	tid	/* ID   of    offending    task */
 {							/* @-Public-@ */
 	int	traceMode_sav;
 
-    TRACE( 30, "trc_excHook freezing trace buffer", 0, 0, 0, 0);
+    TRACE( 30, "trc_excHook freezing trace buffer", 0, 0);
     traceMode_sav = traceModeGet();
     traceMode( traceMode_sav & ~0x1);
 
