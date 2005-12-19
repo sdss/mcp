@@ -53,21 +53,6 @@ for d in MURMUR_CLIENT_VX VX_TOOLS; do
     eval ln -s \$''${d}_DIR ./$ld
 done
 
-#
-# Check the IP addresses in the mcp.login script
-#
-code=0
-for host in sdsshost2 tai-time utc-time; do
-    ip=`awk "/hostAdd .$host\.apo\.nmsu\.edu/ { print \\$3 }" etc/mcp.login`
-    ns_ip=`nslookup $host | \
-     perl -ne 'if(/Server/) { $_=<> } elsif(/^Address:\s*(\S+)/) { print $1 }'`
-     
-    if [ X$ip != X\"$ns_ip\" ]; then
-       echo "$host: IP in mcp.login $ip != IP from nslookup: \"$ns_ip\"" >&2
-       code=1
-    fi
-done
-
 ./bin/showMCP
 
 exit $code
