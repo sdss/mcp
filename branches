@@ -221,3 +221,7 @@ Tue Aug  9 12:56:54 MDT 2005
 Sun Dec 18 17:49:51 MST 2005
 	cvs rtag v6_0_1 mcp
 	1st operational mcp built on VxWorks v5.5 and booted on sdsshost2, 10.25.10/24
+
+Sun Dec 18 18:06:19 MST 2005
+	cvs rtag v6_1 mcp
+	1st real operational mcp built on VxWorks v5.5 and booted on sdsshost2, 10.25.10/24
