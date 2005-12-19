@@ -218,4 +218,6 @@ Tue Aug  9 12:56:54 MDT 2005
 	cvs rtag v6_0_0 mcp
 	N.b. no branch.  Initial build of mcp on galileo with vxWorks 5.5
 
-
+Sun Dec 18 17:49:51 MST 2005
+	cvs rtag v6_0_1 mcp
+	1st operational mcp built on VxWorks v5.5 and booted on sdsshost2, 10.25.10/24
