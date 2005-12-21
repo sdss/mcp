@@ -159,9 +159,12 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
 
+   TRACE(6, "new telnet connection on port %d", port, 0);
+
    sprintf(buff, "connected\n");
    if(write(fd, buff, strlen(buff)) == -1) {
-      fprintf(stderr,"Acknowledging connection on port %d: %s",
+      TRACE(0, "telnet acking connection on port %d: %s", port, strerror(errno));
+      fprintf(stderr, "Acknowledging connection on port %d: %s",
 	      port, strerror(errno));
       close(fd);
       return;
@@ -173,6 +176,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       errno = 0;
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
 	 if(errno != 0) {
+	    TRACE(0, "telnet reading on port %d: %s\n", port, strerror(errno));
 	    fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
 	 }
 	 if(nerr < 10 && errno != S_taskLib_NAME_NOT_FOUND &&
@@ -183,12 +187,15 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 nerr++;
       } else if(n == 0) {
 	 if(errno != 0) {
+	    TRACE(0, "telnet reading (2) on port %d: %s", port, strerror(errno));
 	    fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
 	 }
       }
       nerr = 0;				/* number of error seen */
       
       cmd[n] = '\0';
+
+      TRACE(6, "new telnet cmd: %s", cmd, 0);
 /*
  * Maybe execute command
  */
