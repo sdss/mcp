@@ -68,7 +68,7 @@ clk2Start ()			/* VMEchip2 tick timer 2 */
 traceInit(80000, 40, 0xFFF4005c) /* (EntryCnt, MaxTask, TickTimer2) */
 traceInitialOn(0, 30)
 traceOn 0,  0,3; traceOn 0, 16,16	/* TRACE0 is for ISPs */
-traceTtyOn 0, 3
+traceTtyOn 0, 4
 traceMode 0x5			/* Entry -> queue -> user-defined fn */
 
 taskSwitchHookAdd trc_tskSwHk	/* prepare to trace task switches */
@@ -214,7 +214,7 @@ dbgInit
 date
 DIO316_initialize(0xFFF58000,0xB0)
 tm_setup_wd()
-taskSpawn "ampMgt",45,0,2000,tm_amp_mgt
+taskSpawn "ampMgt",45,0,5000,tm_amp_mgt
 VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 #taskSpawn "barcodcan",85,8,2500,cancel_read
 #barcode_init(0xfff58000,0xf022,0xAA,2)
@@ -222,11 +222,6 @@ VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 #azimuth barcode (2=altitude)
 #barcode_open (3)
 #barcode_serial 3
-#
-# Start the task that controls the umbilical tower; argument is
-# interval between checks (in seconds)
-#
-tUmbilicalInit 1
 #
 # Load fiducials tables
 #
@@ -249,7 +244,7 @@ min_encoder_mismatch_cmd "1000"
 # to talk to us all of this time
 #
 taskSpawn "tCPS",100,0,2000,cmdPortServer,31011
-taskSpawn "TCC",46,8,10000,tcc_serial,1
+taskSpawn "TCC",46,8,25000,tcc_serial,1
 #
 # Adjust tracing now that we're up
 #

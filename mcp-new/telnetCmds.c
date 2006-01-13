@@ -177,7 +177,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
 	 if(errno != 0) {
 	    TRACE(0, "telnet reading on port %d: %s\n", port, strerror(errno));
-	    fprintf(stderr,"Reading on port %d: %s\n", port, strerror(errno));
 	 }
 	 if(nerr < 10 && errno != S_taskLib_NAME_NOT_FOUND &&
 	    errno != S_objLib_OBJ_TIMEOUT) {
@@ -195,7 +194,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       
       cmd[n] = '\0';
 
-      TRACE(6, "new telnet cmd: %s", cmd, 0);
+      TRACE(5, "new telnet cmd: %s", cmd, 0);
 /*
  * Maybe execute command
  */

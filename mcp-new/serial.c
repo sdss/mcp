@@ -273,22 +273,26 @@ tcc_serial(int port)
 	extern SEM_ID semCMD;
 	int ids[10], nblock;
 	int j;
-	
+	char tnbuf[40];
+
 	for(j = 0; (nblock = semInfo(semCMD, ids, 10)) > 0; j++) {
 	   int i;
-	   fprintf(stderr, "semCMD: ");
 	   for(i = 0;i < nblock; i++) {
-	      fprintf(stderr, "tcc_serial blocks on 0x%x (%s) [%d]\n",
-		      ids[i], taskName(ids[i]), j);
-	      TRACE(3, "tcc_serial blocks on %s [%d]",
-					taskName(ids[i]), j);
+	      sprintf(tnbuf, "0x%x (%s)", ids[i], taskName(ids[i]));
+	      TRACE(3, "tcc_serial blocks on %s [%d]\n",	
+		      tnbuf, j);	
 	   }
-	   fprintf(stderr,"\n");
 	   
-	   taskDelay(1);
+	   taskDelay(10);
 	}
      }
 #endif
+
+/*
+ * write logfile of murmurable commands
+ */
+     log_mcp_command(cmd_type, command_buffer);
+
      answer_buffer =
        cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
 		   command_buffer, &cmd_type);
@@ -311,10 +315,6 @@ tcc_serial(int port)
      if(status != 0) {
 	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
      }
-/*
- * write logfile of murmurable commands
- */
-     log_mcp_command(cmd_type, command_buffer);
 
 #if DEBUG_DELAY
 /*

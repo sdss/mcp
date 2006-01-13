@@ -445,10 +445,8 @@ get_mjd(void)
       ldj += (tm_hour + (tm_min + tm_sec/60.0)/60.0)/24.0;
       ldj += 0.3;
 
-#if 1
       TRACE(6, "MJD CONT hr=%d min=%d", tm_hour, tm_min);
       TRACE(6, "MJD CONT sec=%d LDJ %d", tm_sec, (int)ldj);
-#endif
 	      
       return((int)ldj);
    }
