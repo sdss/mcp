@@ -5,6 +5,10 @@ tyBackspaceSet(0x7F)
 #
 memOptionsSet 0x1ff
 #
+# Shut the network interface diagnostics off
+#
+eiDebug = 0xfc
+#
 _tzname = "GMT"
 #
 hostAdd "sdsshost2.apo.nmsu.edu", "10.25.1.3"
