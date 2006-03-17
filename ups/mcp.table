@@ -8,6 +8,9 @@ Group:
   Qualifiers=""
   Flavor=SunOS+5
   Qualifiers=""
+  Flavor=Linux+2.4-2.3.2
+  Qualifiers=""
+
 
 Common:
    Action=setup
@@ -16,7 +19,7 @@ Common:
       setupRequired("sdsstools")
       setupRequired("-f VxWorks -q mv162 murmur_client_vx")
       setupRequired("-f VxWorks+5.5 -q mv162 -j vx_tools")
-      setupRequired("vxworks -q mv162 v5_5la")
+      setupRequired("-f SunOS+5 -q mv162 vxworks v5_5la")
       setupRequired("mcp_fiducials")
       pathPrepend(PATH, ${UPS_PROD_DIR}/bin)
 End:
