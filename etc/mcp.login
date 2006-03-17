@@ -15,7 +15,7 @@ hostAdd "sdsshost2.apo.nmsu.edu", "10.25.1.3"
 hostAdd "tai-time.apo.nmsu.edu", "10.25.1.13"
 hostAdd "utc-time.apo.nmsu.edu", "10.25.1.3"
 #
-nfsMount("sdsshost2.apo.nmsu.edu", "/p", "/p")
+nfsMount("sdsshost2.apo.nmsu.edu", "/linuxp", "/linuxp")
 nfsMount("sdsshost2.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
 # Add user vxworks (pid 10003, gid 3532) to group products
@@ -25,7 +25,7 @@ nfsAuthUnixSet "sdsshost2.apo.nmsu.edu", 10003, 3532, 1, au_p
 #
 # Go to the version root
 #
-cd "/p/mcpbase"
+cd "/linuxp/prd/mcpbase"
 #
 # Remove MCP main RAM Slave Map that is defined in the vxWorks image.
 #
@@ -145,8 +145,14 @@ vmeinst (0x1000, 0x0e0000, 0x00, "ab/sddhp.bin")
 #230Kb
 dhpd (10,0xe000,"chasb")
 #
+# Load slalib for the sake of the MJD.  We now use our copy as this
+# version doesn't appear to be reentrant
+#
+# ld < /linuxp/prd/tpmbase/bin/mv162/slaLib
+#
 # Load NTP code
 #
+#ld < /linuxp/prd/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
 ld < util/ntp.o
 #
 # Load the MCP itself
@@ -224,17 +230,17 @@ VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 # Load fiducials tables
 #
 az_cmd
-ms_read_cmd "/p/mcpbase/fiducial-tables/az.dat"
+ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/az.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
 alt_cmd
-ms_read_cmd "/p/mcpbase/fiducial-tables/alt.dat"
+ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/alt.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
 rot_cmd
-ms_read_cmd "/p/mcpbase/fiducial-tables/rot.dat"
+ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/rot.dat"
 ms_max_cmd "600"
 min_encoder_mismatch_cmd "1000"
 #
