@@ -1,8 +1,7 @@
-#if !defined(INSTRUMENT_LIFT_H)
-#define INSTRUMENT_LIFT_H 1
+#if !defined(INSTRUMENTS_H)
+#define INSTRUMENTS_H 1
 
-int umbil(double el, double rot);
-int umbilGet(int el, int rot);
+int get_inststatus(char *status_ans, int size);
 /*
  * globals
  */

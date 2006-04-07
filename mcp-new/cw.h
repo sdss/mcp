@@ -38,9 +38,9 @@ int cw_get_inst(char *cmd);
 void set_counterweight(int inst, int cw, short pos);
 
 /*
- * Umbilical
+ * Instrument info
  */
-int get_umbilstatus(char *status_ans, int size);
+int get_inststatus(char *status_ans, int size);
 
 /*
  * global variables

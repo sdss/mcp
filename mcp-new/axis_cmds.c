@@ -843,7 +843,7 @@ system_status_cmd(char *cmd)
    i += get_ffstatus(&ublock->buff[i], UBLOCK_SIZE - i);
    i += get_slitstatus(&ublock->buff[i], UBLOCK_SIZE - i);
    i += get_miscstatus(&ublock->buff[i], UBLOCK_SIZE - i);
-   i += get_umbilstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+   i += get_inststatus(&ublock->buff[i], UBLOCK_SIZE - i);
 
    TRACE(8, "giving semMEIUPD", 0, 0);
    semGive(semMEIUPD);
@@ -881,7 +881,7 @@ set_status(int axis,			/* axis, or NOINST for system status */
       i += get_ffstatus(&buff[i], size - i);
       i += get_slitstatus(&buff[i], size - i);
       i += get_miscstatus(&buff[i], size - i);
-      i += get_umbilstatus(&buff[i], size - i);
+      i += get_inststatus(&buff[i], size - i);
    } else {
       switch (axis) {
        case AZIMUTH:

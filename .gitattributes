@@ -115,6 +115,7 @@ mcp-new/display.c -text
 mcp-new/fiducials.c -text
 mcp-new/frame.h -text
 mcp-new/instrument_lift.c -text
+mcp-new/instruments.c -text
 mcp-new/instruments.h -text
 mcp-new/io.h -text
 mcp-new/ipcast.c -text
@@ -138,7 +139,6 @@ mcp-new/telnetCmds.c -text
 mcp-new/timerint.h -text
 mcp-new/timers.c -text
 mcp-new/tm.h -text
-mcp-new/umbilical.c -text
 mcp-new/util.c -text
 mcp-new/vmechip2.h -text
 mei-new/Makefile -text
