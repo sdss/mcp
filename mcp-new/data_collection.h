@@ -177,7 +177,7 @@ typedef struct {
    unsigned cartridge_1 : 1;                  /* Cartridge 1 on the telescope */
    unsigned no_inst_in_place : 1;             /* No Instrument on the telescope */
    unsigned disc_cable : 1;                   /* Instrument ID Cable Disconnected */
-   unsigned version_id : 16;                  /* Version 19  $Name$ */
+   unsigned version_id : 16;                  /* Version 21  $Name$ */
 } B3_L1;
 
 typedef struct {
@@ -876,7 +876,7 @@ typedef struct {
 } I5_L3;
 
 typedef struct {
-   unsigned spare_s2_c7 : 1;                  /* Spare splitter chassis channel */
+   unsigned mcp_watchdog_timer : 1;           /* MCP Watchdog Timer. Removes drive amplifier reference if MCP Fault. */
    unsigned nw_fork_stop : 1;                 /* North West Fork E-Stop */
    unsigned s_wind_stop : 1;                  /* South wind screen e-stop */
    unsigned w_lower_stop : 1;                 /* West lower level e-stop */
@@ -997,7 +997,7 @@ typedef struct {
    unsigned clamp_dis_stat : 1;               /* Clamp disengaged status */
    unsigned clamp_en_stat : 1;                /* Clamp engaged status */
    unsigned t_bar_tel_stat : 1;               /* Camera T-Bar latch unlatched status */
-   unsigned s2_c7_bypass_sw : 1;              /* E-Stop bypass monitor status */
+   unsigned s2_c7_mcp_wtchdg_byp : 1;         /* MCP watchdog bypass monitor status */
    unsigned s2_c6_bypass_sw : 1;              /* E-Stop bypass monitor status */
    unsigned s2_c5_bypass_sw : 1;              /* E-Stop bypass monitor status */
    unsigned s2_c4_bypass_sw : 1;              /* E-Stop bypass monitor status */
@@ -1398,7 +1398,7 @@ typedef struct {
  * Version from PLC
  */
 #if defined(DATA_COLLECTION_C)
-   static char plcVersion[] = "Version 19  $Name$";
+   static char plcVersion[] = "Version 21  $Name$";
 #endif
 /*
  * End of machine generated code
@@ -1612,8 +1612,7 @@ struct AXIS_STAT {
 	unsigned  : 4;
 	unsigned ms_on_correction_too_large : 1;
 
-	unsigned  : 5;
-	unsigned clock_not_set : 1;
+	unsigned  : 6;
 	unsigned clock_slow_signal : 1;
 	unsigned clock_loss_signal : 1;
 
