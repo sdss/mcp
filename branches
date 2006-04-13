@@ -225,3 +225,13 @@ Sun Dec 18 17:49:51 MST 2005
 Sun Dec 18 18:06:19 MST 2005
 	cvs rtag v6_1 mcp
 	1st real operational mcp built on VxWorks v5.5 and booted on sdsshost2, 10.25.10/24
+
+Wed Apr 12 11:56:36 MDT 2006
+	cvs rtag v6_2_0 mcp
+        cvs rtag -b -r v6_2_0 v6_2 mcp
+
+	PLC v21 rebuild
+	Changed Umbil: status to Inst: status.
+
+
+
