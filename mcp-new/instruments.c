@@ -37,7 +37,7 @@ instrument_id(void)
    int spec_lens;			/* the spec corrector in installed */
 #endif
    
-   if(semTake(semSDSSDC, NO_WAIT) == ERROR) {
+   if(semTake(semSDSSDC, 100) == ERROR) {
       return(-1);			/* unknown */
    }
    
@@ -97,7 +97,7 @@ saddle_is_mounted(void)
    int saddle_is_on;			/* is the saddle mounted? */
    int sad_mount1, sad_mount2;
   
-   if(semTake(semSDSSDC, 10) == ERROR) {
+   if(semTake(semSDSSDC, 100) == ERROR) {
       return(-1);			/* unknown */
    }
    
