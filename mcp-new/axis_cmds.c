@@ -790,12 +790,25 @@ get_miscstatus(char *status,
 	       int size)			/* dimen of status[] */
 {
   int len;
+  char *fidver;
+  char errorBuf[3*FIDVERLEN+4];
+
+  /* Decide whether we have sensible fiducial versions. */
+  if (!strcmp(fiducialVersion[0], fiducialVersion[1]) &&
+      !strcmp(fiducialVersion[0], fiducialVersion[2])) {
+    fidver = fiducialVersion[0];
+  } else {
+    sprintf(errorBuf, "%s:%s:%s", 
+	    fiducialVersion[0], fiducialVersion[1], fiducialVersion[2]);
+    fidver = errorBuf;
+  }
 
   sprintf(status,"Misc: %d %d  %d %d\n",
 	  sdssdc.status.i9.il0.clamp_en_stat, /* alignment clamp */
 	  sdssdc.status.i9.il0.clamp_dis_stat,
 	  iacked,
-	  sdssdc.status.b3.w1.version_id);
+	  sdssdc.status.b3.w1.version_id, /* PLC version, per the PLC */
+	  fidver);
   
   len = strlen(status);
   assert(len < size);

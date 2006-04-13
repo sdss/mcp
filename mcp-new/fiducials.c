@@ -25,6 +25,8 @@
 #include "cmd.h"
 #include "mcpUtils.h"
 
+char fiducialVersion[3][FIDVERLEN] = {"undefined", "undefined", "undefined"};	/* Fiducial table CVS versions. */
+
 /*
  * Data from reading a latch
  */
@@ -1649,8 +1651,28 @@ read_fiducials(const char *file,	/* file to read from */
 	    } else {
 	       fiducial[axis].canonical = canonical;
 	    }
-	 }
-							  
+	 } else if(!strcmp(lptr, "$Name: ")) {
+	   char *vend;
+
+				/* Skip over leading "Name: " */
+	   lptr += strlen("$Name: ");
+	   while(isspace((int)*lptr)) lptr++;
+	   if (*lptr == '\0') {
+	     strcpy(fiducialVersion[axis], "NOCVS"); 
+	     continue;
+	   }
+
+	   vend = lptr;
+	   while (*vend && *vend != '$' && !isspace((int)*vend)) 
+	     vend++;
+	   if (vend-lptr >= FIDVERLEN) {
+	     TRACE(0, "Silly fiducial version length %d in file %s",
+		     (vend-lptr), file);
+	     vend = lptr+FIDVERLEN-1;
+	   }
+	   strncpy(fiducialVersion[axis], lptr, vend-lptr);
+	   fiducialVersion[axis][vend-lptr+1] = '\0';
+	 } 
 	 continue;
       }
 

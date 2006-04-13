@@ -49,6 +49,9 @@ extern struct FIDUCIALS az_fiducial[N_AZ_FIDUCIALS];
 extern struct FIDUCIALS alt_fiducial[N_ALT_FIDUCIALS];
 extern struct FIDUCIALS rot_fiducial[N_ROT_FIDUCIALS];
 
+#define FIDVERLEN 20
+extern char fiducialVersion[3][FIDVERLEN]; /* Fiducial table CVS versions. */
+
 extern unsigned long check_encoder_freq; /* frequency to check encoder slip */
 
 /*****************************************************************************/
