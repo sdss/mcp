@@ -1535,7 +1535,7 @@ reset_fiducials(int axis)
    }
    
    fiducialidx[axis] = -1;
-
+   strcpy(fiducialVersion[axis], "blank");
    for(i = 0; i < n_fiducials; i++) {
       axis_fiducial[i].markvalid = FALSE;
       axis_fiducial[i].disabled = TRUE;
@@ -1651,8 +1651,11 @@ read_fiducials(const char *file,	/* file to read from */
 	    } else {
 	       fiducial[axis].canonical = canonical;
 	    }
-	 } else if(!strcmp(lptr, "$Name: ")) {
+	 } else if(!strncmp(lptr, "$Name: ", 7)) {
 	   char *vend;
+
+	   TRACE(2, "Fiducial id from %s in file %s",
+		     lptr, file);
 
 				/* Skip over leading "Name: " */
 	   lptr += strlen("$Name: ");
@@ -1671,7 +1674,7 @@ read_fiducials(const char *file,	/* file to read from */
 	     vend = lptr+FIDVERLEN-1;
 	   }
 	   strncpy(fiducialVersion[axis], lptr, vend-lptr);
-	   fiducialVersion[axis][vend-lptr+1] = '\0';
+	   fiducialVersion[axis][vend-lptr] = '\0';
 	 } 
 	 continue;
       }

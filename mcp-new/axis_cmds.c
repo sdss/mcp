@@ -803,7 +803,7 @@ get_miscstatus(char *status,
     fidver = errorBuf;
   }
 
-  sprintf(status,"Misc: %d %d  %d %d\n",
+  sprintf(status,"Misc: %d %d  %d %d %s\n",
 	  sdssdc.status.i9.il0.clamp_en_stat, /* alignment clamp */
 	  sdssdc.status.i9.il0.clamp_dis_stat,
 	  iacked,
