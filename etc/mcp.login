@@ -16,6 +16,7 @@ hostAdd "tai-time.apo.nmsu.edu", "10.25.1.13"
 hostAdd "utc-time.apo.nmsu.edu", "10.25.1.3"
 #
 nfsMount("sdsshost2.apo.nmsu.edu", "/linuxp", "/linuxp")
+nfsMount("sdsshost2.apo.nmsu.edu", "/p", "/p")
 nfsMount("sdsshost2.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
 # Add user vxworks (pid 10003, gid 3532) to group products
