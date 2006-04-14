@@ -798,7 +798,7 @@ get_miscstatus(char *status,
       !strcmp(fiducialVersion[0], fiducialVersion[2])) {
     fidver = fiducialVersion[0];
   } else {
-    sprintf(errorBuf, "%s:%s:%s", 
+    sprintf(errorBuf, "%s|s|%s", 
 	    fiducialVersion[0], fiducialVersion[1], fiducialVersion[2]);
     fidver = errorBuf;
   }
