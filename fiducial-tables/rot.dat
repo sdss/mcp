@@ -1,8 +1,10 @@
 #
 # rotator fiducials
 #
-# Creator:             hjbrew
-# Time:                2006-04-15 23:29:30Z
+# $Name$
+#
+# Creator:             snedden
+# Time:                2006-04-16 04:59:25Z
 # Input file:          /mcptpm/53839/mcpFiducials-53839.dat
 # Scales:              0.021315787482702617  0.021315775944031893
 # Canonical fiducial:  78

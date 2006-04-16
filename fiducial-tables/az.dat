@@ -1,8 +1,10 @@
 #
 # azimuth fiducials
 #
-# Creator:             hjbrew
-# Time:                2006-04-15 23:29:47Z
+# $Name$
+#
+# Creator:             snedden
+# Time:                2006-04-16 04:57:01Z
 # Input file:          /mcptpm/53839/mcpFiducials-53839.dat
 # Scales:              0.014016536170876158  0.014026359164029953
 # Canonical fiducial:  19

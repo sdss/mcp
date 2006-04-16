@@ -1,8 +1,10 @@
 #
 # altitude fiducials
 #
-# Creator:             hjbrew
-# Time:                2006-04-15 23:29:59Z
+# $Name$
+#
+# Creator:             snedden
+# Time:                2006-04-16 04:58:38Z
 # Input file:          /mcptpm/53839/mcpFiducials-53839.dat
 # Scales:              -5.2902899449033763e-08  -5.2936656987928291e-08
 # Canonical fiducial:  1
