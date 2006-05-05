@@ -238,3 +238,7 @@ Thu Apr 13 15:07:48 MDT 2006
         cvs rtag -b -r v6_3_0 v6_3 mcp
 
 	Add fiducial table version reading.
+
+Fri May  5 11:52:31 MDT 2006
+	cvs rtag v6_3_2 mcp
+

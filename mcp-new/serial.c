@@ -130,19 +130,11 @@ sdss_receive(FILE *input_stream,
    int c;
    char *ptr;
    int charcnt;
-   FILE *dbg = fopen_logfile("serial.out", "a");
-   if(dbg == NULL) {
-      dbg = stderr;
-   }
 
    ptr    = buffer;
    charcnt=0;
    while ( ((c = getc(input_stream)) != EOF)&&(charcnt<size))
    {
-#if 0
-      fprintf(dbg, "C: %03o %c\n", c, c); fflush(dbg);
-#endif
-
       *ptr=c;
       if ( *ptr == '\015' )                 /* All done */
          break;
@@ -153,10 +145,6 @@ sdss_receive(FILE *input_stream,
    while (*(--ptr)==0x20);
    ptr++;
    *ptr = '\0';
-
-   if(dbg != stderr) {
-      fclose(dbg); dbg = NULL;
-   }
 #endif
 
    /* Check the length */
