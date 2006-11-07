@@ -475,7 +475,7 @@ unsigned long SDSS_cnt=0;             /* number of times SDSStime was
 void
 DID48_interrupt(int type)
 {
-   int dt = 200;			/* maximum allowed fuzz in arrival
+   int dt = 300;			/* maximum allowed fuzz in arrival
 					   of GPS pulse; microseconds */
 
    TRACE0(16, "DID48_interrupt", 0, 0);
