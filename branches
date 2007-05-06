@@ -242,3 +242,8 @@ Thu Apr 13 15:07:48 MDT 2006
 Fri May  5 11:52:31 MDT 2006
 	cvs rtag v6_3_2 mcp
 
+Sat May  5 19:23:17 MDT 2007
+	cvs rtag v6_4_0 mcp
+	cvs rtag -b -r v6_4_0 v6_4 mcp
+
+	PLC v23 rebuild
