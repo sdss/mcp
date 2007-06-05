@@ -3,17 +3,17 @@
 #
 # $Name$
 #
-# Creator:             viktorm
-# Time:                2007-05-05 21:07:40Z
-# Input file:          /mcptpm/54224/mcpFiducials-54224.dat
-# Scales:              -5.2902466024647629e-08  -5.2936021436265433e-08
+# Creator:             observer
+# Time:                2007-06-05 23:27:24Z
+# Input file:          /mcptpm/54255/mcpFiducials-54255.dat
+# Scales:              0  0
 # Canonical fiducial:  1
-# Arguments:           -mjd 54224 -alt -y pos1 -canon -reset -scale -time0 1178289028 -time1 1178289828 -tablefile alt.vm
+# Arguments:           -mjd 54255 -alt -y pos1 -time0 1180970082 -time1 1180970850 -x time -reset -canon -table alt.dat
 #
 # Fiducial Encoder1 +- error  npoint  Encoder2 +- error  npoint
-1           3916435 +-  22.8   6       3916435 +-  46.0   6
-2           7524677 +-  16.7   6       7522407 +-  38.3   6
-3          11862816 +-  17.2   6      11857807 +-  24.0   6
-4          15524549 +-   0.0   6      15517203 +-   0.0   6
-5          19413799 +-  13.6   6      19403972 +-  29.5   6
-6          22819146 +-  28.5   6      22807163 +-  27.1   6
+1           3916435 +-  17.6   6       3916435 +-  56.3   6
+2           7524691 +-   8.1   6       7522436 +-  45.4   6
+3          11862856 +-   2.0   6      11857864 +-  26.1   6
+4          15524602 +-   0.0   6      15517271 +-   0.0   6
+5          19413894 +-   9.4   6      19404070 +-  21.1   6
+6          22819255 +-  24.5   6      22807256 +-  19.1   6
