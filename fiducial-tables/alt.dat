@@ -4,11 +4,11 @@
 # $Name$
 #
 # Creator:             observer
-# Time:                2007-06-05 23:27:24Z
+# Time:                2007-06-06 05:42:11Z
 # Input file:          /mcptpm/54255/mcpFiducials-54255.dat
-# Scales:              0  0
+# Scales:              -5.2902159571958045e-08  -5.2935762698998324e-08
 # Canonical fiducial:  1
-# Arguments:           -mjd 54255 -alt -y pos1 -time0 1180970082 -time1 1180970850 -x time -reset -canon -table alt.dat
+# Arguments:           -mjd 54255 -alt -y pos1 -canon -reset -scale -time0 1180970082 -time1 1180970850 -tablefile alt.sw
 #
 # Fiducial Encoder1 +- error  npoint  Encoder2 +- error  npoint
 1           3916435 +-  17.6   6       3916435 +-  56.3   6
