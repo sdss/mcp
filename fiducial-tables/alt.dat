@@ -3,17 +3,17 @@
 #
 # $Name$
 #
-# Creator:             elenam
-# Time:                2007-11-25 08:07:57Z
-# Input file:          /mcptpm/54425/mcpFiducials-54425.dat
-# Scales:              -5.2902645373416569e-08  -5.293660453845891e-08
+# Creator:             kpan
+# Time:                2008-01-23 01:13:05Z
+# Input file:          /mcptpm/54483/mcpFiducials-54483.dat
+# Scales:              -5.2904410939209058e-08  -5.2938778966710203e-08
 # Canonical fiducial:  1
-# Arguments:           -mjd 54425 -alt -y pos1 -time0 1195658986 -time1 1195659805 -x fididx -canon -reset -table alt54425.em -scale
+# Arguments:           -mjd 54483 -alt -y pos1 -canon -reset -scale -time0 1200672374 -time1 1200673148 -x fididx -table alt.kpan
 #
 # Fiducial Encoder1 +- error  npoint  Encoder2 +- error  npoint
-1           3916435 +-  23.2   6       3916435 +-  31.9   6
-2           7523732 +-  20.1   6       7521483 +-  31.8   6
-3          11862831 +-   0.0   3      11857789 +-   0.0   3
-4          15524440 +-  20.1   6      15517139 +-  72.8   6
-5          19413664 +-  16.5   6      19403891 +-  91.1   6
-6          22819081 +-  21.7   3      22806955 +-  20.4   3
+1           3916435 +-  29.6   6       3916435 +-  33.6   6
+2           7523657 +-  13.1   6       7521371 +-  27.4   6
+3          11862562 +-   0.0   3      11857434 +-   0.0   3
+4          15524101 +-  19.3   6      15516651 +-  62.6   6
+5          19413201 +-  14.1   6      19403234 +-  72.9   6
+6          22818451 +-  11.9   3      22806179 +-  18.3   3
