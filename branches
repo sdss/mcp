@@ -247,3 +247,9 @@ Sat May  5 19:23:17 MDT 2007
 	cvs rtag -b -r v6_4_0 v6_4 mcp
 
 	PLC v23 rebuild
+
+Thu Apr 10 17:06:15 MDT 2008
+	cvs rtag v6_5_0 mcp
+	cvs rtag -r v6_5_0 -b v6_5 mcp
+
+	New PID values added by Robert
