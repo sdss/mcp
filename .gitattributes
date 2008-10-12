@@ -101,6 +101,7 @@ ip/systran/gendefs.h -text
 mcp-new/.cvsignore -text
 mcp-new/Makefile -text
 mcp-new/abdh.h -text
+mcp-new/as2.c -text
 mcp-new/as2.h -text
 mcp-new/axis.h -text
 mcp-new/axis_cmds.c -text
