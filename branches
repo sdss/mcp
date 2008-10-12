@@ -253,3 +253,7 @@ Thu Apr 10 17:06:15 MDT 2008
 	cvs rtag -r v6_5_0 -b v6_5 mcp
 
 	New PID values added by Robert
+
+Sun Oct 12 11:56:18 MDT 2008
+	cvs rtag as2_0 mcp
+	cvs rtag -r as2_0 -b as2 mcp

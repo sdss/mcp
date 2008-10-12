@@ -121,7 +121,7 @@ taskSpawn "tTimerTask", 5, 0, 7000, timerTask, 0,0
 #
 # IndustryPack serial drivers
 #
-ld < ip/ipOctalSerial.o
+#ld < ip/ipOctalSerial.o
 ld < ip/mv162IndPackInit.o
 ld < ip/systran/dio316.out
 ld < ip/systran/dac128v.out
