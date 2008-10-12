@@ -255,5 +255,8 @@ Thu Apr 10 17:06:15 MDT 2008
 	New PID values added by Robert
 
 Sun Oct 12 11:56:18 MDT 2008
+	Create a branch to do AS2 mountain system development on;
+	will become v7 someday
+
 	cvs rtag as2_0 mcp
 	cvs rtag -r as2_0 -b as2 mcp
