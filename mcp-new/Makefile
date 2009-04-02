@@ -26,7 +26,7 @@ CFLAGS = $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__
 OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
 display.o instruments.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
-tagname.o brakes.o
+tagname.o brakes.o as2.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
@@ -60,6 +60,9 @@ make :
 # All line below START_DEPEND are machine generated; Do Not Edit
 #
 #START_DEPEND
+as2.o : as2.h
+as2.o : cmd.h
+as2.o : mcpMsgQ.h
 axis_cmds.o : abdh.h
 axis_cmds.o : axis.h
 axis_cmds.o : cmd.h
@@ -110,6 +113,7 @@ data_collection.o : instruments.h
 data_collection.o : io.h
 data_collection.o : ipcast.h
 data_collection.o : mcpFiducials.h
+data_collection.o : mcpSpectro.h
 data_collection.o : mcpUtils.h
 data_collection.o : serial.h
 data_collection.o : tm.h
@@ -142,6 +146,13 @@ instrument_lift.o : cw.h
 instrument_lift.o : data_collection.h
 instrument_lift.o : instruments.h
 instrument_lift.o : tm.h
+instruments.o : abdh.h
+instruments.o : axis.h
+instruments.o : cmd.h
+instruments.o : cw.h
+instruments.o : data_collection.h
+instruments.o : instruments.h
+instruments.o : tm.h
 ipsym.o : mcpUtils.h
 ipsym.o : timerint.h
 pvt.o : abdh.h
@@ -169,6 +180,7 @@ spectro.o : cmd.h
 spectro.o : data_collection.h
 spectro.o : frame.h
 spectro.o : mcpMsgQ.h
+spectro.o : mcpSpectro.h
 spectro.o : tm.h
 tbars.o : abdh.h
 tbars.o : axis.h
@@ -185,6 +197,7 @@ telescope_motion.o : instruments.h
 telescope_motion.o : mcpFiducials.h
 telescope_motion.o : ms.h
 telescope_motion.o : tm.h
+telnetCmds.o : as2.h
 telnetCmds.o : axis.h
 telnetCmds.o : cmd.h
 telnetCmds.o : mcpUtils.h
@@ -193,13 +206,6 @@ timers.o : cmd.h
 timers.o : data_collection.h
 timers.o : mcpMsgQ.h
 timers.o : mcpTimers.h
-umbilical.o : abdh.h
-umbilical.o : axis.h
-umbilical.o : cmd.h
-umbilical.o : cw.h
-umbilical.o : data_collection.h
-umbilical.o : instruments.h
-umbilical.o : tm.h
 util.o : mcpUtils.h
 util.o : mv162.h
 util.o : vmechip2.h

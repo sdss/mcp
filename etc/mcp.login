@@ -158,7 +158,8 @@ ld < util/ntp.o
 #
 # Load the MCP itself
 #
-ld < mcp-new/mcpnew.out
+#ld < mcp-new/mcpnew.out
+ld 1, 0, "mcp-new/mcpnew.out"
 #ld < mei-new/llfirm.o
 #ld < mcp-new/util.o
 #ld < mcp-new/telescope_motion.o
@@ -185,6 +186,7 @@ spectroInit
 tBarsInit
 timeInit
 tBrakesInit
+as2Init
 
 #BCAST_Enable=0
 #SM_COPY=0
@@ -196,7 +198,7 @@ taskPrioritySet (taskIdFigure("tExcTask"),1)
 #
 # Get the current time from the NTP server
 #
-set_time_cmd
+setSDSStimeFromNTP 1
 #
 # N.b. The `frequencies' supplied to the *_data_collection routines
 # are interpreted relative to the rate that TimerStart calls serverDCStart,
@@ -230,25 +232,28 @@ VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 #
 # Load fiducials tables
 #
-az_cmd
-ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/az.dat"
-ms_max_cmd "600"
-min_encoder_mismatch_cmd "1000"
+# AZIMUTH = 0
+read_fiducials "/linuxp/prd/mcpbase/fiducial-tables/az.dat", 0
+set_max_fiducial_correction 0, 600
+set_min_encoder_mismatch_error 0, 1000
 #
-alt_cmd
-ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/alt.dat"
-ms_max_cmd "600"
-min_encoder_mismatch_cmd "1000"
+# ALTITUDE = 1
+read_fiducials "/linuxp/prd/mcpbase/fiducial-tables/alt.dat", 1
+set_max_fiducial_correction 1, 600
+set_min_encoder_mismatch_error 1, 1000
 #
-rot_cmd
-ms_read_cmd "/linuxp/prd/mcpbase/fiducial-tables/rot.dat"
-ms_max_cmd "600"
-min_encoder_mismatch_cmd "1000"
+# INSTRUMENT = 2 (== rotator)
+read_fiducials "/linuxp/prd/mcpbase/fiducial-tables/rot.dat", 2
+set_max_fiducial_correction 2, 600
+set_min_encoder_mismatch_error 2, 1000
 #
 # Now that we're up, listen to the TCC and mcpMenu. They may have been trying
 # to talk to us all of this time
 #
-taskSpawn "tCPS",100,0,2000,cmdPortServer,31011
+oldServerPort = 31011
+newServerPort = 31012
+taskSpawn "tCPS",100,0,2000,cmdPortServer,oldServerPort
+taskSpawn "tNewCPS",100,0,2000,cmdPortServer,newServerPort
 taskSpawn "TCC",46,8,25000,tcc_serial,1
 #
 # Adjust tracing now that we're up

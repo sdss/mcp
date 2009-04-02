@@ -13,7 +13,7 @@ unsigned long timer_read(int timer);
 unsigned long timer_start(int timer);
 void VME2_pre_scaler(unsigned long adjust);
 char *mcpVersion(char *ver, int len);
-char *version_cmd(char *cmd);
+char *version_cmd(int uid, unsigned long cid, char *cmd);
 long getSemTaskId(SEM_ID sem);
 long phCrcCalc(long crc, const char *buff, int n);
 

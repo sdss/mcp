@@ -40,6 +40,7 @@
 #include "mcpMsgQ.h"
 #include "mcpTimers.h"
 #include "mcpUtils.h"
+#include "as2.h"
 
 /*------------------------------------------------------------------------
 **
@@ -63,9 +64,13 @@ SYMTAB_ID docSymTbl = NULL;		/* symbol table for documentation */
 int iacked = 0;				/* set to 0 on reboot */
 
 char *
-iack_cmd(char *cmd)			/* NOTUSED */
+iack_cmd(int uid, unsigned long cid,
+	 char *cmd)			/* NOTUSED */
 {
    iacked = 1;
+
+   sendStatusMsg_B(uid, cid, FINISHED_CODE, 1, "needIack", 0);
+   
    return("");
 }
 
@@ -74,7 +79,7 @@ iack_cmd(char *cmd)			/* NOTUSED */
  * Reset the MCP board and maybe the whole VME crate
  */
 char *
-sys_reset_cmd(char *args)
+sys_reset_cmd(int uid, unsigned long cid, char *args)
 {
    int reset_crate = 0;
    
@@ -223,7 +228,7 @@ tCmdLog(void)
 /*****************************************************************************/
 
 char *
-log_flush_cmd(char *cmd)		/* NOTUSED */
+log_flush_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    log_mcp_command(0, NULL);		/* flush the logfile to disk */
    
@@ -231,7 +236,7 @@ log_flush_cmd(char *cmd)		/* NOTUSED */
 }
 
 char *
-log_bufsize_cmd(char *cmd)
+log_bufsize_cmd(int uid, unsigned long cid, char *cmd)
 {
    sprintf(ublock->buff, "%d", log_command_bufsize);
 
@@ -243,7 +248,7 @@ log_bufsize_cmd(char *cmd)
 }
 
 char *
-log_all_cmd(char *cmd)
+log_all_cmd(int uid, unsigned long cid, char *cmd)
 {
    sprintf(ublock->buff, "%d", log_all_commands);
 
@@ -258,13 +263,15 @@ log_all_cmd(char *cmd)
  * Allocate a UBLOCK for this task
  */
 static UBLOCK ublock_default = {
-   -1, "default", "", NOINST, NOINST
+   -1, "default", "", NOINST, NOINST, 0, 0
 };
 UBLOCK *ublock = &ublock_default;	/* this task's user block; made a task
 					   variable after initialisation */
 
 void
 new_ublock(int pid,
+	   int uid,
+	   int protocol,
 	   const char *uname)
 {
    if((ublock = malloc(sizeof(UBLOCK))) == NULL ||
@@ -276,6 +283,9 @@ new_ublock(int pid,
    ublock->pid = pid;
    strncpy(ublock->uname, uname, UNAME_SIZE);
    ublock->axis_select = ublock->spectrograph_select = NOINST;
+   ublock->uid = uid;
+   ublock->cid = 0;
+   ublock->protocol = protocol;
 }
 
 /*****************************************************************************/
@@ -349,7 +359,7 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
  */
 void
 define_cmd(char *name,			/* name of command */
-	   char *(*addr)(char *),	/* function to call */
+	   char *(*addr)(int, unsigned long, char *), /* function to call */
 	   int narg,			/* number of arguments (< 0: vararg) */
 	   int need_sem,		/* does this cmd require semCmdPort? */
 	   int may_take,		/* may this cmd take semCmdPort? */
@@ -404,10 +414,12 @@ define_cmd(char *name,			/* name of command */
 */
 char *
 cmd_handler(int have_sem,		/* we have semCmdPort */
+	    int uid,			/* User (i.e. connection) ID */
+	    unsigned long cid,		/* Command ID */
 	    const char *cmd,		/* command to execute */
 	    int *cmd_type)		/* return type; or NULL */
 {
-   char *(*addr)(char *);		/* function pointer */
+   char *(*addr)(int, unsigned long, char *); /* function pointer */
    char *ans;
    char *args;				/* arguments for this command */
    char cmd_copy[256 + 1];		/* modifiable copy of cmd */
@@ -425,6 +437,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 
    if(!iacked) {
       if(iack_counter++%100 == 0) {
+	 sendStatusMsg_B(0, 0, INFORMATION_CODE, 1, "needIack", 1);
+
 	 TRACE(0, "%s",
 	    (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0);
       }
@@ -453,6 +467,9 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
       
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
 	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
+#if 0
+	 printf("Unknown command %s %d\n", tok, strlen(tok));
+#endif
 	 
 	 semGive(semCMD);
 
@@ -516,7 +533,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 }
       }
       
-      ans = (*addr)(args);		/* actually do the work */
+      ans = (*addr)(uid, cid, args);	/* actually do the work */
    }
    
   semGive(semCMD);

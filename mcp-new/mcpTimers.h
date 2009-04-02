@@ -23,9 +23,9 @@
 #define ALTITUDE_INT		0x4
 #define INSTRUMENT_INT		0x8
 
-char *set_time_cmd(char *cmd);
-char *ticklost_cmd(char *cmd);
-char *time_cmd(char *cmd);
+char *set_time_cmd(int uid, unsigned long cid, char *cmd);
+char *ticklost_cmd(int uid, unsigned long cid, char *cmd);
+char *time_cmd(int uid, unsigned long cid, char *cmd);
 
 int DIO316_initialize(unsigned char *addr, unsigned short vecnum);
 void DIO316_interrupt(int type);

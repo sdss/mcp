@@ -208,7 +208,7 @@ tcc_serial(int port)
   TRACE(1, "OPEN port %s", serial_port, 0);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
-  new_ublock(0, "TCC");			/* task-specific UBLOCK */
+  new_ublock(0, 1, OLD_PROTOCOL, "TCC"); /* task-specific UBLOCK */
   log_mcp_command(CMD_TYPE_MURMUR, "TCC connected");
 
   for(;;) {
@@ -282,8 +282,7 @@ tcc_serial(int port)
      log_mcp_command(cmd_type, command_buffer);
 
      answer_buffer =
-       cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
-		   command_buffer, &cmd_type);
+	 cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0), 0, 0, command_buffer, &cmd_type);
 #if DEBUG_DELAY
 /*
  * Stop task tracing if delay exceeds 4s

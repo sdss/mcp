@@ -1,6 +1,8 @@
 #ifndef __CMD_H__
 #define __CMD_H__			/* do only once */
 
+#define OLD_PROTOCOL 0                  /* The old connection protocol, as used by mcpMenu */
+#define NEW_PROTOCOL 1                  /* The new connection protocol, as used by the SDSS-III hub */
 /*
  * A type for holding information about a user who's connected to the MCP
  */
@@ -14,12 +16,16 @@ typedef struct {
    char buff[UBLOCK_SIZE + 1];		/* buffer to hold replies */
    int axis_select;			/* selected axis for this user */
    int spectrograph_select;		/* selected spectrograph */
+   int uid;				/* User ID for this connection */
+   unsigned long cid;			/* command ID; usually sent from client, but auto-generated
+					   for clients such as the mcpMenu */
+   int protocol;                        /* The protocol this client uses */
 } UBLOCK;
 
 extern UBLOCK *ublock;			/* the user block for this user;
 					   N.B.: this is a task variable */
 
-void new_ublock(int pid, const char *uname);
+void new_ublock(int pid, int uid, int protocol, const char *uname);
 
 /*****************************************************************************/
 
@@ -36,8 +42,8 @@ extern int iacked;			/* set to 0 on reboot */
 #define CMD_TYPE_MURMUR 0x80		/* send to murmur by default */
 
 int cmdInit(const char *msg);
-char *cmd_handler(int have_semPortCmd, const char *cmd, int *cmd_type);
-void define_cmd(char *name, char *(*addr)(char *),
+char *cmd_handler(int have_semPortCmd, int uid, unsigned long cid, const char *cmd, int *cmd_type);
+void define_cmd(char *name, char *(*addr)(int, unsigned long, char *),
 		int narg, int priv, int may_take, int murmur, const char *doc);
 void log_mcp_command(int type, const char *cmd);
 

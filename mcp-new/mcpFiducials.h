@@ -69,6 +69,6 @@ char *write_fiducials(const char *file, int axis);
 int set_max_fiducial_correction(int axis, int max_correction);
 int set_min_encoder_slip_error(int axis, int min_error);
 
-char *correct_cmd(char *cmd);
+char *correct_cmd(int uid, unsigned long cid, char *cmd);
 
 #endif

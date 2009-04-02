@@ -134,7 +134,7 @@ tBars(void)
 }
 
 char *
-tbar_latch_cmd(char *cmd)
+tbar_latch_cmd(int uid, unsigned long cid, char *cmd)
 {
    MCP_MSG msg;				/* message to send */
    int on_off;				/* true to latch T-bars */

@@ -8,7 +8,8 @@ getCvsTagname(void)
    return "$Name$";
 }
 char *
-version_cmd(char *cmd)			/* NOTUSED */
+version_cmd(int uid, unsigned long cid,
+	    char *cmd)			/* NOTUSED */
 {
    return "mcpVersion=\"$Name$|"  __DATE__ "|" __TIME__ "\"\n";
 }

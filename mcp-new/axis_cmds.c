@@ -47,6 +47,7 @@
 #include "mcpFiducials.h"
 #include "cmd.h"
 #include "instruments.h"
+#include "as2.h"
 
 /*========================================================================
 **========================================================================
@@ -292,7 +293,7 @@ dsp_set_last_command_corr(PDSP pdsp,
 **=========================================================================
 */
 char *
-id_cmd(char *cmd)
+id_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    
@@ -317,7 +318,7 @@ id_cmd(char *cmd)
 **      NULL string or "ERR:..."
 */
 char *
-init_cmd(char *cmd)
+init_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    int i;
@@ -524,7 +525,7 @@ init_cmd(char *cmd)
 **      "acc" or "ERR:..."
 */
 char *
-mc_maxacc_cmd(char *cmd)
+mc_maxacc_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
 
@@ -542,7 +543,7 @@ mc_maxacc_cmd(char *cmd)
 **      MC.MAX.VEL -> Display the maximum permitted velocity.
 */
 char *
-mc_maxvel_cmd(char *cmd)		/* NOTUSED */
+mc_maxvel_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    const int axis = ublock->axis_select;
 
@@ -560,21 +561,21 @@ mc_maxvel_cmd(char *cmd)		/* NOTUSED */
  * Select an instrument
  */
 char *
-rot_cmd(char *cmd)			/* NOTUSED */
+rot_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = INSTRUMENT;
    return "";
 }
 
 char *
-az_cmd(char *cmd)			/* NOTUSED */
+az_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = AZIMUTH;
    return "";
 }
 
 char *
-alt_cmd(char *cmd)			/* NOTUSED */
+alt_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = ALTITUDE;
    return "";
@@ -600,7 +601,7 @@ alt_cmd(char *cmd)			/* NOTUSED */
 **=========================================================================
 */
 char *
-stats_cmd(char *cmd)			/* NOTUSED */
+stats_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    return "";
 }
@@ -613,7 +614,7 @@ stats_cmd(char *cmd)			/* NOTUSED */
 **	return "pos vel time status index" or "ERR:..."
 */
 char *
-status_cmd(char *cmd)
+status_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    double pos, vel;			/* position and velocity */
@@ -682,7 +683,7 @@ status_cmd(char *cmd)
 **=========================================================================
 */
 char *
-status_long_cmd(char *cmd)		/* NOTUSED */
+status_long_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    int i;
    long status = *(long *)&axis_stat[ublock->axis_select][0];
@@ -758,7 +759,7 @@ read_clinometer(void)
  * to update the MCP Menu
  */
 char *
-axis_status_cmd(char *cmd)
+axis_status_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
 
@@ -798,7 +799,7 @@ get_miscstatus(char *status,
       !strcmp(fiducialVersion[0], fiducialVersion[2])) {
     fidver = fiducialVersion[0];
   } else {
-    sprintf(errorBuf, "%s|s|%s", 
+    sprintf(errorBuf, "%s|%s|%s", 
 	    fiducialVersion[0], fiducialVersion[1], fiducialVersion[2]);
     fidver = errorBuf;
   }
@@ -817,13 +818,34 @@ get_miscstatus(char *status,
 }
 
 /*****************************************************************************/
+
+char *
+status_broadcast_cmd(int uid, unsigned long cid, char *cmd)
+{
+   if(semTake(semStatusCmd, 2) == ERROR) {
+      return("ERR: Cannot take semStatusCmd");
+   }
+
+#if 0
+   i += get_cwstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+   i += get_slitstatus(&ublock->buff[i], UBLOCK_SIZE - i);
+#endif
+   broadcast_ffs_lamp_status(uid, cid, 1, 1);
+   broadcast_inst_status(uid, cid);
+   broadcast_fiducial_status(uid, cid);
+
+   semGive(semStatusCmd);
+
+   return "";
+}
+/*****************************************************************************/
 /*
  * An status command that can be used by IOP to get enough information
  * to update the MCP Menu. Returns everything except the axis status and
  * the state of the semCmdPort
  */
 char *
-system_status_cmd(char *cmd)
+system_status_cmd(int uid, unsigned long cid, char *cmd)
 {
 #if 1
    if(semTake(semStatusCmd, 2) == ERROR) {
@@ -942,7 +964,7 @@ set_status(int axis,			/* axis, or NOINST for system status */
 **	return "0xnnnn 0xnnnn ...."
 */
 char *
-abstatus_cmd(char *cmd)
+abstatus_cmd(int uid, unsigned long cid, char *cmd)
 {
    int i,idx;
    short *dt;
@@ -1572,7 +1594,7 @@ mcp_stop_axis(int axis)
  * These aren't declared static so that cmdList can find them
  */
 char *
-drift_cmd(char *cmd)			/* NOTUSED */
+drift_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    const int axis = ublock->axis_select;
    double arcdeg, veldeg, t;		/* as returned by mcp_drift */
@@ -1593,7 +1615,7 @@ drift_cmd(char *cmd)			/* NOTUSED */
 }
 
 char *
-move_cmd(char *cmd)
+move_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    double params[3];
@@ -1612,7 +1634,7 @@ move_cmd(char *cmd)
 }
 
 char *
-plus_move_cmd(char *cmd)
+plus_move_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    double params[3];
@@ -1633,7 +1655,7 @@ plus_move_cmd(char *cmd)
 /*****************************************************************************/
 
 char *
-amp_reset_cmd(char *cmd)		/* NOTUSED */
+amp_reset_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    mcp_amp_reset(ublock->axis_select);
 
@@ -1641,7 +1663,7 @@ amp_reset_cmd(char *cmd)		/* NOTUSED */
 }
 
 char *
-hold_cmd(char *cmd)			/* NOTUSED */
+hold_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 
 {
    mcp_hold(ublock->axis_select);
@@ -1650,7 +1672,7 @@ hold_cmd(char *cmd)			/* NOTUSED */
 }
 
 char *
-stop_cmd(char *cmd)			/* NOTUSED */
+stop_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    mcp_stop_axis(ublock->axis_select);
 
@@ -1658,7 +1680,7 @@ stop_cmd(char *cmd)			/* NOTUSED */
 }
 
 char *
-set_monitor_cmd(char *cmd)			/* NOTUSED */
+set_monitor_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    int on_off;
 
@@ -1672,7 +1694,7 @@ set_monitor_cmd(char *cmd)			/* NOTUSED */
 }
 
 char *
-set_pos_cmd(char *cmd)
+set_pos_cmd(int uid, unsigned long cid, char *cmd)
 {
    double pos;
 
@@ -1686,7 +1708,7 @@ set_pos_cmd(char *cmd)
 }
 
 char *
-goto_pos_va_cmd(char *cmd)
+goto_pos_va_cmd(int uid, unsigned long cid, char *cmd)
 {
    double pos, vel, acc;
 
@@ -1700,7 +1722,7 @@ goto_pos_va_cmd(char *cmd)
 }
 
 char *
-set_vel_cmd(char *cmd)
+set_vel_cmd(int uid, unsigned long cid, char *cmd)
 {
    double pos;
 
@@ -1714,7 +1736,7 @@ set_vel_cmd(char *cmd)
 }
 
 char *
-set_scale_cmd(char *cmd)
+set_scale_cmd(int uid, unsigned long cid, char *cmd)
 {
    double ticksize;
 
@@ -1728,7 +1750,7 @@ set_scale_cmd(char *cmd)
 }
 
 char *
-bump_clear_cmd(char *cmd)		/* NOTUSED */
+bump_clear_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    clear_sticky_bumps(ublock->axis_select, 0);
    clear_sticky_bumps(ublock->axis_select, 1);
@@ -1800,7 +1822,7 @@ set_axis_scale(int axis,		/* the axis in question */
  * Provide an MCP command to set an MEI axis control coeff (e.g. PID)
  */
 char *
-set_filter_coeff_cmd(char *cmd)
+set_filter_coeff_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    int ind = -1;			/* index for name */
@@ -1853,7 +1875,7 @@ set_filter_coeff_cmd(char *cmd)
  * Return filter coefficients
  */
 char *
-get_filter_coeffs_cmd(char *cmd)
+get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    short coeff[COEFFICIENTS];
@@ -2108,6 +2130,8 @@ axisMotionInit(void)
    define_cmd("STATUS.LONG",   status_long_cmd,   0, 0, 0, 1, "");
    define_cmd("STOP",          stop_cmd, 	  0, 1, 0, 1, "");
    define_cmd("SYSTEM.STATUS", system_status_cmd, 0, 0, 0, 0, "");
+   define_cmd("STATUS.BROADCAST", status_broadcast_cmd, 0, 0, 0, 0,
+	      "Broadcast everything we know about the non-axis related parts of the system");
    define_cmd("SET.SCALE",     set_scale_cmd,     1, 1, 0, 1,
 	      "Set the scale (arcsec/tick) for the current axis");
    define_cmd("AZ",            az_cmd,          0, 0, 0, 0,

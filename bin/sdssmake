@@ -1,2 +1,2 @@
 #!/bin/sh
-$SDSSTOOLS_DIR/bin/sdssmake -CC CC68K "$@"
+$SDSSTOOLS_DIR/bin/sdssmake -CC CC68K --no-print-directory "$@"

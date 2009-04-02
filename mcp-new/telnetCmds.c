@@ -22,6 +22,7 @@
 #include "cmd.h"
 #include "dscTrace.h"
 #include "mcpUtils.h"
+#include "as2.h"
 
 #define MAX_QUEUED_CONNECTIONS 3	/* max. number of queued connections
 					   to allow */
@@ -78,7 +79,8 @@ give_semCmdPort(int force)		/* force the giving? */
  * Commands to handle the semaphore
  */
 char *
-sem_take_cmd(char *str)			/* NOTUSED */
+sem_take_cmd(int uid, unsigned long cid,
+	     char *str)			/* NOTUSED */
 {
    TRACE(5, "PID %d: command SEM.TAKE", ublock->pid, 0);
    
@@ -95,7 +97,8 @@ sem_take_cmd(char *str)			/* NOTUSED */
 }
 
 char *
-sem_steal_cmd(char *str)		/* NOTUSED */
+sem_steal_cmd(int uid, unsigned long cid,
+	      char *str)		/* NOTUSED */
 {
    TRACE(5, "PID %d: command SEM.STEAL", ublock->pid, 0);
    
@@ -117,7 +120,7 @@ sem_steal_cmd(char *str)		/* NOTUSED */
 
 
 char *
-sem_give_cmd(char *str)
+sem_give_cmd(int uid, unsigned long cid, char *str)
 {
    int force = 0;
    
@@ -149,10 +152,13 @@ sem_give_cmd(char *str)
  */
 void
 cpsWorkTask(int fd,			/* as returned by accept() */
-	    struct sockaddr_in *client) /* the client's socket address */
+	    struct sockaddr_in *client, /* the client's socket address */
+	    int uid,			/* the client's user ID */
+	    int protocol)		/* the protocol the connection uses */
 {
    char buff[MSG_SIZE];			/* buffer to reply to messages */
-   char cmd[MSG_SIZE];			/* buffer to read messages */
+   char cmd_s[MSG_SIZE];		/* buffer to read messages */
+   char *cmd;				/* pointer to cmd_s buffer */
    int n;				/* number of bytes read */
    int nerr = 0;			/* number of consecutive errors seen */
    const int port = ntohs(client->sin_port); /* the port they connected on */
@@ -161,19 +167,28 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
    TRACE(6, "new telnet connection on port %d", port, 0);
 
-   sprintf(buff, "connected\n");
-   if(write(fd, buff, strlen(buff)) == -1) {
-      TRACE(0, "telnet acking connection on port %d: %s", port, strerror(errno));
-      fprintf(stderr, "Acknowledging connection on port %d: %s",
-	      port, strerror(errno));
-      close(fd);
-      return;
+   new_ublock(-1, uid, protocol, "(telnet)"); /* task-specific UBLOCK */
+
+   if (ublock->protocol == OLD_PROTOCOL) {
+      sprintf(buff, "connected\n");
+      if(write(fd, buff, strlen(buff)) == -1) {
+	 TRACE(0, "telnet acking connection on port %d: %s", port, strerror(errno));
+	 fprintf(stderr, "Acknowledging connection on port %d: %s",
+		 port, strerror(errno));
+	 close(fd);
+	 return;
+      }
+   } else {
+      sendStatusMsg_FD(uid, 0, INFORMATION_CODE, 0, fd);
+      sendStatusMsg_I(uid, 0, INFORMATION_CODE, 0, "yourUserNum", uid);
    }
 
-   new_ublock(-1, "(telnet)");		/* task-specific UBLOCK */
-
    for(;;) {
+      int cid = 0;			/* Command ID */
+      char cmd_in[MSG_SIZE];            /* input command (cmd[]'s modified by cmd_handler) */
+
       errno = 0;
+      cmd = cmd_s;
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
 	 if(errno != 0) {
 	    TRACE(0, "telnet reading on port %d: %s\n", port, strerror(errno));
@@ -192,9 +207,37 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       }
       nerr = 0;				/* number of error seen */
       
-      cmd[n] = '\0';
+      cmd[n] = '\0'; n--;
+      ptr = cmd + n - 1;		/* strip trailing white space */
+      while(ptr >= cmd && isspace((int)*ptr)) {
+	 *ptr-- = '\0';
+      }
 
       TRACE(5, "new telnet cmd: %s", cmd, 0);
+      /*
+       * Modern clients send commands that look like "userId commandID commands [arg1 ...]";
+       * If uid/cid aren't available we'll invent them
+       */
+      {
+	 int _uid = 0;			/* User ID in command */
+	 if (sscanf(cmd, "%d %d ", &_uid, &cid) == 2) { /* uid/cid are present */
+	    if (_uid != ublock->uid) {
+	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badUid", ublock->uid);
+	    }
+	    while (*cmd != '\0' && !isdigit((int)*cmd)) {
+	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badWhitespace", *cmd);
+	       cmd++;
+	    }
+
+	    while (isdigit((int)*cmd)) cmd++; /* skip uid */
+	    while (isspace((int)*cmd)) cmd++;
+	    while (isdigit((int)*cmd)) cmd++; /* skip cid */
+	    while (isspace((int)*cmd)) cmd++;
+	 } else {
+	    uid = ublock->uid;
+	    cid = ++ublock->cid;
+	 }
+      }
 /*
  * Maybe execute command
  */
@@ -216,8 +259,12 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
 	    sprintf(buff, "%s:%d", ublock->uname, ublock->pid);
 	    log_mcp_command(CMD_TYPE_MURMUR, buff);
-	    
-	    reply = "Read userid/pid";
+
+	    if (ublock->protocol == OLD_PROTOCOL) {
+	       reply = "Read userid/pid";
+	    } else {
+	       sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "userName", buff);
+	    }
 	    break;
 	  default:
 	    reply = "Garbled USER.ID command";
@@ -248,14 +295,11 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	    reply = "restarted the tTelnetd";
 	 }
       } else {
-	 char cmd_in[MSG_SIZE];		/* input command
-					   (cmd[]'s modified by cmd_handler) */
 	 int cmd_type;			/* type of command */
-	 strcpy(cmd_in, cmd);
 
-	 reply =
-	   cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
-		       cmd, &cmd_type);
+	 strncpy(cmd_in, cmd, MSG_SIZE - 1); cmd_in[MSG_SIZE - 1] = '\0';
+	 
+	 reply = cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0), uid, cid, cmd, &cmd_type);
 	 /*
 	  * write logfile of murmurable commands
 	  */
@@ -273,13 +317,25 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 *ptr-- = '\0';
       }
       
-      sprintf(buff, "%s ok\n", reply);	/* OK even if buff == reply */
-      if(write(fd, buff, strlen(buff)) == -1) {
-	 fprintf(stderr,"Sending reply %s to command %s: %s",
-		 buff, cmd, strerror(errno));
-	 errno = 0;			/* we've already handled error */
+      if (ublock->protocol == OLD_PROTOCOL) {
+	 sprintf(buff, "%s ok\n", reply);	/* OK even if buff == reply */
+	 if(write(fd, buff, strlen(buff)) == -1) {
+	    fprintf(stderr,"Sending reply %s to command %s: %s",
+		    buff, cmd, strerror(errno));
+	    errno = 0;			/* we've already handled error */
 
-	 break;
+	    break;
+	 }
+      } else {
+	 if (reply[0] == '\0') {
+	    ;
+	 } else {
+	    if (strcmp(reply, "ERR: CMD ERROR") == 0) {
+	       sendStatusMsg_S(uid, cid, FATAL_CODE, 0, "badCommand", cmd_in);
+	    } else {
+	       sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", reply);
+	    }
+	 }
       }
    }
 
@@ -290,9 +346,16 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    (void)give_semCmdPort(0);
 
    close(fd);
+   if (ublock->protocol == NEW_PROTOCOL) {
+      sendStatusMsg_FD(uid, 0, FINISHED_CODE, 0, fd);
+   }
 
    return;
 }
+
+int oldServerPort = -1;			/* the port we've always connected to (e.g. mcpMenu) */
+int newServerPort = -1;			/* the new port that the SDSS-III hub connects to  */
+int uid = 2;				/* User IDs for connections (0: spontaneous; 1: TCC) */
 
 STATUS
 cmdPortServer(int port)			/* port to bind to */
@@ -351,13 +414,14 @@ cmdPortServer(int port)			/* port to bind to */
 	 fprintf(stderr,"Creating semCmdPort semaphore: %s", strerror(errno));
       }
       *semCmdPortOwner = '\0';
+
+      /*
+       * Define semaphore commands
+       */
+      define_cmd("SEM.TAKE",  sem_take_cmd,   0, 0, 0, 0, "");
+      define_cmd("SEM.GIVE",  sem_give_cmd,  -1, 0, 0, 0, "");
+      define_cmd("SEM.STEAL", sem_steal_cmd,  0, 0, 0, 1, "");
    }
-/*
- * Define semaphore commands
- */
-   define_cmd("SEM.TAKE",  sem_take_cmd,   0, 0, 0, 0, "");
-   define_cmd("SEM.GIVE",  sem_give_cmd,  -1, 0, 0, 0, "");
-   define_cmd("SEM.STEAL", sem_steal_cmd,  0, 0, 0, 1, "");
 /*
  * Loop, waiting for connection requests
  */
@@ -371,8 +435,9 @@ cmdPortServer(int port)			/* port to bind to */
       }
 
       if(taskSpawn("tTelnetCmd", SERVER_PRIORITY, VX_FP_TASK, SERVER_STACKSIZE,
-		   (FUNCPTR)cpsWorkTask, newFd, (int)&client,
-					    0, 0, 0, 0, 0, 0, 0, 0) == ERROR) {
+		   (FUNCPTR)cpsWorkTask, newFd, (int)&client, ++uid,
+		   (port == newServerPort ? NEW_PROTOCOL : OLD_PROTOCOL),
+		   0, 0, 0, 0, 0, 0) == ERROR) {
 	 fprintf(stderr,"Spawning task to service connection on port %d: %s",
 						 port, strerror(errno));
 	 close(newFd);

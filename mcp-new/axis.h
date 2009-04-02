@@ -90,7 +90,7 @@ int mcp_drift(int axis, double *arcdeg, double *veldeg, double *t);
 int mcp_move(int axis, double *params, int nparam);
 int mcp_plus_move(int axis, double *params, int nparam);
 
-char *ms_off_cmd(char *cmd);
+char *ms_off_cmd(int uid, unsigned long cid, char *cmd);
 
 #if defined(COEFFICIENTS)
    struct SW_COEFFS {

@@ -13,6 +13,7 @@ typedef struct {
       FFSCheckMoved_type,		/* check that FFS moved correctly */
 
       lamps_type,			/* turn lamps on/off */
+      lampsCheck_type,			/* check that lamps obeyed us */
 
       latchCrossed_type,		/* we crossed a fiducial */
       ms_on_az_type,			/* process an MS.ON command for AZ */
@@ -95,14 +96,51 @@ typedef struct {
       struct {
 	 char cmd[1];			/* The command to log.
 					   N.b. message queue must be declared
-					   with sizeof(MCP_MSG + UBLOCK_SIZE)*/
+					   with sizeof(MCP_MSG) + UBLOCK_SIZE */
       } cmdLog;
 
       struct {
 	 int dummy;
       } cmdFlush;
    } u;
+
+    unsigned long cid;			/* The command ID */
+    int uid;				/* The user ID */
 } MCP_MSG;
+
+/*
+ * A message reporting status to be broadcast
+ */
+typedef enum {
+    ERROR_CODE = '!',
+    FATAL_CODE = 'f',
+    FINISHED_CODE = ':',
+    INFORMATION_CODE = 'i',
+    QUEUED_CODE = '>',
+    WARNING_CODE = 'w'
+} MSG_CODE;				/* Status of command */ 
+
+typedef struct {
+    unsigned long cid;			/* The command ID */
+    int uid;				/* The user ID */
+    signed char code;			/* Status of command */ 
+    char key[23];			/* The desired keyword */
+
+    enum {
+        array,                          /* the value is a comma separated set of values, passed as a string */
+        boolean,                        /* the value is a boolean (the value's still in u.ival) */
+        file_descriptor,                /* the value is a file descriptor to write to */
+	integer,                        /* there is a keyword with an integer value */
+	none,                           /* there is no keyword */
+        novalue,                        /* there is a keyword, but it has no value */
+        string                          /* there is a keyword with a string value */
+    } type;
+
+    union {
+	int ival;
+        char sval[80];
+    } u;
+} MCP_STATUS_MSG;
 
 /*
  * tAlgnClmp task
@@ -138,5 +176,9 @@ extern MSG_Q_ID msgTbars;
  * tCmdLog task
  */
 extern MSG_Q_ID msgCmdLog;
+/*
+ * tStatus task
+ */
+extern MSG_Q_ID msgStatus;
 
 #endif

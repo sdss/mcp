@@ -568,19 +568,19 @@ slc500_data_collection(unsigned long freq)
  * Did someone push a button on the manual latch control box?
  */
       if(sdssdc.status.i1.il4.open_slit_doors) {
-	 sp1_cmd(NULL); slitdoor_open_cmd(NULL);
-	 sp2_cmd(NULL); slitdoor_open_cmd(NULL);
+	 sp1_cmd(0, 0, NULL); slitdoor_open_cmd(0, 0, NULL);
+	 sp2_cmd(0, 0, NULL); slitdoor_open_cmd(0, 0, NULL);
       } else if(sdssdc.status.i1.il4.close_slit_doors) {
-	 sp1_cmd(NULL); slitdoor_close_cmd(NULL);
-	 sp2_cmd(NULL); slitdoor_close_cmd(NULL);
+	 sp1_cmd(0, 0, NULL); slitdoor_close_cmd(0, 0, NULL);
+	 sp2_cmd(0, 0, NULL); slitdoor_close_cmd(0, 0, NULL);
       }
       
       if(sdssdc.status.i1.il4.slit_latch_lth_cmd) {
-	 sp1_cmd(NULL); slithead_latch_close_cmd(NULL);
-	 sp2_cmd(NULL); slithead_latch_close_cmd(NULL);
+	 sp1_cmd(0, 0, NULL); slithead_latch_close_cmd(0, 0, NULL);
+	 sp2_cmd(0, 0, NULL); slithead_latch_close_cmd(0, 0, NULL);
       } else if(sdssdc.status.i1.il4.slit_latch_unlth_cmd) {
-	 sp1_cmd(NULL); slithead_latch_open_cmd(NULL);
-	 sp2_cmd(NULL); slithead_latch_open_cmd(NULL);
+	 sp1_cmd(0, 0, NULL); slithead_latch_open_cmd(0, 0, NULL);
+	 sp2_cmd(0, 0, NULL); slithead_latch_open_cmd(0, 0, NULL);
       }
 /*
  * check that the correct version of the PLC's installed

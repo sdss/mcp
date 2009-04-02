@@ -1749,7 +1749,7 @@ get_cwstatus(char *cwstatus_ans,
 **=========================================================================
 */
 char *
-cwmov_cmd(char *cmd)
+cwmov_cmd(int uid, unsigned long cid, char *cmd)
 {
   int cw;
   int cwpos;
@@ -1767,7 +1767,7 @@ cwmov_cmd(char *cmd)
 }
 
 char *
-cwinst_cmd(char *cmd)
+cwinst_cmd(int uid, unsigned long cid, char *cmd)
 {
    const char *ans;
    int inst;
@@ -1783,7 +1783,7 @@ cwinst_cmd(char *cmd)
 }
 
 char *
-cwabort_cmd(char *cmd)
+cwabort_cmd(int uid, unsigned long cid, char *cmd)
 {
   mcp_cw_abort();
 
@@ -1791,7 +1791,7 @@ cwabort_cmd(char *cmd)
 }
 
 char *
-cwstatus_cmd(char *cmd)
+cwstatus_cmd(int uid, unsigned long cid, char *cmd)
 {
    if(semTake(semMEIUPD,60) == ERROR) {
       TRACE(6, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)",

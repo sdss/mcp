@@ -11,6 +11,7 @@
 #include "dscTrace.h"
 #include "cw.h"
 #include "cmd.h"
+#include "as2.h"
 
 /*****************************************************************************/
 /*
@@ -119,6 +120,13 @@ saddle_is_mounted(void)
 /*
  * Report the status of instruments.
  */
+void
+broadcast_inst_status(int uid, unsigned long cid)
+{
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "saddleIsMounted", saddle_is_mounted());
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 0, "instrumentNum", instrument_id());
+}
+
 int
 get_inststatus(char *status_ans,
 	       int size)			/* dimen of status_ans */

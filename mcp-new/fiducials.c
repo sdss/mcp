@@ -24,6 +24,7 @@
 #include "serial.h"
 #include "cmd.h"
 #include "mcpUtils.h"
+#include "as2.h"
 
 char fiducialVersion[3][FIDVERLEN] = {"undefined", "undefined", "undefined"};	/* Fiducial table CVS versions. */
 
@@ -307,6 +308,27 @@ write_fiducial_log(const char *type,	/* type of entry */
    fclose(fd);
 }
 
+/*-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
+
+void
+broadcast_fiducial_status(int uid, unsigned long cid)
+{
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azFiducialMaxCorr", fiducial[AZIMUTH].max_correction);
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altFiducialMaxCorr", fiducial[ALTITUDE].max_correction);
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "rotFiducialMaxCorr", fiducial[INSTRUMENT].max_correction);
+
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azFiducialVersion", fiducialVersion[AZIMUTH]);
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altFiducialVersion", fiducialVersion[ALTITUDE]);
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "rotFiducialVersion", fiducialVersion[INSTRUMENT]);
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "goodFiducialVersions", 
+		   (strcmp(fiducialVersion[0], fiducialVersion[1]) == 0 &&
+		    strcmp(fiducialVersion[0], fiducialVersion[2]) == 0));
+
+   /* PLC version, per the PLC */
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "plcFiducialVersion", sdssdc.status.b3.w1.version_id);
+}
+
+
 /*****************************************************************************/
 /*
  * Set a fiducial
@@ -575,7 +597,7 @@ remap_fiducials(int axis,		/* the axis in question */
 static int use_az_barcode = 0;			/* Use the azimuth barcode reader? */
 
 char *
-az_barcode_cmd(char *cmd)
+az_barcode_cmd(int uid, unsigned long cid, char *cmd)
 {
    sprintf(ublock->buff, "%d", use_az_barcode);
 			
@@ -1228,13 +1250,13 @@ update_fiducial_errors(int axis,	/* the axis */
  *	MS.MAP.LOAD ms# val - Loads the specified fiducials.
  */
 char *
-ms_map_dump_cmd(char *cmd)		/* NOTUSED */
+ms_map_dump_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
   return "";
 }
 			
 char *
-ms_map_load_cmd(char *cmd)		/* NOTUSED */
+ms_map_load_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
   return "";
 }
@@ -1244,19 +1266,24 @@ ms_map_load_cmd(char *cmd)		/* NOTUSED */
  * Read/write fiducials for a current axis from/to a file
  */
 char *
-ms_read_cmd(char *cmd)
+ms_read_cmd(int uid, unsigned long cid, char *cmd)
 {
    char filename[200];			/* name of file to read */
+   char *reply = NULL;
 
    if(sscanf(cmd, "%s", filename) != 1) {
       return("ERR: no filename supplied");
    }
 
-   return(read_fiducials(filename, ublock->axis_select));
+   reply = read_fiducials(filename, ublock->axis_select);
+
+   broadcast_fiducial_status(uid, cid);
+   
+   return reply;
 }
 
 char *
-ms_write_cmd(char *cmd)
+ms_write_cmd(int uid, unsigned long cid, char *cmd)
 {
    char filename[200];			/* name of file to write */
 
@@ -1272,7 +1299,7 @@ ms_write_cmd(char *cmd)
  * Set a fiducial, i.e. set an axis' position to a fiducial's known value
  */
 char *
-ms_set_axis_pos_cmd(char *cmd)		/* NOTUSED */
+ms_set_axis_pos_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    mcp_set_fiducial(ublock->axis_select);
 
@@ -1379,7 +1406,7 @@ set_ms_off(int axis,			/* the desired axis */
  * set MS.ON
  */
 char *
-ms_on_cmd(char *cmd)			/* NOTUSED */
+ms_on_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    const int axis = ublock->axis_select;
    
@@ -1398,7 +1425,7 @@ ms_on_cmd(char *cmd)			/* NOTUSED */
  * set MS.OFF
  */
 char *
-ms_off_cmd(char *cmd)
+ms_off_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
    float delay;				/* delay until MS.OFF takes effect, s*/
@@ -1429,7 +1456,7 @@ ms_off_cmd(char *cmd)
  * Set the maximum change in position that MS.ON is allowed to make
  */
 char *
-ms_max_cmd(char *cmd)			/* NOTUSED */
+ms_max_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    const int axis = ublock->axis_select;
    long ms_max;				/* maximum change due to MS.ON */
@@ -1455,7 +1482,7 @@ ms_max_cmd(char *cmd)			/* NOTUSED */
  * complain about the encoders
  */
 char *
-min_encoder_mismatch_cmd(char *cmd)	/* NOTUSED */
+min_encoder_mismatch_cmd(int uid, unsigned long cid, char *cmd)	/* NOTUSED */
 {
    const int axis = ublock->axis_select;
    long min_error;			/* minimum error to report */
@@ -1480,7 +1507,7 @@ min_encoder_mismatch_cmd(char *cmd)	/* NOTUSED */
  * Correct the position of the selected axis by an unlimited amount
  */
 char *
-correct_cmd(char *cmd)			/* NOTUSED */
+correct_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    const int axis = ublock->axis_select;
    
@@ -1657,7 +1684,7 @@ read_fiducials(const char *file,	/* file to read from */
 	   TRACE(2, "Fiducial id from %s in file %s",
 		     lptr, file);
 
-				/* Skip over leading "Name: " */
+	   /* Skip over leading "Name: " */
 	   lptr += strlen("$Name: ");
 	   while(isspace((int)*lptr)) lptr++;
 	   if (*lptr == '\0') {

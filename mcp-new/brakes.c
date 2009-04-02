@@ -194,14 +194,14 @@ mcp_unset_brake(int axis)		/* axis to set */
 /*
  * The actual commands to turn the brakes on/off
  */
-char *brakeon_cmd(char *cmd)
+char *brakeon_cmd(int uid, unsigned long cid, char *cmd)
 {
   mcp_set_brake(ublock->axis_select);
   
   return "";
 }
 
-char *brakeoff_cmd(char *cmd)
+char *brakeoff_cmd(int uid, unsigned long cid, char *cmd)
 {
    mcp_unset_brake(ublock->axis_select);
    

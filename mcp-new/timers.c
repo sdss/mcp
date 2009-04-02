@@ -214,7 +214,7 @@ setSDSStimeFromNTP(int quiet)
 }
 
 char *
-set_time_cmd(char *cmd)
+set_time_cmd(int uid, unsigned long cid, char *cmd)
 {
    static int quiet = 1;		/* be quiet? */
 
@@ -236,7 +236,7 @@ set_time_cmd(char *cmd)
 **
 */
 char *
-ticklost_cmd(char *cmd)			/* NOTUSED */
+ticklost_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    double tick = sdss_get_time();
    
@@ -269,7 +269,7 @@ ticklost_cmd(char *cmd)			/* NOTUSED */
 **=========================================================================
 */
 char *
-time_cmd(char *cmd)
+time_cmd(int uid, unsigned long cid, char *cmd)
 {
   static struct tm *t;
   struct timespec tp;
