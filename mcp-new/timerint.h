@@ -12,9 +12,11 @@
 extern "C" {
 #endif
 
+#if 0
 void timerStart(unsigned long freq, unsigned char level, void (*func)());
 void timerStat();
 void timerStop();
+#endif
 
 #ifdef __cplusplus
 };

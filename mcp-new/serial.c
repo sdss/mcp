@@ -180,6 +180,15 @@ sdss_receive(FILE *input_stream,
 long tcc_taskId = 0;			/* The TCC task's ID */
 int tcc_may_release_semCmdPort = 0;	/* If all axes are idle, may the
 					   may release semCmdPort? */
+#define DEBUG_DELAY 1
+#if DEBUG_DELAY
+extern double sdss_delta_time(double t2, double t1);
+#endif
+
+#define DEBUG_TCC 1
+#if DEBUG_TCC
+extern SEM_ID semCMD;
+#endif
 
 void
 tcc_serial(int port)
@@ -190,9 +199,7 @@ tcc_serial(int port)
   char command_buffer[256];		/* input command */
   int cmd_type;				/* type of command from symb. table */
   char *answer_buffer;			/* reply from command parser */
-#define DEBUG_DELAY 1
 #if DEBUG_DELAY
-  extern double sdss_delta_time(double t2, double t1);
   float sdsstime_in;			/* time that command was received */
 #endif
 
@@ -256,9 +263,8 @@ tcc_serial(int port)
 	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
      }
      
-#if 1
+#if DEBUG_TCC
      {
-	extern SEM_ID semCMD;
 	int ids[10], nblock;
 	int j;
 	char tnbuf[40];

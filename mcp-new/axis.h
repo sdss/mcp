@@ -83,11 +83,12 @@ double convert_mei_to_mcp(int mei_axis, double pos);
 
 void set_axis_scale(int axis, double ticksize);
 const char *axis_name(int axis);
+const char *axis_abbrev(int axis);
 float axis_ticks_deg(int axis);
 void enable_pvt(int axis);
 void tm_TCC(int axis);
-int mcp_drift(int axis, double *arcdeg, double *veldeg, double *t);
-int mcp_move(int axis, double *params, int nparam);
+int mcp_drift(int uid, unsigned long cid, int axis, double *arcdeg, double *veldeg, double *t);
+int mcp_move(int uid, unsigned long cid, int axis, double *params, int nparam);
 int mcp_plus_move(int axis, double *params, int nparam);
 
 char *ms_off_cmd(int uid, unsigned long cid, char *cmd);
@@ -126,12 +127,12 @@ int mcp_set_monitor(int axis, int on_off);
 int mcp_set_pos(int axis, double pos);
 int mcp_set_vel(int axis, double vel);
 int mcp_set_fiducial(int axis);
-int mcp_set_brake(int axis);
-int mcp_unset_brake(int axis);
+int mcp_set_brake(int uid, unsigned long cid, int axis);
+int mcp_unset_brake(int uid, unsigned long cid, int axis);
 int mcp_hold(int axis);
 int mcp_amp_reset(int axis);
-int mcp_cw_abort(void);
-int mcp_set_cw(int inst, int cw, int cwpos, const char **ans);
+int mcp_cw_abort(int uid, unsigned long cid);
+int mcp_set_cw(int uid, unsigned long cid, int inst, int cw, int cwpos, char **ans);
 int mcp_stop_axis(int axis);
 int mcp_move_va(int axis, long pos, long vel, long acc);
 

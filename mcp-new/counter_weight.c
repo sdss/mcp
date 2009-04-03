@@ -33,10 +33,42 @@
 #include "mcpTimers.h"
 #include "axis.h"
 #include "cmd.h"
+#include "as2.h"
 
 MSG_Q_ID msgMoveCW = NULL;		/* control the tMoveCW task */
 MSG_Q_ID msgMoveCWAbort = NULL;		/*  "   "   "    "  "   "   */
 SEM_ID semMoveCWBusy = NULL;		/*  "   "   "    "  "   "   */
+
+/******************************************************************************/
+/*
+ * A routine to broadcast the status of counterweights
+ *
+ * The routine, get_cwstatus, that acquires this information knows quite a lot
+ * about the CWs, so call it and parse its return string.
+ */
+void
+broadcast_cw_status(int uid, unsigned long cid)
+{
+   char buff[80];
+   int pos[4];				/* counter weight positions */
+   char status[4][3];			/*  " "     "  "  status */
+
+   if(semTake(semMEIUPD,60) == ERROR) {
+      NTRACE_2(6, uid, cid, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)", strerror(errno), errno);
+   }
+
+   (void)get_cwstatus(buff, sizeof(buff));
+   
+   semGive(semMEIUPD);
+
+   sscanf(buff, "CW %d %s %d %s %d %s %d %s",
+	  &pos[0], status[0], &pos[1], status[1], &pos[2], status[2], &pos[3], status[3]);
+
+   sprintf(buff, "%d, %d, %d, %d", pos[0], pos[1], pos[2], pos[3]);
+   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "cwPositions", buff);
+   sprintf(buff, "%s, %s, %s, %s", status[0], status[1], status[2], status[3]);
+   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "cwStatus", buff);
+}
 
 /*****************************************************************************/
 /*
@@ -55,17 +87,17 @@ tMoveCW(void)
       status = msgQReceive(msgMoveCW, (char*)&msg, sizeof(msg), WAIT_FOREVER);
       assert(status != ERROR);
 
-      TRACE(6, "tMoveCW: received message %d", msg.type, 0);
+      OTRACE(6, "tMoveCW: received message %d", msg.type, 0);
       
       assert(msg.type == moveCW_type);
       
       if(semTake(semMoveCWBusy, 0) != OK) { /* task is busy */
-	 TRACE(0, "moveCW task is already already busy", 0, 0);
+	 NTRACE(0, msg.uid, msg.cid, "moveCW task is already already busy");
 	 return;
       }
       
-      set_counterweight(msg.u.moveCW.inst,
-			msg.u.moveCW.cw, msg.u.moveCW.cwpos);
+      set_counterweight(msg.uid, msg.cid,
+			msg.u.moveCW.inst, msg.u.moveCW.cw, msg.u.moveCW.cwpos);
       
       semGive(semMoveCWBusy);
    }
@@ -76,7 +108,7 @@ tMoveCW(void)
  * Abort counter weight motion
  */
 int
-mcp_cw_abort(void)
+mcp_cw_abort(int uid, unsigned long cid)
 {
    MCP_MSG msg;
    STATUS status;
@@ -86,8 +118,10 @@ mcp_cw_abort(void)
    } else {
       msg.type = moveCWAbort_type;
       msg.u.moveCWAbort.abort = 1;
+      msg.uid = uid;
+      msg.cid = cid;
 
-      TRACE(1, "Sending abort msg to msgMoveCWAbort", 0, 0);
+      NTRACE(1, uid, cid, "Sending abort msg to msgMoveCWAbort");
       status = msgQSend(msgMoveCWAbort, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
       assert(status == OK);
@@ -103,15 +137,17 @@ mcp_cw_abort(void)
  * Set or balance the counter weights
  */
 int
-mcp_set_cw(int inst,			/* instrument to balance for */
+mcp_set_cw(int uid, unsigned long cid,
+	   int inst,			/* instrument to balance for */
 	   int cw,			/* CW to move, or ALL_CW */
 	   int cwpos,			/* desired position, or 0 to balance */
-	   const char **errstr)		/* &error_string, or NULL  */
+	   char **errstr)		/* &error_string, or NULL  */
 {
    if(inst < 0 || inst >= NUMBER_INST) {
       if(errstr != NULL) {
 	 *errstr = "illegal choice of instrument";
       }
+      return -1;
    }
 
    if(cw != ALL_CW && (cw < 0 || cw > NUMBER_CW)) {
@@ -158,6 +194,8 @@ mcp_set_cw(int inst,			/* instrument to balance for */
       msg.u.moveCW.inst = inst;
       msg.u.moveCW.cw = cw;
       msg.u.moveCW.cwpos = cwpos;
+      msg.uid = uid;
+      msg.cid = cid;
       
       status = msgQSend(msgMoveCW, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
@@ -342,7 +380,7 @@ static int cw_select(int cw);
 static int cw_rdselect(void);
 static void cw_status(void);
 static void cw_read_position(int cnt);
-static void cw_set_positionv(int inst, const short p[4]);
+static void cw_set_positionv(int uid, unsigned long cide, int inst, const short p[4]);
 
 /*=========================================================================
 **=========================================================================
@@ -382,6 +420,7 @@ int
 balance_initialize(unsigned char *addr,
 		   unsigned short vecnum)
 {
+   int uid = 0, cid = 0;
    int i;
    unsigned short val;
    STATUS status;                               
@@ -399,7 +438,7 @@ balance_initialize(unsigned char *addr,
    }
    
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing ADC128F1 at %p****", addr, 0);
+      NTRACE_1(0, uid, cid, "****Missing ADC128F1 at %p****", addr);
       return ERROR;
    }
    ADC128F1_CVT_Update_Control(cw_ADC128F1, ENABLE);
@@ -415,7 +454,7 @@ balance_initialize(unsigned char *addr,
   }
   
   if(i >= MAX_SLOTS) {
-     TRACE(0, "****Missing DAC128V at %p****", addr, 0);
+     NTRACE_1(0, uid, cid, "****Missing DAC128V at %p****", addr);
      return ERROR;
   }
 /*
@@ -424,7 +463,7 @@ balance_initialize(unsigned char *addr,
   for(i = 0; i < DAC128V_CHANS; i++) {
      DAC128V_Read_Reg(cw_DAC128V,i,&val);
      if((val&0xFFF) != 0x800) {
-	TRACE(0, "DAC128V Chan %d Init error %x", i, val);
+	NTRACE_2(0, uid, cid, "DAC128V Chan %d Init error %x", i, val);
      }
   }
 /*
@@ -439,7 +478,7 @@ balance_initialize(unsigned char *addr,
    }
    
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing DIO316 at %p****", addr, 0);
+      NTRACE_1(0, uid, cid, "****Missing DIO316 at %p****", addr);
       return ERROR;
    }
 /*
@@ -448,7 +487,7 @@ balance_initialize(unsigned char *addr,
    status = intConnect(INUM_TO_IVEC(vecnum),
 		      (VOIDFUNCPTR)cw_DIO316_interrupt,
 		      DIO316_TYPE);
-   TRACE(5, "CW vector = %d, result = 0x%8x", vecnum, status);
+   NTRACE_2(5, uid, cid, "CW vector = %d, result = 0x%8x", vecnum, status);
    rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
    
    IP_Interrupt_Enable(&ip, DIO316_IRQ);
@@ -498,6 +537,7 @@ void
 balance(int cw,				/* counter weight to move */
 	int inst)			/* to position for this instrument */
 {
+   int uid = 0, cid = 0;
    int cw0, cw1;			/* move counterweights cw0..cw1 incl.*/
    int CW_next;				/* go on to next counterweight */
    int i;
@@ -522,7 +562,7 @@ balance(int cw,				/* counter weight to move */
  */
       cw_select(cw);
       
-      TRACE(5, "balance cw = %d inst = %d", cw, inst);
+      NTRACE_2(5, uid, cid, "balance cw = %d inst = %d", cw, inst);
 /*
  * iterate until good or exceed stop count
  */
@@ -539,7 +579,7 @@ balance(int cw,				/* counter weight to move */
 	 }
 	 delta = abs(pos - cw_inst[inst].pos_setting[cw]);
 	 
-	 TRACE(5, "balance i = %d delta = %d", i, delta);
+	 NTRACE_2(5, uid, cid, "balance i = %d delta = %d", i, delta);
 	 
 	 last_error = delta;
 	 cw_inst[inst].pos_current[cw] = pos;
@@ -551,7 +591,7 @@ balance(int cw,				/* counter weight to move */
  */
 	 cnt = 0;
 	 while(delta > cw_inst[inst].stop_pos_error) {
-	    TRACE(6, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
+	    NTRACE_2(6, uid, cid, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
 		  delta, cw_inst[inst].stop_pos_error);
 	    
 	    taskDelay(60/cw_inst[inst].updates_per_sec);
@@ -559,14 +599,15 @@ balance(int cw,				/* counter weight to move */
 	    if(msgQReceive(msgMoveCWAbort, (char*)&msg, sizeof(msg), NO_WAIT)
 								    != ERROR) {
 	       assert(msg.type == moveCWAbort_type);
-	       TRACE(0, "Counterweight %d motion abort", cw + 1, 0);
-	       printf("CWABORT\n");
+	       OTRACE(0, "Counterweight %d motion abort", cw + 1, 0);
+	       sendStatusMsg_I(msg.uid, msg.cid, INFORMATION_CODE, 1, "cwAbort", cw + 1);
+
 	       cw_abort();
 	       return;
 	    }
 	 
 	    if(CW_limit_abort) {
-	       TRACE(2, "Counterweight %d: limit abort", cw + 1, 0);
+	       NTRACE_1(2, uid, cid, "Counterweight %d: limit abort", cw + 1);
 	       cw_status();
 
 	       CW_next = 1;
@@ -577,8 +618,7 @@ balance(int cw,				/* counter weight to move */
 	    cnt++;
 	    if(cnt%(cw_inst[inst].updates_per_sec*6) == 0) {
 	       if(delta > last_error - 4) {
-		  TRACE(2, "Not Closing in on position for CW %d; aborting",
-								    cw + 1, 0);
+		  NTRACE_1(2, uid, cid, "Not Closing in on position for CW %d; aborting", cw + 1);
 		  cw_status();
 		  
 		  CW_next = 1;
@@ -683,11 +723,10 @@ balance(int cw,				/* counter weight to move */
       }
 
       if(i == cw_inst[inst].stop_count) {
-	 TRACE(2, "CW %d exceeded stop_count %d",
-	       cw + 1, cw_inst[inst].stop_count);
+	 NTRACE_2(2, uid, cid, "CW %d exceeded stop_count %d", cw + 1, cw_inst[inst].stop_count);
       }
       
-      TRACE(5, "CW %d done", cw + 1, 0);
+      NTRACE_1(5, uid, cid, "CW %d done", cw + 1);
    }
 
    cw_brake_on();
@@ -704,7 +743,8 @@ balance(int cw,				/* counter weight to move */
  * Set a counterweight to a position specified in volts
  */
 void
-set_counterweight(int inst,		/* instrument to set for */
+set_counterweight(int uid, unsigned long cid,
+		  int inst,		/* instrument to set for */
 		  int cw,		/* counterweight to move, or ALL_CW */
 		  short pos)		/* positions to go to */
 {
@@ -715,7 +755,7 @@ set_counterweight(int inst,		/* instrument to set for */
       parray[i] = (cw == ALL_CW || i == cw) ? pos : 0;
    }
 
-   cw_set_positionv(inst, parray);
+   cw_set_positionv(uid, cid, inst, parray);
    
    balance(cw, inst);
 }
@@ -866,7 +906,7 @@ void cw_DIO316_interrupt(int type)
    
    DIO316ClearISR (cw_DIO316);
 
-   TRACE0(16, "cw_DIO316_interrupt CW = %d", cw, 0);
+   OTRACE(16, "cw_DIO316_interrupt CW = %d", cw, 0);
 }
 
 /*=========================================================================
@@ -1288,21 +1328,22 @@ cw_read_position(int cnt)
 **=========================================================================
 */
 static void
-cw_set_positionv(int inst,		/* instrument to set pos for */
+cw_set_positionv(int uid, unsigned long cid,
+		 int inst,		/* instrument to set pos for */
 		 const short p[4])	/* positions of counterweights (V) */
 {
    int i;
 
    if(inst < 0 || inst >= sizeof(cw_inst)/sizeof(struct CW_LOOP)) {
-      TRACE(0, "cw_set_positionv: invalid instrument %d", inst, 0);
+      NTRACE_1(0, uid, cid, "cw_set_positionv: invalid instrument %d", inst);
       return;
    }
 
    for(i = 0; i < 4; i++) {
       if(p[i] != 0) {
 	 if(p[i] < 0 || p[i] > 1000) {
-	    TRACE(0, "cw_set_positionv: invalid position %d for cw %d",
-		  p[i], i + 1);
+	    NTRACE_2(0, uid, cid, "cw_set_positionv: invalid position %d for cw %d",
+		     p[i], i + 1);
 	    return;
 	 }
 	 
@@ -1380,6 +1421,7 @@ cw_get_inst(char *cmd)
 void
 cw_data_collection(void)
 {
+   int uid = 0, cid = 0;
    unsigned short adc;
    int ii;
 
@@ -1388,8 +1430,7 @@ cw_data_collection(void)
 	ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
 	
 	if(semTake(semSDSSDC, 60) == ERROR) {
-	   TRACE(2, "cw_data_collection failed to take semSDSSDC: %s",
-							   strerror(errno), 0);
+	   NTRACE_1(2, uid, cid, "cw_data_collection failed to take semSDSSDC: %s", strerror(errno));
 	} else {
 	   if((adc & 0x800) == 0x800) {
 	      sdssdc.weight[ii].pos = adc | 0xF000;
@@ -1694,7 +1735,7 @@ get_cwstatus(char *cwstatus_ans,
    int idx;
    int limidx;
    static const char *limitstatus[]={"LU", "L.", ".U", ".."};
-
+   
    idx = sprintf(cwstatus_ans,"CW   ");
    for(i = 0; i < 4; i++) {
       adc = sdssdc.weight[i].pos;
@@ -1753,31 +1794,57 @@ cwmov_cmd(int uid, unsigned long cid, char *cmd)
 {
   int cw;
   int cwpos;
-  const char *ans;
+  char *ans = "";
 
   if(sscanf(cmd,"%d %d", &cw, &cwpos) != 2) {
-     return("ERR: malformed command arguments");
+     sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", "malformed command arguments");
+     sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "cw_mov");
+
+     if (ublock->protocol == OLD_PROTOCOL) {
+	ans = "ERR: malformed command arguments";
+     }
+  } else {
+     if(mcp_set_cw(uid, cid, INST_DEFAULT, cw, cwpos, &ans) == 0) {
+	sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "cw_mov");
+     } else {
+	sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", ans);
+	sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "cw_mov");
+
+	if (ublock->protocol == NEW_PROTOCOL) {
+	   ans = "";			/* we've already reported this */
+	}
+     }
   }
 
-  if(mcp_set_cw(INST_DEFAULT, cw, cwpos, &ans) < 0) {
-     return((char *)ans);
-  }
-
-  return "";
+  return ans;
 }
 
 char *
 cwinst_cmd(int uid, unsigned long cid, char *cmd)
 {
-   const char *ans;
+   char *ans = "";
    int inst;
    
    while(*cmd == ' ') cmd++;
    if((inst = cw_get_inst(cmd)) == ERROR) {
-      return "ERR: Invalid Instrument";
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", "malformed command arguments");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "cw_inst");
+
+      if (ublock->protocol == OLD_PROTOCOL) {
+	 ans = "ERR: Invalid Instrument";
+      }
+   } else {
+      if (mcp_set_cw(uid, cid, inst, ALL_CW, 0, &ans) == 0) {
+	 sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "cw_inst");
+      } else {
+	 sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", ans);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "cw_inst");
+	 
+	 if (ublock->protocol == NEW_PROTOCOL) {
+	    ans = "";			/* we've already reported this */
+	 }
+      }
    }
-   
-   mcp_set_cw(inst, ALL_CW, 0, &ans);
 
    return (char *)ans;
 }
@@ -1785,25 +1852,40 @@ cwinst_cmd(int uid, unsigned long cid, char *cmd)
 char *
 cwabort_cmd(int uid, unsigned long cid, char *cmd)
 {
-  mcp_cw_abort();
+   mcp_cw_abort(uid, cid);
 
-  return "";
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "cw_abort");
+
+   return "";
 }
 
 char *
 cwstatus_cmd(int uid, unsigned long cid, char *cmd)
 {
    if(semTake(semMEIUPD,60) == ERROR) {
-      TRACE(6, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)",
-	    strerror(errno), errno);
-      return "ERR: semMEIUPD";
+      NTRACE_2(6, uid, cid, "cwstatus_cmd: failed to get semMEIUPD: %s (%d)", strerror(errno), errno);
+
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "cw_status");
+
+      if (ublock->protocol == NEW_PROTOCOL) {
+	 return "";
+      } else {
+	 return "ERR: semMEIUPD";
+      }
    }
 
    (void)get_cwstatus(ublock->buff, 80);
 
    semGive(semMEIUPD);
 
-   return(ublock->buff);
+   broadcast_cw_status(uid, cid);
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "cw_status");
+
+   if (ublock->protocol == NEW_PROTOCOL) {
+      return "";
+   } else {
+      return(ublock->buff);
+   }
 }
 
 /*****************************************************************************/
@@ -1814,6 +1896,7 @@ void
 tMoveCWInit(unsigned char *addr,	/* address of ADC */
 	    unsigned short vecnum)	/* vector for cw_DIO316 */
 {
+   int uid = 0, cid = 0;
    int i, j;
    
    if(msgMoveCW != NULL) {
@@ -1859,13 +1942,13 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
    define_cmd("CWMOV",     cwmov_cmd,    2, 1, 0, 1, "");
    define_cmd("CWINST",    cwinst_cmd,   1, 1, 0, 1, "");
    define_cmd("CWABORT",   cwabort_cmd,  0, 1, 0, 1, "");
-   define_cmd("CW.STATUS", cwstatus_cmd, 0, 0, 0, 1, "");
+   define_cmd("CW_STATUS", cwstatus_cmd, 0, 0, 0, 1, "");
 /*
  * Spawn the task that does the work
  */   
    if(taskSpawn("tMoveCW", 60, VX_FP_TASK, 10000,
 		(FUNCPTR)tMoveCW, 0,0,0,0,0,0,0,0,0,0) == ERROR) {
-      TRACE(0, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
+      NTRACE_2(0, uid, cid, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
    }
 }
 

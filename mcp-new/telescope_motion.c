@@ -693,14 +693,16 @@ rot_amp_ok(int update)			/* update status before reporting? */
 void
 mgt_shutdown(int type)
 {
+   int uid = 0, cid = 0;
    TRACE(1, "Safely halting the telescope by braking AZ and ALT", 0, 0);
-   mcp_set_brake(AZIMUTH);
-   mcp_set_brake(ALTITUDE);
+   mcp_set_brake(uid, cid, AZIMUTH);
+   mcp_set_brake(uid, cid, ALTITUDE);
 }
 
 void
 tm_amp_mgt(void)
 {
+   int uid = 0, cid = 0;
    int amp_ok, amp_ok1;
    int state;
    
@@ -718,7 +720,7 @@ tm_amp_mgt(void)
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
 	       TRACE(0, "MGT: bad az state %s: %s",
 		     axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH));
-	       mcp_set_brake(AZIMUTH);
+	       mcp_set_brake(uid, cid, AZIMUTH);
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
 	    if(!az_amp_ok(0)) {
@@ -731,7 +733,7 @@ tm_amp_mgt(void)
 	       if(!amp_ok1) {
 		  TRACE(0, "MGT: bad az amp; aborting", 0, 0);
 		  tm_sem_controller_idle(2*AZIMUTH);
-		  mcp_set_brake(AZIMUTH);
+		  mcp_set_brake(uid, cid, AZIMUTH);
 		  monitor_axis[AZIMUTH]=FALSE;
 	       }
 	    }
@@ -745,7 +747,7 @@ tm_amp_mgt(void)
 	       TRACE(0, "MGT: bad alt state %s: %s", 
 		     axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE));
 
-	       mcp_set_brake(ALTITUDE);
+	       mcp_set_brake(uid, cid, ALTITUDE);
 	       monitor_axis[ALTITUDE] = FALSE;
 	    }
 	    if(!alt_amp_ok(0)) {
@@ -758,7 +760,7 @@ tm_amp_mgt(void)
 	       if(!amp_ok1) {
 		  TRACE(0, "MGT: bad alt amp; aborting", 0, 0);
 		  tm_sem_controller_idle(2*ALTITUDE);
-		  mcp_set_brake(ALTITUDE);
+		  mcp_set_brake(uid, cid, ALTITUDE);
 		  monitor_axis[ALTITUDE] = FALSE;
 	       }
 	    }

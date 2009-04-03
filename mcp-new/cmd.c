@@ -84,8 +84,11 @@ sys_reset_cmd(int uid, unsigned long cid, char *args)
    int reset_crate = 0;
    
    if(sscanf(args, "%d", &reset_crate) != 1) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "sys_reset");
       return("SYS.RESET: Please specify 0/1");
    }
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "sys_reset");
 
    sysReset(reset_crate);
 
@@ -232,6 +235,8 @@ log_flush_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    log_mcp_command(0, NULL);		/* flush the logfile to disk */
    
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "log_flush");
+   
    return("");
 }
 
@@ -243,6 +248,8 @@ log_bufsize_cmd(int uid, unsigned long cid, char *cmd)
    if(*cmd != '\0') {			/* not just a query */
       log_command_bufsize = atoi(cmd);
    }
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "log_bufsize");
    
    return(ublock->buff);
 }
@@ -254,6 +261,8 @@ log_all_cmd(int uid, unsigned long cid, char *cmd)
 
    log_all_commands = atoi(cmd);
    log_mcp_command(0, NULL);		/* flush the logfile to disk */
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "log_all");
    
    return(ublock->buff);
 }
@@ -335,19 +344,19 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
  */
    define_cmd("IACK",         iack_cmd,      0, 0, 0, 1,
 	      "Acknowledge an MCP reboot");
-   define_cmd("LOG.BUFSIZE",  log_bufsize_cmd, 1, 0, 0, 1,
+   define_cmd("LOG_BUFSIZE",  log_bufsize_cmd, 1, 0, 0, 1,
 	      "Set the number of commands logged before the output file is\n"
 	      "flushed to disk.  Returns the previous value");
-   define_cmd("LOG.FLUSH",    log_flush_cmd, 0, 0, 0, 0,
+   define_cmd("LOG_FLUSH",    log_flush_cmd, 0, 0, 0, 0,
 	      "Flush the mcpCmdLog file to disk");
-   define_cmd("LOG.ALL",      log_all_cmd,   1, 0, 0, 0,
+   define_cmd("LOG_ALL",      log_all_cmd,   1, 0, 0, 0,
 	      "Set the level of command logging\n"
 	      "   -1:  No logging\n"
 	      "    0:  Log `interesting' commands\n"
 	      "    1:  Log all commands\n");
    define_cmd("VERSION",      version_cmd,   0, 0, 0, 0,
 	      "Return the MCP version string");
-   define_cmd("SYS.RESET",    sys_reset_cmd, 1, 0, 0, 1,
+   define_cmd("SYS_RESET",    sys_reset_cmd, 1, 0, 0, 1,
 	      "Reset the MCP. If the argument is true, reset the whole crate");
 
    return 0;
@@ -360,19 +369,22 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
 void
 define_cmd(char *name,			/* name of command */
 	   char *(*addr)(int, unsigned long, char *), /* function to call */
-	   int narg,			/* number of arguments (< 0: vararg) */
+	   int narg,			/* number of arguments (< 0: vararg; -1: args are numeric) */
 	   int need_sem,		/* does this cmd require semCmdPort? */
 	   int may_take,		/* may this cmd take semCmdPort? */
 	   int murmur,			/* should cmd be echoed to murmur? */
 	   const char *doc)		/* documentation for command */
 {
+   int uid = 0, cid = 0;
    int i, j;
    int status;
    SYM_TYPE type;			/* type for this symbol */
 
    if(narg < 0) {
-      narg = 0;
       type = CMD_TYPE_VARARG;
+      if (narg == -2) {
+	 type |= 0x1;
+      }
    } else {
       assert(narg == (narg & CMD_TYPE_NARG)); /*there are enough bits in mask*/
       type = narg;
@@ -400,7 +412,7 @@ define_cmd(char *name,			/* name of command */
       status = symAdd(docSymTbl, name, (char *)doc, 0, 0);
       
       if(status != OK) {
-	 TRACE(0, "Failed to add %s (%d args) to symbol table", name, narg);
+	 NTRACE_2(0, uid, cid, "Failed to add %s (%d args) to symbol table", name, narg);
       }
    }
 }
@@ -424,6 +436,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    char *args;				/* arguments for this command */
    char cmd_copy[256 + 1];		/* modifiable copy of cmd */
    char *cmd_str = cmd_copy;		/* pointer to command; or NULL */
+   int isFirst_cmd = 1;			/* is this the first command in the input command string, cmd? */
    static int iack_counter = -1;	/* control too many rebootedMsg
 					   messages; wait before the first */
    int lvl;				/* level for TRACE */
@@ -456,17 +469,39 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 continue;
       }
       
-      if(nskip > 0) {			/* skipping arguments to last cmd */
+      if(varargs) {			/* unknown number of arguments */
+	 if (nskip > 0) {		/* skip all tokens */
+	    continue;
+	 } else {
+	    if(*tok != '+' && !isalpha((int)*tok)) {
+	       continue;
+	    }
+	 }
+      } else if(nskip > 0) {			/* skipping arguments to last cmd */
 	 nskip--;
 	 continue;
-      } else if(varargs) {		/* unknown number of arguments */
-	 if(*tok != '+' && !isalpha((int)*tok)) {
-	    continue;
+      }
+      /*
+       * Replace any incoming periods (e.g. HGCD.ON) with underscore (HGCD_ON).
+       */
+      {
+	 char *ptr = tok;
+	 for (; *ptr != '\0' && !isspace((int)*ptr); ++ptr) {
+	    if (*ptr == '.') {
+	       *ptr = '_';
+	    }
 	 }
       }
+      /*
+       * Separate commands in cmd must have different cids
+       */
+      if (!isFirst_cmd) {
+	 cid = ++ublock->cid;
+      }
+      isFirst_cmd = 0;
       
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
-	 TRACE(1, "Unknown command %s 0x%x", tok, *(int *)tok);
+	 NTRACE_1(1, uid, cid, "Unknown command '%s'", tok);
 #if 0
 	 printf("Unknown command %s %d\n", tok, strlen(tok));
 #endif
@@ -640,7 +675,7 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
    
       printf("%-20s %-25s  %-4d %-6d %-8d %-5d %d\n", name, funcname,
 	     (type & CMD_TYPE_NARG),
-	     (type & CMD_TYPE_VARARG ? 1 : 0),
+	     (type & (CMD_TYPE_VARARG) ? 1 : 0),
 	     (type & CMD_TYPE_PRIV ? 1 : 0),
 	     (type & CMD_TYPE_MAY_TAKE ? 1 : 0),
 	     (type & CMD_TYPE_MURMUR ? 1 : 0));

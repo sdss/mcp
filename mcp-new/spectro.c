@@ -22,12 +22,13 @@
 #include "dscTrace.h"
 #include "mcpMsgQ.h"
 #include "mcpSpectro.h"
-#include "as2.h"
+#include "mcpUtils.h"
 
 char *ffsclose_cmd(int uid, unsigned long cid, char *cmd);
 char *ffstatus_cmd(int uid, unsigned long cid, char *cmd);
 
-MSG_Q_ID msgAlignClamp = NULL;		/* control alignment clamp */
+#define ENABLE_CLAMP 0	     /* no longer needed, as per Dan Long, 2009-04-02 */
+
 MSG_Q_ID msgFFS = NULL;			/* control flat field screens */
 MSG_Q_ID msgLamps = NULL;		/* control lamps */
 MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
@@ -36,6 +37,9 @@ MSG_Q_ID msgSpecDoor = NULL;		/* control spectrograph doors */
 /*
  * Control the alignment clamp.
  */
+#if ENABLE_CLAMP
+MSG_Q_ID msgAlignClamp = NULL;		/* control alignment clamp */
+
 void
 tAlgnClmp(void)
 {
@@ -51,7 +55,7 @@ tAlgnClmp(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgAlignClamp", 0, 0);
+      OTRACE(8, "read msg on msgAlignClamp", 0, 0);
 /*
  * What sort of message?
  *   alignClamp_type        A request from the outside world to move clamp
@@ -67,27 +71,27 @@ tAlgnClmp(void)
 	 if(sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
 	    continue;
 	 } else {			/* Failure; turn off and disengage */
-	    TRACE(0, "Alignment clamp did NOT engage..."
+	    OTRACE(0, "Alignment clamp did NOT engage..."
 		  "turning off and disengaging", 0, 0);
 	    engage = 0;
 	 }
 	 break;
        default:
-	 TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 OTRACE(0, "Impossible message type: %d", msg.type, 0);
 	 continue;	 
       }
 /*
  * Time to do the work
  */
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+	 OTRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
 	 continue;
       }
       
       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
-	 TRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0);
+	 OTRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0);
 	 continue;
       }
       
@@ -106,17 +110,17 @@ tAlgnClmp(void)
       semGive(semSLC);
    
       if(err) {
-	 TRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0);
+	 OTRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0);
 	 continue;
       }
       
       if(engage) {			/* wait, then see if we succeeded */
 	 int wait = 15;			/* how many seconds to wait */
-	 TRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0);
+	 OTRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0);
 	 
 	 if(timerSend(alignClampCheck_type, tmr_e_add,
 		      wait*60, alignClampCheck_type, msgAlignClamp) == ERROR) {
-	    TRACE(0, "Failed to send message to timer task: %s (%d)",
+	    OTRACE(0, "Failed to send message to timer task: %s (%d)",
 		  strerror(errno), errno);
 	 }
       }
@@ -144,9 +148,34 @@ alignment_clamp_set(int uid, unsigned long cid, int engage)
    {
       char buff[10];
       sprintf(buff, "%d, %d", sdssdc.status.i9.il0.clamp_en_stat, sdssdc.status.i9.il0.clamp_dis_stat);
-      sendStatusMsg_A(uid, cid, FINISHED_CODE, 0, "alignmentClamp", buff);
+      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 0, "alignmentClamp", buff);
    }
 }
+
+/*****************************************************************************/
+/*
+ * Command the alignment clamp
+ */
+char *
+clampon_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+{
+   alignment_clamp_set(uid, cid, 1);
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "clampOn");
+   
+   return "";
+}
+
+char *
+clampoff_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+{
+   alignment_clamp_set(uid, cid, 0);
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "clampOff");
+   
+   return "";
+}
+#endif
 
 /*****************************************************************************/
 /*
@@ -166,25 +195,25 @@ tSpecDoor(void)
       ret = msgQReceive(msgSpecDoor, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg in tSpecDoor", 0, 0);
+      NTRACE(8, msg.uid, msg.cid, "read msg in tSpecDoor");
       assert(msg.type == specDoor_type);
       spec = msg.u.specDoor.spec;
       
       if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
-	 TRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0);
+	 NTRACE_1(0, msg.uid, msg.cid, "tSpecDoor illegal choice of spectrograph %d", spec);
 	 continue;
       }
 
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "tSpecDoor: SP%d unable to take semSLM semaphore: %s",
-	       spec, strerror(errno));
+	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d unable to take semSLM semaphore: %s",
+		   spec, strerror(errno));
 	 continue;
       }
 
       err = slc_read_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
-	 TRACE(0, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err);
+	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err);
 	 continue;
       }
       swab ((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
@@ -218,7 +247,7 @@ tSpecDoor(void)
 	 }
 	 break;
        default:
-	 TRACE(0, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op);
+	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op);
 	 break;
       }
       
@@ -227,7 +256,7 @@ tSpecDoor(void)
 
       semGive(semSLC);
       if(err) {
-	 TRACE(0, "tSpecDoor: SP%d error writing slc: 0x%04x", spec + 1, err);
+	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d error writing slc: 0x%04x", spec + 1, err);
 	 continue;
       }
    }
@@ -324,7 +353,7 @@ tm_slithead(short val)
              
    if(semTake (semSLC,60) == ERROR) {
       printf("tm_slithead: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
+      NTRACE_1(0, 0, 0, "Unable to take semaphore: %d", errno);
       return(-1);
    }
 
@@ -355,7 +384,7 @@ tm_slithead(short val)
    err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
    if(err) {
-      TRACE(0, "tm_slithead: error writing slc: 0x%04x", err, 0);
+      NTRACE_1(0, 0, 0, "tm_slithead: error writing slc: 0x%04x", err);
       return err;
    }
 
@@ -383,7 +412,7 @@ tm_slit_status()
 
    if(semTake(semSLC,60) == ERROR) {
       printf("tm_slit_status: unable to take semaphore: %s", strerror(errno));
-      TRACE(0, "Unable to take semaphore: %d", errno, 0);
+      NTRACE_1(0, 0, 0, "Unable to take semaphore: %d", errno);
       return(-1);
    }
 
@@ -463,12 +492,13 @@ static int
 set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 		 int enab)		/* value of mcp_ff_screen_enable */
 {
+   int uid = 0, cid = 0;
    struct B10 b10;
    unsigned short ctrl[sizeof(b10)/2];
    int err;
    int val1, val2;			/* operations for screen[12] */
              
-   TRACE(3, "Setting FFS: %d %d", val, enab); /* XXX */
+   NTRACE_2(3, 0, 0, "Setting FFS: %d %d", val, enab);
 /*
  * What do they want us to do?
  */
@@ -495,7 +525,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 	sdssdc.status.b10.w1.mcp_ff_scrn2_opn_cmd != val2))) {
       int ntick = sysClkRateGet();		/* 1 second */
 
-      TRACE(3, "Disabling FFS for %d ticks: %d", ntick, val);
+      NTRACE_2(3, uid, cid, "Disabling FFS for %d ticks: %d", ntick, val);
       set_mcp_ffs_bits(val, 0);
 
       taskDelay(ntick);
@@ -504,14 +534,14 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
  * Do what is asked of us
  */
    if(semTake(semSLC,60) == ERROR) {
-      TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+      NTRACE_2(0, uid, cid, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       return(-1);
    }
 
    err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
    if(err) {
       semGive (semSLC);
-      TRACE(0, "set_mcp_ffs_bits: error reading slc: 0x%04x", err, 0);
+      NTRACE_1(0, uid, cid, "set_mcp_ffs_bits: error reading slc: 0x%04x", err);
       return err;
    }
    swab((char *)ctrl, (char *)&b10, sizeof(b10));
@@ -535,7 +565,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
       
    if(err) { 
       semGive (semSLC);
-      TRACE(0, "set_mcp_ffs_bits: error writing slc: 0x%04x", err, 0);
+      NTRACE_1(0, uid, cid, "set_mcp_ffs_bits: error writing slc: 0x%04x", err);
       return err;
    }
 
@@ -561,6 +591,7 @@ int
 ffs_open_status(int which,
 		int silent)
 {
+   int uid = 0, cid = 0;
    int nopen;				/* number of open petals */
    int nopen1 =				/* first 4 petals */
      (sdssdc.status.i1.il13.leaf_1_open_stat ? 1 : 0) + 
@@ -577,12 +608,12 @@ ffs_open_status(int which,
       nopen = nopen1 + nopen2;
       if(nopen >= 6) {
 	 if(!silent && nopen != 8) {
-	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
+	    NTRACE_1(0, uid, cid, "Only %d flat field screen petals are open", nopen);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nopen != 0) {
-	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
+	    NTRACE_1(0, uid, cid, "%d flat field screen petals are still open", nopen);
 	 }
 	 return(FALSE);
       }
@@ -590,12 +621,12 @@ ffs_open_status(int which,
       nopen = (which & 0x1) ? nopen1 : nopen2;
       if(nopen >= 3) {
 	 if(!silent && nopen != 4) {
-	    TRACE(0, "Only %d flat field screen petals are open", nopen, 0);
+	    NTRACE_1(0, uid, cid, "Only %d flat field screen petals are open", nopen);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nopen != 0) {
-	    TRACE(0, "%d flat field screen petals are still open", nopen, 0);
+	    NTRACE_1(0, uid, cid, "%d flat field screen petals are still open", nopen);
 	 }
 	 return(FALSE);
       }
@@ -606,6 +637,7 @@ int
 ffs_close_status(int which,
 		int silent)
 {   
+   int uid = 0, cid = 0;
    int nclosed;
    int nclosed1 =
      (sdssdc.status.i1.il13.leaf_1_closed_stat ? 1 : 0) + 
@@ -622,12 +654,12 @@ ffs_close_status(int which,
       nclosed = nclosed1 + nclosed2;
       if(nclosed >= 6) {
 	 if(!silent && nclosed != 8) {
-	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
+	    NTRACE_1(0, uid, cid, "Only %d flat field screen petals are closed", nclosed);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nclosed != 0) {
-	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
+	    NTRACE_1(0, uid, cid, "%d flat field screen petals are still closed", nclosed);
 	 }
 	 return(FALSE);
       }
@@ -635,12 +667,12 @@ ffs_close_status(int which,
       nclosed = (which & 0x1) ? nclosed1 : nclosed2;
       if(nclosed >= 3) {
 	 if(!silent && nclosed != 4) {
-	    TRACE(0, "Only %d flat field screen petals are closed",nclosed,0);
+	    NTRACE_1(0, uid, cid, "Only %d flat field screen petals are closed", nclosed);
 	 }
 	 return(TRUE);
       } else {
 	 if(!silent && nclosed != 0) {
-	    TRACE(0, "%d flat field screen petals are still closed",nclosed,0);
+	    NTRACE_1(0, uid, cid, "%d flat field screen petals are still closed", nclosed);
 	 }
 	 return(FALSE);
       }
@@ -654,6 +686,8 @@ ffs_close_status(int which,
 void
 tFFS(void)
 {
+   int uid = 0;				/* User ID */
+   unsigned long cid = 0;		/* Command ID */
    int FFS_vals[3];			/* do we want to open/close
 					   screen[12] */
    MCP_MSG msg;				/* message to pass around */
@@ -665,57 +699,54 @@ tFFS(void)
       ret = msgQReceive(msgFFS, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgFFS", 0, 0);
+      uid = msg.uid;
+      cid = msg.cid;
+      
+      NTRACE(8, uid, cid, "read msg on msgFFS");
 /*
  * What sort of message?
  *   FFS_type            A request from the outside world to move screens
  *   FFSCheckMoved_type  A request from us to check that the screens moved
  */
       if(msg.type == FFS_type) {
-	 (void)timerSend(FFSCheckMoved_type, tmr_e_abort_ns,
-			 0, FFSCheckMoved_type, 0);
+	 (void)timerSendArg(FFSCheckMoved_type, tmr_e_abort_ns,
+			    0, msg.uid, msg.cid, 0);
       } else if(msg.type == FFSCheckMoved_type) {
-	 /*
-	  * We just got a timer message, not a proper MCP_MSG, so unpack the needed fields
-	  */
-	 struct s_tmr_msg_fmt *tmsg = (struct s_tmr_msg_fmt *)&msg;
-	 int uid = tmsg->u.tmr.mid;
-	 int cid = tmsg->u.tmr.arg;
-
 	 int i;
 	 int move_ok = 1;		/* did move complete OK? */
+
+	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
 
 	 for(i = 1; i <= 2; i++) {
 	    if(FFS_vals[i] == FFS_OPEN) {
 	       if(!ffs_open_status(i, 0)) {
 		  move_ok = 0;
-		  sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsMoved", 0);
-		  sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsOpenFailed", 1);
+		  sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsMoved", 0);
+		  sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsOpenFailed", 1);
 
-		  TRACE(0, "FFS %d did NOT all open; closing", i, 0);
-		  ffsclose_cmd(0, 0, NULL);
+		  NTRACE_1(0, uid, cid, "FFS %d did NOT all open; closing", i);
+		  ffsclose_cmd(INTERNAL_UID, nextInternalCid(), NULL);
 	       }
 	    } else {
 	       if(!ffs_close_status(i, 0)) {
 		  move_ok = 0;
-		  sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsMoved", 0);
-		  sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsCloseFailed", 1);
-		  TRACE(0, "FFS %d did NOT all close", i, 0);
+		  sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsMoved", 0);
+		  sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsCloseFailed", 1);
+		  NTRACE_1(0, uid, cid, "FFS %d did NOT all close", i);
 	       }
 	    }
 	 }
 
 	 if(move_ok) {
-	    sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsMoved", 1);
-	    TRACE(1, "Flat field screen moved OK", 0, 0);
+	    OTRACE(1, "Flat field screen moved OK", 0, 0);
 	 }
 
 	 broadcast_ffs_lamp_status(uid, cid, 1, 0);
-	 sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "moveFfs");
+	 sendStatusMsg_S(uid, cid, (move_ok ? FINISHED_CODE : FATAL_CODE), 1, "command", "ffs_move");
 
 	 continue;
       } else {
-	 TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 NTRACE_1(0, msg.uid, msg.cid, "Impossible message type: %d", msg.type);
 	 continue;
       }
 /*
@@ -723,11 +754,13 @@ tFFS(void)
  */
       msg_type = FFSCheckMoved_type;
       if(msg.u.FFS.op == FFS_OPEN) {
-	 if(ffs_open_status(which_ffs, 1)) { /* already open */
-	    continue;
-	 }
 	 FFS_vals[1] = (which_ffs & 0x1) ? FFS_OPEN : FFS_SAME;
 	 FFS_vals[2] = (which_ffs & 0x2) ? FFS_OPEN : FFS_SAME;
+
+	 if(ffs_open_status(which_ffs, 1)) { /* already open */
+	    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ffs_open");
+	    continue;
+	 }
       } else if(msg.u.FFS.op == FFS_TOGGLE) {
 	 if(which_ffs & 0x1) {
 	    FFS_vals[1] = ffs_open_status(1, 1) ? FFS_CLOSE : FFS_OPEN;
@@ -740,11 +773,13 @@ tFFS(void)
 	    FFS_vals[2] = FFS_SAME;
 	 }
       } else {
-	 if(ffs_close_status(which_ffs, 1)) { /* already closed */
-	    continue;
-	 }
 	 FFS_vals[1] = (which_ffs & 0x1) ? FFS_CLOSE : FFS_SAME;
 	 FFS_vals[2] = (which_ffs & 0x2) ? FFS_CLOSE : FFS_SAME;
+
+	 if(ffs_close_status(which_ffs, 1)) { /* already closed */
+	    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ffs_close");
+	    continue;
+	 }
       }
 /*
  * Time to do the work
@@ -754,13 +789,13 @@ tFFS(void)
       }
       
       sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsCommanded", 1);
-      TRACE(1, "Waiting %ds for flat field screen to move", wait, 0);
+      OTRACE(1, "Waiting %ds for flat field screen to move", wait, 0);
 /*
  * And schedule the check
  */
-      if(timerSend(msg_type, tmr_e_add, wait*60, msg_type, msgFFS) == ERROR) {
-	 TRACE(0, "Failed to send message to timer task: %s (%d)",
-	       strerror(errno), errno);
+      if(timerSendArg(msg_type, tmr_e_add, wait*60, msg.uid, msg.cid, msgFFS) == ERROR) {
+	 NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
+		   strerror(errno), errno);
       }
    }
 }
@@ -784,15 +819,11 @@ tLamps(void)
       ret = msgQReceive(msgLamps, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgLamps", 0, 0);
+      NTRACE(8, msg.uid, msg.cid, "read msg on msgLamps");
 
       if (msg.type == lampsCheck_type) {
-	 /*
-	  * We just got a timer message, not a proper MCP_MSG, so unpack the needed fields
-	  */
-	 struct s_tmr_msg_fmt *tmsg = (struct s_tmr_msg_fmt *)&msg;
-	 int uid = tmsg->u.tmr.mid;
-	 int cid = tmsg->u.tmr.arg;
+	 int uid = 0; unsigned long cid = 0;
+	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
 
 	 broadcast_ffs_lamp_status(uid, cid, 0, 1);
 	 sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "controlLamps");
@@ -820,7 +851,7 @@ tLamps(void)
 	 b10_l0 = 0;
 	 break;
        default:
-	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
+	 NTRACE_1(0, msg.uid, msg.cid, "Impossible lamp type: %d", msg.type);
 	 break;
       }
 
@@ -830,7 +861,7 @@ tLamps(void)
 
       if(semTake(semSLC,60) == ERROR) {
 	 printf("Unable to take semaphore: %s", strerror(errno));
-	 TRACE(0, "Unable to take semaphore: %d", errno, 0);
+	 NTRACE_1(0, msg.uid, msg.cid, "Unable to take semaphore: %d", errno);
       }
 
       if(b10_l0) {
@@ -863,7 +894,7 @@ tLamps(void)
 	 tm_ctrl1.mcp_im_ff_wht_req = msg.u.lamps.on_off;
 	 break;
        default:
-	 TRACE(0, "Impossible lamp type: %d", msg.type, 0);
+	 NTRACE_1(0, msg.uid, msg.cid, "Impossible lamp type: %d", msg.type);
 	 break;
       }
       
@@ -889,8 +920,8 @@ tLamps(void)
 	 
 	 if(timerSendArg(lampsCheck_type, tmr_e_add, wait*60,
 			 msg.uid, msg.cid, msgLamps) == ERROR) {
-	    TRACE(0, "Failed to send message to timer task: %s (%d)",
-		  strerror(errno), errno);
+	    NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
+		     strerror(errno), errno);
 	 }
       }
    }
@@ -988,26 +1019,6 @@ get_ffstatus(char *ffstatus_ans,
 
 /*****************************************************************************/
 /*
- * Command the alignment clamp
- */
-char *
-clampon_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
-{
-   alignment_clamp_set(uid, cid, 1);
-
-   return "";
-}
-
-char *
-clampoff_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
-{
-   alignment_clamp_set(uid, cid, 0);
-
-   return "";
-}
-
-/*****************************************************************************/
-/*
  * Flatfield screen
  */
 /*
@@ -1036,10 +1047,10 @@ broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps)
 	      sdssdc.status.i1.il13.leaf_7_closed_stat,
 	      sdssdc.status.i1.il13.leaf_8_open_stat,
 	      sdssdc.status.i1.il13.leaf_8_closed_stat);
-      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffLeafStatus", buff);
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffLeafPermit", sdssdc.status.o1.ol14.ff_screen_open_pmt);
+      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "petalsStatus", buff);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "petalsCommandedOn", sdssdc.status.o1.ol14.ff_screen_open_pmt);
       sprintf(buff, "%d%d", !!(which_ffs & 0x1), !!(which_ffs & 0x2));
-      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffLeafActivated", buff);
+      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "petalsSelected", buff);
    }
 
    if (lamps) {
@@ -1049,7 +1060,7 @@ broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps)
 	      sdssdc.status.i1.il13.ff_3_stat,
 	      sdssdc.status.i1.il13.ff_4_stat);
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffLamp", buff);
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffLampPermit", sdssdc.status.o1.ol14.ff_lamps_on_pmt);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffLampCommandedOn", sdssdc.status.o1.ol14.ff_lamps_on_pmt);
 
       sprintf(buff, "%d, %d, %d, %d",
 	      sdssdc.status.i1.il13.ne_1_stat,
@@ -1057,7 +1068,7 @@ broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps)
 	      sdssdc.status.i1.il13.ne_3_stat,
 	      sdssdc.status.i1.il13.ne_4_stat);
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "NeLamp", buff);
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "NeLampPermit", sdssdc.status.o1.ol14.ne_lamps_on_pmt);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "NeLampCommandedOn", sdssdc.status.o1.ol14.ne_lamps_on_pmt);
 
       sprintf(buff, "%d, %d, %d, %d",
 	      sdssdc.status.i1.il13.hgcd_1_stat,
@@ -1065,11 +1076,11 @@ broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps)
 	      sdssdc.status.i1.il13.hgcd_3_stat,
 	      sdssdc.status.i1.il13.hgcd_4_stat);
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "HgCdLamp", buff);
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "HgCdLampPermit", sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "HgCdLampCommandedOn", sdssdc.status.o1.ol14.hgcd_lamps_on_pmt);
 
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "UVLampPermit", sdssdc.status.o1.ol14.im_ff_uv_on_pmt);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "UVLampCommandedOn", sdssdc.status.o1.ol14.im_ff_uv_on_pmt);
 
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "WhiteLampPermit", sdssdc.status.o1.ol14.im_ff_wht_on_pmt);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "whtLampCommandedOn", sdssdc.status.o1.ol14.im_ff_wht_on_pmt);
    }
 }
 
@@ -1077,7 +1088,11 @@ char *
 ffstatus_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    broadcast_ffs_lamp_status(uid, cid, 1, 1);
-   sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "ffsLampStatus");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ff_status");
+
+   if (ublock->protocol == NEW_PROTOCOL) {
+      return "";
+   }
    /*
     * Now send command reply
     */
@@ -1134,14 +1149,14 @@ ffsselect_cmd(int uid, unsigned long cid, char *cmd)
    }
    
    if(which < 0 || which > 3) {
-      TRACE(0, "Invalid FFS.SELECT argument: %s", cmd, 0);
+      NTRACE_1(0, uid, cid, "Invalid FFS.SELECT argument: %s", cmd);
       return("Invalid FFS.SELECT argument");
    }
 
    which_ffs = which;
 
    broadcast_ffs_lamp_status(uid, cid, 1, 0);
-   sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "selectFfs");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "code", "ffs_select");
 
    return("");
 }
@@ -1340,7 +1355,7 @@ char *
 sp1_cmd(int uid, unsigned long cid, char *cmd)
 {
    ublock->spectrograph_select = SPECTROGRAPH1;
-  
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "sp1");
    return("");
 }
 
@@ -1348,7 +1363,7 @@ char *
 sp2_cmd(int uid, unsigned long cid, char *cmd)
 {
   ublock->spectrograph_select = SPECTROGRAPH2;
-
+  sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "sp2");
   return("");
 }
 
@@ -1443,13 +1458,15 @@ spectroInit(void)
  * Create the message queue to control the lamps, and spawn the task
  * that actually turns lamps on/off
  */
-   if(msgAlignClamp == NULL) {
+   if(msgFFS == NULL) {
+#if ENABLE_CLAMP
       msgAlignClamp = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgAlignClamp != NULL);
       ret = taskSpawn("tAlgnClmp",90,0,5000,(FUNCPTR)tAlgnClmp,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
-
+   }
+#endif
       msgFFS = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
       assert(msgFFS != NULL);
       ret = taskSpawn("tFFS",90,0,5000,(FUNCPTR)tFFS,
@@ -1472,35 +1489,37 @@ spectroInit(void)
 /*
  * define spectro commands to the command interpreter
  */
-   define_cmd("CLAMP.OFF",           clampoff_cmd, 	       0, 1, 0, 1, "");
-   define_cmd("CLAMP.ON",            clampon_cmd, 	       0, 1, 0, 1, "");
-   define_cmd("FF.OFF",              ffloff_cmd,               0, 0, 0, 1, "");
-   define_cmd("FF.ON",               fflon_cmd,                0, 0, 0, 1, "");
-   define_cmd("FF.STATUS",           ffstatus_cmd,             0, 0, 0, 1, "");
-   define_cmd("FFL.OFF",             ffloff_cmd,               0, 0, 0, 1, "");
-   define_cmd("FFL.ON",              fflon_cmd,                0, 0, 0, 1, "");
-   define_cmd("FFS.CLOSE",           ffsclose_cmd,             0, 0, 0, 1, "");
-   define_cmd("FFS.OPEN",            ffsopen_cmd,             -1, 0, 0, 1,
+#if ENABLE_CLAMP
+   define_cmd("CLAMP_OFF",           clampoff_cmd, 	       0, 1, 0, 1, "");
+   define_cmd("CLAMP_ON",            clampon_cmd, 	       0, 1, 0, 1, "");
+#endif
+   define_cmd("FF_OFF",              ffloff_cmd,               0, 0, 0, 1, "");
+   define_cmd("FF_ON",               fflon_cmd,                0, 0, 0, 1, "");
+   define_cmd("FF_STATUS",           ffstatus_cmd,             0, 0, 0, 1, "");
+   define_cmd("FFL_OFF",             ffloff_cmd,               0, 0, 0, 1, "");
+   define_cmd("FFL_ON",              fflon_cmd,                0, 0, 0, 1, "");
+   define_cmd("FFS_CLOSE",           ffsclose_cmd,             0, 0, 0, 1, "Close flat field screens");
+   define_cmd("FFS_OPEN",            ffsopen_cmd,             -1, 0, 0, 1,
 	      "Open flat field screens;\n"
 	      "with an argument 1 open closed ones and close open ones");
-   define_cmd("FFS.SELECT",          ffsselect_cmd,            1, 0, 0, 1,
+   define_cmd("FFS_SELECT",          ffsselect_cmd,            1, 0, 0, 1,
 	      "Select petal set 1 (0x1), petal set 2 (0x2) or all (0x3)");
-   define_cmd("HGCD.OFF",            hgcdoff_cmd,              0, 0, 0, 1, "");
-   define_cmd("HGCD.ON",             hgcdon_cmd,               0, 0, 0, 1, "");
-   define_cmd("NE.OFF",              neoff_cmd,                0, 0, 0, 1, "");
-   define_cmd("NE.ON",               neon_cmd,                 0, 0, 0, 1, "");
-   define_cmd("UV.OFF",              uvoff_cmd,                0, 0, 0, 1, "");
-   define_cmd("UV.ON",               uvon_cmd,                 0, 0, 0, 1, "");
-   define_cmd("WHT.OFF",             whtoff_cmd,               0, 0, 0, 1, "");
-   define_cmd("WHT.ON",              whton_cmd,                0, 0, 0, 1, "");
-   define_cmd("SLIT.STATUS",         slitstatus_cmd,           0, 0, 0, 1, "");
-   define_cmd("SLITDOOR.CLEAR",      slitdoor_clear_cmd,       0, 0, 0, 1, "");
-   define_cmd("SLITDOOR.CLOSE",      slitdoor_close_cmd,       0, 0, 0, 1, "");
-   define_cmd("SLITDOOR.OPEN",       slitdoor_open_cmd,        0, 0, 0, 1, "");
-   define_cmd("SLITHEADLATCH.CLOSE", slithead_latch_close_cmd, 0, 0, 0, 1, "");
-   define_cmd("SLITHEADLATCH.EXT",   slithead_latch_open_cmd,  0, 0, 0, 1, "");
-   define_cmd("SLITHEADLATCH.OPEN",  slithead_latch_open_cmd,  0, 0, 0, 1, "");
-   define_cmd("SLITHEADLATCH.RET",   slithead_latch_close_cmd, 0, 0, 0, 1, "");
+   define_cmd("HGCD_OFF",            hgcdoff_cmd,              0, 0, 0, 1, "");
+   define_cmd("HGCD_ON",             hgcdon_cmd,               0, 0, 0, 1, "");
+   define_cmd("NE_OFF",              neoff_cmd,                0, 0, 0, 1, "");
+   define_cmd("NE_ON",               neon_cmd,                 0, 0, 0, 1, "");
+   define_cmd("UV_OFF",              uvoff_cmd,                0, 0, 0, 1, "");
+   define_cmd("UV_ON",               uvon_cmd,                 0, 0, 0, 1, "");
+   define_cmd("WHT_OFF",             whtoff_cmd,               0, 0, 0, 1, "");
+   define_cmd("WHT_ON",              whton_cmd,                0, 0, 0, 1, "");
+   define_cmd("SLIT_STATUS",         slitstatus_cmd,           0, 0, 0, 1, "");
+   define_cmd("SLITDOOR_CLEAR",      slitdoor_clear_cmd,       0, 0, 0, 1, "");
+   define_cmd("SLITDOOR_CLOSE",      slitdoor_close_cmd,       0, 0, 0, 1, "");
+   define_cmd("SLITDOOR_OPEN",       slitdoor_open_cmd,        0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH_CLOSE", slithead_latch_close_cmd, 0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH_EXT",   slithead_latch_open_cmd,  0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH_OPEN",  slithead_latch_open_cmd,  0, 0, 0, 1, "");
+   define_cmd("SLITHEADLATCH_RET",   slithead_latch_close_cmd, 0, 0, 0, 1, "");
    define_cmd("SP1", sp1_cmd,                                  0, 0, 0, 0, "");
    define_cmd("SP2", sp2_cmd,                                  0, 0, 0, 0, "");
 }

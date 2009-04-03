@@ -12,6 +12,7 @@
 #include "mcpMsgQ.h"
 #include "tm.h"
 #include "cmd.h"
+#include "as2.h"
 /*
  * The brakes message queue
  */
@@ -26,6 +27,7 @@ MSG_Q_ID msgBrakes;
 void
 tBrakes(void)
 {
+   int uid = 0, cid = 0;
    int axis;				/* the axis to (un)set the brake for */
    unsigned short ctrl[2];		/* short to read/write; SLC byte ordr*/
    MCP_MSG msg;				/* message to pass around */
@@ -38,7 +40,8 @@ tBrakes(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgBrakes", 0, 0);
+      uid = msg.uid;
+      cid = msg.cid;
 
       switch (msg.type) {
        case brakesSet_type:
@@ -50,7 +53,7 @@ tBrakes(void)
 	 axis = msg.u.brakes.axis;
 	 break;
        default:
-	 TRACE(0, "Impossible message type on msgBrakes: %d", msg.type, 0);
+	 NTRACE_1(0, uid, cid, "Impossible message type on msgBrakes: %d", msg.type);
 	 continue;
       }
 /*
@@ -61,24 +64,24 @@ tBrakes(void)
       } else if(axis == INSTRUMENT) {
 	 continue;
       } else {
-	 TRACE(0, "illegal axis %d", axis, 0);
+	 NTRACE_1(0, uid, cid, "illegal axis %d", axis);
 	 continue;
       }
 /*
  * set the bits that control the brakes
  */
-      TRACE(10, "Taking semSLC semaphore", 0, 0);
+      OTRACE(10, "Taking semSLC semaphore", 0, 0);
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "failed to take semaphore to %s %s brake",
+	 NTRACE_2(0, uid, cid, "failed to take semaphore to %s %s brake",
 	       (set_brake ? "set" : "unset"), axis_name(axis));
-	 TRACE(1, "    %s %d", strerror(errno), errno);
+	 NTRACE_2(1, uid, cid, "    %s %d", strerror(errno), errno);
 	 continue;
       }
       
-      TRACE(10, "Reading blok", 0, 0);
+      OTRACE(10, "Reading blok", 0, 0);
       ret = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(ret) {
-	 TRACE(0, "%s: error reading slc: 0x%04x", axis_name(axis), ret);
+	 NTRACE_2(0, uid, cid, "%s: error reading slc: 0x%04x", axis_name(axis), ret);
 	 semGive(semSLC);
 	 continue;
       }
@@ -91,7 +94,7 @@ tBrakes(void)
 	 tm_ctrl.mcp_az_brk_en_cmd =  set_brake ? 1 : 0;
 	 tm_ctrl.mcp_az_brk_dis_cmd = set_brake ? 0 : 1;
       } else {
-	 TRACE(0, "Impossible instrument %d", axis, 0);
+	 NTRACE_1(0, uid, cid, "Impossible instrument %d", axis);
 	 abort();
       }
       
@@ -99,24 +102,24 @@ tBrakes(void)
       ret = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive(semSLC);
       if(ret) {
-	 TRACE(0, "%s: error writing slc: 0x%04x", axis_name(axis), ret);
+	 NTRACE_2(0, uid, cid, "%s: error writing slc: 0x%04x", axis_name(axis), ret);
 	 continue;
       }
 /*
  * done with setting the bits; now deal with the MEI
  */
-      TRACE(10, "Taking semMEI semaphore", 0, 0);
+      OTRACE(10, "Taking semMEI semaphore", 0, 0);
       if(semTake(semMEI, 60) == ERROR) {
-	 TRACE(0, "failed to take semMEI: %s (%d)", strerror(errno), errno);
+	 NTRACE_2(0, uid, cid, "failed to take semMEI: %s (%d)", strerror(errno), errno);
 	 continue;
       }
 
       if(set_brake) {
-	 TRACE(3, "Taking axis %s out of closed loop", axis_name(axis), 0);
+	 NTRACE_1(3, uid, cid, "Taking axis %s out of closed loop", axis_name(axis));
 	 sem_controller_idle(2*axis);
 	 reset_integrator(2*axis);
       } else {
-	 TRACE(3, "Putting axis %s into closed loop", axis_name(axis), 0);
+	 NTRACE_1(3, uid, cid, "Putting axis %s into closed loop", axis_name(axis));
 	 sem_controller_run(2*axis);
 	 
 #if SWITCH_PID_COEFFS
@@ -127,7 +130,7 @@ tBrakes(void)
 	 }
 #endif
 	 
-	 TRACE(3, "Stopping axis %s", axis_name(axis), 0);
+	 NTRACE_1(3, uid, cid, "Stopping axis %s", axis_name(axis));
  	 v_move(2*axis, (double)0, (double)5000);
       }
       
@@ -140,18 +143,19 @@ tBrakes(void)
  * Put on a brake
  */
 int
-mcp_set_brake(int axis)
+mcp_set_brake(int uid, unsigned long cid,
+	      int axis)
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "mcp_set_brake: illegal axis %d", axis, 0);
+      NTRACE_1(0, uid, cid, "mcp_set_brake: illegal axis %d", axis);
 
       return(-1);
    }
 
-   TRACE(3, "Setting brake for axis %s", axis_name(axis), 0);
+   NTRACE_1(3, uid, cid, "Setting brake for axis %s", axis_name(axis));
 
    msg.type = brakesSet_type;;
    msg.u.brakes.axis = axis;
@@ -167,18 +171,19 @@ mcp_set_brake(int axis)
  * Clear a brake
  */
 int
-mcp_unset_brake(int axis)		/* axis to set */
+mcp_unset_brake(int uid, unsigned long cid,
+		int axis)		/* axis to set */
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "mcp_unset_brake: illegal axis %d", axis, 0);
+      NTRACE_1(0, uid, cid, "mcp_unset_brake: illegal axis %d", axis);
 
       return(-1);
    }
 
-   TRACE(3, "Clearing brake for axis %s", axis_name(axis), 0);
+   NTRACE_1(3, uid, cid, "Clearing brake for axis %s", axis_name(axis));
 
    msg.type = brakesUnset_type;;
    msg.u.brakes.axis = axis;
@@ -196,14 +201,22 @@ mcp_unset_brake(int axis)		/* axis to set */
  */
 char *brakeon_cmd(int uid, unsigned long cid, char *cmd)
 {
-  mcp_set_brake(ublock->axis_select);
+   if (mcp_set_brake(uid, cid, ublock->axis_select) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "brake_on");
+   } else {
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "brake_on");
+   }
   
   return "";
 }
 
 char *brakeoff_cmd(int uid, unsigned long cid, char *cmd)
 {
-   mcp_unset_brake(ublock->axis_select);
+   if (mcp_unset_brake(uid, cid, ublock->axis_select) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "brake_off");
+   } else {
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "brake_off");
+   }
    
    return "";
 }
@@ -231,8 +244,8 @@ tBrakesInit(void)
 /*
  * Declare commands
  */
-   define_cmd("BRAKE.OFF",     brakeoff_cmd, 	  0, 1, 0, 1, "");
-   define_cmd("BRAKE.ON",      brakeon_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("BRAKE_OFF",     brakeoff_cmd, 	  0, 1, 0, 1, "");
+   define_cmd("BRAKE_ON",      brakeon_cmd, 	  0, 1, 0, 1, "");
    
    return 0;
 }

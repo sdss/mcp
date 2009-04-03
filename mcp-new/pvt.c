@@ -1498,7 +1498,8 @@ enable_pvt(int axis)
 **=========================================================================
 */
 int
-mcp_drift(int axis,			/* the axis in question */
+mcp_drift(int uid, unsigned long cid,
+	  int axis,			/* the axis in question */
 	  double *arcdeg,		/* return the position */
 	  double *veldeg,		/*            velocity */
 	  double *t)			/*        and time */
@@ -1507,7 +1508,7 @@ mcp_drift(int axis,			/* the axis in question */
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   if(set_ms_off(axis, 0) < 0) {
+   if(set_ms_off(uid, cid, axis, 0) < 0) {
       TRACE(0, "drift_cmd: failed to set MS.OFF", 0, 0);
       return(-1);
    }
@@ -1581,7 +1582,8 @@ mcp_drift(int axis,			/* the axis in question */
 **=========================================================================
 */
 int 
-mcp_move(int axis,			/* the axis to move */
+mcp_move(int uid, unsigned long cid,
+	 int axis,			/* the axis to move */
 	 double *params,		/* 0-3 values: p v t */
 	 int nparam)			/* number of valid parameters */
 {
@@ -1593,7 +1595,7 @@ mcp_move(int axis,			/* the axis to move */
 /*
  * send MS.OFF to stop updating of axis position from fiducials
  */
-   if(nparam == 0 && set_ms_off(axis, 0) < 0) {
+   if(nparam == 0 && set_ms_off(uid, cid, axis, 0) < 0) {
       TRACE(0, "move_cmd: failed to set MS.OFF", 0, 0);
       return(-1);
    }

@@ -42,7 +42,7 @@ install :
 	@echo "I'll give you 5 seconds to think about it (control-C to abort) ..."
 	@for pos in          5 4 3 2 1; do \
 	   echo "                              " | sed -e 's/ /'$$pos'/'$$pos; \
-	   sleep 1; \
+	   echo RHL sleep 1; \
 	done
 	@echo "... and we're off... deleting"
 	-@/bin/rm -rf $(MCP_DIR)

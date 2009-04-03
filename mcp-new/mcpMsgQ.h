@@ -111,7 +111,10 @@ typedef struct {
 /*
  * A message reporting status to be broadcast
  */
+#define KEY_VALUE_LEN 80                /* Length of buffer for sending string-valued keyword values */
+
 typedef enum {
+    DEBUG_CODE = 'd',
     ERROR_CODE = '!',
     FATAL_CODE = 'f',
     FINISHED_CODE = ':',
@@ -120,25 +123,29 @@ typedef enum {
     WARNING_CODE = 'w'
 } MSG_CODE;				/* Status of command */ 
 
+typedef enum {
+    array,                              /* the value is a comma separated set of values, passed as a string */
+    boolean,                            /* the value is a boolean (the value's still in u.ival) */
+    file_descriptor,                    /* the value is a file descriptor to write to */
+    floating,                           /* there is a keyword with a float value */
+    integer,                            /* there is a keyword with an integer value */
+    none,                               /* there is no keyword */
+    novalue,                            /* there is a keyword, but it has no value */
+    string                              /* there is a keyword with a string value */
+} MSG_TYPE;
+
 typedef struct {
     unsigned long cid;			/* The command ID */
     int uid;				/* The user ID */
     signed char code;			/* Status of command */ 
-    char key[23];			/* The desired keyword */
+    char key[27];			/* The desired keyword */
 
-    enum {
-        array,                          /* the value is a comma separated set of values, passed as a string */
-        boolean,                        /* the value is a boolean (the value's still in u.ival) */
-        file_descriptor,                /* the value is a file descriptor to write to */
-	integer,                        /* there is a keyword with an integer value */
-	none,                           /* there is no keyword */
-        novalue,                        /* there is a keyword, but it has no value */
-        string                          /* there is a keyword with a string value */
-    } type;
+    MSG_TYPE type;
 
     union {
 	int ival;
-        char sval[80];
+        float fval;
+        char sval[KEY_VALUE_LEN];
     } u;
 } MCP_STATUS_MSG;
 

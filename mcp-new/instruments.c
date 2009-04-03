@@ -64,17 +64,22 @@ instrument_id(void)
 
    semGive(semSDSSDC);
 
-   if(inst_id1 == inst_id2 && inst_id1 == inst_id3) { /* consistent */
-      notify = -1;
-   } else if(pri_latch_opn) {		/* not latched */
+   if((inst_id1 == inst_id2 && inst_id1 == inst_id3) /* consistent */ || pri_latch_opn /* not latched */) {
+      if (notify >= 0) {		/* we were inconsistent */
+	 char buff[20];
+	 sprintf(buff,"%d, %d, %d", inst_id1, inst_id2, inst_id3);
+	 sendStatusMsg_A(0, 0, INFORMATION_CODE, 0, "instrumentNumValues", buff);
+      }
       notify = -1;
    } else {
       notify = (notify + 1)%notify_rate;
 
       if(notify == 0) {
-	 static char buff[20];
-	 sprintf(buff,"%d %d %d", inst_id1, inst_id2, inst_id3);
+	 char buff[20];
+	 sprintf(buff,"%d, %d, %d", inst_id1, inst_id2, inst_id3);
 	 TRACE(2, "Inconsistent instrument ID switches: %s", buff, 0);
+	 sendStatusMsg_A(0, 0, INFORMATION_CODE, 0, "instrumentNumValues", buff);
+	 
 	 return(-1);
       }
    }
@@ -123,8 +128,11 @@ saddle_is_mounted(void)
 void
 broadcast_inst_status(int uid, unsigned long cid)
 {
+   int inst_id = instrument_id();
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "saddleIsMounted", saddle_is_mounted());
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 0, "instrumentNum", instrument_id());
+
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "instrumentNumConsistent", (inst_id >= 0));
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 0, "instrumentNum", inst_id);
 }
 
 int

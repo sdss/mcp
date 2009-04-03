@@ -113,6 +113,8 @@ mcp-new/counter_weight.c -text
 mcp-new/cw.h -text
 mcp-new/data_collection.c -text
 mcp-new/data_collection.h -text
+mcp-new/dictionary.c -text
+mcp-new/dictionaryData.c -text
 mcp-new/display.c -text
 mcp-new/fiducials.c -text
 mcp-new/frame.h -text

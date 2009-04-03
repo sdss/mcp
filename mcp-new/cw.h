@@ -35,7 +35,7 @@ int get_cwstatus(char *cwstatus_ans, int size);
 int cw_abort(void);
 void cw_data_collection(void);
 int cw_get_inst(char *cmd);
-void set_counterweight(int inst, int cw, short pos);
+void set_counterweight(int uid, unsigned long cid, int inst, int cw, short pos);
 
 /*
  * Instrument info

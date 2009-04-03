@@ -26,7 +26,7 @@ CFLAGS = $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__
 OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
 display.o instruments.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
-tagname.o brakes.o as2.o
+tagname.o brakes.o as2.o dictionary.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
@@ -64,6 +64,7 @@ as2.o : as2.h
 as2.o : cmd.h
 as2.o : mcpMsgQ.h
 axis_cmds.o : abdh.h
+axis_cmds.o : as2.h
 axis_cmds.o : axis.h
 axis_cmds.o : cmd.h
 axis_cmds.o : cw.h
@@ -84,6 +85,7 @@ brakes.o : cmd.h
 brakes.o : data_collection.h
 brakes.o : mcpMsgQ.h
 brakes.o : tm.h
+cmd.o : as2.h
 cmd.o : axis.h
 cmd.o : cmd.h
 cmd.o : copyright.h
@@ -117,6 +119,7 @@ data_collection.o : mcpSpectro.h
 data_collection.o : mcpUtils.h
 data_collection.o : serial.h
 data_collection.o : tm.h
+dictionary.o : as2.h
 display.o : axis.h
 display.o : cmd.h
 display.o : copyright.h
@@ -131,6 +134,7 @@ display.o : mcpFiducials.h
 display.o : mcpUtils.h
 display.o : ms.h
 display.o : tm.h
+fiducials.o : as2.h
 fiducials.o : axis.h
 fiducials.o : cmd.h
 fiducials.o : data_collection.h
@@ -147,6 +151,7 @@ instrument_lift.o : data_collection.h
 instrument_lift.o : instruments.h
 instrument_lift.o : tm.h
 instruments.o : abdh.h
+instruments.o : as2.h
 instruments.o : axis.h
 instruments.o : cmd.h
 instruments.o : cw.h
@@ -175,6 +180,7 @@ serial.o : copyright.h
 serial.o : mcpUtils.h
 serial.o : serial.h
 spectro.o : abdh.h
+spectro.o : as2.h
 spectro.o : axis.h
 spectro.o : cmd.h
 spectro.o : data_collection.h

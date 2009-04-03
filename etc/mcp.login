@@ -158,8 +158,8 @@ ld < util/ntp.o
 #
 # Load the MCP itself
 #
-#ld < mcp-new/mcpnew.out
 ld 1, 0, "mcp-new/mcpnew.out"
+
 #ld < mei-new/llfirm.o
 #ld < mcp-new/util.o
 #ld < mcp-new/telescope_motion.o
@@ -187,6 +187,7 @@ tBarsInit
 timeInit
 tBrakesInit
 as2Init
+loadKeywordDictionary
 
 #BCAST_Enable=0
 #SM_COPY=0

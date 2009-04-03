@@ -3,6 +3,9 @@
 
 #define OLD_PROTOCOL 0                  /* The old connection protocol, as used by mcpMenu */
 #define NEW_PROTOCOL 1                  /* The new connection protocol, as used by the SDSS-III hub */
+
+#define INTERNAL_UID 2                  /* UID for internal (recursive) calls */
+int nextInternalCid(void);
 /*
  * A type for holding information about a user who's connected to the MCP
  */
@@ -40,6 +43,7 @@ extern int iacked;			/* set to 0 on reboot */
 					   this command */
 #define CMD_TYPE_MAY_TAKE 0x40		/* Command may take semCmdPort */
 #define CMD_TYPE_MURMUR 0x80		/* send to murmur by default */
+/* N.b. these types are saved in a char -- so 0x80 is the max */
 
 int cmdInit(const char *msg);
 char *cmd_handler(int have_semPortCmd, int uid, unsigned long cid, const char *cmd, int *cmd_type);

@@ -207,6 +207,7 @@ write_fiducial_log(const char *type,	/* type of entry */
 		   long iarg0,		/* an extra int to write */
 		   long iarg1)		/* yet another int to write */
 {
+   int uid = 0, cid = 0;
    const char *aname = NULL;		/* upper case name of axis */
    float deg;				/* position in degrees */
    FILE *fd;				/* fd for logfile */
@@ -215,12 +216,12 @@ write_fiducial_log(const char *type,	/* type of entry */
 
    sprintf(filename, "mcpFiducials-%d.dat", get_mjd());
    if((fd = fopen_logfile(filename, "a")) == NULL) {
-      TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
+      NTRACE_2(0, uid, cid, "Cannot open %s: %s", filename, strerror(errno));
       return;
    }
 
    if(fstat(fileno(fd), &status) == ERROR) {
-      TRACE(0, "Cannot stat %s: %s", filename, strerror(errno));
+      NTRACE_2(0, uid, cid, "Cannot stat %s: %s", filename, strerror(errno));
    } else {
       if(status.st_size == 0) {
 	 init_fiducial_log(fd);
@@ -242,7 +243,7 @@ write_fiducial_log(const char *type,	/* type of entry */
     case NAXIS:				/* i.e. all axes */
       aname = "ALL"; deg = 0; break;
     default:
-      TRACE(0 ,"write_fiducial_log: illegal axis %d", axis, 0);
+      NTRACE_1(0, uid, cid ,"write_fiducial_log: illegal axis %d", axis);
       return;
    }
 /*
@@ -302,7 +303,7 @@ write_fiducial_log(const char *type,	/* type of entry */
       int dio316 = iarg0;
       fprintf(fd, "%s %ld %d\n", type, time(NULL), dio316);
    } else {
-      TRACE(0, "Unknown entry type for fiducial log: %s", type, 0);
+      NTRACE_1(0, uid, cid, "Unknown entry type for fiducial log: %s", type);
    }
 
    fclose(fd);
@@ -313,9 +314,7 @@ write_fiducial_log(const char *type,	/* type of entry */
 void
 broadcast_fiducial_status(int uid, unsigned long cid)
 {
-   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azFiducialMaxCorr", fiducial[AZIMUTH].max_correction);
-   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altFiducialMaxCorr", fiducial[ALTITUDE].max_correction);
-   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "rotFiducialMaxCorr", fiducial[INSTRUMENT].max_correction);
+   char buff[KEY_VALUE_LEN];
 
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azFiducialVersion", fiducialVersion[AZIMUTH]);
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altFiducialVersion", fiducialVersion[ALTITUDE]);
@@ -324,6 +323,18 @@ broadcast_fiducial_status(int uid, unsigned long cid)
 		   (strcmp(fiducialVersion[0], fiducialVersion[1]) == 0 &&
 		    strcmp(fiducialVersion[0], fiducialVersion[2]) == 0));
 
+   sprintf(buff, "%ld, %ld, %ld",
+	   fiducial[AZIMUTH].max_correction,
+	   fiducial[ALTITUDE].max_correction,
+	   fiducial[INSTRUMENT].max_correction);
+   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "msOnMaxCorrection", buff);
+
+   sprintf(buff, "%ld, %ld, %ld",
+	   fiducial[AZIMUTH].min_encoder_mismatch,
+	   fiducial[ALTITUDE].min_encoder_mismatch,
+	   fiducial[INSTRUMENT].min_encoder_mismatch);
+   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "minEncoderMismatch", buff);
+   
    /* PLC version, per the PLC */
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "plcFiducialVersion", sdssdc.status.b3.w1.version_id);
 }
@@ -378,7 +389,7 @@ set_max_fiducial_correction(int axis,	/* the axis in question */
    old = fiducial[axis].max_correction;
    fiducial[axis].max_correction = max_correction;
 
-   TRACE(3, "Setting maximum MS.ON correction for %s to %d",
+   OTRACE(3, "Setting maximum MS.ON correction for %s to %d",
 	 axis_name(axis), max_correction);
 
    return(old);
@@ -405,7 +416,7 @@ set_min_encoder_mismatch_error(int axis, /* the axis in question */
 			
    fiducial[axis].min_encoder_mismatch = min_error;
 
-   TRACE(3, "Setting minimum encoder mismatch error for %s to %d",
+   OTRACE(3, "Setting minimum encoder mismatch error for %s to %d",
 	 axis_name(axis), min_error);
 
    return(old);
@@ -425,6 +436,7 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 		     long *poserr,	/* poserr for the axes, or NULL */
 		     int all_correct)	/* allow any correction? */
 {
+   int uid = 0, cid = 0;
    long correction[3];			/* corrections to apply ([0] unused) */
 /*
  * Remember that poserr?  We could do something cleverer here, based
@@ -446,31 +458,31 @@ maybe_reset_axis_pos(int axis,		/* the axis */
       correction[2] = -fiducial[axis].error[2];
       			
       if(all_correct) {
-	 TRACE(3, "Applying unlimited correction %ld to %s",
-	       correction[1], axis_name(axis));
+	 NTRACE_2(3, uid, cid, "Applying unlimited correction %ld to %s",
+		  correction[1], axis_name(axis));
       } else {
 	 if(axis_stat[axis][0].ms_on_correction_too_large) {
 	    if(fiducial[axis].max_correction > 0) {
-	       TRACE(0, "MS.ON is disabled for %s; not applying ",
-		     axis_name(axis), correction[1]);
+	       NTRACE_2(0, uid, cid, "MS.ON is disabled for %s; not applying %ld",
+			axis_name(axis), correction[1]);
 	    }
 	    return;
 	 }
 	 
 	 if(fiducial[axis].max_correction > 0) {
-	    TRACE(3, "Applying correction %ld to %s",
+	    NTRACE_2(3, uid, cid, "Applying correction %ld to %s",
 		  correction[1], axis_name(axis));
 	 }
 	 
 	 if(abs(correction[1]) >= fiducial[axis].max_correction) {
 	    if(fiducial[axis].max_correction > 0) {
-	       TRACE(0, "    correction for %s %ld is too large",
+	       NTRACE_2(0, uid, cid, "    correction for %s %ld is too large",
 		     axis_name(axis), correction[1]);
 	    }
 	    
 	    if(allow_disable_ms_on) {
 	       if(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
-		  TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
+		  NTRACE(0, uid, cid, "couldn't take semMEIUPD semaphore.");
 	       } else {			/* set it in [0] as [1]'s not cleared*/
 		  axis_stat[axis][0].ms_on_correction_too_large = 1;
 		  semGive(semMEIUPD);
@@ -481,9 +493,8 @@ maybe_reset_axis_pos(int axis,		/* the axis */
 	       }
 	    } else {
 	       if(fiducial[axis].max_correction > 0) {
-		  TRACE(3, "Not disabling MS.ON; error %d "
-			"(max allowed: %d)",
-			correction[1], fiducial[axis].max_correction);
+		  NTRACE_2(3, uid, cid, "Not disabling MS.ON; error %ld (max allowed: %ld)",
+			   correction[1], fiducial[axis].max_correction);
 	       }
 	    }
 	    
@@ -661,6 +672,7 @@ az_barcode_cmd(int uid, unsigned long cid, char *cmd)
 void
 tLatch(const char *name)
 {
+   int uid = 0; unsigned long cid = 0;
    int axis;				/* axis MS.ON/OFF refers to */
    int big = 0;				/* was this the big or small interval
 					   between marks on the rotator tape?*/
@@ -688,7 +700,9 @@ tLatch(const char *name)
 	 msg.type = latchReenable_type;
 	 msg.u.latchReenable.timeout = 1;	
 	 msg.u.latchReenable.dio316int_bit = dio316int_bit;
- 
+	 msg.uid = uid;
+	 msg.cid = cid;
+
 	 ret = msgQSend(msgLatchReenable, (char *)&msg, sizeof(msg),
 			NO_WAIT, MSG_PRI_NORMAL);
 	 assert(ret == OK);
@@ -700,6 +714,13 @@ tLatch(const char *name)
  */
       ret = msgQReceive(msgLatched, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
+
+      if (msg.type == latchCrossed_type) {
+	 uid = 0;
+	 cid = 0;
+      } else {				/* came via a timerSendArg */
+	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
+      }
 /*
  * What sort of message?
  *   latchCrossed_type:          We crossed a fiducial
@@ -711,14 +732,14 @@ tLatch(const char *name)
        case latchCrossed_type:
 	 dio316int_bit = msg.u.latchCrossed.dio316int_bit;
 	 relatch = 1;
-	 TRACE(8, "read latchCrossed on msgLatched, delay = %dus 0x%x",
-	       timer_read(2) - msg.u.latchCrossed.time, dio316int_bit);
+	 NTRACE_2(8, uid, cid, "read latchCrossed on msgLatched, delay = %ldus 0x%x",
+		  timer_read(2) - msg.u.latchCrossed.time, dio316int_bit);
 	 break;
        case ms_on_az_type:		/* by symmetry with MS.OFF */
        case ms_on_alt_type:
        case ms_on_inst_type:
 	 if(semTake(semLatch, 60) == ERROR) {
-	    TRACE(0, "ERR: ms_on cannot take semLatch", 0, 0);
+	    NTRACE(0, uid, cid, "ERR: ms_on cannot take semLatch");
 	    continue;
 	 }
 
@@ -727,13 +748,19 @@ tLatch(const char *name)
 	  case ms_on_alt_type:  axis = ALTITUDE; break;
 	  case ms_on_inst_type: axis = INSTRUMENT; break;
 	  default:
-	    TRACE(0, "Impossible message type %d; aborting", msg.type, 0);
+	    NTRACE_1(0, uid, cid, "Impossible message type %d; aborting", msg.type);
 	    semGive(semLatch);
 	    abort(); break;
 	 }
 	 
-	 TRACE(3, "%s MS.ON", axis_name(axis), "");
+	 OTRACE(3, "%s MS.ON", axis_name(axis), "");
 	 fiducial[axis].ms_on = 1;
+
+	 {
+	    char key[20];
+	    sprintf(key, "%sMsOn", axis_abbrev(axis));
+	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
+	 }
 	 
 	 maybe_reset_axis_pos(axis, NULL, 0);
 	 
@@ -752,20 +779,26 @@ tLatch(const char *name)
 	  case ms_off_alt_type:  axis = ALTITUDE; break;
 	  case ms_off_inst_type: axis = INSTRUMENT; break;
 	  default:
-	    TRACE(0, "Impossible message type %d; aborting", msg.type, 0);
+	    NTRACE_1(0, uid, cid, "Impossible message type %d; aborting", msg.type);
 	    semGive(semLatch);
 	    abort(); break;
 	 }
       
-	 TRACE(3, "%s MS.OFF", axis_name(axis), "");
+	 OTRACE(3, "%s MS.OFF", axis_name(axis), "");
 	 fiducial[axis].ms_on = 0;
+
+	 {
+	    char key[20];
+	    sprintf(key, "%sMsOn", axis_abbrev(axis));
+	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
+	 }
 	 
 	 semGive(semLatch);
 	 
 	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
 	 continue;
        default:
-	 TRACE(0, "Impossible message type: %d", msg.type, 0);
+	 NTRACE_1(0, uid, cid, "Impossible message type: %d", msg.type);
 	 continue;	 
       }
 /*
@@ -782,8 +815,7 @@ tLatch(const char *name)
       } else if(dio316int_bit == INSTRUMENT_INT) {
 	 axis = INSTRUMENT;
       } else {
-	 TRACE(1, "More than one axis reports a fiducial interrupt: 0x%x",
-	       dio316int_bit, 0);
+	 NTRACE_1(1, uid, cid, "More than one axis reports a fiducial interrupt: 0x%x", dio316int_bit);
 
 	 write_fiducial_log("BAD_DIO316", axis,
 			    0, 0, 0, 0, 0,
@@ -810,12 +842,11 @@ tLatch(const char *name)
 					   (unlimited if <= 0)*/
 	 if(i > 1) {			/* but too late */
 	    get_velocity(2*axis, &vel);
-	    TRACE(3, "%s: took %d attempts to read MEI latch status",
-						  axis_name(axis), i);
+	    NTRACE_2(3, uid, cid, "%s: took %d attempts to read MEI latch status", axis_name(axis), i);
 
 	    nlatch_allowed = -1;	/* allow any number */
 	    if(nlatch_allowed > 0 && i > nlatch_allowed) {
-	       TRACE(1, "Ignoring delayed latch on %s (%d tries)",
+	       NTRACE_2(1, uid, cid, "Ignoring delayed latch on %s (%d tries)",
 		     axis_name(axis), i);
 	       continue;		/* We can't trust delayed latches */
 	    }
@@ -823,12 +854,11 @@ tLatch(const char *name)
       } else {				/* The MEI didn't latch */
 	 latchpos[latchidx].axis = -(dio316int_bit & 0xe);
 	 if(latchpos[latchidx].axis == 0) {
-	    TRACE(0, "Impossible condition: latch interrupt but no bits set",
-		  0, 0);
+	    NTRACE(0, uid, cid, "Impossible condition: latch interrupt but no bits set");
 	    latchpos[latchidx].axis = -0x10;
 	 }
 
-	 TRACE(1, "failed to read latch position: status = %d axis %s",
+	 NTRACE_2(1, uid, cid, "failed to read latch position: status = %d axis %s",
 	       status, axis_name(axis));
 
 	 continue;
@@ -860,8 +890,8 @@ tLatch(const char *name)
 	 fididx = barcode_serial(3);	/* read twice...not reliable */
 #endif
 	 if(use_az_barcode && (fididx <= 0 || fididx > 24)) {
-	    TRACE(0, "Invalid barcode in azimuth: fididx = %d, pos = %d",
-		  fididx, latchpos[latchidx].pos[1]);
+	    NTRACE_2(0, uid, cid, "Invalid barcode in azimuth: fididx = %d, pos = %g",
+		     fididx, latchpos[latchidx].pos[1]);
 	 } else {
 	    if(use_az_barcode) {
 	       if(sdssdc.status.i7.il0.az_dir_cw) {
@@ -881,8 +911,8 @@ tLatch(const char *name)
 		     fididx = i;
 		  }
 	       }
-	       TRACE(5, "Identified az fiducial %d, delta = %d",
-		     fididx, best_dist);
+	       NTRACE_2(5, uid, cid, "Identified az fiducial %d, delta = %d",
+			fididx, best_dist);
 	    }
 	    
 	    write_fiducial_log("AZ_FIDUCIAL", AZIMUTH, fididx,
@@ -893,8 +923,8 @@ tLatch(const char *name)
 			       vel, 0.0, 0, 0);
 	    
 	    if(fididx < 0 || fididx >= N_AZ_FIDUCIALS) {
-	       TRACE(0, "Invalid azimuth fiducial %d, pos = %d",
-		     fididx, latchpos[latchidx].pos[1]);
+	       NTRACE_2(0, uid, cid, "Invalid azimuth fiducial %d, pos = %g",
+			fididx, latchpos[latchidx].pos[1]);
 	    } else {
 	       for(i = 1; i <= 2; i++) {
 		  az_fiducial[fididx].last[i] = az_fiducial[fididx].mark[i];
@@ -910,15 +940,15 @@ tLatch(const char *name)
 	       }
 	       fiducial[AZIMUTH].seen_fiducial = TRUE;
 	       
-	       TRACE(4, "az fiducial %.2f deg",
-		     az_fiducial[fididx].mark[1]/ticks_per_degree[AZIMUTH], 0);
+	       NTRACE_1(4, uid, cid, "az fiducial %.2f deg",
+			az_fiducial[fididx].mark[1]/ticks_per_degree[AZIMUTH]);
 	       if(az_fiducial[fididx].last[1] == 0) {
-		  TRACE(4, "     err = ???  poserr = %d ticks",
-			az_fiducial[fididx].poserr[1], 0);
+		  NTRACE_1(4, uid, cid, "     err = ???  poserr = %ld ticks",
+			   az_fiducial[fididx].poserr[1]);
 	       } else {
-		  TRACE(4, "     err = %d   poserr = %d ticks",
-			az_fiducial[fididx].err[1],
-			az_fiducial[fididx].poserr[1]);
+		  NTRACE_2(4, uid, cid, "     err = %ld   poserr = %ld ticks",
+			   az_fiducial[fididx].err[1],
+			   az_fiducial[fididx].poserr[1]);
 	       }
 	       
 	       fiducialidx[AZIMUTH] = fididx;
@@ -949,8 +979,8 @@ tLatch(const char *name)
 	 fididx = remap_fiducials(ALTITUDE, fididx);
 			
 	 if(fididx < 0 || fididx >= N_ALT_FIDUCIALS) {
-	    TRACE(0, "Invalid altitude fiducial %d, clino = %d",
-		  fididx, (int)(read_clinometer() + 0.5));
+	    NTRACE_2(0, uid, cid, "Invalid altitude fiducial %d, clino = %d",
+		     fididx, (int)(read_clinometer() + 0.5));
 	 } else {
 	    write_fiducial_log("ALT_FIDUCIAL", ALTITUDE, fididx,
 			       alt_fiducial[fididx].fiducial[1],
@@ -971,15 +1001,15 @@ tLatch(const char *name)
 	    }
 	    fiducial[ALTITUDE].seen_fiducial = TRUE;
 	    
-	    TRACE(4, "alt fiducial %.2f deg",
-		  alt_fiducial[fididx].mark[1]/ticks_per_degree[ALTITUDE], 0);
+	    NTRACE_1(4, uid, cid, "alt fiducial %.2f deg",
+		     alt_fiducial[fididx].mark[1]/ticks_per_degree[ALTITUDE]);
 	    if(alt_fiducial[fididx].last[1] == 0) {
-	       TRACE(4, "     err = ???  poserr = %d ticks",
-		     alt_fiducial[fididx].poserr[1], 0);
+	       NTRACE_1(4, uid, cid, "     err = ???  poserr = %ld ticks",
+			alt_fiducial[fididx].poserr[1]);
 	    } else {
-	       TRACE(4, "     err = %d   poserr = %d ticks",
-		     alt_fiducial[fididx].err[1],
-		     alt_fiducial[fididx].poserr[1]);
+	       NTRACE_2(4, uid, cid, "     err = %ld   poserr = %ld ticks",
+			alt_fiducial[fididx].err[1],
+			alt_fiducial[fididx].poserr[1]);
 	    }
 	    
 	    fiducialidx[ALTITUDE] = fididx;
@@ -1017,9 +1047,8 @@ tLatch(const char *name)
 	 fididx = remap_fiducials(INSTRUMENT, fididx);
 
 	 if(fididx < 0) {
-	    TRACE(0, "Failed to identify rotator fiducial at %.2f",
-		  (latchpos[latchidx].pos[1] -
-		   ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT], 0);
+	    NTRACE_1(0, uid, cid, "Failed to identify rotator fiducial at %.2f",
+		     (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 	    
 	    rot_latch = latchpos[latchidx].pos[1];
 	    semGive(semLatch);
@@ -1077,9 +1106,8 @@ tLatch(const char *name)
       
 	 if(fididx > 0) {
 	    if(!pos_is_mark) {
-	       TRACE(4, "Intermediate rot fiducial %.2f deg",
-		     (latchpos[latchidx].pos[1] -
-		      ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT], 0);
+	       NTRACE_1(4, uid, cid, "Intermediate rot fiducial %.2f deg",
+			(latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 	    } else {
 	       static char pos[20];	/* won't appear properly in TRACE log*/
 
@@ -1087,17 +1115,15 @@ tLatch(const char *name)
 		  (rot_fiducial[fididx].mark[1] -
 		   ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 
-	       TRACE(4, "rot fiducial %d (%s) deg", fididx, pos);
-      	       TRACE(6, "     pos = %d, rot_latch = %ld",
-		     rot_fiducial[fididx].mark[1], rot_latch);
+	       NTRACE_2(4, uid, cid, "rot fiducial %d (%s) deg", fididx, pos);
+      	       NTRACE_2(6, uid, cid, "     pos = %ld, rot_latch = %ld", rot_fiducial[fididx].mark[1], rot_latch);
 
 	       if(rot_fiducial[fididx].last[1] == 0) {
-		  TRACE(4, "     err = ???  poserr = %d ticks",
-			rot_fiducial[fididx].poserr[1], 0);
+		  NTRACE_1(4, uid, cid, "     err = ???  poserr = %ld ticks", rot_fiducial[fididx].poserr[1]);
 	       } else {
-		  TRACE(4, "     err = %d   poserr = %d ticks",
-			rot_fiducial[fididx].err[1],
-			rot_fiducial[fididx].poserr[1]);
+		  NTRACE_2(4, uid, cid, "     err = %ld   poserr = %ld ticks",
+			   rot_fiducial[fididx].err[1],
+			   rot_fiducial[fididx].poserr[1]);
 	       }
 	    }
 	    
@@ -1109,7 +1135,7 @@ tLatch(const char *name)
 	 fiducial[INSTRUMENT].last_latch = rot_latch =
 						     latchpos[latchidx].pos[1];
       } else {
-	 TRACE(0, "More than one axis reports a fiducial interrupt", 0, 0);
+	 NTRACE(0, uid, cid, "More than one axis reports a fiducial interrupt");
       }
 
       semGive(semLatch);
@@ -1129,6 +1155,7 @@ tLatch(const char *name)
 void
 DIO316ClearISR_delay(void)
 {
+   int uid = 0, cid = 0;
    unsigned char dio316int_bit;		/* value read by DIO316_interrupt */
    MCP_MSG msg;				/* message to read */
    int status;
@@ -1141,8 +1168,8 @@ DIO316ClearISR_delay(void)
 	msgQReceive(msgLatchReenable, (char*)&msg, sizeof(msg), WAIT_FOREVER);
       assert(status != ERROR);
 
-      TRACE(6, "DIO316ClearISR_delay: received message %d %d",
-	    msg.type, msg.u.latchReenable.dio316int_bit);
+      NTRACE_2(6, uid, cid, "DIO316ClearISR_delay: received message %d %d",
+	       msg.type, msg.u.latchReenable.dio316int_bit);
       
       assert(msg.type == latchReenable_type);
       dio316int_bit = msg.u.latchReenable.dio316int_bit;
@@ -1153,12 +1180,12 @@ DIO316ClearISR_delay(void)
       status = semTake(semMEI,WAIT_FOREVER);
       assert(status == OK);
 
-      TRACE(5, "arming latches", 0, 0);
+      NTRACE(5, uid, cid, "arming latches");
 
       taskLock();
 
       while((status = arm_latch(TRUE)) != DSP_OK) {
-	 TRACE(0, "Trying to ARM Latch; status=%d", status, 0);
+	 NTRACE_1(0, uid, cid, "Trying to ARM Latch; status=%d", status);
       }
       semGive (semMEI);
 #if 0
@@ -1252,13 +1279,15 @@ update_fiducial_errors(int axis,	/* the axis */
 char *
 ms_map_dump_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
-  return "";
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_map_dump");
+   return "";
 }
 			
 char *
 ms_map_load_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
-  return "";
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_map_load");
+   return "";
 }
       
 /*****************************************************************************/
@@ -1279,6 +1308,8 @@ ms_read_cmd(int uid, unsigned long cid, char *cmd)
 
    broadcast_fiducial_status(uid, cid);
    
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_read");
+
    return reply;
 }
 
@@ -1286,12 +1317,17 @@ char *
 ms_write_cmd(int uid, unsigned long cid, char *cmd)
 {
    char filename[200];			/* name of file to write */
+   char *reply = "";
 
    if(sscanf(cmd, "%s", filename) != 1) {
       return("ERR: no filename supplied");
    }
 
-   return(write_fiducials(filename, ublock->axis_select));
+   reply = write_fiducials(filename, ublock->axis_select);
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_write");
+
+   return(reply);
 }
 
 /*****************************************************************************/
@@ -1303,6 +1339,7 @@ ms_set_axis_pos_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    mcp_set_fiducial(ublock->axis_select);
 
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_set_axis_pos");
    return("");
 }
 
@@ -1322,7 +1359,8 @@ ms_set_axis_pos_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 ** parameter as part of the union.
 */
 int
-set_ms_on(int axis)			/* the axis in question */
+set_ms_on(int uid, unsigned long cid,
+	  int axis)			/* the axis in question */
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
@@ -1331,23 +1369,25 @@ set_ms_on(int axis)			/* the axis in question */
  */
    switch (axis) {
     case AZIMUTH:
-      (void)timerSend(ms_off_az_type, tmr_e_abort_ns, 0, ms_off_az_type, 0);
+      (void)timerSendArg(ms_off_az_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_az_type;
       break;
     case ALTITUDE:
-      (void)timerSend(ms_off_alt_type, tmr_e_abort_ns, 0, ms_off_alt_type, 0);
+      (void)timerSendArg(ms_off_alt_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_alt_type;
       break;
     case INSTRUMENT:
-      (void)timerSend(ms_off_inst_type, tmr_e_abort_ns, 0, ms_off_inst_type,0);
+      (void)timerSendArg(ms_off_inst_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_inst_type;
       break;
    }
+   msg.uid = uid;
+   msg.cid = cid;
 
    ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
    if(ret != OK) {
-      TRACE(0, "Failed to send MS.ON message: %d %s", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "Failed to send MS.ON message: %d %s", errno, strerror(errno));
       return(-1);
    }
 
@@ -1355,9 +1395,11 @@ set_ms_on(int axis)			/* the axis in question */
 }
 
 int
-set_ms_off(int axis,			/* the desired axis */
+set_ms_off(int uid, unsigned long cid,
+	   int axis,			/* the desired axis */
 	   float delay)			/* delay until MS.OFF takes effect, s*/
 {
+   
    MCP_MSG msg;				/* message to send */
    int ret;				/* a return code */
 
@@ -1366,32 +1408,33 @@ set_ms_off(int axis,			/* the desired axis */
     case ALTITUDE:   msg.type = ms_off_alt_type; break;
     case INSTRUMENT: msg.type = ms_off_inst_type; break;
    }
+   msg.uid = uid;
+   msg.cid = cid;
 /*
  * abort any pending MS.OFFs 
  */
-   TRACE(6, "Aborting old MS.OFFs", 0, 0);
+   NTRACE(6, uid, cid, "Aborting old MS.OFFs");
 
-   (void)timerSend(msg.type, tmr_e_abort_ns, 0, msg.type, 0);
+   (void)timerSendArg(msg.type, tmr_e_abort_ns, 0, uid, cid, 0);
    taskDelay(1);			/* give the timerTask a chance */
 /*
  * actually set (or schedule) MS.OFF
  */
-   TRACE(3, "%s MS.OFF scheduled: %d\n",
-			axis_name(axis), (int)(delay + 0.5));
+   NTRACE_2(3, uid, cid, "%s MS.OFF scheduled: %d\n",
+	    axis_name(axis), (int)(delay + 0.5));
       
    if(delay == 0) {			/* no time specified */
-      TRACE(5, "Sending message to msgLatched: type %d", msg.type, 0);
+      NTRACE_1(5, uid, cid, "Sending message to msgLatched: type %d", msg.type);
       
       ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 		     NO_WAIT, MSG_PRI_NORMAL);
       assert(ret == OK);
     } else {				/* wait a while and send MS.OFF */
-      TRACE(10, "Sending msg to tTimerTask/msgLatched: type %d delay %d ticks",
-	    msg.type, (int)(delay*60));
-      if(timerSend(msg.type, tmr_e_add, delay*60, msg.type, msgLatched) ==
-								       ERROR) {
-	 TRACE(0, "Failed to send ms_off message to timer task: %s (%d)",
-	       strerror(errno), errno);
+      NTRACE_2(1, uid, cid, "Sending msg to tTimerTask/msgLatched: type %d delay %d ticks",
+	       msg.type, (int)(delay*60));
+      if(timerSendArg(msg.type, tmr_e_add, delay*60, uid, cid, msgLatched) == ERROR) {
+	 NTRACE_2(0, uid, cid, "Failed to send ms_off message to timer task: %s (%d)",
+		  strerror(errno), errno);
 	 return(-1);
       }
    }
@@ -1406,18 +1449,24 @@ set_ms_off(int axis,			/* the desired axis */
  * set MS.ON
  */
 char *
-ms_on_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+ms_on_cmd(int uid, unsigned long cid,
+	  char *cmd)			/* NOTUSED */
 {
    const int axis = ublock->axis_select;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_on");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
-   if(set_ms_on(axis) < 0) {
-      return("ERR: failed to set MS.ON");
-   }
+   if(set_ms_on(uid, cid, axis) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_on");
 
+      return "ERR: failed to set MS.ON";
+   } else {
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_on");
+   }
+   
    return "";
 }
 
@@ -1432,6 +1481,7 @@ ms_off_cmd(int uid, unsigned long cid, char *cmd)
    float time_off;			/* when MS.OFF should take effect */
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_off");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 
@@ -1445,11 +1495,15 @@ ms_off_cmd(int uid, unsigned long cid, char *cmd)
       }
    }
 
-   if(set_ms_off(axis, delay) < 0) {
-      return("ERR: failed to set MS.OFF");
-   }
+   if(set_ms_off(uid, cid, axis, delay) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_on");
 
-   return("");
+      return "ERR: failed to set MS.OFF";
+   } else {
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_on");
+   }
+   
+   return "";
 }
 
 /*
@@ -1463,17 +1517,22 @@ ms_max_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    int old;				/* old value */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_max");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-			
-   if(sscanf(cmd, "%ld", &ms_max) != 1) {
-      return("ERR: maximum offset not supplied");
-   }
-			
-   old = set_max_fiducial_correction(axis, ms_max);
-   sprintf(ublock->buff, "%d", old);
 
-   return(ublock->buff);
+   if(sscanf(cmd, "%ld", &ms_max) != 1) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_max");
+      return "ERR: maximum offset not supplied";
+   }
+   
+   old = set_max_fiducial_correction(axis, ms_max); /* do the work */
+   
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_max");
+   
+   sprintf(ublock->buff, "%d", old);
+   
+   return ublock->buff;
 }
 
 /*****************************************************************************/
@@ -1489,17 +1548,22 @@ min_encoder_mismatch_cmd(int uid, unsigned long cid, char *cmd)	/* NOTUSED */
    int old;				/* old value */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "min_encoder_mismatch");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-			
+   
    if(sscanf(cmd, "%ld", &min_error) != 1) {
-      return("ERR: minimum error is not supplied");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "min_encoder_mismatch");
+      return "ERR: minimum error is not supplied";
    }
-			
-   old = set_min_encoder_mismatch_error(axis, min_error);
+   
+   old = set_min_encoder_mismatch_error(axis, min_error); /* do the work */
+   
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "min_encoder_mismatch");
+   
    sprintf(ublock->buff, "%d", old);
-
-   return(ublock->buff);
+	 
+   return ublock->buff;
 }
 
 /*****************************************************************************/
@@ -1512,22 +1576,34 @@ correct_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    const int axis = ublock->axis_select;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "correct");
+
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
+
    
    if(semTake(semLatch, 60) == ERROR) {
-      return("ERR: correct_cmd cannot take semLatch");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "correct");
+      
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", "correct_cmd cannot take semLatch");
+      return "ERR: correct_cmd cannot take semLatch";
    }
+
 
    if(!fiducial[axis].seen_fiducial) {
       semGive(semLatch);
+      
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", "no fiducials have been crossed");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "correct");
 
-      return("ERR: no fiducials have been crossed");
+      return "ERR: no fiducials have been crossed";
    }
-
+   
    maybe_reset_axis_pos(axis, NULL, 1);
-
+   
    semGive(semLatch);
+   
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "correct");
 
    return "";
 }
@@ -1586,6 +1662,7 @@ char *
 read_fiducials(const char *file,	/* file to read from */
 	       int axis)		/* which axis to read */
 {
+   int uid = 0, cid = 0;
    char axis_str[40];			/* name of axis from file */
    int bias;				/* bias applied to fiducial positions*/
    int canonical;			/* canonical fiducial for an axis */
@@ -1630,11 +1707,10 @@ read_fiducials(const char *file,	/* file to read from */
 /*
  * Open file, read header and data, and set fiducials array
  */
-   TRACE(1, "Reading %s fidcls from %s", axis_name(axis), file);
+   NTRACE_2(1, uid, cid, "Reading %s fidcls from %s", axis_name(axis), file);
    
    if((fil = fopen(file, "r")) == NULL) {
-      TRACE(0, "Failed to open %s for read", file, 0);
-      TRACE(0, "  %d : %s", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "Failed to open %s for read (%s)", file, strerror(errno));
       return("ERR: failed to open file\n");
    }
    
@@ -1654,8 +1730,8 @@ read_fiducials(const char *file,	/* file to read from */
 	 if(sscanf(lptr, "%s %s", axis_str, fid_str) == 2 &&
 	    strcmp(fid_str, "fiducials") == 0) {
 	    if(strcmp(axis_str, axis_name(axis)) != 0) {
-	       TRACE(0, "Expected fiducials of type %s; saw %s; proceeding",
-		     axis_name(axis), axis_str);
+	       NTRACE_2(0, uid, cid, "Expected fiducials of type %s; saw %s; proceeding",
+			axis_name(axis), axis_str);
 	    }
 	 } else if((nread =
 		    sscanf(lptr, "Scales: %lf %lf", &scale1, &scale2)) > 1) {
@@ -1673,16 +1749,15 @@ read_fiducials(const char *file,	/* file to read from */
 	    if(canonical < 0 || canonical >= n_fiducials) {
 	       fprintf(stderr,"Invalid canonical fiducial %d in file %s\n",
 		       canonical, file);
-	       TRACE(0, "Invalid canonical fiducial %d in file %s",
-		     canonical, file);
+	       NTRACE_2(0, uid, cid, "Invalid canonical fiducial %d in file %s",
+			canonical, file);
 	    } else {
 	       fiducial[axis].canonical = canonical;
 	    }
 	 } else if(!strncmp(lptr, "$Name: ", 7)) {
 	   char *vend;
 
-	   TRACE(2, "Fiducial id from %s in file %s",
-		     lptr, file);
+	   NTRACE_2(2, uid, cid, "Fiducial id from %s in file %s", lptr, file);
 
 	   /* Skip over leading "Name: " */
 	   lptr += strlen("$Name: ");
@@ -1693,12 +1768,12 @@ read_fiducials(const char *file,	/* file to read from */
 	   }
 
 	   vend = lptr;
-	   while (*vend && *vend != '$' && !isspace((int)*vend)) 
-	     vend++;
+	   while (*vend && *vend != '$' && !isspace((int)*vend)) {
+	      vend++;
+	   }
 	   if (vend-lptr >= FIDVERLEN) {
-	     TRACE(0, "Silly fiducial version length %d in file %s",
-		     (vend-lptr), file);
-	     vend = lptr+FIDVERLEN-1;
+	      NTRACE_2(0, uid, cid, "Silly fiducial version length %ld in file %s", (vend - lptr), file);
+	      vend = lptr+FIDVERLEN-1;
 	   }
 	   strncpy(fiducialVersion[axis], lptr, vend-lptr);
 	   fiducialVersion[axis][vend-lptr] = '\0';
@@ -1711,7 +1786,7 @@ read_fiducials(const char *file,	/* file to read from */
       if(nread == 4 || nread == 7) {
 	 if(fid <= 0 || fid >= n_fiducials) {
 	    fprintf(stderr,"Invalid fiducial %d in file %s\n", fid, file);
-	    TRACE(0, "Invalid fiducial %d in file %s", fid, file);
+	    NTRACE_2(0, uid, cid, "Invalid fiducial %d in file %s", fid, file);
 	    continue;
 	 }
 
@@ -1726,7 +1801,7 @@ read_fiducials(const char *file,	/* file to read from */
 	    axis_fiducial[fid].fiducial[2] = mark2 + bias;
 	 }
       } else {
-	 TRACE(0, "Corrupt line: %s", line, 0);
+	 NTRACE_1(0, uid, cid, "Corrupt line: %s", line);
 	 continue;
       }
    }
@@ -1778,8 +1853,8 @@ read_fiducials(const char *file,	/* file to read from */
    if(axis_fiducial[fiducial[axis].canonical].fiducial[2] != 0 &&
       (fiducial[axis].canonical_position !=
 			axis_fiducial[fiducial[axis].canonical].fiducial[2])) {
-      TRACE(1, "%s: value of canonical fiducial %d differs for 2 encoders",
-	    axis_name(axis), fiducial[axis].canonical);
+      NTRACE_2(1, uid, cid, "%s: value of canonical fiducial %d differs for 2 encoders",
+	       axis_name(axis), fiducial[axis].canonical);
    }
 
    return("");
@@ -1795,6 +1870,7 @@ char *
 write_fiducials(const char *file,	/* file to write to */
 	       int axis)		/* which axis to write */
 {
+   int uid = 0, cid = 0;
    float err;				/* error in mark */
    struct FIDUCIALS *fiducials;		/* the desired information */
    FILE *fil;				/* F.D. for file */
@@ -1822,11 +1898,10 @@ write_fiducials(const char *file,	/* file to write to */
 /*
  * Open file and write header
  */
-   TRACE(1, "Writing %s fidls to %s", axis_name(axis), file);
+   NTRACE_2(1, uid, cid, "Writing %s fidls to %s", axis_name(axis), file);
    
    if((fil = fopen(file, "w")) == NULL) {
-      TRACE(0, "Failed to open %s for write", file, 0);
-      TRACE(0, "  %d : %s", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "Failed to open %s for write (%s)", file, strerror(errno));
       return("ERR: failed to open file\n");
    }
 
@@ -2003,27 +2078,27 @@ tLatchInit(void)
  * Declare commands to the command interpreter
  */
    define_cmd("CORRECT",      correct_cmd,         0, 1, 0, 1, "");
-   define_cmd("MS.MAP.DUMP",  ms_map_dump_cmd,     0, 0, 0, 1, "");
-   define_cmd("MS.MAP.LOAD",  ms_map_load_cmd,     0, 1, 0, 1, "");
-   define_cmd("MS.OFF",       ms_off_cmd,         -1, 1, 0, 1, "");
-   define_cmd("MS.ON",        ms_on_cmd,           0, 1, 0, 1, "");
-   define_cmd("MS.MAX",       ms_max_cmd,          1, 1, 0, 1, "");
-   define_cmd("MS.READ",      ms_read_cmd,         1, 1, 0, 1, "");
-   define_cmd("MS.SET",       ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
-   define_cmd("MS.WRITE",     ms_write_cmd,        1, 0, 0, 0,
+   define_cmd("MS_MAP_DUMP",  ms_map_dump_cmd,     0, 0, 0, 1, "");
+   define_cmd("MS_MAP_LOAD",  ms_map_load_cmd,     0, 1, 0, 1, "");
+   define_cmd("MS_OFF",       ms_off_cmd,         -1, 1, 0, 1, "");
+   define_cmd("MS_ON",        ms_on_cmd,           0, 1, 0, 1, "");
+   define_cmd("MS_MAX",       ms_max_cmd,          1, 1, 0, 1, "");
+   define_cmd("MS_READ",      ms_read_cmd,         1, 1, 0, 1, "");
+   define_cmd("MS_SET",       ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
+   define_cmd("MS_WRITE",     ms_write_cmd,        1, 0, 0, 0,
 "Write the fiducial table for the current axis to the specified file;\n"
 "e.g.  ROT MS.WRITE foo.rot\n"
 "This command may be used to check what fiducial tables are actually in use"
 	      );
-   define_cmd("SET.FIDUCIAL", ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
-   define_cmd("AZ.BARCODE",   az_barcode_cmd,      1, 0, 0, 1,
+   define_cmd("SET_FIDUCIAL", ms_set_axis_pos_cmd, 0, 1, 0, 1, "");
+   define_cmd("AZ_BARCODE",   az_barcode_cmd,      1, 0, 0, 1,
 "Tell the fiducials to use (1) or not use (0) the azimuth barcode reader\n"
 "to identify fiducials.  If the MCP is totally lost, you can use the\n"
 "   <axis> SET.POSITION <pos>\n"
 "command to get close enough, or use\n"
 "    AZ.BARCODE 1\n"
 "to temporarily enable the barcode reader");
-   define_cmd("MIN.ENCODER.MISMATCH", min_encoder_mismatch_cmd, 1, 1, 0, 1,
+   define_cmd("MIN_ENCODER_MISMATCH", min_encoder_mismatch_cmd, 1, 1, 0, 1,
 "Set the minimum reportable disagreement between encoders\n"
 "If negative, never report disagreements"
 	      );

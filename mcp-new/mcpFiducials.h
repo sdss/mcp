@@ -60,8 +60,8 @@ void write_fiducial_log(const char *type, int axis, int fididx, int t1, int t2,
 			int pos1, int pos2,
 			double arg0, double arg1, long iarg0, long iarg1);
 
-int set_ms_on(int axis);
-int set_ms_off(int axis, float delay);
+int set_ms_on(int uid, unsigned long cid, int axis);
+int set_ms_off(int uid, unsigned long cid,int axis, float delay);
 
 char *read_fiducials(const char *file, int axis);
 char *write_fiducials(const char *file, int axis);

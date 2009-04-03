@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <semLib.h>
+#include "as2.h"
 
 void sysReset(int);			/* really in vx_dsc */
 
@@ -16,5 +17,7 @@ char *mcpVersion(char *ver, int len);
 char *version_cmd(int uid, unsigned long cid, char *cmd);
 long getSemTaskId(SEM_ID sem);
 long phCrcCalc(long crc, const char *buff, int n);
+
+void get_uid_cid_from_tmr_msg(const MCP_MSG *msg, int *uid, unsigned long *cid);
 
 #endif

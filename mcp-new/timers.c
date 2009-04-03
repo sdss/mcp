@@ -137,10 +137,10 @@ test_dt(int t2,int t1)
  */
 long SDSStime = -1;			/* integral part of TAI */
 
-
-void
+int
 setSDSStimeFromNTP(int quiet)
 {
+   int uid = 0, cid = 0;
    const char *taiServer = "tai-time.apo.nmsu.edu";
    const char *utcServer = "utc-time.apo.nmsu.edu";
    struct tm tm;
@@ -148,7 +148,6 @@ setSDSStimeFromNTP(int quiet)
    struct timeval tai;			/* TAI from NTP */
    int    tries = 3;
    int    ret = ERROR;
-
 
 /*
  * Find how many seconds it is after midnight TAI, and set SDSStime accordingly
@@ -158,8 +157,8 @@ setSDSStimeFromNTP(int quiet)
      /* Give ourselves the largest good window by syncing to the next 1PPS tick. */
      semTake(ppsSem, NO_WAIT);	/* semClear is not declared, the sillies. */
      if (semTake(ppsSem, sysClkRateGet() * 2) < 0) {
-       TRACE(0, "NO 1PPS !!!", 0, 0);
-       return;
+	NTRACE(0, uid, cid, "NO 1PPS !!!");
+	return -1;
      }
      /* And now wait long enough to get over the ntp inaccuracies. */
      taskDelay(sysClkRateGet() * 0.2);
@@ -193,8 +192,8 @@ setSDSStimeFromNTP(int quiet)
    if (ret == ERROR) {
      logMsg("failed to get time from %s: %s\n", 
 	    (int)taiServer, (int)strerror(errno),0,0,0,0);
-     TRACE(0, "failed to get time from %s: %s", taiServer, strerror(errno));
-     return;
+     NTRACE_2(0, uid, cid, "failed to get time from %s: %s", taiServer, strerror(errno));
+     return -1;
    }
 
    axis_stat[AZIMUTH][1].clock_not_set = 
@@ -207,10 +206,12 @@ setSDSStimeFromNTP(int quiet)
    taskLock();
 
    if(setTimeFromNTP(utcServer, 1.0, 3, 0, NULL) < 0) {
-      TRACE(0, "failed to get time from %s: %s", utcServer, strerror(errno));
+      NTRACE_2(0, uid, cid, "failed to get time from %s: %s", utcServer, strerror(errno));
    }
 
    taskUnlock();
+
+   return 0;
 }
 
 char *
@@ -218,35 +219,13 @@ set_time_cmd(int uid, unsigned long cid, char *cmd)
 {
    static int quiet = 1;		/* be quiet? */
 
-   setSDSStimeFromNTP(quiet);
+   if (setSDSStimeFromNTP(quiet) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "set_time");
+   } else {
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "set_time");
+   }
 
    return "";
-}
-
-/*=========================================================================
-**
-**	TICKLOST @ . - Returns if receiving 1 Hz ticks.
-**
-** RETURN VALUES:
-**	return "0" or undefined if not receiving ticks so i return NULL string.
-**
-** CALLS TO:
-**	sdss_get_time
-**	sdss_delta_time
-**
-*/
-char *
-ticklost_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
-{
-   double tick = sdss_get_time();
-   
-   taskDelay(65);
-
-   if(sdss_delta_time(sdss_get_time(), tick) > 1.0) {
-      return "0";
-   } else {
-      return "";
-   }
 }
 
 /*=========================================================================
@@ -281,6 +260,8 @@ time_cmd(int uid, unsigned long cid, char *cmd)
   sprintf(ublock->buff,"%d %d %d %f",
 	  t->tm_mon+1, t->tm_mday, t->tm_year+1900, sdss_get_time());
 
+  sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "time");
+  
   return(ublock->buff);
 }
 
@@ -306,6 +287,7 @@ time_cmd(int uid, unsigned long cid, char *cmd)
 int
 DIO316_initialize(unsigned char *addr, unsigned short vecnum)
 {
+   int uid = 0, cid = 0;
    STATUS stat;
    int i;
    struct IPACK ip;
@@ -313,13 +295,13 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    Industry_Pack (addr,SYSTRAN_DIO316,&ip);
    for(i = 0; i < MAX_SLOTS; i++) { 
       if (ip.adr[i]!=NULL) {
-	 TRACE(30, "Found at %d, %p", i, ip.adr[i]);
+	 OTRACE(30, "Found at %d, %p", i, ip.adr[i]);
 	 tm_DIO316=DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
 	 break;
       }
    }
    if(i >= MAX_SLOTS) {
-      TRACE(0, "****Missing DIO316 at %p****", addr, 0);
+      NTRACE_1(0, uid, cid, "****Missing DIO316 at %p****", addr);
       return ERROR;
    }
    
@@ -335,7 +317,7 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    stat = intConnect (INUM_TO_IVEC(vecnum),
 		      (VOIDFUNCPTR)DIO316_interrupt, DIO316_TYPE);
    assert(stat == OK);
-   TRACE(30, "DIO316 vector = %d, interrupt address = %p\n",
+   OTRACE(30, "DIO316 vector = %d, interrupt address = %p\n",
 	  vecnum, DIO316_interrupt);
    rebootHookAdd((FUNCPTR)axis_DIO316_shutdown);
 
@@ -554,6 +536,7 @@ DID48_interrupt(int type)
 int
 DID48_initialize(unsigned char *addr, unsigned short vecnum)
 {
+   int uid = 0, cid = 0;
    STATUS stat;
    int i;
    struct IPACK ip;
@@ -561,14 +544,14 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    Industry_Pack (addr,SYSTRAN_DID48,&ip);
    for(i = 0; i < MAX_SLOTS; i++) {
       if(ip.adr[i] != NULL) {
-	 TRACE(30, "Found at %d, %p", i, ip.adr[i]);
+	 OTRACE(30, "Found at %d, %p", i, ip.adr[i]);
 	 tm_DID48 = DID48Init((struct DID48 *)ip.adr[i], vecnum);
 	 break;
       }
    }
 
    if(i == MAX_SLOTS) {
-      TRACE(0, "****Missing DID48 at %p****", addr, 0);
+      NTRACE_1(0, uid, cid, "****Missing DID48 at %p****", addr);
       return ERROR;
    }
    
@@ -583,8 +566,8 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    stat = intConnect(INUM_TO_IVEC(vecnum),
 		     (VOIDFUNCPTR)DID48_interrupt, DID48_TYPE);
    assert(stat == OK);
-   TRACE(30, "DID48 vector = %d, interrupt address = %p",
-	 vecnum, DID48_interrupt);
+   OTRACE(30, "DID48 vector = %d, interrupt address = %p",
+	  vecnum, DID48_interrupt);
    
    rebootHookAdd((FUNCPTR)axis_DID48_shutdown);
    
@@ -606,7 +589,6 @@ timeInit(void)
 /*
  * Define time-related commands
  */
-   define_cmd("SET.TIME",     set_time_cmd, -1, 0, 0, 1, "");
-   define_cmd("TICKLOST @ .", ticklost_cmd,  0, 0, 0, 1, "");
+   define_cmd("SET_TIME",     set_time_cmd, -1, 0, 0, 1, "");
    define_cmd("TIME?",        time_cmd,      0, 0, 0, 1, "");
 }

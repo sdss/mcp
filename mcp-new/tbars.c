@@ -10,6 +10,8 @@
 #include "data_collection.h"
 #include "mcpMsgQ.h"
 #include "cmd.h"
+#include "as2.h"
+#include "mcpUtils.h"
 
 /*
  * The T-bars message queue
@@ -26,6 +28,8 @@ MSG_Q_ID msgTbars;
 int
 tBars(void)
 {
+   int uid = 0;
+   unsigned long cid = 0;
    int err;
    struct B10 b10;			/* AB struct to set */
    unsigned short ctrl[sizeof(b10)/2];
@@ -41,22 +45,25 @@ tBars(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgTbars", 0, 0);
+      OTRACE(8, "read msg on msgTbars", 0, 0);
 
       switch (msg.type) {
        case TbarsLatch_type:
        case TbarsUnlatch_type:
-	 (void)timerSend(TbarsLatchCheck_type, tmr_e_abort_ns,
-			 0, TbarsLatchCheck_type, 0); /* abort any pending
-							 confimations */
-	 (void)timerSend(TbarsUnlatchCheck_type, tmr_e_abort_ns,
-			 0, TbarsUnlatchCheck_type, 0);	/* abort any pending
-							   confimations */
+	 uid = msg.uid;
+	 cid = msg.cid;
+
+	 (void)timerSendArg(TbarsLatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0); /* abort any pending
+										      confimations */
+	 (void)timerSendArg(TbarsUnlatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0); /* abort any pending
+											confimations */
 	 
 	 latch_tbars = (msg.type == TbarsLatch_type) ? 1 : 0;
 	 break;
        case TbarsLatchCheck_type:
        case TbarsUnlatchCheck_type:
+	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
+
 	 unlatch_status = sdssdc.status.i9.il0.t_bar_tel_stat;
 	 latch_status = sdssdc.status.i8.il0.t_bar_xport_stat;
 
@@ -67,35 +74,38 @@ tBars(void)
 	 }
 	 
 	 if(latch_status && unlatch_status) {
-	    TRACE(0, "Imager T-bars are both latched and unlatched", 0, 0);
+	    NTRACE(0, uid, cid, "Imager T-bars are both latched and unlatched");
 	 } else if(!latch_status && !unlatch_status) {
-	    TRACE(0, "Imager T-bars are neither latched nor unlatched", 0, 0);
+	    NTRACE(0, uid, cid, "Imager T-bars are neither latched nor unlatched");
 	 } else {
 	    if(latch_tbars == latch_status) {
-	       TRACE(1, "tbar latches moved", 0, 0);
+	       NTRACE(1, uid, cid, "tbar latches moved");
 	    } else {
-	       TRACE(0, "Imager T-bars failed to go to %s state",
-		     (latch_tbars ? "latched" : "unlatched"), 0);
+	       NTRACE_1(0, uid, cid, "Imager T-bars failed to go to %s state",
+			(latch_tbars ? "latched" : "unlatched"));
 	    }
 	 }
 	 
 	 latch_tbars = -1;		/* set both to 0 */
 	 break;
        default:
-	 TRACE(0, "Impossible message type on msgTbars: %d", msg.type, 0);
+	 NTRACE_1(0, uid, cid, "Impossible message type on msgTbars: %d", msg.type);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
 
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "mcp_set_tbars: failed to get semSLC: %s (%d)",
-	       strerror(errno), errno);
+	 NTRACE_2(0, uid, cid, "mcp_set_tbars: failed to get semSLC: %s (%d)",
+		  strerror(errno), errno);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
       
       err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
       if(err) {
 	 semGive(semSLC);
-	 TRACE(0, "tBars: error reading slc: 0x%04x", err, 0);
+	 NTRACE_1(0, uid, cid, "tBars: error reading slc: 0x%04x", err);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
       swab((char *)ctrl, (char *)&b10, sizeof(b10));
@@ -112,23 +122,26 @@ tBars(void)
       semGive (semSLC);
       
       if(err) {
-	 TRACE(0, "tBars: error writing slc: 0x%04x", err, 0);
+	 NTRACE_1(0, uid, cid, "tBars: error writing slc: 0x%04x", err);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
 /*
  * Prepare to confirm that the tbars actually (un)latched
  */
       if(latch_tbars < 0) {		/* this _is_ the check */
+	 sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
       
-      TRACE(1, "Waiting %ds for tbar latches to move", wait, 0);
+      NTRACE_1(1, uid, cid, "Waiting %ds for tbar latches to move", wait);
 
       msg.type = latch_tbars ? TbarsLatchCheck_type : TbarsUnlatchCheck_type;
-      if(timerSend(msg.type, tmr_e_add,
-		   wait*60, msg.type, msgTbars) == ERROR) {
-	 TRACE(0, "Failed to send message to timer task: %s (%d)",
-	       strerror(errno), errno);
+      if(timerSendArg(msg.type, tmr_e_add,
+		      wait*60, uid, cid, msgTbars) == ERROR) {
+	 NTRACE_2(0, uid, cid, "Failed to send message to timer task: %s (%d)",
+		  strerror(errno), errno);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
       }
    }
 }
@@ -141,6 +154,7 @@ tbar_latch_cmd(int uid, unsigned long cid, char *cmd)
    int ret;				/* return code */
 
    if(sscanf(cmd, "%d", &on_off) != 1) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
       return("ERR: malformed command argument");
    }
 
@@ -149,9 +163,12 @@ tbar_latch_cmd(int uid, unsigned long cid, char *cmd)
    } else {
       msg.type = TbarsUnlatch_type;
    }
+   msg.uid = uid;
+   msg.cid = cid;
 
-   ret = msgQSend(msgTbars, (char *)&msg, sizeof(msg),
-		  NO_WAIT, MSG_PRI_NORMAL);
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "tbarCommanded", 1);
+
+   ret = msgQSend(msgTbars, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
    assert(ret == OK);
    
    return("");
@@ -180,7 +197,7 @@ tBarsInit(void)
 /*
  * Declare command
  */
-   define_cmd("TBAR.LATCH",    tbar_latch_cmd,    1, 1, 0, 1,
+   define_cmd("TBAR_LATCH",    tbar_latch_cmd,    1, 1, 0, 1,
 	      "Move the tbar latches; latch if arg is true, else unlatch");
    
    return 0;
