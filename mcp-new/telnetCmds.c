@@ -365,7 +365,6 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       log_mcp_command(cmd_type, cmd_in);
 
       if(reply == NULL) {
-	 NTRACE_1(0, uid, cid, "cmd_handler returns NULL for %s", cmd);
 	 reply = "";
       }
       NTRACE_2(16, uid, cid, "PID %d: reply = %s", ublock->pid, reply);

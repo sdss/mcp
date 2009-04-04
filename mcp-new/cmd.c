@@ -453,9 +453,6 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    if(!iacked) {
       if(iack_counter++%100 == 0) {
 	 sendStatusMsg_B(0, 0, INFORMATION_CODE, 1, "needIack", 1);
-
-	 NTRACE_1(0, uid, cid, "%s",
-		  (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg));
       }
    }
 

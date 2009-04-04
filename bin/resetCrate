@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+import getopt, sys, telnetlib, time
+
+def usage():
+    print >> sys.stderr, """Reset the MCP/TPM crate"""
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
+    except getopt.GetoptError, err:
+        print str(err)
+        usage()
+        sys.exit(2)
+        
+    output = None
+    verbose = False
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit(0)
+        else:
+            assert False, "unhandled option"
+    #
+    # Use a relay to init the crate
+    #
+    host = "t-g-sdss-2.apo.nmsu.edu"
+    port = 2800
+    
+    tn = telnetlib.Telnet(host, port)
+
+    print "Engaging reset relay"
+    tn.write("!11\n")                    # turn power on to relay
+    for i in range(5):
+        print ".",
+        time.sleep(0.1)
+
+    print "\nReleasing relay"
+    tn.write("!10\n")                    # turn power back on to crate
+
+if __name__ == "__main__":
+    main()

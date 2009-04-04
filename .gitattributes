@@ -21,6 +21,7 @@ bin/declareMCP -text
 bin/fiddle-fiducial -text
 bin/fix-make_make -text
 bin/make_make -text
+bin/resetCrate -text
 bin/sdssmake -text
 bin/showMCP -text
 bin/switchMCP -text
