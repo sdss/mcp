@@ -1,4 +1,7 @@
-
+#
+# Machine generated using buildKeyDict
+# Fri Apr  3 22:25:24 MST 2009
+#
    struct {
       const char *name;
       int type;
@@ -12,13 +15,17 @@
        {"UVLampCommandedOn", boolean, 0, ""},
        {"alignmentClamp", array, 0, ""},
        {"altFiducialVersion", string, 0, ""},
-       {"altMaxAcc", floating, 0, ""},
-       {"altMaxVel", floating, 0, ""},
+       {"altMaxAccLimit", floating, 0, ""},
+       {"altMaxAccRequested", floating, 1, ""},
+       {"altMaxVelLimit", floating, 0, ""},
+       {"altMaxVelRequired", floating, 1, ""},
        {"altMsOn", boolean, 0, ""},
        {"altPidCoeffs", array, 0, ""},
        {"azFiducialVersion", string, 0, ""},
-       {"azMaxAcc", floating, 0, ""},
-       {"azMaxVel", floating, 0, ""},
+       {"azMaxAccLimit", floating, 0, ""},
+       {"azMaxAccRequested", floating, 1, ""},
+       {"azMaxVelLimit", floating, 0, ""},
+       {"azMaxVelRequired", floating, 1, ""},
        {"azMsOn", boolean, 0, ""},
        {"azPidCoeffs", array, 0, ""},
        {"badCharacter", integer, 0, ""},
@@ -49,10 +56,13 @@
        {"minEncoderMismatch", array, 0, ""},
        {"msOnMaxCorrection", array, 0, ""},
        {"needIack", boolean, 1, ""},
+       {"needSemaphore", novalue, 0, ""},
        {"plcFiducialVersion", integer, 0, ""},
        {"rotFiducialVersion", string, 0, ""},
-       {"rotMaxAcc", floating, 0, ""},
-       {"rotMaxVel", floating, 0, ""},
+       {"rotMaxAccLimit", floating, 0, ""},
+       {"rotMaxAccRequested", floating, 1, ""},
+       {"rotMaxVelLimit", floating, 0, ""},
+       {"rotMaxVelRequired", floating, 1, ""},
        {"rotMsOn", boolean, 0, ""},
        {"rotPidCoeffs", array, 0, ""},
        {"saddleIsMounted", boolean, 0, ""},

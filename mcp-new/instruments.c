@@ -30,6 +30,7 @@
 int
 instrument_id(void)
 {
+   int uid = 0, cid = 0;
    int inst_id1, inst_id2, inst_id3;	/* values of the inst ID switches */
    static int notify = -1;		/* should I notify user of bad ID? */
    int notify_rate = 60;		/* how often should I notify? */
@@ -77,7 +78,7 @@ instrument_id(void)
       if(notify == 0) {
 	 char buff[20];
 	 sprintf(buff,"%d, %d, %d", inst_id1, inst_id2, inst_id3);
-	 TRACE(2, "Inconsistent instrument ID switches: %s", buff, 0);
+	 NTRACE_1(2, uid, cid, "Inconsistent instrument ID switches: %s", buff);
 	 sendStatusMsg_A(0, 0, INFORMATION_CODE, 0, "instrumentNumValues", buff);
 	 
 	 return(-1);

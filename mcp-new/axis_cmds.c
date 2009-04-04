@@ -566,7 +566,7 @@ mc_maxacc_cmd(int uid, unsigned long cid, char *cmd)
 
    {
       char key[20];
-      sprintf(key, "%sMaxAcc", axis_abbrev(axis));
+      sprintf(key, "%sMaxAccLimit", axis_abbrev(axis));
       sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, max_acceleration[axis]);
    }
    
@@ -592,7 +592,7 @@ mc_maxvel_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 
    {
       char key[20];
-      sprintf(key, "%sMaxVel", axis_abbrev(axis));
+      sprintf(key, "%sMaxVelLimit", axis_abbrev(axis));
       sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, max_velocity[axis]);
    }
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "mc_maxvel");

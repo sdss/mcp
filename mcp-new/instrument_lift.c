@@ -31,6 +31,7 @@
 #include "axis.h"
 #include "dscTrace.h"
 #include "acromag.h"
+#include "as2.h"
 
 #define IL_ENABLE	3
 #define IL_DISABLED	0xDF
@@ -101,7 +102,7 @@ wd_isr(struct conf_blk *cblk)
       cblk->event_status |= (BYTE)(i_stat >> 8);   /* update event */
 
         /* service the hardware */
-      TRACE(16, "IP480 ABORT fired %d, istat=%d", wdog++, i_stat);
+      OTRACE(16, "IP480 ABORT fired %d, istat=%d", wdog++, i_stat);
         /* check each bit for an interrupt pending state */
       for(i = 0; i < j; i++) {		/* check each c */
 	 if(i_stat & (1 << (i + 8))) {	/* build interr */
