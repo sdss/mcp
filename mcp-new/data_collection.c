@@ -49,6 +49,7 @@
 #include "mcpUtils.h"
 #include "mcpFiducials.h"
 #include "mcpSpectro.h"
+#include "as2.h"
 
 /*========================================================================
 **========================================================================
@@ -188,6 +189,7 @@ void swapwords (register short *dp, register unsigned short len)
 void
 mei_data_collection(unsigned long freq)
 {
+   int uid = 0, cid = 0;   
    int i;
    int MEIDC_Rotate = 0;		/* which axis to collect next */
    int rotate;				/* used to choose next MEIDC_Rotate */
@@ -209,7 +211,7 @@ mei_data_collection(unsigned long freq)
 
    for(;;) {
       if(semTake(semMEIDC, WAIT_FOREVER) == ERROR) {
-	 TRACE(0, "failed to take semMEIDC: %s", strerror(errno), 0);
+	 NTRACE_1(0, uid, cid, "failed to take semMEIDC: %s", strerror(errno));
 	 continue;
       }
       
@@ -218,8 +220,7 @@ mei_data_collection(unsigned long freq)
       }
       
       if(semTake(semSDSSDC, 60) == ERROR) {
-	 TRACE(2, "mei_data_collection failed to take semSDSSDC: %s",
-							   strerror(errno), 0);
+	 NTRACE_1(2, uid, cid, "mei_data_collection failed to take semSDSSDC: %s", strerror(errno));
 	 semGive(semMEI);
 	 continue;
       }
@@ -287,8 +288,8 @@ mei_data_collection(unsigned long freq)
 			      DATA_STRUCT(dspPtr, i*2, DS_PREV_ENCODER),
 			      DS_SIZE+4, (unsigned short *)tmaxis[i]);
 	 if(dsp_error != DSP_OK) {
-	    TRACE(0, "Failed to read MEI data for %s: %s",
-		  axis_name(i), _error_msg(dsp_error));
+	    NTRACE_2(0, uid, cid, "Failed to read MEI data for %s: %s",
+		     axis_name(i), _error_msg(dsp_error));
 	    tmaxis[i]->status = dsp_error;
 	    tmaxis[i]->errcnt++;
 	 } else {
@@ -325,8 +326,8 @@ mei_data_collection(unsigned long freq)
 	       long diff = predict_2 - tmaxis[i]->actual_position;
 	       
 	       if(abs(diff) > fiducial[i].min_encoder_mismatch) {
-		  TRACE(3, "Encoders for axis %s differ by %d",
-			axis_name(i), diff);
+		  NTRACE_2(3, uid, cid, "Encoders for axis %s differ by %d",
+			   axis_name(i), diff);
 	       }
 	    }
 	 }
@@ -345,7 +346,7 @@ mei_data_collection(unsigned long freq)
 
 	    (void)give_semCmdPort(1);
 	    tcc_may_release_semCmdPort = 0;
-	    TRACE(3, "All axes idle: TCC gave up semaphore", 0, 0);
+	    NTRACE(3, uid, cid, "All axes idle: TCC gave up semaphore");
 	 }
       }
       
@@ -375,6 +376,7 @@ mei_data_collection(unsigned long freq)
 void
 slc500_data_collection(unsigned long freq)
 {
+   int uid = 0, cid = 0;   
    int i;
    static int plc_version_id = -1;	/* plc version in data_collection.h */
    static int plc_version_mismatch = 0;	/* version_id != plc_version_id? */
@@ -384,8 +386,8 @@ slc500_data_collection(unsigned long freq)
    {
       const int tmp = sizeof(struct AB_SLC500) + 1;
       if(sizeof(status) != tmp) {
-	 TRACE(0, "slc500_data_collection: buffer has wrong size (%d v %d)",
-	       sizeof(status), tmp);
+	 NTRACE_2(0, uid, cid, "slc500_data_collection: buffer has wrong size (%d v %d)",
+		  sizeof(status), tmp);
 	 taskSuspend(0);
       }
    }
@@ -396,19 +398,16 @@ slc500_data_collection(unsigned long freq)
    
    for(;;) {
       if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
-	 TRACE(0, "couldn't take semSLCDC semahore.", 0, 0);
+	 NTRACE(0, uid, cid, "couldn't take semSLCDC semahore.");
 	 break;
       }
 
       if(semTake(semSDSSDC, 60) == ERROR) {
-	 TRACE(2, "slc500_data_collection failed to take semSDSSDC: %s",
-							   strerror(errno), 0);
-	 continue;
+	 NTRACE_1(2, uid, cid, "slc500_data_collection failed to take semSDSSDC: %s", strerror(errno));
       }
       
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(2, "slc500_data_collection failed to take semSLC: %s",
-							   strerror(errno), 0);
+	 NTRACE_1(2, uid, cid, "slc500_data_collection failed to take semSLC: %s", strerror(errno));
       } else {
 	 const int nbyte = (int)sizeof(struct AB_SLC500) -
 	   ((char *)&sdssdc.status.i1 - (char *)&sdssdc.status);
@@ -429,13 +428,12 @@ slc500_data_collection(unsigned long freq)
 	 semGive (semSLC);
 
 	 if(nbyte != base*sizeof(short)) {
-	    TRACE(0,
-		"slc500_data_collection: nbyte is wrong (%d v %d)",
-		  base*(int)sizeof(short), nbyte);
+	    NTRACE_2(0, uid, cid,
+		     "slc500_data_collection: nbyte is wrong (%d v %d)", base*(int)sizeof(short), nbyte);
 	    taskSuspend(0);
 	 }
 	 if(status[sizeof(status) - 1] != '\a') {
-	    TRACE(0, "slc500_data_collection: overwrote buffer marker", 0, 0);
+	    NTRACE(0, uid, cid, "slc500_data_collection: overwrote buffer marker");
 	    taskSuspend(0);
 	 }
 	 
@@ -451,7 +449,7 @@ slc500_data_collection(unsigned long freq)
       il_data_collection();
 	 
       while(semTake(semMEIUPD, WAIT_FOREVER) == ERROR) {
-	 TRACE(0, "couldn't take semMEIUPD semaphore.", 0, 0);
+	 NTRACE(0, uid, cid, "couldn't take semMEIUPD semaphore.");
 	 taskSuspend(0);
       }
       
@@ -479,7 +477,7 @@ slc500_data_collection(unsigned long freq)
  */
       if(sdssdc.status.i1.il0.az_bump_ccw) {
 	 if(!axis_stat[AZIMUTH][0].bump_up_ccw_sticky) {
-	    TRACE(0, "Windscreen touched in azimuth: CCW", 0, 0);
+	    sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouchedCCW");
 	 }
 	 axis_stat[AZIMUTH][1].bump_up_ccw_sticky = 1;
       } else {
@@ -488,7 +486,7 @@ slc500_data_collection(unsigned long freq)
       
       if(sdssdc.status.i1.il0.az_bump_cw)  {
 	 if(!axis_stat[AZIMUTH][0].bump_dn_cw_sticky) {
-	    TRACE(0, "Windscreen touched in azimuth: CW", 0, 0);
+	    sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouchedCW");
 	 }
 	 axis_stat[AZIMUTH][1].bump_dn_cw_sticky = 1;
       } else {
@@ -497,7 +495,7 @@ slc500_data_collection(unsigned long freq)
       
       if(sdssdc.status.i1.il10.alt_bump_up) {
 	 if(!axis_stat[ALTITUDE][0].bump_up_ccw_sticky) {
-	    TRACE(0, "Windscreen touched in altitude: UP", 0, 0);
+	    sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouchedUp");
 	 }
 	 axis_stat[ALTITUDE][1].bump_up_ccw_sticky = 1;
       } else {
@@ -505,7 +503,7 @@ slc500_data_collection(unsigned long freq)
       }
       if(sdssdc.status.i1.il10.alt_bump_dn) {
 	 if(!axis_stat[ALTITUDE][0].bump_dn_cw_sticky) {
-	    TRACE(0, "Windscreen touched in altitude: DOWN", 0, 0);
+	    sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouchedDown");
 	 }
 	 axis_stat[ALTITUDE][1].bump_dn_cw_sticky = 1;
       } else {
@@ -554,8 +552,7 @@ slc500_data_collection(unsigned long freq)
  * and system_status for the use of system_status_cmd()
  */
       if(semTake(semStatusCmd, 60) == ERROR) {
-	 TRACE(2, "slc500_data_collection failed to take semStatusCmd: %s",
-							   strerror(errno), 0);
+	 NTRACE_1(2, uid, cid, "slc500_data_collection failed to take semStatusCmd: %s", strerror(errno));
       } else {
 	 set_status(NOINST, system_status_buff, STATUS_BUFF_SIZE);
 	 set_status(AZIMUTH, axis_status_buff[AZIMUTH], STATUS_BUFF_SIZE);
@@ -596,8 +593,12 @@ slc500_data_collection(unsigned long freq)
 	    ;				/* a devel version; don't complain */
 	 } else {
 	    if(plc_version_mismatch%100 == 0) {
-	       TRACE(0, "Saw PLC version %d; expected \"%s\"",
-		     sdssdc.status.b3.w1.version_id, plcVersion);
+	       char buff[100];
+	       NTRACE_2(0, uid, cid, "Saw PLC version %d; expected \"%s\"",
+			sdssdc.status.b3.w1.version_id, plcVersion);
+
+	       sprintf(buff,"%d, %s", sdssdc.status.b3.w1.version_id, plcVersion);
+	       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "plcVersionMismatch", buff);
 	    }
 	    
 	    plc_version_mismatch++;
@@ -614,6 +615,7 @@ slc500_data_collection(unsigned long freq)
 void
 update_sdssdc_status_i6(void)
 {
+   int uid = 0, cid = 0;
    unsigned short ctrl[2];
    int err;
    const int offset = (char *)&sdssdc.status.i6 - (char *)&sdssdc.status.i1;
@@ -623,13 +625,13 @@ update_sdssdc_status_i6(void)
    assert(err = (sizeof(sdssdc.status.i6) == sizeof(ctrl)));
 
    if(semTake(semSLC,60) == ERROR) {
-      TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+      NTRACE_2(0, uid, cid, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       return;
    }
 
    err = slc_read_blok(1, 9, BIT_FILE, offset/2, &ctrl[0], sizeof(ctrl)/2);
    if(err) {
-      TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
+      NTRACE_1(0, uid, cid, "az_amp_ok: error reading slc: 0x%04x", err);
    }
    semGive(semSLC);
    
@@ -672,6 +674,7 @@ int SM_COPY=TRUE;
 void
 DataCollectionTrigger(void)
 {
+   int uid = 0, cid = 0;   
    static unsigned short share_memory_id = 1; /* ID for shared memory */
 
    DC_freq++;
@@ -692,7 +695,7 @@ DataCollectionTrigger(void)
  */
    if(SM_COPY) {
       if(semTake(semSDSSDC, WAIT_FOREVER) == ERROR) {
-	 TRACE(0, "failed to take semSDSSDC: %s", strerror(errno), 0);
+	 NTRACE_1(0, uid, cid, "failed to take semSDSSDC: %s", strerror(errno));
       } else {
 	 const int offset = offsetof(struct SDSS_FRAME, ctime);
 
@@ -724,8 +727,7 @@ DataCollectionTrigger(void)
 			    (signed)sizeof(sdssdc) - offset) & 0xFFFF;
 	    
 	    if(sdssdc.CRC != CRC) {
-	       TRACE(0, "data_collection CRC has changed: 0x%x v. 0x%x",
-		     sdssdc.CRC, CRC);
+	       NTRACE_2(0, uid, cid, "data_collection CRC has changed: 0x%x v. 0x%x", sdssdc.CRC, CRC);
 	    }
 	 }
 #endif

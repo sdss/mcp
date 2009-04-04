@@ -23,6 +23,7 @@
 #include "dscTrace.h"
 #include "axis.h"
 #include "mcpUtils.h"
+#include "as2.h"
 
 /*------------------------------------------------------------------------
 **
@@ -121,9 +122,10 @@ sdss_receive(FILE *input_stream,
 
 #define USE_GETC 1
 #if !USE_GETC
+   int uid = 0, cid = 0;   
+
    if(fgets(buffer, size, input_stream) == NULL) {
-      TRACE(2, "failed to read buffer from serial port %d: %s\n", port,
-			strerror(errno));
+      NTRACE_2(2, uid, cid, "failed to read buffer from serial port %d: %s\n", port, strerror(errno));
       return -1;
    }
 #else
@@ -193,6 +195,7 @@ extern SEM_ID semCMD;
 void
 tcc_serial(int port)
 {
+  int uid = 0, cid = 0;   
   char serial_port[] = "/tyCo/x";
   FILE *stream;  
   int status;
@@ -208,18 +211,18 @@ tcc_serial(int port)
   sprintf(serial_port,"/tyCo/%d",port);
   stream = fopen (serial_port,"r+");
   if(stream == NULL) {
-     TRACE(0, "Could **NOT** open port", 0, 0);
+     NTRACE(0, uid, cid, "Could **NOT** open port");
      taskSuspend(0);
   }
   
-  TRACE(1, "OPEN port %s", serial_port, 0);
+  NTRACE_1(1, uid, cid, "OPEN port %s", serial_port);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
   new_ublock(0, 1, OLD_PROTOCOL, "TCC"); /* task-specific UBLOCK */
   log_mcp_command(CMD_TYPE_MURMUR, "TCC connected");
 
   for(;;) {
-     TRACE(16, "port %d", port, 0);
+     NTRACE_1(16, uid, cid, "port %d", port);
 
      command_buffer[0] = '\0';
      status = sdss_receive(stream, port, command_buffer, 256);
@@ -229,19 +232,16 @@ tcc_serial(int port)
 	if(strstr(command_buffer, "STATUS") != NULL) {
 	   lvl += 2;
 	}
- 	TRACE(lvl, "command from TCC: %s", command_buffer, 0);
-	TRACE(16, "        cccccccc: 0x%08x%08x",
-	      ((int *)command_buffer)[0], ((int *)command_buffer)[1]);
-	TRACE(16, "        time = %f", sdss_get_time(), 0);
+ 	NTRACE_1(lvl, uid, cid, "command from TCC: %s", command_buffer);
      }
      
      if(status != 0) {
-	TRACE(2, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
+	NTRACE_2(2, uid, cid, "TCC **BAD** command %s (status=%d)\r\n", command_buffer, status);
 	answer_buffer = "ERR: Bad read from TCC";
 
 	status = sdss_transmit(stream, answer_buffer, " OK");
 	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	   NTRACE_1(2, uid, cid, "TCC **NOT** accepting response (status=%d)", status);
 	}
 	return;
      }
@@ -249,7 +249,7 @@ tcc_serial(int port)
      if(command_buffer[0] == '\0') {
 	status = sdss_transmit(stream, command_buffer, " OK");
 	if(status != 0) {
-	   TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+	   NTRACE_1(2, uid, cid, "TCC **NOT** accepting echo (status=%d)", status);
 	}
 	continue;
      }
@@ -260,7 +260,7 @@ tcc_serial(int port)
 #endif
      
      if(status != 0) {
-	TRACE(2, "TCC **NOT** accepting echo (status=%d)", status, 0);
+	NTRACE_1(2, uid, cid, "TCC **NOT** accepting echo (status=%d)", status);
      }
      
 #if DEBUG_TCC
@@ -273,8 +273,7 @@ tcc_serial(int port)
 	   int i;
 	   for(i = 0;i < nblock; i++) {
 	      sprintf(tnbuf, "0x%x (%s)", ids[i], taskName(ids[i]));
-	      TRACE(3, "tcc_serial blocks on %s [%d]\n",	
-		      tnbuf, j);	
+	      NTRACE_2(3, uid, cid, "tcc_serial blocks on %s [%d]\n", tnbuf, j);	
 	   }
 	   
 	   taskDelay(10);
@@ -294,8 +293,8 @@ tcc_serial(int port)
  * Stop task tracing if delay exceeds 4s
  */
      if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
-	TRACE(0, "Too long delay %f; disabling trace",
-	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
+	NTRACE_1(0, uid, cid, "Too long delay %f; disabling trace",
+		 sdss_delta_time(sdsstime_in, sdss_get_time()));
 	traceMode(traceModeGet() & ~0x1);
      }
 #endif
@@ -306,7 +305,7 @@ tcc_serial(int port)
 
      status = sdss_transmit(stream, answer_buffer, " OK");
      if(status != 0) {
-	TRACE(2, "TCC **NOT** accepting response (status=%d)", status, 0);
+	NTRACE_1(2, uid, cid, "TCC **NOT** accepting response (status=%d)", status);
      }
 
 #if DEBUG_DELAY
@@ -314,8 +313,8 @@ tcc_serial(int port)
  * Stop task tracing if delay exceeds 4s
  */
      if(sdss_delta_time(sdsstime_in, sdss_get_time()) > 4.0) {
-	TRACE(0, "Too long delay %f after log_mcp_command; disabling trace",
-	      sdss_delta_time(sdsstime_in, sdss_get_time()), 0);
+	NTRACE_1(0, uid, cid, "Too long delay %f after log_mcp_command; disabling trace",
+		 sdss_delta_time(sdsstime_in, sdss_get_time()));
 	traceMode(traceModeGet() & ~0x1);
      }
 #endif
@@ -722,28 +721,28 @@ cancel_read(void)
     taskDelay (1);
 
     for(i = 0; i < NPORT; i++) {
-       TRACE(16, "port %d", i, 0);
+       NTRACE_1(16, uid, cid, "port %d", i);
        
        taskLock();
-       TRACE(16, "task is locked", 0, 0);
+       NTRACE(16, uid, cid, "task is locked");
        if(cancel[i].tmo > 0 && cancel[i].active) cancel[i].tmo--;
        
        if (cancel[i].tmo > 0 && !cancel[i].active) {
 	  taskUnlock();
-	  TRACE(4, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo);
+	  NTRACE_2(4, uid, cid, "barcode not active; port %d (tmo=%d)", i, cancel[i].tmo);
 	  cancel[i].tmo = 0;
        } else {
 	  taskUnlock();
        }
-       TRACE(16, "task is unlocked", 0, 0);
+       NTRACE(16, uid, cid, "task is unlocked");
        
        if(cancel[i].tmo == 1) {
 	  status = ioctl(cancel[i].fd, FIOCANCEL, 0);
 	  cancel[i].cancel = TRUE;
 	  cancel[i].count++;
-	  TRACE(4, "barcode canceled port %d (status=0x%x)", i, status);
+	  NTRACE_2(4, uid, cid, "barcode canceled port %d (status=0x%x)", i, status);
        } else {
-	  TRACE(16, "port %d tmo = %d", i, cancel[i].tmo);
+	  NTRACE_2(16, uid, cid, "port %d tmo = %d", i, cancel[i].tmo);
        }
     }
   }

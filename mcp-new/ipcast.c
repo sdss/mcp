@@ -16,6 +16,7 @@
 #include "sockLib.h"
 #include "socket.h"
 #include "dscTrace.h"
+#include "as2.h"
 
 /*------------------------------------------------------------------------
 **
@@ -35,12 +36,13 @@ static char cast_adr[12];
 int
 ipsdss_ini(void)
 {
+   int uid = 0, cid = 0;   
    int optval;
    int cast_port=0x6804;
    
    cast_s = socket(AF_INET, SOCK_DGRAM, 0);	/* get a udp socket */
    if(cast_s < 0) {
-      TRACE(0, "ipsdss_ini: creating socket: %d %s", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "ipsdss_ini: creating socket: %d %s", errno, strerror(errno));
       return ERROR;
    }
    
@@ -53,7 +55,7 @@ ipsdss_ini(void)
    optval = 1;				/* turn on broadcast */
    if(setsockopt(cast_s, SOL_SOCKET, SO_BROADCAST,
 		 (caddr_t)&optval, sizeof(optval)) < 0) {
-      TRACE(0, "ipsdss_ini: setsockopt: %d %s", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "ipsdss_ini: setsockopt: %d %s", errno, strerror(errno));
       return ERROR;
    }
    
@@ -68,13 +70,15 @@ void
 ipsdss_send(char *sdss_msg,		/* message to broadcast */
 	    int sdss_size)		/* length of message */
 {
+    int uid = 0, cid = 0;   
+
     if(cast_s < 0) {			/* socket isn't open */
        return;
     }
     
     if(sendto(cast_s, sdss_msg, sdss_size, 0,
 	      (struct sockaddr *)&cast_sockaddr, sizeof(cast_sockaddr)) < 0) {
-       TRACE(0, "couldn't broadcast sdss_msg: %d %s",
-	     errno, strerror(errno));
+       NTRACE_2(0, uid, cid, "couldn't broadcast sdss_msg: %d %s",
+		errno, strerror(errno));
     }
 }

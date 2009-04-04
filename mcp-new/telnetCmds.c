@@ -102,8 +102,6 @@ char *
 sem_take_cmd(int uid, unsigned long cid,
 	     char *str)
 {
-   TRACE(5, "PID %d: command SEM_TAKE", ublock->pid, 0);
-   
    (void)take_semCmdPort(60, uid);
    
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
@@ -126,7 +124,6 @@ sem_steal_cmd(int uid, unsigned long cid,
 	      char *str)		/* NOTUSED */
 {
    char *reply = "";
-   TRACE(5, "PID %d: command SEM_STEAL", ublock->pid, 0);
    
    if (!have_semaphore(uid)) {
       (void)give_semCmdPort(1);
@@ -160,8 +157,6 @@ sem_give_cmd(int uid, unsigned long cid, char *str)
 {
    char *reply = "";
    int force = 0;
-   
-   TRACE(5, "PID %d: command SEM_GIVE", ublock->pid, 0);
    
    (void)sscanf(str, "%d", &force);
    
@@ -285,16 +280,12 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    char *ptr;				/* utility pointer to char */
    char *reply = NULL;			/* reply to a command */
 
-   TRACE(6, "new telnet connection on port %d", port, 0);
-
    new_ublock(-1, uid, protocol, "(telnet)"); /* task-specific UBLOCK */
 
    if (ublock->protocol == OLD_PROTOCOL) {
       sprintf(buff, "connected\n");
       if(write(fd, buff, strlen(buff)) == -1) {
-	 TRACE(0, "telnet acking connection on port %d: %s", port, strerror(errno));
-	 fprintf(stderr, "Acknowledging connection on port %d: %s",
-		 port, strerror(errno));
+	 NTRACE_2(0, uid, 0, "telnet acking connection on port %d: %s", port, strerror(errno));
 	 close(fd);
 	 return;
       }
@@ -312,7 +303,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       cmd = cmd_s;
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
 	 if(errno != 0) {
-	    TRACE(0, "telnet reading on port %d: %s\n", port, strerror(errno));
+	    NTRACE_2(0, uid, cid, "telnet reading on port %d: %s\n", port, strerror(errno));
 	 }
 	 if(nerr < 10 && errno != S_taskLib_NAME_NOT_FOUND &&
 	    errno != S_objLib_OBJ_TIMEOUT) {
@@ -322,8 +313,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 nerr++;
       } else if(n == 0) {
 	 if(errno != 0) {
-	    TRACE(0, "telnet reading (2) on port %d: %s", port, strerror(errno));
-	    fprintf(stderr,"Reading on port %d: %s", port, strerror(errno));
+	    NTRACE_2(0, uid, cid, "telnet reading (2) on port %d: %s", port, strerror(errno));
 	 }
       }
       nerr = 0;				/* number of error seen */
@@ -334,7 +324,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 *ptr-- = '\0';
       }
 
-      TRACE(5, "new telnet cmd: %s", cmd, 0);
+      NTRACE_1(5, uid, cid, "new telnet cmd: %s", cmd);
       /*
        * Modern clients send commands that look like "userId commandID commands [arg1 ...]";
        * If uid/cid aren't available we'll invent them
@@ -375,10 +365,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       log_mcp_command(cmd_type, cmd_in);
 
       if(reply == NULL) {
-	 TRACE(0, "cmd_handler returns NULL for %s", cmd, 0);
+	 NTRACE_1(0, uid, cid, "cmd_handler returns NULL for %s", cmd);
 	 reply = "";
       }
-      TRACE(16, "PID %d: reply = %s", ublock->pid, reply);
+      NTRACE_2(16, uid, cid, "PID %d: reply = %s", ublock->pid, reply);
 
       ptr = reply + strlen(reply) - 1;	/* strip trailing white space */
       while(ptr >= reply && isspace((int)*ptr)) {

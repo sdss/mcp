@@ -15,6 +15,7 @@
 #include "vmechip2.h"
 #include "mcpUtils.h"
 #include "dscTrace.h"
+#include "as2.h"
 
 #define SRAM_BASE_ADRS		0xFFE00000L
 
@@ -73,8 +74,6 @@ unsigned long VMEC2_software_interrupt_clear (int interrupt)
 }
 void VME2_sft_int(int interrupt)
 {
-  TRACE0(16, "VME2_sft_int", 0, 0);
-
   if (sft_int_routines[interrupt]!=NULL)
     (*sft_int_routines[interrupt])();
   VMEC2_software_interrupt_clear (interrupt);
@@ -91,8 +90,8 @@ void test_interrupt()
 }
 void test_routine()
 {
-   TRACE(1, "Test Interrupt Routine fired, status=0x%lx level=0x%lx",
-	 (long)*VMECHIP2_LBISR, (long)*VMECHIP2_ILR3);
+   printf("Test Interrupt Routine fired, status=0x%lx level=0x%lx\n",
+	  (long)*VMECHIP2_LBISR, (long)*VMECHIP2_ILR3);
 }
 
 unsigned long MCC_timer_read(int timer)
@@ -261,6 +260,7 @@ FILE *
 fopen_logfile(const char *file,		/* desired file */
 	      const char *fmode)	/* mode as for fopen */
 {
+   int uid = 0, cid = 0;   
    int s_errno;				/* saved errno */
    int fd;				/* file's file descriptor */
    FILE *fil;				/* the returned FILE */
@@ -274,7 +274,7 @@ fopen_logfile(const char *file,		/* desired file */
  */
    mjd = get_mjd();
    if(mjd < 0) {
-      TRACE(1, "Cannot determine MJD for %s; assuming MJD == 0", file, 0);
+      NTRACE_1(1, uid, cid, "Cannot determine MJD for %s; assuming MJD == 0", file);
       mjd = 0;
    }
    sprintf(filename, "/mcptpm/%d", mjd); /* directory */
@@ -285,13 +285,13 @@ fopen_logfile(const char *file,		/* desired file */
       (void)mkdir(filename); s_errno = errno;
 
       if(stat(filename, &status) == ERROR) { /* still doesn't exist */
-	 TRACE(0, "Can't create %s: %s", filename, strerror(s_errno));
+	 NTRACE_2(0, uid, cid, "Can't create %s: %s", filename, strerror(s_errno));
 	 return(NULL);
       }
    }
       
    if(!S_ISDIR(status.st_mode)) {
-      TRACE(0, "%s isn't a directory", filename, 0);
+      NTRACE_1(0, uid, cid, "%s isn't a directory", filename);
       return(NULL);
    }
 /*
@@ -301,7 +301,7 @@ fopen_logfile(const char *file,		/* desired file */
  */
    strncat(filename, "/", sizeof(filename));
    strncat(filename, file, sizeof(filename));
-   TRACE(trace_open_lvl, "Opening %s", filename, 0);
+   NTRACE_1(trace_open_lvl, uid, cid, "Opening %s", filename);
 /*
  * Translate an fopen() mode into an open() mode; ignore any '+' modifiers
  */
@@ -318,18 +318,18 @@ fopen_logfile(const char *file,		/* desired file */
 	 (void)unlink(filename);	/* the open() call doesn't truncate */
       }
    } else {
-      TRACE(0, "Unknown mode for fopen_logfile: %s", fmode, 0);
+      NTRACE_1(0, uid, cid, "Unknown mode for fopen_logfile: %s", fmode);
    }
 
    fd = open(filename, mode, 0664);
    if(fd < 0) {
-      TRACE(0, "Open failed: %d %d", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "Open failed: %d %s", errno, strerror(errno));
       return(NULL);
    }
 
    fil = fdopen(fd, fmode);
    if(fil == NULL) {
-      TRACE(0, "Fdopen failed: %d %s", errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "Fdopen failed: %d %s", errno, strerror(errno));
    }
 
    return(fil);
@@ -397,9 +397,6 @@ s_slaCldj ( int iy, int im, int id, double *djm, int *j )
         + ( 306L * ( ( imL + 9L ) % 12L ) + 5L ) / 10L
         - ( 3L * ( ( iyL - ( 12L - imL ) / 10L + 4900L ) / 100L ) ) / 4L
         + (long) id - 2399904L );
-
-   TRACE(6, "MJD      iy = %d im = %d", iy, im);
-   TRACE(6, "MJD CONT id = %d djm = %d", id, (int)*djm);
 }
 
 int
@@ -438,15 +435,12 @@ get_mjd(void)
    if(status) {
       static char buff[100];
       sprintf(buff, "%d %d %d", tm_year + 1900, tm_mon + 1, tm_mday);
-      TRACE(6, "MJD: %d (%s)", status, buff);
+      OTRACE(6, "MJD: %d (%s)", status, buff);
    
       return(-1);
    } else {
       ldj += (tm_hour + (tm_min + tm_sec/60.0)/60.0)/24.0;
       ldj += 0.3;
-
-      TRACE(6, "MJD CONT hr=%d min=%d", tm_hour, tm_min);
-      TRACE(6, "MJD CONT sec=%d LDJ %d", tm_sec, (int)ldj);
 	      
       return((int)ldj);
    }

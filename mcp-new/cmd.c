@@ -117,6 +117,7 @@ void
 log_mcp_command(int type,		/* type of command */
 		const char *cmd)	/* command, or NULL to flush file */
 {
+   int uid = 0, cid = 0;
    MCP_CMD_MSG msg;			/* message to send */
      
    if(cmd == NULL) {			/* flush log file */
@@ -127,10 +128,10 @@ log_mcp_command(int type,		/* type of command */
        case OK:
 	 break;
        case S_objLib_OBJ_UNAVAILABLE:
-	 TRACE(0, "No room on msgQueue to flush logfile", 0, 0);
+	 NTRACE(0, uid, cid, "No room on msgQueue to flush logfile");
 	 break;
        default:
-	 TRACE(0, "Failed to flush mcpCmdLog", 0, 0);
+	 NTRACE(0, uid, cid, "Failed to flush mcpCmdLog");
 	 break;
       }
 
@@ -155,10 +156,10 @@ log_mcp_command(int type,		/* type of command */
     case OK:
       break;
     case S_objLib_OBJ_UNAVAILABLE:
-      TRACE(0, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd);
+      NTRACE_2(0, uid, cid, "log_mcp_command (PID %d) no room for %s", ublock->pid, cmd);
       break;
     default:
-      TRACE(0, "Failed to send message to tCmdLog", 0, 0);
+      NTRACE(0, uid, cid, "Failed to send message to tCmdLog");
       break;
    }
 }
@@ -170,6 +171,7 @@ log_mcp_command(int type,		/* type of command */
 void
 tCmdLog(void)
 {
+   int uid = 0, cid = 0;   
    MCP_CMD_MSG msg;			/* message to pass around */
    static FILE *mcp_log_fd = NULL;	/* fd for logfile */
    static int nline = 0;		/* number of lines written */
@@ -179,7 +181,7 @@ tCmdLog(void)
       ret = msgQReceive(msgCmdLog, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      TRACE(8, "read msg on msgCmdLog", 0, 0);
+      OTRACE(8, "read msg on msgCmdLog", 0, 0);
 
       switch (msg.msg.type) {
        case cmdFlush_type:
@@ -198,16 +200,15 @@ tCmdLog(void)
 	    
 	    sprintf(filename, "mcpCmdLog-%d.dat", get_mjd());
 	    if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
-	       TRACE(0, "Cannot open %s: %s", filename, strerror(errno));
+	       NTRACE_2(0, uid, cid, "Cannot open %s: %s", filename, strerror(errno));
 	       
 	       continue;
 	    }
 	 }
 
 	 if(fputs(msg.msg.u.cmdLog.cmd, mcp_log_fd) == EOF) {
-	    TRACE(0, "Error logging command: %d (%s)",
-		  errno, strerror(errno));
-	    TRACE(0, "    %s", msg.msg.u.cmdLog.cmd, 0);
+	    NTRACE_2(0, uid, cid, "Error logging command: %d (%s)", errno, strerror(errno));
+	    NTRACE_1(0, uid, cid, "    %s", msg.msg.u.cmdLog.cmd);
 	 } else {
 	    nline++;
 	 }
@@ -221,7 +222,7 @@ tCmdLog(void)
 
 	 break;
        default:
-	 TRACE(0, "Impossible message type: %d", msg.msg.type, 0);
+	 NTRACE_1(0, uid, cid, "Impossible message type: %d", msg.msg.type);
 
 	 continue;
       }
@@ -283,10 +284,11 @@ new_ublock(int pid,
 	   int protocol,
 	   const char *uname)
 {
+   int cid = 0;
    if((ublock = malloc(sizeof(UBLOCK))) == NULL ||
 					 taskVarAdd(0, (int *)&ublock) != OK) {
-      TRACE(0, "Failed to allocate ublock private to cpsWorkTask: %s %s",
-	    errno, strerror(errno));
+      NTRACE_2(0, uid, cid, "Failed to allocate ublock private to cpsWorkTask: %d %s",
+	       errno, strerror(errno));
       taskSuspend(0);
    }
    ublock->pid = pid;
@@ -439,7 +441,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    int isFirst_cmd = 1;			/* is this the first command in the input command string, cmd? */
    static int iack_counter = -1;	/* control too many rebootedMsg
 					   messages; wait before the first */
-   int lvl;				/* level for TRACE */
+   int lvl;				/* level for OTRACE */
    int nskip;				/* number of tokens to skip */
    char *tok;				/* a token from cmd */
    SYM_TYPE type;			/* actually number of arguments */
@@ -452,8 +454,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
       if(iack_counter++%100 == 0) {
 	 sendStatusMsg_B(0, 0, INFORMATION_CODE, 1, "needIack", 1);
 
-	 TRACE(0, "%s",
-	    (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg), 0);
+	 NTRACE_1(0, uid, cid, "%s",
+		  (rebootedMsg == NULL ? "System has rebooted" : rebootedMsg));
       }
    }
 
@@ -520,7 +522,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    *cmd_type = type;
 	 }
 /*
- * TRACE commands if we feel like it
+ * OTRACE commands if we feel like it
  */
 	 lvl = 5;
 	 if(!(type & CMD_TYPE_MURMUR)) {
@@ -530,7 +532,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    lvl += 2;
 	 }
 	 
-	 TRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
+	 OTRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
 /*
  * If we are so requested, try to take the semCmdPort semaphore
  */
@@ -561,7 +563,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    varargs = 1;
 	 }
 	 if(nskip == 0 && !varargs) {
-	    TRACE(lvl, "Command %s:", tok, 0);
+	    OTRACE(lvl, "Command %s:", tok, 0);
 	    args = "";
 	 } else {
 	    args = strtok(cmd_str, "");
@@ -569,7 +571,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	       args = "";
 	    }
 	    cmd_str = args;
-	    TRACE(lvl, "Command %s: %s", tok, cmd_str);
+	    OTRACE(lvl, "Command %s: %s", tok, cmd_str);
 	 }
       }
       

@@ -15,6 +15,7 @@
 #include "timerint.h"
 #include "mcpUtils.h"
 #include "dscTrace.h"
+#include "as2.h"
 
 int freqtick = 0;			/* counter for serverDCStart */
 
@@ -29,8 +30,6 @@ serverDCStart()
 {
    int frequency = 1;			/* how many ticks to wait before
 					   fireing semDC trigger */
-   TRACE0(16, "serverDCStart", 0, 0);
-
    freqtick++;
    if(frequency == 0 || freqtick%frequency == 0) {
       if(semDC != NULL) {
@@ -60,6 +59,8 @@ void
 serverData(int hz,			/* frequency at which to call */
 	   void (*data_routine()))	/*      this routine */
 {
+   int uid = 0, cid = 0;   
+
 #if 0
    rebootHookAdd((FUNCPTR)server_shutdown);
 #endif
@@ -74,8 +75,8 @@ serverData(int hz,			/* frequency at which to call */
    
    for(;;) {
       if(semTake(semDC, WAIT_FOREVER) == ERROR) {
-	 TRACE(0, "couldn't take semDC semaphore: %d %s",
-	       errno, strerror(errno));
+	 NTRACE_2(0, uid, cid, "couldn't take semDC semaphore: %d %s",
+		  errno, strerror(errno));
 	 taskSuspend(0);
       }
       

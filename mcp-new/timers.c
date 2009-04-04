@@ -380,13 +380,9 @@ DIO316_interrupt(int type)
 {
    unsigned char dio316int_bit = 0;
 
-   TRACE0(16, "DIO316_interrupt", 0, 0);
-
    DIO316ReadISR(tm_DIO316, &dio316int_bit);
 
    if(dio316int_bit & NIST_INT) {
-      TRACE0(0, "NIST_INT bit is set in dio316_interrupt: 0x%x",
-	     dio316int_bit, 0);
       illegal_NIST++;
       DIO316ClearISR(tm_DIO316);
    } else {
@@ -407,11 +403,7 @@ DIO316_interrupt(int type)
 
 	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);
-	 if(stat != OK) {
-	    TRACE0(0, "Failed to send msg to msgLatched: %d", errno, 0);
-	 }
       }
-      TRACE0(8, "Sent message to msgLatched at %d", time, 0);
    }
 }
 
@@ -460,8 +452,6 @@ DID48_interrupt(int type)
    int dt = 300;			/* maximum allowed fuzz in arrival
 					   of GPS pulse; microseconds */
 
-   TRACE0(16, "DID48_interrupt", 0, 0);
-   
    DID48_Read_Port(tm_DID48,5,&did48int_bit);
    if(did48int_bit & NIST_INT) {
       /* Wake the setSDSStimeFromNTP routine up at the tick. */

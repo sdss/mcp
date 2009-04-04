@@ -1,6 +1,7 @@
 #
 # Machine generated using buildKeyDict
-# Fri Apr  3 22:25:24 MST 2009
+#
+# Fri Apr  3 22:59:30 MST 2009
 #
    struct {
       const char *name;
@@ -21,6 +22,8 @@
        {"altMaxVelRequired", floating, 1, ""},
        {"altMsOn", boolean, 0, ""},
        {"altPidCoeffs", array, 0, ""},
+       {"altWindscreenTouchedDown", novalue, 0, ""},
+       {"altWindscreenTouchedUp", novalue, 0, ""},
        {"azFiducialVersion", string, 0, ""},
        {"azMaxAccLimit", floating, 0, ""},
        {"azMaxAccRequested", floating, 1, ""},
@@ -28,6 +31,8 @@
        {"azMaxVelRequired", floating, 1, ""},
        {"azMsOn", boolean, 0, ""},
        {"azPidCoeffs", array, 0, ""},
+       {"azWindscreenTouchedCCW", novalue, 0, ""},
+       {"azWindscreenTouchedCW", novalue, 0, ""},
        {"badCharacter", integer, 0, ""},
        {"badCommand", string, 0, ""},
        {"badUid", integer, 0, ""},
@@ -58,6 +63,7 @@
        {"needIack", boolean, 1, ""},
        {"needSemaphore", novalue, 0, ""},
        {"plcFiducialVersion", integer, 0, ""},
+       {"plcVersionMismatch", array, 0, ""},
        {"rotFiducialVersion", string, 0, ""},
        {"rotMaxAccLimit", floating, 0, ""},
        {"rotMaxAccRequested", floating, 1, ""},
