@@ -85,7 +85,7 @@ sys_reset_cmd(int uid, unsigned long cid, char *args)
    
    if(sscanf(args, "%d", &reset_crate) != 1) {
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "sys_reset");
-      return("SYS.RESET: Please specify 0/1");
+      return("SYS_RESET: Please specify 0/1");
    }
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "sys_reset");
@@ -512,6 +512,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    *cmd_type = -1;
 	 }
 
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", cmd);
+	 
 	 return("ERR: CMD ERROR");
       } else {
 	 if(cmd_type != NULL) {
@@ -533,11 +535,11 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
  * If we are so requested, try to take the semCmdPort semaphore
  */
 	 if(!have_sem && (type & CMD_TYPE_MAY_TAKE)) {
-	    char name[100];			/* name of taker */
-	    sprintf(name, "%s:%d", ublock->uname, ublock->pid);
-	    
-	    if(take_semCmdPort(60, name) != OK) {
+	    if(take_semCmdPort(60, uid) != OK) {
 	       semGive(semCMD);
+
+	       sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "needSemaphore");
+	       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", cmd);
 	       return("ERR: failed to take semCmdPort semaphore");
 	    }
 	    
@@ -548,6 +550,9 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
  */
 	 if((type & CMD_TYPE_PRIV) && !have_sem) {
 	    semGive(semCMD);
+	    sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "needSemaphore");
+	    sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", cmd);
+	    
 	    return("ERR: I don't have the semCmdPort semaphore");
 	 }
 	 

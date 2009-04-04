@@ -35,22 +35,40 @@
 SEM_ID semCmdPort = NULL;		/* semaphore to control permission
 					   to axis motions etc. */
 
-char semCmdPortOwner[41] = "";		/* name of owner of semCmdPort */
+char semCmdPortOwner[56] = "";		/* name of owner of semCmdPort */
+int semUid = -1;                        /* The uid that has the semaphore; only unique within a task */
+
+
+/*****************************************************************************/
+
+static int
+have_semaphore(int uid)
+{
+   if (getSemTaskId(semCmdPort) != taskIdSelf()) {
+      return 0;
+   }
+
+   return (uid == semUid) ? 1 : 0;
+}
 
 int
 take_semCmdPort(int timeout,		/* timeout, in ticks */
-		char *id)		/* name of new owner of semaphore */
+		int uid)		/* UID of new owner */
 {
    int ret;
-
-   if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+   
+   if(have_semaphore(uid)) {
       return(OK);			/* we've already got it */
    }
    
    ret = semTake(semCmdPort, timeout);
    
    if(ret != ERROR) {
-      strncpy(semCmdPortOwner, id, sizeof(semCmdPortOwner) - 1);
+      sprintf(ublock->buff, "%s:%d:%d", ublock->uname, ublock->pid, uid);
+      assert(strlen(ublock->buff) < UBLOCK_SIZE);
+      
+      strncpy(semCmdPortOwner, ublock->buff, sizeof(semCmdPortOwner) - 1);
+      semUid = uid;
    }
 
    return(ret);
@@ -64,10 +82,12 @@ give_semCmdPort(int force)		/* force the giving? */
    if(force) {
       if((ret = semMGiveForce(semCmdPort)) != ERROR) {
 	 semCmdPortOwner[0] = '\0';
+	 semUid = -1;
       }
    } else {
       if((ret = semGive(semCmdPort)) != ERROR) {
 	 semCmdPortOwner[0] = '\0';
+	 semUid = -1;
       }
    }
    
@@ -80,34 +100,25 @@ give_semCmdPort(int force)		/* force the giving? */
  */
 char *
 sem_take_cmd(int uid, unsigned long cid,
-	     char *str)			/* NOTUSED */
+	     char *str)
 {
-   char *reply = "";
-   
    TRACE(5, "PID %d: command SEM_TAKE", ublock->pid, 0);
    
-   sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
-   (void)take_semCmdPort(60, ublock->buff);
+   (void)take_semCmdPort(60, uid);
    
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "haveSemaphore", (getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0));
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
 
-   if(getSemTaskId(semCmdPort) == taskIdSelf()) {
-      if (ublock->protocol == OLD_PROTOCOL) {
-	 reply = "took semaphore";
-      } else {
-	 sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "sem_take");
-      }
-   } else {
-      if (ublock->protocol == OLD_PROTOCOL) {
-	 sprintf(ublock->buff, "Unable to take semaphore owner %s: %s", semCmdPortOwner, strerror(errno));
-	 reply = ublock->buff;
-      } else {
-	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "sem_take");
-      }
+   if (have_semaphore(uid)) {
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "sem_take");
+
+      return "took semaphore";
    }
 
-   return reply;
+   sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "sem_take");
+   
+   sprintf(ublock->buff, "Unable to take semaphore owner %s: %s", semCmdPortOwner, strerror(errno));
+   return ublock->buff;
 }
 
 char *
@@ -117,17 +128,16 @@ sem_steal_cmd(int uid, unsigned long cid,
    char *reply = "";
    TRACE(5, "PID %d: command SEM_STEAL", ublock->pid, 0);
    
-   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+   if (!have_semaphore(uid)) {
       (void)give_semCmdPort(1);
       
-      sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
-      (void)take_semCmdPort(60, ublock->buff);
+      (void)take_semCmdPort(60, uid);
    }
    
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "haveSemaphore", (getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0));
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
 
-   if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+   if(have_semaphore(uid)) {
       if (ublock->protocol == OLD_PROTOCOL) {
 	 reply = "took semaphore";
       } else {
@@ -157,14 +167,14 @@ sem_give_cmd(int uid, unsigned long cid, char *str)
    
    (void)give_semCmdPort(0);
    
-   if(getSemTaskId(semCmdPort) == taskIdSelf() && force) {
+   if(have_semaphore(uid) && force) {
       (void)give_semCmdPort(1);
    }
    
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "haveSemaphore", (getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0));
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
 
-   if(getSemTaskId(semCmdPort) != taskIdSelf()) {
+   if(!have_semaphore(uid)) {
       if (ublock->protocol == OLD_PROTOCOL) {
 	 reply = "gave semaphore";
       } else {
@@ -193,14 +203,12 @@ sem_show_cmd(int uid, unsigned long cid, char *cmd)
    }
 
    if (ublock->protocol == OLD_PROTOCOL) {
-      sprintf(ublock->buff, "semCmdPort=%d, semCmdPortOwner=\"%s\"",
-	      (getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0),
-	      semCmdPortOwner);
+      sprintf(ublock->buff, "semCmdPort=%d, semCmdPortOwner=\"%s\"", have_semaphore(uid), semCmdPortOwner);
       
       return ublock->buff;
    }
 
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "haveSemaphore", (getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0));
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "sem_show");
@@ -334,9 +342,13 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       {
 	 int _uid = 0;			/* User ID in command */
 	 if (sscanf(cmd, "%d %d ", &_uid, &cid) == 2) { /* uid/cid are present */
+#if 0					/* don't complain; different connections to the hub use different UIDs  */
 	    if (_uid != ublock->uid) {
 	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badUid", ublock->uid);
 	    }
+#endif
+	    uid = ublock->uid = _uid;
+
 	    while (*cmd != '\0' && !isdigit((int)*cmd)) {
 	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badCharacter", *cmd);
 	       cmd++;
@@ -356,7 +368,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
  */
       strncpy(cmd_in, cmd, MSG_SIZE - 1); cmd_in[MSG_SIZE - 1] = '\0';
       
-      reply = cmd_handler((getSemTaskId(semCmdPort) == taskIdSelf() ? 1 : 0), uid, cid, cmd, &cmd_type);
+      reply = cmd_handler(have_semaphore(uid), uid, cid, cmd, &cmd_type);
       /*
        * write logfile of murmurable commands
        */
@@ -485,6 +497,7 @@ cmdPortServer(int port)			/* port to bind to */
 	 fprintf(stderr,"Creating semCmdPort semaphore: %s", strerror(errno));
       }
       *semCmdPortOwner = '\0';
+      semUid = -1;
 
       /*
        * Define semaphore commands

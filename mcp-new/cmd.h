@@ -35,6 +35,8 @@ void new_ublock(int pid, int uid, int protocol, const char *uname);
 extern SEM_ID semCmdPort;		/* semaphore to control permission
 					   to axis motions etc. */
 extern char semCmdPortOwner[];		/* semCmdPort's owner */
+extern int semUid;                      /* The uid that has the semaphore; only unique within a task */
+
 extern int iacked;			/* set to 0 on reboot */
 
 #define CMD_TYPE_NARG 0x7		/* mask in type for number of args */
@@ -51,7 +53,7 @@ void define_cmd(char *name, char *(*addr)(int, unsigned long, char *),
 		int narg, int priv, int may_take, int murmur, const char *doc);
 void log_mcp_command(int type, const char *cmd);
 
-int take_semCmdPort(int timeout, char *id);
+int take_semCmdPort(int timeout, int uid);
 int give_semCmdPort(int force);
 
 #endif
