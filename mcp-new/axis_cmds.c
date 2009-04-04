@@ -890,13 +890,11 @@ info_cmd(int uid, unsigned long cid, char *cmd)
 
    resetKeywordDictionary();
 
-#if 0
-   i += get_slitstatus(&ublock->buff[i], UBLOCK_SIZE - i);
-#endif
    broadcast_ffs_lamp_status(uid, cid, 1, 1);
    broadcast_inst_status(uid, cid);
    broadcast_fiducial_status(uid, cid);
    broadcast_cw_status(uid, cid);
+   broadcast_slit_status(uid, cid);
 
    semGive(semStatusCmd);
    
@@ -1438,7 +1436,7 @@ mcp_move_va(int axis,			/* the axis to move */
       char *err = _error_msg(ret);
       int murmur_level = (ret == DSP_NO_DISTANCE) ? 3 : 0;
       if(err == NULL) { err = "unknown DSP error"; }
-      TRACE(murmur_level, "start_move failed for %s : %s",axis_name(axis),err);
+      NTRACE_2(murmur_level, uid, cid, "start_move failed for %s : %s",axis_name(axis),err);
       if(ret == DSP_NO_DISTANCE) {
 	 double mei_pos;
 	 get_position_corr(2*axis, &mei_pos);

@@ -184,6 +184,8 @@ clampoff_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 void
 tSpecDoor(void)
 {
+   int uid;
+   unsigned long cid;
    int err;
    unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
@@ -198,15 +200,19 @@ tSpecDoor(void)
       NTRACE(8, msg.uid, msg.cid, "read msg in tSpecDoor");
       assert(msg.type == specDoor_type);
       spec = msg.u.specDoor.spec;
+      uid = msg.uid;
+      cid = msg.cid;
       
       if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
 	 NTRACE_1(0, msg.uid, msg.cid, "tSpecDoor illegal choice of spectrograph %d", spec);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 continue;
       }
 
       if(semTake(semSLC,60) == ERROR) {
 	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d unable to take semSLM semaphore: %s",
 		   spec, strerror(errno));
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 continue;
       }
 
@@ -214,6 +220,7 @@ tSpecDoor(void)
       if(err) {
 	 semGive(semSLC);
 	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d error reading slc: 0x%04x", spec + 1, err);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 continue;
       }
       swab ((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
@@ -247,6 +254,7 @@ tSpecDoor(void)
 	 }
 	 break;
        default:
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op);
 	 break;
       }
@@ -256,9 +264,12 @@ tSpecDoor(void)
 
       semGive(semSLC);
       if(err) {
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d error writing slc: 0x%04x", spec + 1, err);
 	 continue;
       }
+
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "specdoorOperation");
    }
 }
 
@@ -266,7 +277,9 @@ tSpecDoor(void)
  * Commands to send messages to the tSpecDoor task
  */
 int
-mcp_specdoor_clear(int spec)
+mcp_specdoor_clear(int uid,
+		   unsigned long cid,
+		   int spec)
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
@@ -278,6 +291,8 @@ mcp_specdoor_clear(int spec)
    msg.type = specDoor_type;
    msg.u.specDoor.spec = spec;
    msg.u.specDoor.op = CLEAR;
+   msg.uid = uid;
+   msg.cid = cid;
 
    ret = msgQSend(msgSpecDoor, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
@@ -287,7 +302,9 @@ mcp_specdoor_clear(int spec)
 }
 
 int
-mcp_specdoor_open(int spec)
+mcp_specdoor_open(int uid,
+		  unsigned long cid,
+		  int spec)
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
@@ -299,6 +316,8 @@ mcp_specdoor_open(int spec)
    msg.type = specDoor_type;
    msg.u.specDoor.spec = spec;
    msg.u.specDoor.op = OPEN;
+   msg.uid = uid;
+   msg.cid = cid;
 
    ret = msgQSend(msgSpecDoor, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
@@ -308,7 +327,9 @@ mcp_specdoor_open(int spec)
 }
 
 int
-mcp_specdoor_close(int spec)
+mcp_specdoor_close(int uid,
+		   unsigned long cid,
+		   int spec)
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
@@ -320,6 +341,8 @@ mcp_specdoor_close(int spec)
    msg.type = specDoor_type;
    msg.u.specDoor.spec = spec;
    msg.u.specDoor.op = CLOSE;
+   msg.uid = uid;
+   msg.cid = cid;
 
    ret = msgQSend(msgSpecDoor, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
@@ -1047,10 +1070,10 @@ broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps)
 	      sdssdc.status.i1.il13.leaf_7_closed_stat,
 	      sdssdc.status.i1.il13.leaf_8_open_stat,
 	      sdssdc.status.i1.il13.leaf_8_closed_stat);
-      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "petalsStatus", buff);
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "petalsCommandedOn", sdssdc.status.o1.ol14.ff_screen_open_pmt);
+      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffsStatus", buff);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsCommandedOn", sdssdc.status.o1.ol14.ff_screen_open_pmt);
       sprintf(buff, "%d%d", !!(which_ffs & 0x1), !!(which_ffs & 0x2));
-      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "petalsSelected", buff);
+      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffsSelected", buff);
    }
 
    if (lamps) {
@@ -1156,7 +1179,7 @@ ffsselect_cmd(int uid, unsigned long cid, char *cmd)
    which_ffs = which;
 
    broadcast_ffs_lamp_status(uid, cid, 1, 0);
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "code", "ffs_select");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ffs_select");
 
    return("");
 }
@@ -1370,11 +1393,36 @@ sp2_cmd(int uid, unsigned long cid, char *cmd)
 /*
  * Status of slithead doors and slit latches
  */
+void
+broadcast_slit_status(int uid, unsigned long cid)
+{
+   char buff[100];
+
+   sprintf(buff, "%d%d, %d, %d",
+	   sdssdc.status.i1.il9.slit_head_door1_opn,
+	   sdssdc.status.i1.il9.slit_head_door1_cls,
+	   sdssdc.status.i1.il9.slit_head_latch1_ext,
+	   sdssdc.status.i1.il9.slit_head_1_in_place);
+   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "sp1Slithead", buff);
+   
+   sprintf(buff, "%d%d, %d, %d",
+	  sdssdc.status.i1.il9.slit_head_door2_opn,
+	  sdssdc.status.i1.il9.slit_head_door2_cls,
+	  sdssdc.status.i1.il9.slit_head_latch2_ext,
+	  sdssdc.status.i1.il9.slit_head_2_in_place);
+   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "sp2Slithead", buff);
+}
+
+
 char *
 slitstatus_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    (void)get_slitstatus(ublock->buff, UBLOCK_SIZE);
 
+   broadcast_slit_status(uid, cid);
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "slitstatus");
+   
    return(ublock->buff);
 }
 
@@ -1384,10 +1432,12 @@ slitstatus_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 char *
 slitdoor_clear_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
-   if(mcp_specdoor_clear(ublock->spectrograph_select) < 0) {
+   if(mcp_specdoor_clear(uid, cid, ublock->spectrograph_select) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_clear");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "slitdoor_clear");
    return "";
 }
 
@@ -1397,9 +1447,13 @@ slitdoor_clear_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 char *
 slitdoor_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
-   if(mcp_specdoor_open(ublock->spectrograph_select) < 0) {
+   if(mcp_specdoor_open(uid, cid, ublock->spectrograph_select) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_open");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
+   
+   broadcast_slit_status(uid, cid);
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "slitdoor_open");
    
    return "";
 }
@@ -1410,10 +1464,14 @@ slitdoor_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 char *
 slitdoor_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
-   if(mcp_specdoor_close(ublock->spectrograph_select) < 0) {
+   if(mcp_specdoor_close(uid, cid, ublock->spectrograph_select) < 0) {
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
+   broadcast_slit_status(uid, cid);
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "slitdoor_close");
+
    return "";
 }
 

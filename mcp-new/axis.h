@@ -136,9 +136,9 @@ int mcp_set_cw(int uid, unsigned long cid, int inst, int cw, int cwpos, char **a
 int mcp_stop_axis(int axis);
 int mcp_move_va(int axis, long pos, long vel, long acc);
 
-int mcp_specdoor_clear(int spec);
-int mcp_specdoor_open(int spec);
-int mcp_specdoor_close(int spec);
+int mcp_specdoor_clear(int uid, unsigned long cid, int spec);
+int mcp_specdoor_open(int uid, unsigned long cid, int spec);
+int mcp_specdoor_close(int uid, unsigned long cid, int spec);
 int mcp_slithead_latch_open(int spec);
 int mcp_slithead_latch_close(int spec);
 

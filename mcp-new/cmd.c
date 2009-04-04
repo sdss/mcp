@@ -356,7 +356,7 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
 	      "    1:  Log all commands\n");
    define_cmd("VERSION",      version_cmd,   0, 0, 0, 0,
 	      "Return the MCP version string");
-   define_cmd("SYS_RESET",    sys_reset_cmd, 1, 0, 0, 1,
+   define_cmd("SYS_RESET",    sys_reset_cmd, 1, 1, 1, 1,
 	      "Reset the MCP. If the argument is true, reset the whole crate");
 
    return 0;

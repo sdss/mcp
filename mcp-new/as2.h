@@ -16,7 +16,7 @@
 #define NTRACE(LEVEL, UID, CID, STRING) \
     TRACE(LEVEL, STRING, 0, 0); \
     if (LEVEL <= NTRACE_MAX) { \
-        sendStatusMsg_S(UID, CID, INFORMATION_CODE, 1, "trace", STRING); \
+        sendStatusMsg_S(UID, CID, (LEVEL%2 == 0 ? INFORMATION_CODE : DEBUG_CODE), 1, "trace", STRING); \
     }
 
 #define NTRACE_1(LEVEL, UID, CID, FORMAT, VAL1) \
@@ -24,7 +24,7 @@
     if (LEVEL <= NTRACE_MAX) { \
         char _ntrace_buff[KEY_VALUE_LEN];    \
         sprintf(_ntrace_buff, FORMAT, VAL1); \
-        sendStatusMsg_S(UID, CID, INFORMATION_CODE, 1, "trace", _ntrace_buff); \
+        sendStatusMsg_S(UID, CID, (LEVEL%2 == 0 ? INFORMATION_CODE : DEBUG_CODE), 1, "trace", _ntrace_buff); \
     }
 
 #define NTRACE_2(LEVEL, UID, CID, FORMAT, VAL1, VAL2) \
@@ -32,7 +32,7 @@
     if (LEVEL <= NTRACE_MAX) { \
         char _ntrace_buff[KEY_VALUE_LEN];          \
         sprintf(_ntrace_buff, FORMAT, VAL1, VAL2); \
-        sendStatusMsg_S(UID, CID, INFORMATION_CODE, 1, "trace", _ntrace_buff); \
+        sendStatusMsg_S(UID, CID, (LEVEL%2 == 0 ? INFORMATION_CODE : DEBUG_CODE), 1, "trace", _ntrace_buff); \
     }
 
 /*
@@ -67,5 +67,6 @@ void broadcast_fiducial_status(int uid, unsigned long cid);
 void broadcast_inst_status(int uid, unsigned long cid);
 void broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps);
 void broadcast_cw_status(int uid, unsigned long cid);
+void broadcast_slit_status(int uid, unsigned long cid);
 
 #endif

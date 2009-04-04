@@ -29,6 +29,7 @@
 #include "dscTrace.h"
 #include "mcpFiducials.h"
 #include "cmd.h"
+#include "as2.h"
 
 int tm_ADC128F1 = -1;
 
@@ -59,10 +60,11 @@ double ilcacc[] = { 10000, 10000, 10000};
 int
 tm_move_instchange(void)
 {
+   int uid = 0, cid = 0;
    int axis;
    
    if(semTake(semMEI, 60) == ERROR) {
-      TRACE(0, "tm_move_instchange: could not take semMEI semphore", 0, 0);
+      NTRACE(0, uid, cid, "tm_move_instchange: could not take semMEI semphore");
       return ERROR;
    }
 
@@ -239,19 +241,20 @@ int
 tm_adjust_position(int axis,		/* desired axis */
 		   long *offset)	/* how much to offset position */
 {
+   int uid = 0, cid = 0;
    int i;
    double position[3];			/* positions of axes; [0] is unused */
    double vel;				/* velocity of axis */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
-      TRACE(0, "tm_adjust_position: invalid axis %d", axis, 0);
+      NTRACE_1(0, uid, cid, "tm_adjust_position: invalid axis %d", axis);
       
       return(-1);
    }
 
    if(semTake(semMEI,60) != OK) {
-      TRACE(0, "adjusting axis %s position: unable to take semaphore: %s",
-	    axis_name(axis), strerror(errno));
+      NTRACE_2(0, uid, cid, "adjusting axis %s position: unable to take semaphore: %s",
+	       axis_name(axis), strerror(errno));
       return(-1);
    }
    
@@ -261,8 +264,7 @@ tm_adjust_position(int axis,		/* desired axis */
       get_position_corr(2*axis + 1, &position[2]) != DSP_OK) {
       taskUnlock();
       semGive(semMEI);
-      TRACE(0, "adjusting position for axis %s: unable to read positions",
-	    axis_name(axis), 0);
+      NTRACE_1(0, uid, cid, "adjusting position for axis %s: unable to read positions", axis_name(axis));
       return(-1);
    }
 
@@ -639,19 +641,21 @@ alt_amp_ok(int update)			/* update status before reporting? */
 int
 rot_amp_ok(int update)			/* update status before reporting? */
 {
+   int uid = 0, cid = 0;
+
    if(update) {
 #if ALLOW_AMP_UPDATE
       unsigned short ctrl[2];
 
       if(semTake(semSLC,60) == ERROR) {
-	 TRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+	 NTRACE_2(0, uid, cid, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
       } else {
 	 const int offset =
 	   (char *)&sdssdc.status.i7 - (char *)&sdssdc.status.i1;
 	 int err = slc_read_blok(1, 9, BIT_FILE, offset/2,
 						     &ctrl[0], sizeof(ctrl)/2);
 	 if(err) {
-	    TRACE(0, "az_amp_ok: error reading slc: 0x%04x", err, 0);
+	    NTRACE_1(0, uid, cid, "az_amp_ok: error reading slc: 0x%04x", err);
 	 }
 	 semGive(semSLC);
 
@@ -694,7 +698,7 @@ void
 mgt_shutdown(int type)
 {
    int uid = 0, cid = 0;
-   TRACE(1, "Safely halting the telescope by braking AZ and ALT", 0, 0);
+   NTRACE(1, uid, cid, "Safely halting the telescope by braking AZ and ALT");
    mcp_set_brake(uid, cid, AZIMUTH);
    mcp_set_brake(uid, cid, ALTITUDE);
 }
@@ -718,8 +722,8 @@ tm_amp_mgt(void)
       if(monitor_on[AZIMUTH]) {
 	 if(monitor_axis[AZIMUTH] && sdssdc.status.i9.il0.az_brake_dis_stat) {
 	    if((state = tm_axis_state(2*AZIMUTH)) > 2 && state != STOP_EVENT) {
-	       TRACE(0, "MGT: bad az state %s: %s",
-		     axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH));
+	       NTRACE_2(0, uid, cid, "MGT: bad az state %s: %s",
+			axis_state_str(2*AZIMUTH), axis_source_str(2*AZIMUTH));
 	       mcp_set_brake(uid, cid, AZIMUTH);
 	       monitor_axis[AZIMUTH] = FALSE;
 	    }
@@ -729,9 +733,9 @@ tm_amp_mgt(void)
 	       taskDelay(60);
 	       amp_ok1 = az_amp_ok(1);
 	       
-	       TRACE(2, "MGT: bad az amp (%d now %d)", amp_ok, amp_ok1);
+	       NTRACE_2(2, uid, cid, "MGT: bad az amp (%d now %d)", amp_ok, amp_ok1);
 	       if(!amp_ok1) {
-		  TRACE(0, "MGT: bad az amp; aborting", 0, 0);
+		  NTRACE(0, uid, cid, "MGT: bad az amp; aborting");
 		  tm_sem_controller_idle(2*AZIMUTH);
 		  mcp_set_brake(uid, cid, AZIMUTH);
 		  monitor_axis[AZIMUTH]=FALSE;
@@ -744,8 +748,8 @@ tm_amp_mgt(void)
 	 if(monitor_axis[ALTITUDE] &&
 	    sdssdc.status.i9.il0.alt_brake_dis_stat) {
 	    if((state = tm_axis_state(2*ALTITUDE)) > 2 && state != STOP_EVENT){
-	       TRACE(0, "MGT: bad alt state %s: %s", 
-		     axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE));
+	       NTRACE_2(0, uid, cid, "MGT: bad alt state %s: %s", 
+			axis_state_str(2*ALTITUDE), axis_source_str(2*ALTITUDE));
 
 	       mcp_set_brake(uid, cid, ALTITUDE);
 	       monitor_axis[ALTITUDE] = FALSE;
@@ -756,9 +760,9 @@ tm_amp_mgt(void)
 	       taskDelay(60);
 	       amp_ok1 = alt_amp_ok(1);
 
-	       TRACE(2, "MGT: bad alt amp (%d now %d)", amp_ok, amp_ok1);
+	       NTRACE_2(2, uid, cid, "MGT: bad alt amp (%d now %d)", amp_ok, amp_ok1);
 	       if(!amp_ok1) {
-		  TRACE(0, "MGT: bad alt amp; aborting", 0, 0);
+		  NTRACE(0, uid, cid, "MGT: bad alt amp; aborting");
 		  tm_sem_controller_idle(2*ALTITUDE);
 		  mcp_set_brake(uid, cid, ALTITUDE);
 		  monitor_axis[ALTITUDE] = FALSE;
@@ -771,9 +775,9 @@ tm_amp_mgt(void)
 	 if(monitor_axis[INSTRUMENT]) {
 	    if((state = tm_axis_state(2*INSTRUMENT)) > 2 &&
 							  state != STOP_EVENT){
-	       TRACE(0, "MGT: bad rot state %s: %s", 
-		     axis_state_str(2*INSTRUMENT),
-		     axis_source_str(2*INSTRUMENT));
+	       NTRACE_2(0, uid, cid, "MGT: bad rot state %s: %s", 
+			axis_state_str(2*INSTRUMENT),
+			axis_source_str(2*INSTRUMENT));
 	       monitor_axis[INSTRUMENT] = FALSE;
 	    }
 	    if(!rot_amp_ok(0)) {
@@ -781,10 +785,10 @@ tm_amp_mgt(void)
 	       amp_ok = rot_amp_ok(1);
 	       taskDelay(60);
 	       amp_ok1 = rot_amp_ok(1);
-	       TRACE(2, "MGT: bad rot amp (%d now %d)", amp_ok, amp_ok1);
+	       NTRACE_2(2, uid, cid, "MGT: bad rot amp (%d now %d)", amp_ok, amp_ok1);
 
 	       if(!amp_ok1) {
-		  TRACE(0, "MGT: bad rot amp; aborting", 0, 0);
+		  NTRACE(0, uid, cid, "MGT: bad rot amp; aborting");
 		  
 		  tm_sem_controller_idle(2*INSTRUMENT);
 		  monitor_axis[INSTRUMENT] = FALSE;
@@ -1075,6 +1079,8 @@ tm_show_axis(int axis)
 void
 clear_sticky_bumps(int axis, int which)
 {
+   int uid = 0, cid = 0;
+
    switch (axis) {
     case AZIMUTH:
       axis_stat[AZIMUTH][which].bump_up_ccw_sticky = 0;
@@ -1087,7 +1093,7 @@ clear_sticky_bumps(int axis, int which)
     case INSTRUMENT:
       break;
     default:
-      TRACE(0, "Illegal axis %d in clear_sticky_bumps", axis, 0);
+      NTRACE_1(0, uid, cid, "Illegal axis %d in clear_sticky_bumps", axis);
    }
 }
 

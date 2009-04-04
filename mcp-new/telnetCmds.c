@@ -338,7 +338,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badUid", ublock->uid);
 	    }
 	    while (*cmd != '\0' && !isdigit((int)*cmd)) {
-	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badWhitespace", *cmd);
+	       sendStatusMsg_I(uid, cid, WARNING_CODE, 0, "badCharacter", *cmd);
 	       cmd++;
 	    }
 

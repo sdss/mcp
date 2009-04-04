@@ -572,6 +572,4 @@ get_uid_cid_from_tmr_msg(const MCP_MSG *msg, int *uid, unsigned long *cid)
    struct s_tmr_msg_fmt *tmsg = (struct s_tmr_msg_fmt *)msg;
    *uid = tmsg->u.tmr.mid;
    *cid = tmsg->u.tmr.arg;
-
-   printf("RHL Read uid %d cid %ul\n", *uid, *cid);
 }

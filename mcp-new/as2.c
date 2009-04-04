@@ -322,7 +322,7 @@ tStatus(void)
       for (i = 0; i != nfd; ++i) {
 	 if (broadcast || fds[i].uid == msg.uid) {
 	    if (write(fds[i].fd, buff, nwrite) != nwrite) {
-	       TRACE(0, "Failed to write %d bytes to uid %d", nwrite, fds[i].uid);
+	       NTRACE_2(0, msg.uid, msg.cid, "Failed to write %d bytes to uid %d", nwrite, fds[i].uid);
 	    }
 	 }
       }
