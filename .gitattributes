@@ -23,6 +23,7 @@ bin/fix-make_make -text
 bin/make_make -text
 bin/resetCrate -text
 bin/sdssmake -text
+bin/setup-mcp -text
 bin/showMCP -text
 bin/switchMCP -text
 /branches -text

@@ -1,0 +1,29 @@
+# -*- sh -*-
+#
+# You should source, not execute, this file
+# 
+. /fnal/ups/etc/setups.sh
+PRODUCTS=/linuxp/db:`echo $PRODUCTS | perl -pe 's|/linuxp/db||g'`
+export PRODUCTS=`echo $PRODUCTS | perl -pe 's/::*/:/g'`
+    
+setup sdsstools
+
+setup -f Linux+2.4-2.3.2 mcp -r $(command pwd)
+
+if [ ! -f $MCP_DIR/bin/sdssmake ]; then
+    echo "I don't see bin/sdssmake --- are you sourcing me in the mcp directory?"
+else
+    type sdssmake
+fi
+
+setup vxworks v5_5la -q mv162
+setup -f VxWorks+5.5 -q mv162 -j vx_tools vCPL
+setup -f VxWorks -q mv162 murmur_client_vx
+setup gtools
+
+export VX_VW_BASE=$VXWORKS_DIR
+#
+# set some variables for gdb
+#
+export WIND_REGISTRY=10.25.1.14
+export LM_LICENSE_FILE=27027@localhost
