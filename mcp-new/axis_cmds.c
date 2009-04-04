@@ -1691,7 +1691,7 @@ move_cmd(int uid, unsigned long cid, char *cmd)
       return("ERR: MOVE");
    }
 
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "move");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "move");
    
    return("");
 }
@@ -1997,7 +1997,7 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
 
       idx = 0;
       for(i = 0;i < COEFFICIENTS; i++) {
-	 idx += sprintf(&ublock->buff[idx]," %d", coeff[i]);
+	 idx += sprintf(&ublock->buff[idx],(i == 0 ? "%d" : ", %d"), coeff[i]);
       }
       
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, key, ublock->buff);
@@ -2145,9 +2145,9 @@ axisMotionInit(void)
       taskSuspend(0);
    }
 
-   coeff[DF_P] = 160;
+   coeff[DF_P] = 135;
    coeff[DF_I] = 4;
-   coeff[DF_D] = 700;
+   coeff[DF_D] = 600;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
    coeff[DF_I_LIMIT] = 32767;
