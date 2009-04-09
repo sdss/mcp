@@ -218,7 +218,7 @@ tcc_serial(int port)
   NTRACE_1(1, uid, cid, "OPEN port %s", serial_port);
   ioctl (fileno(stream),FIOBAUDRATE,9600);
 
-  new_ublock(0, 1, OLD_PROTOCOL, "TCC"); /* task-specific UBLOCK */
+  new_ublock(0, 1, OLD_TCC_PROTOCOL, "TCC"); /* task-specific UBLOCK */
   log_mcp_command(CMD_TYPE_MURMUR, "TCC connected");
 
   for(;;) {
@@ -267,13 +267,11 @@ tcc_serial(int port)
      {
 	int ids[10], nblock;
 	int j;
-	char tnbuf[40];
 
 	for(j = 0; (nblock = semInfo(semCMD, ids, 10)) > 0; j++) {
 	   int i;
-	   for(i = 0;i < nblock; i++) {
-	      sprintf(tnbuf, "0x%x (%s)", ids[i], taskName(ids[i]));
-	      NTRACE_2(3, uid, cid, "tcc_serial blocks on %s [%d]\n", tnbuf, j);	
+	   for(i = 0; i < nblock; i++) {
+	      NTRACE_2(3, uid, cid, "tcc_serial blocks on TID 0x%x [%d]\n", ids[i], j);	
 	   }
 	   
 	   taskDelay(10);
