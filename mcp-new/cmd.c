@@ -459,6 +459,10 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    semTake(semCMD, WAIT_FOREVER);
    ans = NULL;				/* ans is returned from function */
 
+   if (ublock->protocol == OLD_TCC_PROTOCOL) {
+      cid = ++ublock->cid;
+   }
+   
    nskip = varargs = 0;
    while((tok = strtok(cmd_str, " \t")) != NULL) {
       cmd_str = NULL;
@@ -491,6 +495,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    }
 	 }
       }
+#if 0					/* The only multiply commands are {az,alt,rot,sp[12]} and we don't
+					   issue FINISHED_CODE for them */
       /*
        * Separate commands in cmd must have different cids
        */
@@ -498,7 +504,12 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 cid = ++ublock->cid;
       }
       isFirst_cmd = 0;
+#endif
       
+      if (ublock->protocol == OLD_TCC_PROTOCOL || ublock->protocol == NEW_PROTOCOL) {
+	 sendStatusMsg_S(uid, cid, DEBUG_CODE, 1, "commandIn", cmd);
+      }
+
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
 	 NTRACE_1(1, uid, cid, "Unknown command '%s'", tok);
 #if 0
@@ -511,7 +522,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    *cmd_type = -1;
 	 }
 
-	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", cmd);
+	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "badCommand", cmd);
 	 
 	 return("ERR: CMD ERROR");
       } else {

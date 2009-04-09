@@ -1,8 +1,11 @@
 #ifndef __CMD_H__
 #define __CMD_H__			/* do only once */
 
-#define OLD_PROTOCOL 0                  /* The old connection protocol, as used by mcpMenu */
-#define NEW_PROTOCOL 1                  /* The new connection protocol, as used by the SDSS-III hub */
+enum {
+    OLD_PROTOCOL=0,                     /* The old connection protocol, as used by mcpMenu */
+    OLD_TCC_PROTOCOL=1,                 /* The old connection protocol, as used by the TCC */
+    NEW_PROTOCOL=2                      /* The new connection protocol, as used by the SDSS-III hub */
+};
 
 #define INTERNAL_UID 2                  /* UID for internal (recursive) calls */
 int nextInternalCid(void);
