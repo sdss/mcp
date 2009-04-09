@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <taskLib.h>
 #include <ioLib.h>
 #include <sysSymTbl.h>
@@ -18,6 +19,8 @@
  * Handle reporting status to the Brave New World of the SDSS-III hub
  */
 MSG_Q_ID msgStatus = NULL;		/* Queues of status keywords */
+
+int msgQNumMsgsHighWater = 0;	        /* maximum number of messages waiting on the msgStatus queue */
 
 #define BUFF_SIZE 81			/* size of response buffers */
 
@@ -137,10 +140,13 @@ resetKeywordDictionary()
 }
 
 /*-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
-
+/*
+ * The task to send sttus to the hub
+ */
 void
 tStatus(void)
 {
+   int uid = 0, cid = 0;
    MCP_STATUS_MSG msg;			/* message to pass around */
    int broadcast;			/* should this message be broadcast to all listeners in fds? */
    char buff[BUFF_SIZE];		/* response buffer */
@@ -161,7 +167,22 @@ tStatus(void)
    
    for(;;) {
       int ret = msgQReceive(msgStatus, (char *)&msg, sizeof(msg), WAIT_FOREVER);
-      assert(ret != ERROR);
+      if (ret == ERROR) {
+	 NTRACE_1(0, uid, cid, "Failed to read msgStatus: %s", strerror(errno));
+	 printf("Failed to read msgStatus: %d,  %s\n", ret, strerror(errno));
+	 taskDelay(10);
+	 continue;
+      }
+
+      {
+	 int nmsgs = msgQNumMsgs(msgStatus);
+
+	 if (nmsgs > msgQNumMsgsHighWater) {
+	    msgQNumMsgsHighWater = nmsgs;
+
+	    sendStatusMsg_I(uid, cid, DEBUG_CODE, 1, "keywordQueueDepth", msgQNumMsgsHighWater);
+	 }
+      }
 
       if (msg.code > 0) {
 	 broadcast = 1;
@@ -330,6 +351,28 @@ tStatus(void)
 }
 
 /*
+ * Actually send the message
+ */
+static void
+doSendStatusMsg(MCP_STATUS_MSG const* msg, /* message to send */
+		int wait,		/* how many ticks to wait */
+		int priority		/* priortity of message */
+   )
+{
+   int uid = 0, cid = 0;
+   
+   if (msgStatus) {
+      int ret = msgQSend(msgStatus, (char *)msg, sizeof(*msg), WAIT_FOREVER, MSG_PRI_NORMAL);
+      if (ret != OK) {
+	 if (priority == MSG_PRI_NORMAL) {
+	    sendStatusMsgUrgent_S(uid, cid, INFORMATION_CODE, 1, "statusSendFailed", strerror(errno));
+	 }
+	 printf("Failed to write message to msgStatus: %s", strerror(errno));
+      }
+   }
+}
+
+/*
  * Send status without any key or value
  */
 void
@@ -340,7 +383,6 @@ sendStatusMsg(int uid,			/* user ID */
    )
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -348,10 +390,7 @@ sendStatusMsg(int uid,			/* user ID */
 
    msg.type = none;
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -366,7 +405,6 @@ sendStatusMsg_A(int uid,		/* user ID */
 		const char *val)	/* value */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -376,10 +414,7 @@ sendStatusMsg_A(int uid,		/* user ID */
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
    strncpy(msg.u.sval, val, sizeof(msg.u.sval) - 1); msg.u.sval[sizeof(msg.u.sval) - 1] = '\0';
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -394,7 +429,6 @@ sendStatusMsg_B(int uid,		/* user ID */
 		int val)		/* value, interpreted as a boolean (i.e. 0, not-0) */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -404,10 +438,7 @@ sendStatusMsg_B(int uid,		/* user ID */
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
    msg.u.ival = val;
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -422,7 +453,6 @@ sendStatusMsg_F(int uid,		/* user ID */
 		float val)		/* value */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -432,12 +462,7 @@ sendStatusMsg_F(int uid,		/* user ID */
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
    msg.u.fval = val;
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      if (ret != OK) {
-	 printf("Cannot write to msgStatus: %s", strerror(errno));
-      }
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -451,7 +476,6 @@ sendStatusMsg_FD(int uid,		/* user ID */
 		 int fd)		/* the file descriptor in question */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -461,10 +485,7 @@ sendStatusMsg_FD(int uid,		/* user ID */
    msg.key[0] = '\0';
    msg.u.ival = fd;
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -479,7 +500,6 @@ sendStatusMsg_I(int uid,		/* user ID */
 		int val)		/* value */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -489,10 +509,7 @@ sendStatusMsg_I(int uid,		/* user ID */
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
    msg.u.ival = val;
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -506,7 +523,6 @@ sendStatusMsg_N(int uid,		/* user ID */
 		const char *key)	/* keyword */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -515,10 +531,7 @@ sendStatusMsg_N(int uid,		/* user ID */
    msg.type = novalue;
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 
 /*
@@ -533,7 +546,6 @@ sendStatusMsg_S(int uid,		/* user ID */
 		const char *val)	/* value */
 {
    MCP_STATUS_MSG msg;			/* message to send */
-   int ret;				/* return code */
    
    msg.uid = uid;
    msg.cid = cid;
@@ -543,10 +555,31 @@ sendStatusMsg_S(int uid,		/* user ID */
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
    strncpy(msg.u.sval, val, sizeof(msg.u.sval) - 1); msg.u.sval[sizeof(msg.u.sval) - 1] = '\0';
 
-   if (msgStatus) {
-      ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
-   }
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
+}
+
+/*
+ * Send a (key, string) pair at high priority
+ */
+void
+sendStatusMsgUrgent_S(int uid,		/* user ID */
+		      unsigned long cid, /* command ID */
+		      MSG_CODE code,	/* code; e.g. : */
+		      int broadcast,    /* should this message be broadcast to all clients? */
+		      const char *key,	/* keyword */
+		      const char *val)	/* value */
+{
+   MCP_STATUS_MSG msg;			/* message to send */
+   
+   msg.uid = uid;
+   msg.cid = cid;
+   msg.code = broadcast ? code : -code;
+
+   msg.type = string;
+   strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
+   strncpy(msg.u.sval, val, sizeof(msg.u.sval) - 1); msg.u.sval[sizeof(msg.u.sval) - 1] = '\0';
+
+   doSendStatusMsg(&msg, 10, MSG_PRI_URGENT);
 }
 
 /************************************************************************************************************/
@@ -561,23 +594,45 @@ ping_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
     return "";
 }
 
+/*********************************************************************************/
 /*
- * Define commands
+ * The heartbeat task, used to demonstrate that we live and breath
+ */
+void
+tHeartbeat(void)
+{
+   int uid = 0, cid = 0;
+
+   for(;;) {
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "aliveAt", time(NULL));
+
+      taskDelay(60*60);			/* 1 minute */
+   }
+}
+
+/*
+ * Initialise the task that handles status messages for the hub
  */
 void
 as2Init(void)
 {
-/*
- * Create the message queue to control sending status to the outside world
- */
    if(msgStatus == NULL) {
       int ret;				/* return code */
-/*
- * Create message queue of status information.
- */
+      /*
+       * Create message queue of status information.
+       */
       msgStatus = msgQCreate(200, sizeof(MCP_STATUS_MSG), MSG_Q_FIFO);
       assert(msgStatus != NULL);
-      ret = taskSpawn("tStatus",90,0,10000,(FUNCPTR)tStatus,
+      /*
+       * The task that sends the status
+       */
+      ret = taskSpawn("tStatus",91,0,10000,(FUNCPTR)tStatus,
+		      0,0,0,0,0,0,0,0,0,0);
+      assert(ret != ERROR);
+      /*
+       * The heartbeat task
+       */
+      ret = taskSpawn("tHeartbeat",200,0,1000,(FUNCPTR)tHeartbeat,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
    }
