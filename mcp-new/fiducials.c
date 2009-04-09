@@ -336,7 +336,8 @@ broadcast_fiducial_status(int uid, unsigned long cid)
    sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "minEncoderMismatch", buff);
    
    /* PLC version, per the PLC */
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "plcFiducialVersion", sdssdc.status.b3.w1.version_id);
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "plcVersion", sdssdc.status.b3.w1.version_id);
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "mcpVersion", mcpVersion(NULL, 0));
 }
 
 
@@ -557,7 +558,8 @@ get_rot_fididx(const struct LATCH_POS *latch_pos, /* the most recent pos. */
    }
 
    if(fididx <= 0 || fididx >= N_ROT_FIDUCIALS) {
-      fprintf(stderr,"Illegal fididx = %d\n", fididx);
+      int uid = 0, cid = 0;
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "rotBadFiducialDelta", latch_pos->pos[1] - last_latch_pos);
       return(-1);
    }
 
@@ -794,7 +796,7 @@ tLatch(const char *name)
 
 	 {
 	    char key[20];
-	    sprintf(key, "%sMsOn", axis_abbrev(axis));
+	    sprintf(key, "%sMsOff", axis_abbrev(axis));
 	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
 	 }
 	 
