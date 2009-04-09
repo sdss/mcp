@@ -1,7 +1,7 @@
 /*
  * Machine generated using buildKeyDict
  *
- * Tue Apr  7 14:04:06 MDT 2009
+ * Thu Apr  9 12:15:23 MDT 2009
  */
    struct {
       const char *name;
@@ -40,6 +40,7 @@
        {"badUid", integer, 0, ""},
        {"badUserId", novalue, 0, ""},
        {"command", string, 0, ""},
+       {"commandIn", string, 0, ""},
        {"controlLamps", novalue, 0, ""},
        {"cwAbort", integer, 0, ""},
        {"cwPositions", array, 0, ""},
@@ -64,8 +65,9 @@
        {"msOnMaxCorrection", array, 0, ""},
        {"needIack", boolean, 1, ""},
        {"needSemaphore", novalue, 0, ""},
-       {"plcFiducialVersion", integer, 0, ""},
+       {"plcVersion", integer, 0, ""},
        {"plcVersionMismatch", array, 0, ""},
+       {"rotBadFiducialDelta", integer, 0, ""},
        {"rotFiducialVersion", string, 0, ""},
        {"rotMaxAccLimit", floating, 0, ""},
        {"rotMaxAccRequested", floating, 1, ""},
