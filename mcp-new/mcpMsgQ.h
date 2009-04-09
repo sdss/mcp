@@ -6,6 +6,7 @@
 
 typedef struct {
    enum {
+      unused_type = -1,                 /* I want to use -ms_on_alt_type */
       alignClamp_type = 1,		/* move alignment clamp */
       alignClampCheck_type,		/* check if alignment clamp moved */
 
