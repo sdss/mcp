@@ -458,7 +458,7 @@ mcpVersion(char *version,		/* string to fill out, or NULL */
    int i;
    int print = (version == NULL) ? 1 : 0; /* should I print the version? */
    const char *ptr;			/* scratch pointer */
-   const char *tag = version_cmd(0, 0, ""); /* CVS tagname + compilation time */
+   const char *tag = version_cmd(0, 0, NULL); /* CVS tagname + compilation time */
 
    if(version == NULL) {
       version = buff; len = 101;

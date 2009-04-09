@@ -11,10 +11,12 @@ getCvsTagname(void)
 
 char *
 version_cmd(int uid, unsigned long cid,
-	    char *cmd)			/* NOTUSED */
+	    char *cmd)			/* NULL to not print any status keywords */
 {
-   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "mcpVersion", "$Name$|"  __DATE__ "|" __TIME__);
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "version");
+   if (cmd != NULL) {
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "mcpVersion", "$Name$|"  __DATE__ "|" __TIME__);
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "version");
+   }
 
    return "mcpVersion=\"$Name$|"  __DATE__ "|" __TIME__ "\"\n";
 }
