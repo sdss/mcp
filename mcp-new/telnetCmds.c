@@ -69,6 +69,8 @@ take_semCmdPort(int timeout,		/* timeout, in ticks */
       
       strncpy(semCmdPortOwner, ublock->buff, sizeof(semCmdPortOwner) - 1);
       semUid = uid;
+
+      sendStatusMsg_S(0, 0, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
    }
 
    return(ret);
@@ -105,7 +107,6 @@ sem_take_cmd(int uid, unsigned long cid,
    (void)take_semCmdPort(60, uid);
    
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
-   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
 
    if (have_semaphore(uid)) {
       sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "sem_take");
@@ -225,13 +226,10 @@ user_id_cmd(int uid, unsigned long cid, char *cmd)
     case 0:
       sprintf(ublock->buff, "User %s:%d, TID 0x%x", ublock->uname, ublock->pid, taskIdSelf());
 
-      if (ublock->protocol == OLD_PROTOCOL) {
-	 return ublock->buff;
-      }
-
       sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "userId", ublock->buff);
-	 
-      break;
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "user_id");
+
+      return ublock->buff;
     case 2:
       ublock->pid = pid;
       for(ptr = cmd; *ptr != '\0'; ptr++) {
@@ -242,10 +240,11 @@ user_id_cmd(int uid, unsigned long cid, char *cmd)
       sprintf(ublock->buff, "%s:%d", ublock->uname, ublock->pid);
       log_mcp_command(CMD_TYPE_MURMUR, ublock->buff);
       
-      if (ublock->protocol == OLD_PROTOCOL) {
-	 return "Read userid/pid";
-      }
-      break;
+      sprintf(ublock->buff, "User %s:%d, TID 0x%x", ublock->uname, ublock->pid, taskIdSelf());
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "userId", ublock->buff);
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "user_id");
+
+      return "Read userid/pid";
     default:
       if (ublock->protocol == OLD_PROTOCOL) {
 	 return "Garbled USER_ID command";
@@ -255,10 +254,7 @@ user_id_cmd(int uid, unsigned long cid, char *cmd)
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "user_id");
       return "";
    }
-
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "user_id");
-   
-   return "";
+   /* NOTREACHED */
 }
 
 /*****************************************************************************/
@@ -387,9 +383,7 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 if (reply[0] == '\0') {
 	    ;
 	 } else {
-	    if (cmd_type < 0) {
-	       sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "badCommand", cmd_in);
-	    } else {
+	    if (cmd_type >= 0) {
 #if 0					/* It's the command's job to send this if they deem it interesting */
 	       sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", reply);
 #endif
