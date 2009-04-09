@@ -17,6 +17,7 @@ ab/std_dhp.c -text
 ab/std_dhp.h -text
 ab/vmeinst.c -text
 bin/Makefile -text
+bin/buildKeyDict -text
 bin/declareMCP -text
 bin/fiddle-fiducial -text
 bin/fix-make_make -text

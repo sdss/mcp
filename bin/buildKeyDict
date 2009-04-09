@@ -1,0 +1,269 @@
+#!/usr/bin/env perl
+#
+# Generate an initialisation for the keys[] array in dictionary.c from all the
+# sendStatusMsg calls in the code
+#
+# E.g.
+#   grep sendStatusMsg mcp-new/*c | grep -v as2.c | buildKeyDict
+#
+require "getopts.pl";
+
+if(!&Getopts('Chp')) {
+   &syntax;
+   exit 1;
+}
+
+if($opt_h) {
+   &syntax;
+   exit 1;
+}
+$python = $C = 0;
+if ($opt_C) {
+    $C = 1;
+}
+if ($opt_p) {
+    $python = 1;
+}
+if ($C + $python == 0) {
+   $C = 1;
+} elsif($C + $python > 1) {
+   die "Please choose -C or -p\n";
+}
+
+%keywordTypes = ();
+
+# Keys to ignore
+
+%ignoreKeys = (
+	       "alignmentClamp" => 1,
+	       "key" => 1,
+	       );
+
+# Keys that don't appear literally in the source code as they are defined for each axis
+
+%axisKeys = (
+	     "MaxAccLimit" => "floating",
+	     "MaxAccRequested" => "floating",
+	     "MaxVelLimit" => "floating",
+	     "MaxVelRequired" => "floating",
+	     "MsOn" => "boolean",
+	     "PidCoeffs" => "array",
+	     );
+
+foreach $akey (keys(%axisKeys)) {
+   foreach $axis ("az", "alt", "rot") {
+      $keywordTypes{$axis . $akey} = $axisKeys{$akey};
+   }
+}
+#
+# Always send these keys, even if the values are unchanged
+#
+%alwaysSend = (
+	       "needIack" => 1,
+	       "semaphoreOwner" => 1,
+	       "text" => 1,
+	       "trace" => 1,
+	       "userId" => 1,
+	       );
+
+foreach $akey ("MaxAccRequested", "MaxVelRequired") {
+   foreach $axis ("az", "alt", "rot") {
+      $alwaysSend{$axis . $akey} = 1;
+   }
+}
+
+%helpStrings = (
+	       "needIack" => "If False, please send an iack",
+	       "command","Command string",
+	       "ffLeafStatus" => "State of flat field petals 1-8",
+	       "ffLeafCommandedOn" => "Flat field petals commanded close/open",
+	       "ffLeafSelected" => "Flat field petals enabled",
+	       "ffLamp" => "Detected state of flat field lamps",
+	       "ffLampCommandedOn" => "Commanded state of flat-field lamps",
+	       "neLamp" => "Detected state of neon lamps",
+	       "neLampCommandedOn" => "Commanded state of neon lamps",
+	       "hgCdLamp" => "Detected state of mercury/cadmium lamps",
+	       "hgCdLampCommandedOn" => "Commanded state of mercury/cadmium lamps",
+	       "whtLampCommandedOn" => "Commanded state of white lamps",
+	       "instrumentNum" => "Instrument ID; 0=no instrument; 14=imager; -1=switches inconsistent or could not get semaphore",
+	       "instrumentNumConsistent" => "Do the three instrument ID switches agree? If not, instrumentNumValues is also output.",
+	       "instrumentNumValues" => "Reading from each instrument ID switch",
+	       "goodFiducialVersions" => "The fiducial version numbers are consistent",
+	       "plcFiducialVersion" => "Version of the PLC from data_collection.h",
+	       "plcVersionMismatch" => "The PLC versions from the Allen-Bradley and data_collection.h",
+	       );
+
+#
+# Process the lines grepped out of the .c code looking for keywords
+#
+while (<>) {
+   if (m/sendStatusMsg(_(.))?\([^,]+,\s*[^,]+,\s*([A-Z]+_CODE),\s+\S+,\s*\"?([^,\"]+)/) {
+
+      if ($1 eq "") {
+	 $type = "none";
+      } elsif ($2 eq "A") {
+	 $type = "array";
+      } elsif ($2 eq "B") {
+	 $type = "boolean";
+      } elsif ($2 eq "F") {
+	 $type = "floating";
+      } elsif ($2 eq "I") {
+	 $type = "integer";
+      } elsif ($2 eq "N") {
+	 $type = "novalue";
+      } elsif ($2 eq "S") {
+	 $type = "string";
+      } else {
+	 die "Unknown key type $type in $_";
+      }
+      $name = $4;
+
+      if ($ignoreKeys{$name}) {
+	 next;
+      }
+      
+      if ($keywordTypes{$name}) {
+	 if ($keywordTypes{$name} ne $type) {
+	    warn "Inconsistent types for %s: %s %s: %s", $name, $keywordTypes{$name}, $type, $_;
+	 }
+      } else {
+	 $keywordTypes{$name} = $type;
+      }
+   }
+}
+
+###############################################################################
+#
+# Output
+#
+
+sub doOutput
+{
+   chomp($date = `date`);
+
+   if ($python) {
+      print"#
+# Machine generated using buildKeyDict
+#
+# $date
+#
+KeysDictionary('mcp', (1,1),
+";
+   } elsif($C) {
+      print"/*
+ * Machine generated using buildKeyDict
+ *
+ * $date
+ */
+   struct {
+      const char *name;
+      int type;
+      int alwaysSend;
+      const char *help;
+   } keys[] = {
+";
+   } else {
+      die "You can't get here";
+   }
+
+   foreach $name (sort(keys(%keywordTypes))) {
+      if (!defined($alwaysSend{$name})) {
+	 $alwaysSend{$name} = 0;
+      }
+
+      if ($C) {
+	 printf '       {"%s", %s, %d, ""},' . "\n", $name, $keywordTypes{$name}, $alwaysSend{$name};
+      } elsif ($python) {
+	 printf '    Key("%s", %s, "%s"),' . "\n", $name, pythonTypeByName($name), $helpStrings{$name};
+      } else {
+	 die "You can't get here";
+      }
+   }
+
+   if ($C) {
+      printf "       {NULL, 0, 0, NULL}\n";
+      print "   };\n";
+   } elsif ($python) {
+      print ")\n";
+   } else {
+      die "You can't get here";
+   }
+}
+
+###############################################################################
+#
+# A type string for an enum that can be looked up name
+#
+%enumTypes = (
+	      "cwStatus" => ['Enum("LU", "L.", ".U", "..")', '"Invalid", "Lower Limit", "Upper Limit", "valid"'],
+	      "ffsSelected" => ['Enum("00", "01", "10", "11")', '"None", "Half1", "Half2", "All"'],
+	      "ffsStatus" => ['Enum("00", "01", "10", "11")*8', '"?", "Closed", "Open", "Invalid"'],
+	      "instrumentNum" => ['Int(invalid=-1)',]
+	      );
+#
+# An array to be looked up by name;  returns dimension and type
+#
+%arrayTypes = (
+	       "cwPositions" => "4 integer",
+	       "HgCdLamp" => "4 boolean:01",
+	       "NeLamp" => "4 boolean:01",
+	       "ffLamp" => "4 boolean:01",
+	       "instrumentNumValues" => "3 integer",
+	       "minEncoderMismatch" => "3 integer",
+	       "msOnMaxCorrection" => "3 integer",
+	       "azPidCoeffs" => "10 integer",
+	       "altPidCoeffs" => "10 integer",
+	       "rotPidCoeffs" => "10 integer",
+	       "plcVersionMismatch" => "2 integer",
+	   );
+
+sub pythonTypeByName
+{
+   my($name) = @_;
+
+   my($enum) = $enumTypes{$name};
+   if (defined($enum)) {
+      #warn "$name, descr=($$enum[1])\n";
+      return $$enum[0];
+   }
+
+   return pythonType($keywordTypes{$name});
+}
+
+sub pythonType
+{
+   my($type) = @_;
+
+   if ($type eq "array") {
+      $type = $arrayTypes{$name};
+      if (!defined($type)) {
+	 warn "I don't know anything about array $name\n";
+	 return "array";
+      }
+
+      my($dim, $type) = split(" ", $type);
+
+      return pythonType($type) . "*$dim";
+   } elsif ($type eq "boolean") {
+      $type = 'Bool("false", "true")';
+   } elsif ($type eq "boolean:01") {
+      $type = 'Bool("0", "1")';
+   } elsif ($type eq "floating") {
+      $type = 'Float()';
+   } elsif ($type eq "integer") {
+      $type = 'Int()';
+   } elsif ($type eq "novalue") {
+      ;
+   } elsif ($type eq "string") {
+      $type = 'String()';
+   } else {
+      warn "I don't understand $type for $name\n";
+   }
+
+   return $type;
+}
+
+###############################################################################
+
+doOutput();
+
