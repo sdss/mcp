@@ -36,6 +36,11 @@
     }
 
 /*
+ * Does user uid in this task have the sempaphore?
+ */
+int have_semaphore(int uid);
+
+/*
  * Support for status keywords
  */
 #define INVALID_INT 0xdeadbeef          /* An invalid value; in particular can't be cached and not resent */

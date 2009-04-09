@@ -77,7 +77,7 @@ tAlgnClmp(void)
 	 }
 	 break;
        default:
-	 OTRACE(0, "Impossible message type: %d", msg.type, 0);
+	 OTRACE(0, "Impossible message type on msgAlignClamp: %d", msg.type, 0);
 	 continue;	 
       }
 /*
@@ -769,7 +769,7 @@ tFFS(void)
 
 	 continue;
       } else {
-	 NTRACE_1(0, msg.uid, msg.cid, "Impossible message type: %d", msg.type);
+	 NTRACE_1(0, msg.uid, msg.cid, "Impossible message type on msgFFS: %d", msg.type);
 	 continue;
       }
 /*
@@ -1448,6 +1448,7 @@ char *
 slitdoor_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_specdoor_open(uid, cid, ublock->spectrograph_select) < 0) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_open");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1465,6 +1466,7 @@ char *
 slitdoor_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_specdoor_close(uid, cid, ublock->spectrograph_select) < 0) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1482,6 +1484,8 @@ char *
 slithead_latch_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_slithead_latch_close(ublock->spectrograph_select) < 0) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    
@@ -1495,6 +1499,8 @@ char *
 slithead_latch_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_slithead_latch_open(ublock->spectrograph_select) < 0) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
    

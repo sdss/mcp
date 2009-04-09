@@ -301,14 +301,13 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 	 OTRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
 		axis_name(axis), acc);
 	 
+	 {
+	    char key[20];
+	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
+	    
+	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
+	 }
 	 bad_pvt++;
-      }
-
-      {
-	 char key[20];
-	 sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-
-	 sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
       }
 
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
@@ -421,15 +420,15 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
       OTRACE(2, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
 	    axis_name(axis), acc);
+   
+      {
+	 char key[20];
+	 sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
+	 
+	 sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
+      }
       
       bad_pvt++;
-   }
-   
-   {
-      char key[20];
-      sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-
-      sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
    }
 
    if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
@@ -611,15 +610,14 @@ addoffset(int axis,int cnt)
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
 	 OTRACE(2, "addoffset: Max accl. for %s exceeded: %ld/1000",
 	       axis_name(axis), acc);
+	 {
+	    char key[20];
+	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
+	    
+	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
+	 }
 	 
 	 bad_pvt++;
-      }
-      
-      {
-	 char key[20];
-	 sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-
-	 sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
       }
 
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
@@ -804,15 +802,15 @@ load_frames(int axis,			/* which axis */
 	    OTRACE(2, "Max accl. for %s exceeded: %ld/1000",
 		  axis_name(axis), acc);
 	 }
-
+	 
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-
+	    
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
 	 }
 	 a[axis][i] = (a[axis][i] > 0) ?
-			       max_acceleration[axis] : -max_acceleration[axis];
+	    max_acceleration[axis] : -max_acceleration[axis];
       }
       
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {

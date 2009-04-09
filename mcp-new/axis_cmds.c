@@ -317,6 +317,7 @@ id_cmd(int uid, unsigned long cid, char *cmd)
    const int axis = ublock->axis_select;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "id");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -347,6 +348,8 @@ init_cmd(int uid, unsigned long cid, char *cmd)
    int state;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "init");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 /*
@@ -507,7 +510,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
    taskDelay(60);
 
    if(axis_stat[axis][0].semCmdPort_taken) {
-      if(getSemTaskId(semCmdPort) == taskIdSelf()) {
+      if(have_semaphore(uid)) {
 	 axis_stat[axis][0].semCmdPort_taken = 0;
       }
    }
@@ -558,6 +561,7 @@ mc_maxacc_cmd(int uid, unsigned long cid, char *cmd)
    const int axis = ublock->axis_select;
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "mc_maxacc");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -584,6 +588,7 @@ mc_maxvel_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
    const int axis = ublock->axis_select;
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "mc_maxacc");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -669,6 +674,7 @@ status_cmd(int uid, unsigned long cid, char *cmd)
    double sdss_time;			/* time from sdss_get_time() */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "status");
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
@@ -821,6 +827,7 @@ axis_status_cmd(int uid, unsigned long cid, char *cmd)
    const int axis = ublock->axis_select;
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "axis_status");
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
@@ -942,8 +949,8 @@ set_status(int axis,			/* axis, or NOINST for system status */
    int brake_is_on = -1;		/* is the brake on for current axis? */
    long fid_mark = 0;			/* position of fiducial mark */
 
-   if(axis != NOINST &&
-      axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+   if(axis != NOINST && axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       strncpy(buff, "ERR: ILLEGAL DEVICE SELECTION", size);
       return;
    }
@@ -1653,6 +1660,7 @@ drift_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    double arcdeg, veldeg, t;		/* as returned by mcp_drift */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "drift");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1679,6 +1687,7 @@ move_cmd(int uid, unsigned long cid, char *cmd)
    int cnt;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "move");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1702,6 +1711,7 @@ plus_move_cmd(int uid, unsigned long cid, char *cmd)
    int cnt;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "plus_move");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1921,6 +1931,7 @@ set_filter_coeff_cmd(int uid, unsigned long cid, char *cmd)
    int val = 0;				/* new value for coefficient */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "set_filter_coeff");
       return("ERR: ILLEGAL DEVICE SELECTION");
    }
@@ -1981,6 +1992,7 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
    };
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "get_filter_coeffs");
       return("ERR: ILLEGAL DEVICE SELECTION");
    }

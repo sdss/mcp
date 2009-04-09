@@ -715,10 +715,11 @@ tLatch(const char *name)
       ret = msgQReceive(msgLatched, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      if (msg.type == latchCrossed_type) {
-	 uid = 0;
-	 cid = 0;
+      if (msg.type > 0) {
+	 uid = msg.uid;
+	 cid = msg.cid;
       } else {				/* came via a timerSendArg */
+	 msg.type = -msg.type;
 	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
       }
 /*
@@ -727,6 +728,10 @@ tLatch(const char *name)
  *   ms_on_{az,alt,inst}_type:   We received ms.on for the specified axis
  *   ms_off_{az,alt,inst}_type:  We received ms.off for the specified axis
  */
+      if (msg.type < 0) {
+	 NTRACE_1(0, uid, cid, "RHL msg.type = %d\n", msg.type);
+      }
+      
       relatch = 0;			/* re-enable latches? */
       switch (msg.type) {
        case latchCrossed_type:
@@ -798,7 +803,7 @@ tLatch(const char *name)
 	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
 	 continue;
        default:
-	 NTRACE_1(0, uid, cid, "Impossible message type: %d", msg.type);
+	 NTRACE_1(0, uid, cid, "Impossible message type on msgLatched: %d", msg.type);
 	 continue;	 
       }
 /*
@@ -1369,23 +1374,22 @@ set_ms_on(int uid, unsigned long cid,
  */
    switch (axis) {
     case AZIMUTH:
-      (void)timerSendArg(ms_off_az_type, tmr_e_abort_ns, 0, uid, cid, 0);
+      (void)timerSendArg(-ms_off_az_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_az_type;
       break;
     case ALTITUDE:
-      (void)timerSendArg(ms_off_alt_type, tmr_e_abort_ns, 0, uid, cid, 0);
+      (void)timerSendArg(-ms_off_alt_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_alt_type;
       break;
     case INSTRUMENT:
-      (void)timerSendArg(ms_off_inst_type, tmr_e_abort_ns, 0, uid, cid, 0);
+      (void)timerSendArg(-ms_off_inst_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_inst_type;
       break;
    }
    msg.uid = uid;
    msg.cid = cid;
 
-   ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
-		  NO_WAIT, MSG_PRI_NORMAL);
+   ret = msgQSend(msgLatched, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
    if(ret != OK) {
       NTRACE_2(0, uid, cid, "Failed to send MS.ON message: %d %s", errno, strerror(errno));
       return(-1);
@@ -1415,7 +1419,7 @@ set_ms_off(int uid, unsigned long cid,
  */
    NTRACE(6, uid, cid, "Aborting old MS.OFFs");
 
-   (void)timerSendArg(msg.type, tmr_e_abort_ns, 0, uid, cid, 0);
+   (void)timerSendArg(-msg.type, tmr_e_abort_ns, 0, uid, cid, 0);
    taskDelay(1);			/* give the timerTask a chance */
 /*
  * actually set (or schedule) MS.OFF
@@ -1432,7 +1436,7 @@ set_ms_off(int uid, unsigned long cid,
     } else {				/* wait a while and send MS.OFF */
       NTRACE_2(1, uid, cid, "Sending msg to tTimerTask/msgLatched: type %d delay %d ticks",
 	       msg.type, (int)(delay*60));
-      if(timerSendArg(msg.type, tmr_e_add, delay*60, uid, cid, msgLatched) == ERROR) {
+      if(timerSendArg(-msg.type, tmr_e_add, delay*60, uid, cid, msgLatched) == ERROR) {
 	 NTRACE_2(0, uid, cid, "Failed to send ms_off message to timer task: %s (%d)",
 		  strerror(errno), errno);
 	 return(-1);
@@ -1455,6 +1459,7 @@ ms_on_cmd(int uid, unsigned long cid,
    const int axis = ublock->axis_select;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_on");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1481,6 +1486,7 @@ ms_off_cmd(int uid, unsigned long cid, char *cmd)
    float time_off;			/* when MS.OFF should take effect */
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_off");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1496,11 +1502,11 @@ ms_off_cmd(int uid, unsigned long cid, char *cmd)
    }
 
    if(set_ms_off(uid, cid, axis, delay) < 0) {
-      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_on");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_off");
 
       return "ERR: failed to set MS.OFF";
    } else {
-      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_on");
+      sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "ms_off");
    }
    
    return "";
@@ -1517,6 +1523,7 @@ ms_max_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    int old;				/* old value */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "ms_max");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1548,6 +1555,7 @@ min_encoder_mismatch_cmd(int uid, unsigned long cid, char *cmd)	/* NOTUSED */
    int old;				/* old value */
 
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "min_encoder_mismatch");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1576,8 +1584,8 @@ correct_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    const int axis = ublock->axis_select;
    
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "correct");
-
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
 

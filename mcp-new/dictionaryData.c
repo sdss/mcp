@@ -1,8 +1,8 @@
-#
-# Machine generated using buildKeyDict
-#
-# Fri Apr  3 22:59:30 MST 2009
-#
+/*
+ * Machine generated using buildKeyDict
+ *
+ * Tue Apr  7 14:04:06 MDT 2009
+ */
    struct {
       const char *name;
       int type;
@@ -33,8 +33,10 @@
        {"azPidCoeffs", array, 0, ""},
        {"azWindscreenTouchedCCW", novalue, 0, ""},
        {"azWindscreenTouchedCW", novalue, 0, ""},
+       {"badAxis", novalue, 0, ""},
        {"badCharacter", integer, 0, ""},
        {"badCommand", string, 0, ""},
+       {"badDevice", novalue, 0, ""},
        {"badUid", integer, 0, ""},
        {"badUserId", novalue, 0, ""},
        {"command", string, 0, ""},
@@ -72,12 +74,12 @@
        {"rotMsOn", boolean, 0, ""},
        {"rotPidCoeffs", array, 0, ""},
        {"saddleIsMounted", boolean, 0, ""},
-       {"semaphoreOwner", string, 0, ""},
+       {"semaphoreOwner", string, 1, ""},
        {"sp1Slithead", array, 0, ""},
        {"sp2Slithead", array, 0, ""},
        {"tbarCommanded", boolean, 0, ""},
        {"text", string, 1, ""},
-       {"userId", string, 0, ""},
+       {"userId", string, 1, ""},
        {"whtLampCommandedOn", boolean, 0, ""},
        {"yourUserNum", integer, 0, ""},
        {NULL, 0, 0, NULL}

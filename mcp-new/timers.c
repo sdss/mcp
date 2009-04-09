@@ -400,6 +400,8 @@ DIO316_interrupt(int type)
 	 msg.type = latchCrossed_type;
 	 msg.u.latchCrossed.time = timer_read(2);
 	 msg.u.latchCrossed.dio316int_bit = dio316int_bit;
+	 msg.uid = 0;
+	 msg.cid = 0;
 
 	 stat = msgQSend(msgLatched, (char *)&msg, sizeof(msg),
 			 NO_WAIT, MSG_PRI_NORMAL);

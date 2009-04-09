@@ -222,7 +222,7 @@ tCmdLog(void)
 
 	 break;
        default:
-	 NTRACE_1(0, uid, cid, "Impossible message type: %d", msg.msg.type);
+	 NTRACE_1(0, uid, cid, "Impossible message type on msgCmdLog: %d", msg.msg.type);
 
 	 continue;
       }
@@ -542,7 +542,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	       return("ERR: failed to take semCmdPort semaphore");
 	    }
 	    
-	    have_sem = (getSemTaskId(semCmdPort) == taskIdSelf()) ? 1 : 0;
+	    have_sem = have_semaphore(uid);
 	 }
 /*
  * Do we need the semaphore?

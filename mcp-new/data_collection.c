@@ -347,6 +347,8 @@ mei_data_collection(unsigned long freq)
 	    (void)give_semCmdPort(1);
 	    tcc_may_release_semCmdPort = 0;
 	    NTRACE(3, uid, cid, "All axes idle: TCC gave up semaphore");
+	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "haveSemaphore", have_semaphore(uid));
+	    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "semaphoreOwner", semCmdPortOwner);
 	 }
       }
       

@@ -434,7 +434,9 @@ sendStatusMsg_F(int uid,		/* user ID */
 
    if (msgStatus) {
       ret = msgQSend(msgStatus, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
-      assert(ret == OK);
+      if (ret != OK) {
+	 printf("Cannot write to msgStatus: %s", strerror(errno));
+      }
    }
 }
 
@@ -573,7 +575,7 @@ as2Init(void)
 /*
  * Create message queue of status information.
  */
-      msgStatus = msgQCreate(100, sizeof(MCP_STATUS_MSG), MSG_Q_FIFO);
+      msgStatus = msgQCreate(200, sizeof(MCP_STATUS_MSG), MSG_Q_FIFO);
       assert(msgStatus != NULL);
       ret = taskSpawn("tStatus",90,0,10000,(FUNCPTR)tStatus,
 		      0,0,0,0,0,0,0,0,0,0);
