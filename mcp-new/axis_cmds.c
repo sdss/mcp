@@ -612,7 +612,7 @@ char *
 rot_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = INSTRUMENT;
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "rot");
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "command", "rot"); /* not a "real" command that completes */
    return "";
 }
 
@@ -620,7 +620,7 @@ char *
 az_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = AZIMUTH;
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "az");
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "command", "az"); /* not a "real" command that completes */
    return "";
 }
 
@@ -628,7 +628,7 @@ char *
 alt_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    ublock->axis_select = ALTITUDE;
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "alt");
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "command", "alt"); /* not a "real" command that completes */
    return "";
 }
 
@@ -1672,7 +1672,9 @@ drift_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 
    sprintf(ublock->buff, "%f %f %f", arcdeg, veldeg, t);
    NTRACE_2(3, uid, cid, "DRIFT %s: %s", axis_name(axis), ublock->buff);
+#if 0
    printf("at end DRIFT %s: %s\n", axis_name(axis), ublock->buff);
+#endif
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "drift");
    
@@ -1698,7 +1700,7 @@ move_cmd(int uid, unsigned long cid, char *cmd)
       return("ERR: MOVE");
    }
 
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "move");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "move");
    
    return("");
 }
