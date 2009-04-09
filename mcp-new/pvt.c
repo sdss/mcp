@@ -715,7 +715,9 @@ start_frame(int axis, double t)
    dsp_dwell(2*axis, t);
    semGive(semMEI);
    
-   printf("START axis=%d: time=%f\n", 2*axis, t);
+   if (FRAME_verbose) {
+      printf("START axis=%d: time=%f\n", 2*axis, t);
+   }
 }
 
 /*=========================================================================
@@ -1027,8 +1029,10 @@ drift_frame(int axis,
    const double sf = ticks_per_degree[axis];
    
    NTRACE_2(3, uid, cid, "drifting %s: v = %ld cts/sec", axis_name(axis), (long)vel);
-   printf ("DRIFT %s: v=%12.8f\n", axis_name(axis), (double)vel);
-   printf("Drift frames left=%d\n", tm_frames_to_execute(axis));
+   if (FRAME_verbose) {
+      printf ("DRIFT %s: v=%12.8f\n", axis_name(axis), (double)vel);
+      printf("Drift frames left=%d\n", tm_frames_to_execute(axis));
+   }
    
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
       NTRACE_2(0, uid, cid, "drift_frame failed to take semMEI for %s: %s",
@@ -1079,12 +1083,14 @@ end_frame(int axis, int ind)
    dsp_set_last_command_corr(dspPtr, 2*axis, (double)p[axis][ind]*sf);
    semGive(semMEI);
    
-   printf("END axis=%d (%d): "
-	  "p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f, t=%12.8f\n",
-	  2*axis, ind,
-	  (double)p[axis][ind]*sf,(double)v[axis][ind]*sf,
-	  (double)a[axis][ind]*sf, (double)ji[axis][ind]*sf,
-	  tim[axis][ind]);
+   if (FRAME_verbose) {
+      printf("END axis=%d (%d): "
+	     "p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f, t=%12.8f\n",
+	     2*axis, ind,
+	     (double)p[axis][ind]*sf,(double)v[axis][ind]*sf,
+	     (double)a[axis][ind]*sf, (double)ji[axis][ind]*sf,
+	     tim[axis][ind]);
+   }
 }
 
 /*=========================================================================
@@ -1278,9 +1284,10 @@ tm_TCC(int axis)
 	    if(cnt == ERROR) {
 	       OTRACE(5, "No frames; setting frame_break for %s",
 		     axis_name(axis), 0);
+#if 0
 	       printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
 		      frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
-	       
+#endif
 	       frame_break[axis] = TRUE;
 	       axis_queue[axis].active = NULL;
 	       frame_cnt = 0;
@@ -1963,11 +1970,13 @@ mcp_plus_move(int axis,			/* the axis to move */
       break;
    }
 
+#if 0
    printf("%p: queue_end=%p, position=%f, velocity=%f, end_time=%f\n",
 	  &offset[axis][i],offset_queue_end[axis][i],
 	  offset[axis][i][1].position,
 	  offset[axis][i][1].velocity,
 	  offset[axis][i][1].end_time);
+#endif
    
    if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
       sdssdc.tccpmove[axis].position =
