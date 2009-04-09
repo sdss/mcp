@@ -1378,7 +1378,7 @@ char *
 sp1_cmd(int uid, unsigned long cid, char *cmd)
 {
    ublock->spectrograph_select = SPECTROGRAPH1;
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "sp1");
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "command", "sp1"); /* not a "real" command that completes */
    return("");
 }
 
@@ -1386,7 +1386,7 @@ char *
 sp2_cmd(int uid, unsigned long cid, char *cmd)
 {
   ublock->spectrograph_select = SPECTROGRAPH2;
-  sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "sp2");
+  sendStatusMsg_S(uid, cid, INFORMATION_CODE, 0, "command", "sp2"); /* not a "real" command that completes */
   return("");
 }
 
