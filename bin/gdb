@@ -1,0 +1,12 @@
+#!/bin/sh
+echo ""
+echo "    Remember to say"
+echo "                   tgtsvr -s -V sdssmcp -m 16777216 -c /home_hub25m/cloomis/vxWorks &"
+echo "    to the shell"
+echo ""
+
+# N.b. in gdb say
+#   target wtx sdssmcp
+# then attach to your task
+
+gdbm68k "$@"
