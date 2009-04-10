@@ -35,9 +35,12 @@ if ($C + $python == 0) {
 # Keys to ignore
 
 %ignoreKeys = (
-	       "alignmentClamp" => 1,
-	       "key" => 1,
+	       "alignmentClamp" => 1, # not compiled in
+	       "badUid" => 1,	# not compiled in
+	       "key" => 1,	# a variable used to hold e.g. azMaxAccLimit
+	       "inCommand" => 1, # debugging keyword in priority 'd' output;  ignored
 	       );
+
 
 # Keys that don't appear literally in the source code as they are defined for each axis
 
@@ -45,7 +48,7 @@ if ($C + $python == 0) {
 	     "MaxAccLimit" => "floating",
 	     "MaxAccRequested" => "floating",
 	     "MaxVelLimit" => "floating",
-	     "MaxVelRequired" => "floating",
+	     "MaxVelRequested" => "floating",
 	     "MsOn" => "boolean",
 	     "PidCoeffs" => "array",
 	     );
@@ -174,7 +177,11 @@ KeysDictionary('mcp', (1,1),
       if ($C) {
 	 printf '       {"%s", %s, %d, ""},' . "\n", $name, $keywordTypes{$name}, $alwaysSend{$name};
       } elsif ($python) {
-	 printf '    Key("%s", %s, "%s"),' . "\n", $name, pythonTypeByName($name), $helpStrings{$name};
+	 $type = pythonTypeByName($name);
+	 if ($type) {
+	    $type .= ", "
+	 }
+	 printf '    Key("%s", %shelp="%s"),' . "\n", $name, $type, $helpStrings{$name};
       } else {
 	 die "You can't get here";
       }
@@ -195,15 +202,19 @@ KeysDictionary('mcp', (1,1),
 # A type string for an enum that can be looked up name
 #
 %enumTypes = (
-	      "cwStatus" => ['Enum("LU", "L.", ".U", "..")', '"Invalid", "Lower Limit", "Upper Limit", "valid"'],
-	      "ffsSelected" => ['Enum("00", "01", "10", "11")', '"None", "Half1", "Half2", "All"'],
-	      "ffsStatus" => ['Enum("00", "01", "10", "11")*8', '"?", "Closed", "Open", "Invalid"'],
-	      "instrumentNum" => ['Int(invalid=-1)',]
+	      "cwStatus" => 'Enum("LU", "L.", ".U", "..", desc=("Invalid", "Lower Limit", "Upper Limit", "valid")',
+	      "ffsSelected" => 'Enum("00", "01", "10", "11", descr=("None", "Half1", "Half2", "All")',
+	      "ffsStatus" => 'Enum("00", "01", "10", "11")*8, descr=("?", "Closed", "Open", "Invalid")',
+	      "instrumentNum" => 'Int(invalid=-1)',
+	      "sp1Slithead" => 'Enum("00", "01", "10", "11", descr=("Indeterminate", "Open", "Closed", "Invalid")), Bool("0", "1", help="Latch extended"), Bool("0", "1", help="Slithead in place")',
+	      "sp2Slithead" => 'Enum("00", "01", "10", "11", descr=("Indeterminate", "Open", "Closed", "Invalid")), Bool("0", "1", help="Latch extended"), Bool("0", "1", help="Slithead in place")',
 	      );
 #
 # An array to be looked up by name;  returns dimension and type
 #
 %arrayTypes = (
+	       "azWindscreenTouched" =>  "2 boolean:01",
+	       "altWindscreenTouched" => "2 boolean:01",
 	       "cwPositions" => "4 integer",
 	       "HgCdLamp" => "4 boolean:01",
 	       "NeLamp" => "4 boolean:01",
@@ -214,7 +225,7 @@ KeysDictionary('mcp', (1,1),
 	       "azPidCoeffs" => "10 integer",
 	       "altPidCoeffs" => "10 integer",
 	       "rotPidCoeffs" => "10 integer",
-	       "plcVersionMismatch" => "2 integer",
+	       "plcVersions" => "2 integer",
 	   );
 
 sub pythonTypeByName
@@ -223,8 +234,7 @@ sub pythonTypeByName
 
    my($enum) = $enumTypes{$name};
    if (defined($enum)) {
-      #warn "$name, descr=($$enum[1])\n";
-      return $$enum[0];
+      return $enum;
    }
 
    return pythonType($keywordTypes{$name});
@@ -253,7 +263,7 @@ sub pythonType
    } elsif ($type eq "integer") {
       $type = 'Int()';
    } elsif ($type eq "novalue") {
-      ;
+      $type = "";
    } elsif ($type eq "string") {
       $type = 'String()';
    } else {

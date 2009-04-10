@@ -204,7 +204,8 @@ tSpecDoor(void)
       cid = msg.cid;
       
       if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
-	 NTRACE_1(0, msg.uid, msg.cid, "tSpecDoor illegal choice of spectrograph %d", spec);
+	 OTRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0);
+	 sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badSpectrograph", spec);
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 continue;
       }
@@ -285,6 +286,7 @@ mcp_specdoor_clear(int uid,
    int ret;				/* return code */
 
    if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
    
@@ -310,6 +312,7 @@ mcp_specdoor_open(int uid,
    int ret;				/* return code */
 
    if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
    
@@ -335,6 +338,7 @@ mcp_specdoor_close(int uid,
    int ret;				/* return code */
 
    if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
    
@@ -483,6 +487,7 @@ int
 mcp_slithead_latch_open(int spec)
 {
    if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      sendStatusMsg_I(0, 0, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
    
@@ -495,6 +500,7 @@ int
 mcp_slithead_latch_close(int spec)
 {
    if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
+      sendStatusMsg_I(0, 0, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
    
@@ -1448,7 +1454,6 @@ char *
 slitdoor_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_specdoor_open(uid, cid, ublock->spectrograph_select) < 0) {
-      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_open");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1466,7 +1471,6 @@ char *
 slitdoor_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_specdoor_close(uid, cid, ublock->spectrograph_select) < 0) {
-      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1484,7 +1488,6 @@ char *
 slithead_latch_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_slithead_latch_close(ublock->spectrograph_select) < 0) {
-      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
@@ -1499,7 +1502,6 @@ char *
 slithead_latch_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    if(mcp_slithead_latch_open(ublock->spectrograph_select) < 0) {
-      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badDevice");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
