@@ -8,6 +8,7 @@ int get_inststatus(char *status_ans, int size);
 extern int check_stop_in(int update);
 extern int fsm(int inst,int action);
 extern int il_ADC128F1;
+extern int lava_lamp_on;
 void il_data_collection(void);
 void update_sdssdc_status_i6(void);
 /*

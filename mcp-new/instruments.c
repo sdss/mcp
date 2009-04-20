@@ -130,10 +130,11 @@ void
 broadcast_inst_status(int uid, unsigned long cid)
 {
    int inst_id = instrument_id();
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "saddleIsMounted", saddle_is_mounted());
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "saddleIsMounted", saddle_is_mounted());
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
 
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 0, "instrumentNumConsistent", (inst_id >= 0));
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 0, "instrumentNum", inst_id);
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "instrumentNumConsistent", (inst_id >= 0));
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "instrumentNum", inst_id);
 }
 
 int
