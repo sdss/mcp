@@ -210,7 +210,7 @@ setSDSStimeFromNTP 1
 ADC128F1_initialize (0xfff58000,0)
 taskSpawn "serverData",75,8,10000,serverData,1,DataCollectionTrigger
 taskSpawn "MEI_DC",48,8,10000,mei_data_collection,1
-taskSpawn "SLC_DC",70,8,10000,slc500_data_collection,20
+taskSpawn "SLC_DC",69,8,10000,slc500_data_collection,20
 check_encoder_freq = 20*60
 TimerStart 20, 5, serverDCStart
 ipsdss_ini
