@@ -4,7 +4,7 @@
 # sendStatusMsg calls in the code
 #
 # E.g.
-#   grep sendStatusMsg mcp-new/*c | grep -v as2.c | buildKeyDict
+#   grep sendStatusMsg src/*c | grep -v as2.c | buildKeyDict
 #
 require "getopts.pl";
 

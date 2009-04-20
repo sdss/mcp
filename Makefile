@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 
-DIRS = ab bin doc etc fiducial-tables ip mei-new mcp-new ups util
+DIRS = ab bin doc etc fiducial-tables ip mei-src src ups util
 
 all :
 	@for d in $(DIRS); do \
@@ -69,7 +69,7 @@ tags :
 
 make :
 	@for d in $(DIRS); do \
-		if [ $$d = "mcp-new" ]; then \
+		if [ $$d = "src" ]; then \
 			(cd $$d; $(MAKE) $(MFLAGS) make ); \
 		fi; \
 	done

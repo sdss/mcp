@@ -6,7 +6,7 @@
 const char *
 getCvsTagname(void)
 {
-   return "$Name$";
+   return "HeadURL$";
 }
 
 char *
@@ -18,5 +18,5 @@ version_cmd(int uid, unsigned long cid,
       sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "version");
    }
 
-   return "mcpVersion=\"$Name$|"  __DATE__ "|" __TIME__ "\"\n";
+   return "mcpVersion=\"HeadURL$|"  __DATE__ "|" __TIME__ "\"\n";
 }

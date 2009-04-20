@@ -3,7 +3,7 @@ CPU = MC68040
 HOST = irix
 
 DESTDIR = ./
-MEIDSP = ../mei-new/
+MEIDSP = ../mei-src/
 IP = ../ip
 SYSTRAN = ../ip/systran/
 ACROMAG = ../ip/acromag/
@@ -46,7 +46,7 @@ mcpnew.out : $(OBJS) $(LIBRARIES)
 	$(LIBRARIES)
 
 install : all
-	cp Makefile *.[cho] *.out $(MCP_DIR)/mcp-new
+	cp Makefile *.[cho] *.out $(MCP_DIR)/src
 
 clean:
 	rm -rf *.o mcp.out *~

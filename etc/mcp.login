@@ -158,23 +158,23 @@ ld < util/ntp.o
 #
 # Load the MCP itself
 #
-ld 1, 0, "mcp-new/mcpnew.out"
+ld 1, 0, "src/mcpnew.out"
 
-#ld < mei-new/llfirm.o
-#ld < mcp-new/util.o
-#ld < mcp-new/telescope_motion.o
-#ld < mcp-new/counter_weight.o
-#ld < mcp-new/serial.o
-#ld < mcp-new/instrument_lift.o
-#ld < mcp-new/data_collection.o
-#ld < mcp-new/ipcast.o
-#ld < mcp-new/ipsym.o
-#ld < mcp-new/display.o
-#ld < mcp-new/umbilical.o
-#ld < mcp-new/telnetCmds.o
-#ld < mcp-new/tagname.o
-#ld < mcp-new/axis_cmds.o
-#ld < mcp-new/cmd.o
+#ld < mei-src/llfirm.o
+#ld < src/util.o
+#ld < src/telescope_motion.o
+#ld < src/counter_weight.o
+#ld < src/serial.o
+#ld < src/instrument_lift.o
+#ld < src/data_collection.o
+#ld < src/ipcast.o
+#ld < src/ipsym.o
+#ld < src/display.o
+#ld < src/umbilical.o
+#ld < src/telnetCmds.o
+#ld < src/tagname.o
+#ld < src/axis_cmds.o
+#ld < src/cmd.o
 #
 # Initialise message queues and semaphores
 #

@@ -25,7 +25,7 @@ fi
 #
 # Make the links for the MCP directories
 #
-for d in ab bin doc etc fiducial-tables ip mcp-new mei-new params util; do
+for d in ab bin doc etc fiducial-tables ip src mei-src params util; do
     if [ -L $d ]; then 
 	rm $d
     fi

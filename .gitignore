@@ -5,6 +5,6 @@ ip/acromag/*.map
 ip/acromag/*.out
 ip/systran/*.map
 ip/systran/*.out
-mcp-new/*.map
-mcp-new/*.out
+src/*.map
+src/*.out
 util/utiltim.out
