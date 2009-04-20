@@ -277,7 +277,9 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    char *reply = NULL;			/* reply to a command */
 
    new_ublock(-1, uid, protocol, "(telnet)"); /* task-specific UBLOCK */
-
+   /*
+    * This is all we know about the newly-connected user
+    */
    if (ublock->protocol == OLD_PROTOCOL) {
       sprintf(buff, "connected\n");
       if(write(fd, buff, strlen(buff)) == -1) {
@@ -286,9 +288,11 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 	 return;
       }
    } else {
-      sendStatusMsg_FD(uid, 0, INFORMATION_CODE, 0, fd);
+      sendStatusMsg_FD(uid, taskIdSelf(), INFORMATION_CODE, 0, fd);
       sendStatusMsg_I(uid, 0, INFORMATION_CODE, 0, "yourUserNum", uid);
    }
+   sprintf(ublock->buff, "User %s:%d, TID 0x%x", ublock->uname, ublock->pid, taskIdSelf());
+   sendStatusMsg_S(uid, 0, INFORMATION_CODE, 1, "userId", ublock->buff);
 
    for(;;) {
       int cid = 0;			/* Command ID */
@@ -299,14 +303,18 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       cmd = cmd_s;
       if((n = fioRdString(fd, cmd, MSG_SIZE - 1)) == ERROR) {
 	 if(errno != 0) {
+	    printf("uid=%d cid=%d fd=%d telnet reading on port %d: %s", uid, cid, fd, port, strerror(errno));
 	    NTRACE_2(0, uid, cid, "telnet reading on port %d: %s", port, strerror(errno));
 	 }
-	 if(nerr < 10 && errno != S_taskLib_NAME_NOT_FOUND &&
-	    errno != S_objLib_OBJ_TIMEOUT) {
-	    taskDelay(5);
+	 if(nerr < 10 && !(errno == S_taskLib_NAME_NOT_FOUND || errno == S_objLib_OBJ_TIMEOUT)) {
 	    break;
 	 }
+
 	 nerr++;
+#if 0
+	 taskDelay(5);
+	 continue;
+#endif
       } else if(n == 0) {
 	 if(errno != 0) {
 	    NTRACE_2(0, uid, cid, "telnet reading (2) on port %d: %s", port, strerror(errno));
@@ -398,10 +406,10 @@ cpsWorkTask(int fd,			/* as returned by accept() */
 
    (void)give_semCmdPort(0);
 
-   close(fd);
    if (ublock->protocol == NEW_PROTOCOL) {
       sendStatusMsg_FD(uid, 0, FINISHED_CODE, 0, fd);
    }
+   close(fd);
 
    return;
 }
@@ -453,6 +461,12 @@ cmdPortServer(int port)			/* port to bind to */
      perror("reuse");
    if(setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&i, sizeof(i)) < 0)
      perror("keepalive");
+   {
+      int sbufSize = 32768;
+      if (setsockopt (sock, SOL_SOCKET, SO_SNDBUF, (char *)&sbufSize, sizeof (sbufSize)) < 0) {
+	 perror("sndbuf");
+      }
+   }
 /*
  * bind to local address
  */
