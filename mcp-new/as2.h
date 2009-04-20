@@ -45,7 +45,7 @@ int have_semaphore(int uid);
  */
 #define INVALID_INT 0xdeadbeef          /* An invalid value; in particular can't be cached and not resent */
 
-void resetKeywordDictionary();
+void clearKeywordCache();
 void declareKeyword(char const* key, MSG_TYPE type, int alwaysSend, char const*);
 
 void sendStatusMsg(int uid, unsigned long cid, MSG_CODE code, int broadcast);

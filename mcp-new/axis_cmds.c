@@ -895,7 +895,7 @@ info_cmd(int uid, unsigned long cid, char *cmd)
       return("ERR: Cannot take semStatusCmd");
    }
 
-   resetKeywordDictionary();
+   clearKeywordCache();
 
    broadcast_ffs_lamp_status(uid, cid, 1, 1);
    broadcast_inst_status(uid, cid);
