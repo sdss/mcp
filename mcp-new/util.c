@@ -448,7 +448,7 @@ get_mjd(void)
 
 /*****************************************************************************/
 /*
- * return the MCP version
+ * return the MCP version.  Print to console if version == NULL && len == 0
  */
 char *
 mcpVersion(char *version,		/* string to fill out, or NULL */
@@ -456,34 +456,46 @@ mcpVersion(char *version,		/* string to fill out, or NULL */
 {
    static char buff[100 + 1];		/* buffer if version == NULL */
    int i;
-   int print = (version == NULL) ? 1 : 0; /* should I print the version? */
+   int print = (version == NULL && len == 0) ? 1 : 0; /* should I print the version? */
    const char *ptr;			/* scratch pointer */
    const char *tag = version_cmd(0, 0, NULL); /* CVS tagname + compilation time */
 
    if(version == NULL) {
-      version = buff; len = 101;
+      version = buff; len = sizeof(buff);
    }
 
    version[len - 1] = '\a';		/* check for string overrun */
 
-   ptr = strchr(tag, ':');
-   if(ptr == NULL) {
+   if (strncmp(tag, "mcpVersion=\"", 12) == 0) {
+      tag += 12;
+      if (tag[strlen(tag) - 1] == '"') {
+	 tag[strlen(tag) - 1] = '\0';
+      }
+   }
+
+   ptr = strchr(tag, '$');
+   if (ptr != NULL && strncmp(ptr + 1, "Name$", 5) == 0) { /* an unexpanded dollar-Name-dollar */
       strncpy(version, tag, len - 1);
    } else {
-      ptr++;
-      while(isspace((int)*ptr)) ptr++;
-      
-      if(*ptr != '$') {			/* a CVS tag */
-	 for(i = 0; ptr[i] != '\0' && !isspace((int)ptr[i]) && i < 100; i++) {
-	    version[i] = ptr[i];
-	 }
-	 version[i] = '\0';
+      ptr = strchr(tag, ':');
+      if(ptr == NULL) {
+	 strncpy(version, tag, len - 1);
       } else {
-	 if(*ptr == '$') ptr++;
-	 if(*ptr == '|') ptr++;
+	 ptr++;
+	 while(isspace((int)*ptr)) ptr++;
+      
+	 if(*ptr != '$') {			/* a CVS tag */
+	    for(i = 0; ptr[i] != '\0' && !isspace((int)ptr[i]) && i < 100; i++) {
+	       version[i] = ptr[i];
+	    }
+	    version[i] = '\0';
+	 } else {
+	    if(*ptr == '$') ptr++;
+	    if(*ptr == '|') ptr++;
 	 
-	 sprintf(version, "NOCVS:%s", ptr);
-	 version[strlen(version) - 2] = '\0'; /* trim "double quote\n" */
+	    sprintf(version, "NOCVS:%s", ptr);
+	    version[strlen(version) - 2] = '\0'; /* trim "double quote\n" */
+	 }
       }
    }
 
