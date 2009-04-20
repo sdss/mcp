@@ -20,14 +20,15 @@
  */
 MSG_Q_ID msgStatus = NULL;		/* Queues of status keywords */
 
-int msgQNumMsgsHighWater = 0;	        /* maximum number of messages waiting on the msgStatus queue */
+int keywordQueueDepth = 0;	        /* maximum number of messages waiting on the msgStatus queue */
 
 #define BUFF_SIZE 81			/* size of response buffers */
 
 typedef struct {
    int uid;				/* user ID */
    int fd;				/* uid's file descriptor */
-} USER_FD;				/* std::pair<int, int> */
+   int tid;				/* uid's TaskID */
+} USER_FD;
 
 /********************************************************************************/
 
@@ -130,7 +131,7 @@ resetKey(char *name,		/* name of command */
 }
 
 void
-resetKeywordDictionary()
+clearKeywordCache()
 {
    if(keySymTbl == NULL) {
       declareKeyword(NULL, 0, 0, NULL);	/* allocate keySymTbl */
@@ -141,21 +142,32 @@ resetKeywordDictionary()
 
 /*-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
 /*
- * The task to send sttus to the hub
+ * The task to send status to the hub
  */
+static USER_FD *fds;			/* active file descriptors */
+static int nfd = 0;			/* number of active file descriptors */
+static int size_fds = 0;		/* allocated size of fds */
+
+void showConnections()
+{
+   int i;
+
+   printf("fd uid TID\n");
+   for (i = 0; i < nfd; ++i) {
+      printf("%2d %3d 0x%x\n", fds[i].fd, fds[i].uid, fds[i].tid);
+   }
+}
+
 void
 tStatus(void)
 {
    int uid = 0, cid = 0;
    MCP_STATUS_MSG msg;			/* message to pass around */
    int broadcast;			/* should this message be broadcast to all listeners in fds? */
-   char buff[BUFF_SIZE];		/* response buffer */
-   USER_FD *fds;			/* active file descriptors */
+   char buff[BUFF_SIZE + 1];		/* response buffer */
    int i;
    int nwrite;				/* number of chars to write to fds[].fd */
-   int nfd = 0;				/* number of active file descriptors */
    int ofd;				/* an output file descriptor */
-   int size_fds = 0;			/* allocated size of fds */
 
    if (keySymTbl == NULL) {
       declareKeyword(NULL, 0, 0, NULL);	/* allocate keySymTbl */
@@ -177,10 +189,16 @@ tStatus(void)
       {
 	 int nmsgs = msgQNumMsgs(msgStatus);
 
-	 if (nmsgs > msgQNumMsgsHighWater) {
-	    msgQNumMsgsHighWater = nmsgs;
+	 if (nmsgs > keywordQueueDepth) {
+	    keywordQueueDepth = nmsgs;
 
-	    sendStatusMsg_I(uid, cid, DEBUG_CODE, 1, "keywordQueueDepth", msgQNumMsgsHighWater);
+	    sprintf(buff, "%d %d %c %s=%d\n", uid, cid, DEBUG_CODE, "keywordQueueDepth", keywordQueueDepth);
+	    nwrite = strlen(buff);
+	    assert (nwrite < BUFF_SIZE);
+
+	    for (i = 0; i != nfd; ++i) {
+	       write(fds[i].fd, buff, nwrite);
+	    }
 	 }
       }
 
@@ -202,7 +220,7 @@ tStatus(void)
 	  if (msg.code == FINISHED_CODE) {
 	     for (i = 0; i < nfd; ++i) {
 		if (fds[i].fd == ofd) {
-		   for (; i < nfd; ++i) {
+		   for (; i < nfd - 1; ++i) {
 		      fds[i] = fds[i + 1];
 		   }
 		   nfd--;
@@ -218,6 +236,7 @@ tStatus(void)
 	     
 	     fds[nfd].uid = msg.uid;
 	     fds[nfd].fd = ofd;
+	     fds[nfd].tid = msg.cid;
 	     ++nfd;
 	  }
 	  continue;
@@ -335,18 +354,54 @@ tStatus(void)
       }
 
       nwrite = strlen(buff);
-      if (nwrite >= BUFF_SIZE) {
+      if (nwrite > BUFF_SIZE) {
 	 printf("nwrite = %d, BUFF_SIZE = %d\n", nwrite, BUFF_SIZE);
       }
-      assert (nwrite < BUFF_SIZE);
+      assert (nwrite <= BUFF_SIZE);
 
       for (i = 0; i != nfd; ++i) {
 	 if (broadcast || fds[i].uid == msg.uid) {
+	    errno = 0;
 	    if (write(fds[i].fd, buff, nwrite) != nwrite) {
-	       NTRACE_2(0, msg.uid, msg.cid, "Failed to write %d bytes to uid %d", nwrite, fds[i].uid);
+	       int j;
+
+	       sprintf(buff, "writing %d bytes to %d: strerror = %s\n", nwrite, fds[i].uid, strerror(errno));
+	       nwrite = strlen(buff);
+	       assert (nwrite < BUFF_SIZE);
+
+	       for (j = 0; j != nfd; ++j) {
+		  if (j != i) {
+		     write(fds[j].fd, buff, nwrite);
+		  }
+	       }
 	    }
 	 }
       }
+   }
+}
+
+/*********************************************************************************/
+/*
+ * Print MCP_STATUS_MSG for debugging
+ */
+void printStatusMsg(MCP_STATUS_MSG const* msg) {
+   switch (msg->type) {
+    case none:
+    case novalue:
+    case file_descriptor:
+      printf("%s\n", msg->key);
+      break;		  
+    case floating:
+      printf("%s %g\n", msg->key, msg->u.fval);
+      break;
+    case integer:
+    case boolean:
+      printf("%s %d\n", msg->key, msg->u.ival);
+      break;
+    case array:
+    case string:
+      printf("%s %s\n", msg->key, msg->u.sval);
+      break;
    }
 }
 
@@ -360,14 +415,22 @@ doSendStatusMsg(MCP_STATUS_MSG const* msg, /* message to send */
    )
 {
    int uid = 0, cid = 0;
+   int ret = 0;
    
    if (msgStatus) {
-      int ret = msgQSend(msgStatus, (char *)msg, sizeof(*msg), WAIT_FOREVER, MSG_PRI_NORMAL);
+#if 0
+      if (msgQNumMsgs(msgStatus) > 100) {
+	 printStatusMsg(msg);
+      }
+#endif
+
+      ret = msgQSend(msgStatus, (char *)msg, sizeof(*msg), WAIT_FOREVER, MSG_PRI_NORMAL);
       if (ret != OK) {
-	 if (priority == MSG_PRI_NORMAL) {
-	    sendStatusMsgUrgent_S(uid, cid, INFORMATION_CODE, 1, "statusSendFailed", strerror(errno));
-	 }
 	 printf("Failed to write message to msgStatus: %s", strerror(errno));
+
+	 if (priority == MSG_PRI_NORMAL) {
+	    (void)sendStatusMsgUrgent_S(uid, cid, INFORMATION_CODE, NO_WAIT, "statusSendFailed", strerror(errno));
+	 }
       }
    }
 }
@@ -594,6 +657,34 @@ ping_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
     return "";
 }
 
+/************************************************************************************************************/
+/*
+ * Report the lavaLamp's status
+ */
+int lava_lamp_on = 0;			/* is lava lamp on? */
+
+char *
+lava_lamp_on_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+{
+   lava_lamp_on = 1;
+
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_lamp_on");
+
+   return "";
+}
+
+char *
+lava_lamp_off_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+{
+   lava_lamp_on = 0;
+
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_lamp_off");
+
+   return "";
+}
+
 /*********************************************************************************/
 /*
  * The heartbeat task, used to demonstrate that we live and breath
@@ -626,13 +717,13 @@ as2Init(void)
       /*
        * The task that sends the status
        */
-      ret = taskSpawn("tStatus",91,0,10000,(FUNCPTR)tStatus,
+      ret = taskSpawn("tStatus", (FALSE ? 91 : 68),0,10000,(FUNCPTR)tStatus,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
       /*
        * The heartbeat task
        */
-      ret = taskSpawn("tHeartbeat",200,0,1000,(FUNCPTR)tHeartbeat,
+      ret = taskSpawn("tHeartbeat",200,0,10000,(FUNCPTR)tHeartbeat,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
    }
@@ -640,4 +731,6 @@ as2Init(void)
  * define spectro commands to the command interpreter
  */
    define_cmd("PING",           ping_cmd, 	       0, 0, 0, 0, "Ping the MCP");
+   define_cmd("LAVA_LAMP_ON",  lava_lamp_on_cmd,       0, 0, 0, 0, "Set the lava lamp status ON");
+   define_cmd("LAVA_LAMP_OFF", lava_lamp_off_cmd,      0, 0, 0, 0, "Set the lava lamp status OFF");
 }
