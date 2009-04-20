@@ -149,6 +149,10 @@ log_mcp_command(int type,		/* type of command */
  * We have work to do. 
  */
    msg.msg.type = cmdLog_type;
+   if(strlen(cmd) > UBLOCK_SIZE - 20) {
+      printf("Command is too long to log: %s\n", cmd);
+      cmd = "(too long)";
+   }
    sprintf(msg.msg.u.cmdLog.cmd, "%ld:%d:%s\n", time(NULL), ublock->pid, cmd);
 
    switch (msgQSend(msgCmdLog, (char *)&msg, sizeof(msg),
@@ -340,7 +344,7 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
  */
    printf("About to log the reboot\n");
    log_mcp_command(CMD_TYPE_MURMUR, "rebooted");
-   log_mcp_command(CMD_TYPE_MURMUR, mcpVersion(NULL, 0));
+   log_mcp_command(CMD_TYPE_MURMUR, mcpVersion(NULL, -1));
 /*
  * Define some misc commands that don't belong in any init function
  */
@@ -438,7 +442,6 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    char *args;				/* arguments for this command */
    char cmd_copy[256 + 1];		/* modifiable copy of cmd */
    char *cmd_str = cmd_copy;		/* pointer to command; or NULL */
-   int isFirst_cmd = 1;			/* is this the first command in the input command string, cmd? */
    static int iack_counter = -1;	/* control too many rebootedMsg
 					   messages; wait before the first */
    int lvl;				/* level for OTRACE */
@@ -448,13 +451,21 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    int varargs;				/* we don't know how many arguments
 					   to expect */
 
-   strncpy(cmd_copy, cmd, sizeof(cmd_copy) - 1);
-
    if(!iacked) {
       if(iack_counter++%100 == 0) {
 	 sendStatusMsg_B(0, 0, INFORMATION_CODE, 1, "needIack", 1);
       }
    }
+
+   if (strlen(cmd) >= sizeof(cmd_copy)) {
+      printf("Command %s is too long (max %d bytes)\n", cmd, sizeof(cmd_copy));
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "commandTooLong", strlen(cmd));
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "badCommand", cmd);
+
+      return "ERR: command is too long";
+   }
+
+   strcpy(cmd_copy, cmd);
 
    semTake(semCMD, WAIT_FOREVER);
    ans = NULL;				/* ans is returned from function */
@@ -465,6 +476,10 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    
    nskip = varargs = 0;
    while((tok = strtok(cmd_str, " \t")) != NULL) {
+#if 0
+      int isFirst_cmd = 1;		/* is this the first command in the input command string, cmd? */
+#endif 
+
       cmd_str = NULL;
 
       while(isspace((int)*tok)) tok++;	/* skip white space */
