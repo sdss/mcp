@@ -38,7 +38,7 @@ $(LIB):	$(OBJS)
 	$(RAN) $(LIB)
 
 install : all
-	cp Makefile *.[acho] $(MCP_DIR)/mei-new
+	cp Makefile *.[acho] $(MCP_DIR)/mei-src
 
 	if [ ! -d $(MCP_DIR)/doc ]; then \
 		mkdir $(MCP_DIR)/doc; \
