@@ -273,7 +273,6 @@ src/data_collection.c -text
 src/data_collection.h -text
 src/dictionary.c -text
 src/dictionaryData.c -text
-src/display.c -text
 src/fiducials.c -text
 src/frame.h -text
 src/instrument_lift.c -text
