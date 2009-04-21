@@ -25,7 +25,7 @@ CFLAGS = $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__
 
 OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
-display.o instruments.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
+instruments.o telnetCmds.o timers.o fiducials.o spectro.o tbars.o \
 tagname.o brakes.o as2.o dictionary.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
@@ -120,20 +120,6 @@ data_collection.o : mcpUtils.h
 data_collection.o : serial.h
 data_collection.o : tm.h
 dictionary.o : as2.h
-display.o : axis.h
-display.o : cmd.h
-display.o : copyright.h
-display.o : cw.h
-display.o : cw.h
-display.o : data_collection.h
-display.o : frame.h
-display.o : frame.h
-display.o : instruments.h
-display.o : io.h
-display.o : mcpFiducials.h
-display.o : mcpUtils.h
-display.o : ms.h
-display.o : tm.h
 fiducials.o : as2.h
 fiducials.o : axis.h
 fiducials.o : cmd.h
