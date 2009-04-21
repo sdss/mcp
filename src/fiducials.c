@@ -337,7 +337,7 @@ broadcast_fiducial_status(int uid, unsigned long cid)
    
    /* PLC version, per the PLC */
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "plcVersion", sdssdc.status.b3.w1.version_id);
-   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "mcpVersion", mcpVersion(NULL, -1));
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "mcpVersion", getCvsTagname());
 }
 
 

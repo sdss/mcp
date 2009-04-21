@@ -454,57 +454,19 @@ char *
 mcpVersion(char *version,		/* string to fill out, or NULL */
 	   int len)			/* dimen of string */
 {
-   static char buff[100 + 1];		/* buffer if version == NULL */
-   int i;
    int print = (version == NULL && len == 0) ? 1 : 0; /* should I print the version? */
-   const char *ptr;			/* scratch pointer */
-   const char *tag = version_cmd(0, 0, NULL); /* CVS tagname + compilation time */
+   char *tag = version_cmd(0, 0, NULL); /* CVS tagname + compilation time */
 
-   if(version == NULL) {
-      version = buff; len = sizeof(buff);
-   }
-
-   version[len - 1] = '\a';		/* check for string overrun */
-
-   if (strncmp(tag, "mcpVersion=\"", 12) == 0) {
-      tag += 12;
-      if (tag[strlen(tag) - 1] == '"') {
-	 tag[strlen(tag) - 1] = '\0';
-      }
-   }
-
-   ptr = strchr(tag, '$');
-   if (ptr != NULL && strncmp(ptr + 1, "Name$", 5) == 0) { /* an unexpanded dollar-Name-dollar */
-      strncpy(version, tag, len - 1);
-   } else {
-      ptr = strchr(tag, ':');
-      if(ptr == NULL) {
-	 strncpy(version, tag, len - 1);
-      } else {
-	 ptr++;
-	 while(isspace((int)*ptr)) ptr++;
-      
-	 if(*ptr != '$') {			/* a CVS tag */
-	    for(i = 0; ptr[i] != '\0' && !isspace((int)ptr[i]) && i < 100; i++) {
-	       version[i] = ptr[i];
-	    }
-	    version[i] = '\0';
-	 } else {
-	    if(*ptr == '$') ptr++;
-	    if(*ptr == '|') ptr++;
-	 
-	    sprintf(version, "NOCVS:%s", ptr);
-	    version[strlen(version) - 2] = '\0'; /* trim "double quote\n" */
-	 }
-      }
-   }
-
-   assert(version[len - 1] == '\a');	/* no overrun */
    if(print) {
-      printf("mcpVersion: %s\n", version);
+      printf("mcpVersion: %s\n", tag);
    }
 
-   return(version);
+   if (version != NULL) {
+      strncpy(version, tag, len - 1);
+      version[len - 1] = '\0';
+   }
+
+   return tag;
 }
 
 /*****************************************************************************/
