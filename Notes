@@ -1,0 +1,4 @@
+cd mcp
+. etc/setup-mcp
+sdssmake
+env MCP_DIR=/linuxp/prd/mcp/rhl sdssmake install

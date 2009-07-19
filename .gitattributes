@@ -1,6 +1,7 @@
 * text=auto !eol
 /.login -text
 /Makefile -text
+/Notes -text
 ab/.cvsignore -text
 ab/Makefile -text
 ab/abdh.h -text
