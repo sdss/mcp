@@ -270,7 +270,6 @@ src/copyright.h -text
 src/counter_weight.c -text
 src/cw.h -text
 src/data_collection.c -text
-src/data_collection.h -text
 src/dictionary.c -text
 src/dictionaryData.c -text
 src/fiducials.c -text

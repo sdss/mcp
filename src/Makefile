@@ -19,7 +19,7 @@ H5 = $(VWH)private/
 
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) -I$(MEIDSP) -I$(DESTDIR) \
 	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) -I$(UTIL) \
-	-I$(VX_TOOLS_DIR)/include -I$(MURMUR_CLIENT_VX_DIR)/include
+	-I$(VX_TOOLS_DIR)/include -I$(MURMUR_CLIENT_VX_DIR)/include -I$(PLC_DIR)/include
 
 CFLAGS = $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__
 
@@ -57,6 +57,8 @@ make :
 #
 # include file dependencies.
 #
+data_collection.o : $(PLC_DIR)/include/data_collection.h
+#
 # All line below START_DEPEND are machine generated; Do Not Edit
 #
 #START_DEPEND
@@ -68,10 +70,10 @@ axis_cmds.o : as2.h
 axis_cmds.o : axis.h
 axis_cmds.o : cmd.h
 axis_cmds.o : cw.h
-axis_cmds.o : data_collection.h
 axis_cmds.o : frame.h
 axis_cmds.o : instruments.h
 axis_cmds.o : io.h
+axis_cmds.o : ipcast.h
 axis_cmds.o : mcpFiducials.h
 axis_cmds.o : mcpMsgQ.h
 axis_cmds.o : mcpTimers.h
@@ -80,9 +82,9 @@ axis_cmds.o : ms.h
 axis_cmds.o : serial.h
 axis_cmds.o : tm.h
 brakes.o : abdh.h
+brakes.o : as2.h
 brakes.o : axis.h
 brakes.o : cmd.h
-brakes.o : data_collection.h
 brakes.o : mcpMsgQ.h
 brakes.o : tm.h
 cmd.o : as2.h
@@ -95,21 +97,21 @@ cmd.o : mcpMsgQ.h
 cmd.o : mcpTimers.h
 cmd.o : mcpUtils.h
 cmd.o : ms.h
+counter_weight.o : as2.h
 counter_weight.o : axis.h
 counter_weight.o : cmd.h
 counter_weight.o : cw.h
-counter_weight.o : data_collection.h
 counter_weight.o : instruments.h
 counter_weight.o : io.h
 counter_weight.o : mcpMsgQ.h
 counter_weight.o : mcpTimers.h
 counter_weight.o : mcpUtils.h
 data_collection.o : abdh.h
+data_collection.o : as2.h
 data_collection.o : axis.h
 data_collection.o : cmd.h
 data_collection.o : copyright.h
 data_collection.o : cw.h
-data_collection.o : data_collection.h
 data_collection.o : frame.h
 data_collection.o : instruments.h
 data_collection.o : io.h
@@ -123,7 +125,6 @@ dictionary.o : as2.h
 fiducials.o : as2.h
 fiducials.o : axis.h
 fiducials.o : cmd.h
-fiducials.o : data_collection.h
 fiducials.o : mcpFiducials.h
 fiducials.o : mcpMsgQ.h
 fiducials.o : mcpTimers.h
@@ -131,9 +132,9 @@ fiducials.o : mcpUtils.h
 fiducials.o : serial.h
 fiducials.o : tm.h
 instrument_lift.o : abdh.h
+instrument_lift.o : as2.h
 instrument_lift.o : axis.h
 instrument_lift.o : cw.h
-instrument_lift.o : data_collection.h
 instrument_lift.o : instruments.h
 instrument_lift.o : tm.h
 instruments.o : abdh.h
@@ -141,16 +142,18 @@ instruments.o : as2.h
 instruments.o : axis.h
 instruments.o : cmd.h
 instruments.o : cw.h
-instruments.o : data_collection.h
 instruments.o : instruments.h
 instruments.o : tm.h
+ipcast.o : as2.h
+ipcast.o : axis.h
+ipsym.o : as2.h
 ipsym.o : mcpUtils.h
 ipsym.o : timerint.h
 pvt.o : abdh.h
+pvt.o : as2.h
 pvt.o : axis.h
 pvt.o : cmd.h
 pvt.o : cw.h
-pvt.o : data_collection.h
 pvt.o : frame.h
 pvt.o : io.h
 pvt.o : mcpFiducials.h
@@ -160,30 +163,32 @@ pvt.o : mcpUtils.h
 pvt.o : ms.h
 pvt.o : serial.h
 pvt.o : tm.h
+serial.o : as2.h
 serial.o : axis.h
 serial.o : cmd.h
 serial.o : copyright.h
 serial.o : mcpUtils.h
 serial.o : serial.h
 spectro.o : abdh.h
-spectro.o : as2.h
 spectro.o : axis.h
 spectro.o : cmd.h
-spectro.o : data_collection.h
 spectro.o : frame.h
 spectro.o : mcpMsgQ.h
 spectro.o : mcpSpectro.h
+spectro.o : mcpUtils.h
 spectro.o : tm.h
+tagname.o : as2.h
 tbars.o : abdh.h
+tbars.o : as2.h
 tbars.o : axis.h
 tbars.o : cmd.h
-tbars.o : data_collection.h
 tbars.o : mcpMsgQ.h
+tbars.o : mcpUtils.h
 telescope_motion.o : abdh.h
+telescope_motion.o : as2.h
 telescope_motion.o : axis.h
 telescope_motion.o : cmd.h
 telescope_motion.o : cw.h
-telescope_motion.o : data_collection.h
 telescope_motion.o : frame.h
 telescope_motion.o : instruments.h
 telescope_motion.o : mcpFiducials.h
@@ -195,9 +200,9 @@ telnetCmds.o : cmd.h
 telnetCmds.o : mcpUtils.h
 timers.o : axis.h
 timers.o : cmd.h
-timers.o : data_collection.h
 timers.o : mcpMsgQ.h
 timers.o : mcpTimers.h
+util.o : as2.h
 util.o : mcpUtils.h
 util.o : mv162.h
 util.o : vmechip2.h
