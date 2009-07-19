@@ -47,6 +47,7 @@
 #include "mcpFiducials.h"
 #include "cmd.h"
 #include "instruments.h"
+#include "ipcast.h"
 #include "as2.h"
 
 /*========================================================================
@@ -902,6 +903,7 @@ info_cmd(int uid, unsigned long cid, char *cmd)
    broadcast_fiducial_status(uid, cid);
    broadcast_cw_status(uid, cid);
    broadcast_slit_status(uid, cid);
+   broadcast_ipsdss(uid, cid);
 
    semGive(semStatusCmd);
    

@@ -116,8 +116,10 @@ while (<>) {
 	 $type = "novalue";
       } elsif ($2 eq "S") {
 	 $type = "string";
+      } elsif ($2 eq "X") {
+	 $type = "bits";
       } else {
-	 die "Unknown key type $type in $_";
+	 die "Unknown key type $2 in $_";
       }
       $name = $4;
 
@@ -254,6 +256,8 @@ sub pythonType
       my($dim, $type) = split(" ", $type);
 
       return pythonType($type) . "*$dim";
+   } elsif ($type eq "bits") {
+      $type = 'Bits()';
    } elsif ($type eq "boolean") {
       $type = 'Bool("false", "true")';
    } elsif ($type eq "boolean:01") {

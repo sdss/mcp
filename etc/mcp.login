@@ -214,6 +214,7 @@ taskSpawn "SLC_DC",69,8,10000,slc500_data_collection,20
 check_encoder_freq = 20*60
 TimerStart 20, 5, serverDCStart
 ipsdss_ini
+init_broadcast_ipsdss
 
 set_rot_state -1
 ffs_enable 1		/* enable the Flat Field Screen */

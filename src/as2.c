@@ -63,6 +63,7 @@ invalidateValue(KEYWORD_DICT *entry)
     case floating:
       entry->u.fval = INVALID_INT;
       break;
+    case hex:
     case integer:
     case boolean:
       entry->u.ival = INVALID_INT;
@@ -99,7 +100,7 @@ void declareKeyword(char const* key,    /* the key name; if NULL just create sym
    entry = malloc(sizeof(KEYWORD_DICT));
    entry->type = type;
 
-   if (type == array || type == boolean || type == floating || type == integer || type == string) {
+   if (type == array || type == boolean || type == floating || type == hex || type == integer || type == string) {
       entry->alwaysSend = alwaysSend;
    } else {
       entry->alwaysSend = 1;
@@ -274,8 +275,9 @@ tStatus(void)
 		     entry->u.fval = msg.u.fval;
 		  }
 		  break;
-		case integer:
 		case boolean:
+		case hex:
+		case integer:
 		  if (entry->u.ival == msg.u.ival) {
 		     if (entry->u.ival != INVALID_INT) { /* we initialise the symbol table to INVALID_INT */
 			is_same = 1;
@@ -321,6 +323,9 @@ tStatus(void)
 	  break;
 	case novalue:
 	  sprintf(buff + nwrite, "%s\n", msg.key);
+	  break;
+	case hex:
+	  sprintf(buff + nwrite, "%s=%u\n", msg.key, msg.u.ival);
 	  break;
 	case integer:
 	  sprintf(buff + nwrite, "%s=%d\n", msg.key, msg.u.ival);
@@ -393,6 +398,9 @@ void printStatusMsg(MCP_STATUS_MSG const* msg) {
       break;		  
     case floating:
       printf("%s %g\n", msg->key, msg->u.fval);
+      break;
+    case hex:
+      printf("%s 0x%x\n", msg->key, msg->u.ival);
       break;
     case integer:
     case boolean:
@@ -553,6 +561,8 @@ sendStatusMsg_FD(int uid,		/* user ID */
 
 /*
  * Send a (key, int) pair
+ *
+ * N.b. sendStatusMsg_X also handles a (key, int) pair but formats the int in hex
  */
 void
 sendStatusMsg_I(int uid,		/* user ID */
@@ -618,6 +628,32 @@ sendStatusMsg_S(int uid,		/* user ID */
    strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
    strncpy(msg.u.sval, val, sizeof(msg.u.sval) - 1); msg.u.sval[sizeof(msg.u.sval) - 1] = '\0';
 
+   doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
+}
+
+/*
+ * Send a (key, int) pair, formatting the int in hex
+ *
+ * N.b. sendStatusMsg_I also handles a (key, int) pair but formats the int as a, well, int
+ */
+void
+sendStatusMsg_X(int uid,		/* user ID */
+		unsigned long cid,	/* command ID */
+		MSG_CODE code,		/* code; e.g. : */
+		int broadcast,		/* should this message be broadcast to all clients? */
+		const char *key,	/* keyword */
+		int val)		/* value */
+{
+   MCP_STATUS_MSG msg;			/* message to send */
+   
+   msg.uid = uid;
+   msg.cid = cid;
+   msg.code = broadcast ? code : -code;
+
+   msg.type = hex;
+   strncpy(msg.key, key, sizeof(msg.key) - 1); msg.key[sizeof(msg.key) - 1] = '\0';
+   msg.u.ival = val;
+   
    doSendStatusMsg(&msg, WAIT_FOREVER, MSG_PRI_NORMAL);
 }
 

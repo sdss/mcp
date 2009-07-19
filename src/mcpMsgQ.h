@@ -129,6 +129,7 @@ typedef enum {
     boolean,                            /* the value is a boolean (the value's still in u.ival) */
     file_descriptor,                    /* the value is a file descriptor to write to */
     floating,                           /* there is a keyword with a float value */
+    hex,                                /* there is a keyword with an int value, to be formatted as hex */
     integer,                            /* there is a keyword with an integer value */
     none,                               /* there is no keyword */
     novalue,                            /* there is a keyword, but it has no value */

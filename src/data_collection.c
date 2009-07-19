@@ -555,6 +555,7 @@ slc500_data_collection(unsigned long freq)
       if(BCAST_Enable) {
 	 ipsdss_send((char *)&sdssdc, sizeof(struct SDSS_FRAME));
       }
+      broadcast_ipsdss(uid, cid);
       
       semGive(semSDSSDC);
 /*

@@ -17,6 +17,7 @@ Common:
       proddir()
       setupenv()
       setupRequired("sdsstools")
+      setupOptional("-f Linux+2.4 plc")
       setupRequired("-f VxWorks -q mv162 murmur_client_vx")
       setupRequired("-f VxWorks+5.5 -q mv162 -j vx_tools")
       setupRequired("-f SunOS+5 -q mv162 vxworks v5_5la")

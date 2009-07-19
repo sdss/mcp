@@ -63,6 +63,8 @@ void sendStatusMsg_N(int uid, unsigned long cid, MSG_CODE code, int broadcast,
                      const char *key);
 void sendStatusMsg_S(int uid, unsigned long cid, MSG_CODE code, int broadcast,
                      const char *key, const char *msg);
+void sendStatusMsg_X(int uid, unsigned long cid, MSG_CODE code, int broadcast,
+                     const char *key, int val);
 /*
  * N.b. not all sendStatusMsgUrgent_XXX functions are defined
  */
