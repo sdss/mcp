@@ -432,6 +432,10 @@ doSendStatusMsg(MCP_STATUS_MSG const* msg, /* message to send */
       }
 #endif
 
+      if (msg->code == FINISHED_CODE && ublock->protocol == OLD_TCC_PROTOCOL) {
+	 return;
+      }
+
       ret = msgQSend(msgStatus, (char *)msg, sizeof(*msg), WAIT_FOREVER, MSG_PRI_NORMAL);
       if (ret != OK) {
 	 printf("Failed to write message to msgStatus: %s", strerror(errno));
