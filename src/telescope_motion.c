@@ -1086,12 +1086,12 @@ clear_sticky_bumps(int axis, int which)
       axis_stat[AZIMUTH][which].bump_up_ccw_sticky = 0;
       axis_stat[AZIMUTH][which].bump_dn_cw_sticky = 0;
 
-      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouched", "0, 0");
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouched", "00");
       break;
     case ALTITUDE:
       axis_stat[ALTITUDE][which].bump_up_ccw_sticky = 0;
       axis_stat[ALTITUDE][which].bump_dn_cw_sticky = 0;
-      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouched", "0, 0");
+      sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouched", "00");
       break;
     case INSTRUMENT:
       break;

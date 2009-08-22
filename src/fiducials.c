@@ -796,7 +796,7 @@ tLatch(const char *name)
 
 	 {
 	    char key[20];
-	    sprintf(key, "%sMsOn", !axis_abbrev(axis));
+	    sprintf(key, "%sMsOn", axis_abbrev(axis));
 	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
 	 }
 	 

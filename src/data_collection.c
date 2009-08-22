@@ -480,8 +480,8 @@ slc500_data_collection(unsigned long freq)
       if(sdssdc.status.i1.il0.az_bump_ccw) {
 	 if(!axis_stat[AZIMUTH][0].bump_up_ccw_sticky) {
 	    char val[4];
-	    sprintf(val, "%d, %d", axis_stat[AZIMUTH][0].bump_dn_cw_sticky, axis_stat[AZIMUTH][0].bump_up_ccw_sticky);
-	    sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouched", val);
+	    sprintf(val, "%d%d", axis_stat[AZIMUTH][0].bump_dn_cw_sticky, axis_stat[AZIMUTH][0].bump_up_ccw_sticky);
+	    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouched", val);
 	 }
 	 axis_stat[AZIMUTH][1].bump_up_ccw_sticky = 1;
       } else {
@@ -491,8 +491,8 @@ slc500_data_collection(unsigned long freq)
       if(sdssdc.status.i1.il0.az_bump_cw)  {
 	 if(!axis_stat[AZIMUTH][0].bump_dn_cw_sticky) {
 	    char val[4];
-	    sprintf(val, "%d, %d", axis_stat[AZIMUTH][0].bump_dn_cw_sticky, axis_stat[AZIMUTH][0].bump_up_ccw_sticky);
-	    sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouched", val);
+	    sprintf(val, "%d%d", axis_stat[AZIMUTH][0].bump_dn_cw_sticky, axis_stat[AZIMUTH][0].bump_up_ccw_sticky);
+	    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "azWindscreenTouched", val);
 	 }
 	 axis_stat[AZIMUTH][1].bump_dn_cw_sticky = 1;
       } else {
@@ -502,8 +502,8 @@ slc500_data_collection(unsigned long freq)
       if(sdssdc.status.i1.il10.alt_bump_up) {
 	 if(!axis_stat[ALTITUDE][0].bump_up_ccw_sticky) {
 	    char val[4];
-	    sprintf(val, "%d, %d", axis_stat[ALTITUDE][0].bump_dn_cw_sticky, axis_stat[ALTITUDE][0].bump_up_ccw_sticky);
-	    sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouched", val);
+	    sprintf(val, "%d%d", axis_stat[ALTITUDE][0].bump_dn_cw_sticky, axis_stat[ALTITUDE][0].bump_up_ccw_sticky);
+	    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouched", val);
 	 }
 	 axis_stat[ALTITUDE][1].bump_up_ccw_sticky = 1;
       } else {
@@ -512,8 +512,8 @@ slc500_data_collection(unsigned long freq)
       if(sdssdc.status.i1.il10.alt_bump_dn) {
 	 if(!axis_stat[ALTITUDE][0].bump_dn_cw_sticky) {
 	    char val[4];
-	    sprintf(val, "%d, %d", axis_stat[ALTITUDE][0].bump_dn_cw_sticky, axis_stat[ALTITUDE][0].bump_up_ccw_sticky);
-	    sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouched", val);
+	    sprintf(val, "%d%d", axis_stat[ALTITUDE][0].bump_dn_cw_sticky, axis_stat[ALTITUDE][0].bump_up_ccw_sticky);
+	    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "altWindscreenTouched", val);
 	 }
 	 axis_stat[ALTITUDE][1].bump_dn_cw_sticky = 1;
       } else {
