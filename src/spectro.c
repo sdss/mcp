@@ -869,7 +869,7 @@ lamp_command_completed(int uid, unsigned long cid,
     case lampsCheck_uv_off_type:
       {
 	 int pmt = sdssdc.status.o1.ol14.im_ff_uv_on_pmt;
-	 finished = (type == lampsCheck_uv_on_type && pmt) || (type == lampsCheck_hgcd_off_type && !pmt);
+	 finished = (type == lampsCheck_uv_on_type && pmt) || (type == lampsCheck_uv_off_type && !pmt);
       }
 
       break;
@@ -877,7 +877,7 @@ lamp_command_completed(int uid, unsigned long cid,
     case lampsCheck_wht_off_type:
       {
 	 int pmt = sdssdc.status.o1.ol14.im_ff_wht_on_pmt;
-	 finished = (type == lampsCheck_wht_on_type && pmt) || (type == lampsCheck_hgcd_off_type && !pmt);
+	 finished = (type == lampsCheck_wht_on_type && pmt) || (type == lampsCheck_wht_off_type && !pmt);
       }
 
       break;
