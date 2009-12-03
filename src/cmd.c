@@ -521,11 +521,13 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
       isFirst_cmd = 0;
 #endif
 
-#if 0
-      if (ublock->protocol == OLD_TCC_PROTOCOL || ublock->protocol == NEW_PROTOCOL) {
-	 sendStatusMsg_S(uid, cid, DEBUG_CODE, 1, "commandIn", cmd);
+      if (ublock->protocol == OLD_PROTOCOL) {
+	 if (strstr(cmd, "STATUS") == 0 &&
+	     strcmp(cmd, "SEM.SHOW") != 0 &&
+	     strcmp(cmd, "version") != 0) {
+	    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "commandIn", cmd);
+	 }
       }
-#endif
 
       if(symFindByName(cmdSymTbl, tok, (char **)&addr, &type) != OK) {
 	 NTRACE_1(1, uid, cid, "Unknown command '%s'", tok);
