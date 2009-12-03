@@ -867,9 +867,19 @@ lamp_command_completed(int uid, unsigned long cid,
       break;
     case lampsCheck_uv_on_type:
     case lampsCheck_uv_off_type:
+      {
+	 int pmt = sdssdc.status.o1.ol14.im_ff_uv_on_pmt;
+	 finished = (type == lampsCheck_uv_on_type && pmt) || (type == lampsCheck_hgcd_off_type && !pmt);
+      }
+
+      break;
     case lampsCheck_wht_on_type:
     case lampsCheck_wht_off_type:
-      finished = 1;			/* we can't actually check these */
+      {
+	 int pmt = sdssdc.status.o1.ol14.im_ff_wht_on_pmt;
+	 finished = (type == lampsCheck_wht_on_type && pmt) || (type == lampsCheck_hgcd_off_type && !pmt);
+      }
+
       break;
     default:
       printf("You can't get here\n");
@@ -877,6 +887,7 @@ lamp_command_completed(int uid, unsigned long cid,
    }
 
    broadcast_ffs_lamp_status(uid, cid, 0, 1);	 
+
    if (finished) {
       return 1;
    } else {
