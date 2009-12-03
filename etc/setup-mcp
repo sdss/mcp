@@ -14,6 +14,8 @@ if [ ! -d etc ]; then
 fi
 setup -f Linux+2.4-2.3.2 mcp -r $(command pwd)
 
+setup plc -r ~/hub25m/plc -f Linux+2.4
+
 if [ ! -f $MCP_DIR/bin/sdssmake ]; then
     echo "I don't see bin/sdssmake --- are you sourcing me in the mcp directory?"
 else

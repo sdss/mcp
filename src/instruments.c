@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <string.h>
 #include <semLib.h>
-/* #include <taskLib.h> */
 #include "instruments.h"
 #include "abdh.h"
 #include "data_collection.h"
@@ -17,27 +16,110 @@
 /*
  * Return the ID number of the current instrument
  */
-/*
- * The camera ID switches aren't installed as of Jan 2001
- *
- * Use the state of the primary latches/spec corrector to guess what's
- * installed?
- */
-#define GUESS_INSTRUMENT 1
-   
-#define CAMERA_ID 14
-
 int
-instrument_id(void)
+instrument_id(int *instrument_in_place,	/* if any bits are set there's something mounted */
+	      int *switches_are_inconsistent) /* are the switches consistent? */
+{
+   int uid = 0, cid = 0;
+   int inconsistent = 0;		   /* are the switches consistend? Innocent until proven guilty */
+   int inst_id;				   /* The loaded instrument */
+   static int notify = -1;		   /* should I notify user of bad ID? */
+   int notify_rate = 60;		   /* how often should I notify? */
+   int pri_latch_opn;			   /* the primary latches are open */
+   
+   if(semTake(semSDSSDC, 100) == ERROR) {
+      return(-1);			/* unknown */
+   }
+	 
+   if (instrument_in_place != NULL) {
+      *instrument_in_place = !sdssdc.status.b3.w1.no_inst_in_place; /* is an instrument loaded? */
+   }
+
+   if (switches_are_inconsistent != NULL) {
+      *switches_are_inconsistent = 0;	/* assume the PLC checked them */
+   }
+
+   pri_latch_opn = (sdssdc.status.i1.il8.pri_latch1_opn &&
+                    sdssdc.status.i1.il8.pri_latch2_opn &&
+                    sdssdc.status.i1.il8.pri_latch3_opn);
+   
+   {
+      #define NINST 20
+      int ECAM, IMAGER;			/* index for engineering camera and imager */
+      int instrument_in_place_plc[NINST];
+      int i = 0;
+      instrument_in_place_plc[i++] = 0;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_1;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_2;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_3;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_4;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_5;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_6;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_7;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_8;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.cartridge_9;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_10;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_11;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_12;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_13;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_14;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_15;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_16;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_17;
+      ECAM = i;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.eng_cam_in_place;
+      IMAGER = i;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w1.img_cam_in_place;
+      assert (i == NINST);
+
+      for (i = 0; i < NINST; ++i) {
+	 if (instrument_in_place_plc[i]) {
+	    inst_id = i;
+	    break;
+	 }
+      }
+   }
+
+   semGive(semSDSSDC);
+
+   if(!inconsistent || pri_latch_opn /* not latched */) {
+      if (notify >= 0) {		/* we were inconsistent */
+	 char buff[20];
+	 sprintf(buff,"%d, %d, %d", inst_id, inst_id, inst_id);
+	 sendStatusMsg_A(0, 0, INFORMATION_CODE, 0, "instrumentNumValues", buff);
+      }
+      notify = -1;
+   } else {
+      notify = (notify + 1)%notify_rate;
+
+      if(notify == 0) {
+	 char buff[20];
+	 sprintf(buff,"%d, %d, %d", inst_id, inst_id, inst_id);
+	 NTRACE_1(2, uid, cid, "Inconsistent instrument ID switches: %s", buff);
+	 sendStatusMsg_A(0, 0, INFORMATION_CODE, 0, "instrumentNumValues", buff);
+
+	 sprintf(buff,"%d, %d, %d", inst_id, inst_id, inst_id);
+	 sendStatusMsg_A(0, 0, INFORMATION_CODE, 0, "instrumentNumValues", buff);
+	 
+	 return(-1);
+      }
+   }
+   
+   return(inst_id);
+}
+
+/*****************************************************************************/
+/*
+ * Return the ID number of the current instrument
+ */
+#if 0
+int
+old_instrument_id(void)
 {
    int uid = 0, cid = 0;
    int inst_id1, inst_id2, inst_id3;	/* values of the inst ID switches */
    static int notify = -1;		/* should I notify user of bad ID? */
    int notify_rate = 60;		/* how often should I notify? */
-#if GUESS_INSTRUMENT
-   int pri_latch_opn;			/* the primary latches are open */
-   int spec_lens;			/* the spec corrector in installed */
-#endif
    
    if(semTake(semSDSSDC, 100) == ERROR) {
       return(-1);			/* unknown */
@@ -55,13 +137,6 @@ instrument_id(void)
 	       ((sdssdc.status.i1.il8.inst_id3_2 ? 0 : 1) << 2) +
 	       ((sdssdc.status.i1.il8.inst_id3_3 ? 0 : 1) << 1) +
 	       ((sdssdc.status.i1.il8.inst_id3_4 ? 0 : 1) << 0));
-#if GUESS_INSTRUMENT
-   pri_latch_opn = (sdssdc.status.i1.il8.pri_latch1_opn &&
-		    sdssdc.status.i1.il8.pri_latch2_opn &&
-		    sdssdc.status.i1.il8.pri_latch3_opn);
-   spec_lens = (!sdssdc.status.i1.il8.spec_lens1 ||
-		 sdssdc.status.i1.il8.spec_lens2);
-#endif
 
    semGive(semSDSSDC);
 
@@ -84,14 +159,10 @@ instrument_id(void)
 	 return(-1);
       }
    }
-#if GUESS_INSTRUMENT
-   if(inst_id1 == 0 && !pri_latch_opn && !spec_lens) {
-      return(CAMERA_ID);
-   }
-#endif
    
    return(inst_id1);
 }
+#endif
 
 /*****************************************************************************/
 /*
@@ -129,11 +200,12 @@ saddle_is_mounted(void)
 void
 broadcast_inst_status(int uid, unsigned long cid)
 {
-   int inst_id = instrument_id();
+   int inconsistent = 0;
+   int inst_id = instrument_id(NULL, &inconsistent);
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "saddleIsMounted", saddle_is_mounted());
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
 
-   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "instrumentNumConsistent", (inst_id >= 0));
+   sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "instrumentNumConsistent", !inconsistent);
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "instrumentNum", inst_id);
 }
 
@@ -144,7 +216,7 @@ get_inststatus(char *status_ans,
    int len;
 
    sprintf(status_ans, "Inst: %d %d\n",
-	   saddle_is_mounted(), instrument_id());
+	   saddle_is_mounted(), instrument_id(NULL, NULL));
 
    len = strlen(status_ans);
    assert(len < size);

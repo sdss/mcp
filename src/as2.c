@@ -325,14 +325,16 @@ tStatus(void)
 	  sprintf(buff + nwrite, "%s\n", msg.key);
 	  break;
 	case hex:
-	  sprintf(buff + nwrite, "%s=%u\n", msg.key, msg.u.ival);
+	  sprintf(buff + nwrite, "%s=0x%08x\n", msg.key, msg.u.ival);
 	  break;
 	case integer:
 	  sprintf(buff + nwrite, "%s=%d\n", msg.key, msg.u.ival);
 	  break;
 	case array:
 	case string:
-	  if (strlen(msg.key) + 3 /* ="" */ + strlen(msg.u.sval) < BUFF_SIZE - nwrite) {
+	  if (strlen(msg.u.sval) == 0) {
+	     sprintf(buff + nwrite, "%s\n", msg.key);
+	  } else if (strlen(msg.key) + 3 /* ="" */ + strlen(msg.u.sval) < BUFF_SIZE - nwrite) {
 	     if (msg.type == string) {
 		sprintf(buff + nwrite, "%s=\"%s\"\n", msg.key, msg.u.sval);
 	     } else {
@@ -704,23 +706,41 @@ ping_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 int lava_lamp_on = 0;			/* is lava lamp on? */
 
 char *
-lava_lamp_on_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+lava_on_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    lava_lamp_on = 1;
 
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_lamp_on");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_on");
 
    return "";
 }
 
 char *
-lava_lamp_off_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
+lava_off_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 {
    lava_lamp_on = 0;
 
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_lamp_off");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_off");
+
+   return "";
+}
+
+/*****************************************************************************/
+/*
+ * Commands to allow an iop server to pass information through the hub to the alertsActor
+ */
+char *
+im_camCheck_cmd(int uid, unsigned long cid, char *cmd) /* NOTUSED */
+{
+   char problems[KEY_VALUE_LEN];
+   int len = sprintf(problems, "%ld,", time(NULL) + 34); /* approximate conversion from UTC to TAI */
+   
+   strncpy(problems + len, cmd, KEY_VALUE_LEN - len - 1);
+   problems[KEY_VALUE_LEN - 1] = '\0';
+
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "imCamCheck", problems);
 
    return "";
 }
@@ -770,7 +790,10 @@ as2Init(void)
 /*
  * define spectro commands to the command interpreter
  */
-   define_cmd("PING",           ping_cmd, 	       0, 0, 0, 0, "Ping the MCP");
-   define_cmd("LAVA_LAMP_ON",  lava_lamp_on_cmd,       0, 0, 0, 0, "Set the lava lamp status ON");
-   define_cmd("LAVA_LAMP_OFF", lava_lamp_off_cmd,      0, 0, 0, 0, "Set the lava lamp status OFF");
+   define_cmd("PING",          ping_cmd, 	  0, 0, 0, 0, "Ping the MCP");
+   define_cmd("LAVA_LAMP_ON",  lava_on_cmd,       0, 0, 0, 0, "Set the lava lamp status ON");
+   define_cmd("LAVA_LAMP_OFF", lava_off_cmd,      0, 0, 0, 0, "Set the lava lamp status OFF");
+   define_cmd("LAVA_ON",       lava_on_cmd,       0, 0, 0, 0, "Set the lava lamp status ON");
+   define_cmd("LAVA_OFF",      lava_off_cmd,      0, 0, 0, 0, "Set the lava lamp status OFF");
+   define_cmd("IM_CAMCHECK",   im_camCheck_cmd,   1, 0, 0, 0, "Pass on any problems detected in the imager");
 }

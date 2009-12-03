@@ -834,7 +834,58 @@ tFFS(void)
 
 /*****************************************************************************/
 /*
- * A task to control the lamps
+ * Control the lamps
+ */
+static int
+lamp_command_completed(int uid, unsigned long cid,
+		       int type		/* the type of lamp command we're checking */
+   ) {
+   int status;				/* lamp status */
+   int finished;			/* has command finished? */
+   
+   switch (type) {
+    case lampsCheck_ff_on_type:
+    case lampsCheck_ff_off_type:
+      status = sdssdc.status.i1.il13.ff_1_stat + sdssdc.status.i1.il13.ff_2_stat +
+	 sdssdc.status.i1.il13.ff_3_stat + sdssdc.status.i1.il13.ff_4_stat;
+
+      finished = (type == lampsCheck_ff_on_type && status == 4) || (type == lampsCheck_ff_off_type && status == 0);
+      break;
+    case lampsCheck_ne_on_type:
+    case lampsCheck_ne_off_type:
+      status = sdssdc.status.i1.il13.ne_1_stat + sdssdc.status.i1.il13.ne_2_stat +
+	 sdssdc.status.i1.il13.ne_3_stat + sdssdc.status.i1.il13.ne_4_stat;
+
+      finished = (type == lampsCheck_ne_on_type && status == 4) || (type == lampsCheck_ne_off_type && status == 0);
+      break;
+    case lampsCheck_hgcd_on_type:
+    case lampsCheck_hgcd_off_type:
+      status = sdssdc.status.i1.il13.hgcd_1_stat + sdssdc.status.i1.il13.hgcd_2_stat +
+	 sdssdc.status.i1.il13.hgcd_3_stat + sdssdc.status.i1.il13.hgcd_4_stat;
+      
+      finished = (type == lampsCheck_hgcd_on_type && status == 4) || (type == lampsCheck_hgcd_off_type && status == 0);
+      break;
+    case lampsCheck_uv_on_type:
+    case lampsCheck_uv_off_type:
+    case lampsCheck_wht_on_type:
+    case lampsCheck_wht_off_type:
+      finished = 1;			/* we can't actually check these */
+      break;
+    default:
+      printf("You can't get here\n");
+      abort();
+   }
+
+   broadcast_ffs_lamp_status(uid, cid, 0, 1);	 
+   if (finished) {
+      return 1;
+   } else {
+      return 0;
+   }
+}
+
+/*
+ * The task to control the lamps
  */
 void
 tLamps(void)
@@ -842,7 +893,9 @@ tLamps(void)
    int err;
    unsigned short ctrl[2];
    int b10_l0;				/* set bit in B10_L0? */
+   int lampsCheck_msg;			/* message to send to check the lamps */
    MCP_MSG msg;				/* message to pass around */
+   int n_pending_retries = 0;		/* number of retries of lamp on/off requests to try before timing out */
    int ret;				/* return code */
    B10_L0 tm_ctrl0;
    B10_L1 tm_ctrl1;
@@ -853,13 +906,24 @@ tLamps(void)
 
       NTRACE(8, msg.uid, msg.cid, "read msg on msgLamps");
 
-      if (msg.type == lampsCheck_type) {
+      if (msg.type >= lampsCheck_ff_on_type && msg.type <= lampsCheck_wht_off_type) {
 	 int uid = 0; unsigned long cid = 0;
 	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
 
-	 broadcast_ffs_lamp_status(uid, cid, 0, 1);
-	 sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "controlLamps");
-	      
+	 if (--n_pending_retries <= 0) {
+	    sendStatusMsg_N(uid, cid, ERROR_CODE, 1, "controlLamps");
+	 } else if (lamp_command_completed(uid, cid, msg.type)) {
+	    sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "controlLamps");
+	 } else {
+	    int wait = 2;			/* how many more seconds to wait */
+	    
+	    if(timerSendArg(msg.type, tmr_e_add, wait*60,
+			    uid, cid, msgLamps) == ERROR) {
+	       NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
+			strerror(errno), errno);
+	    }
+	 }
+	 
 	 continue;
       }
 
@@ -912,18 +976,23 @@ tLamps(void)
       switch (msg.u.lamps.type) {
        case FF_LAMP:
 	 tm_ctrl0.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
+	 lampsCheck_msg = msg.u.lamps.on_off ? lampsCheck_ff_on_type : lampsCheck_ff_off_type;
 	 break;
        case NE_LAMP:
 	 tm_ctrl0.mcp_ne_lamp_on_cmd = msg.u.lamps.on_off;
+	 lampsCheck_msg = msg.u.lamps.on_off ? lampsCheck_ne_on_type : lampsCheck_ne_off_type;
 	 break;
        case HGCD_LAMP:
 	 tm_ctrl0.mcp_hgcd_lamp_on_cmd = msg.u.lamps.on_off;
+	 lampsCheck_msg = msg.u.lamps.on_off ? lampsCheck_hgcd_on_type : lampsCheck_hgcd_off_type;
 	 break;
        case UV_LAMP:
 	 tm_ctrl1.mcp_im_ff_uv_req = msg.u.lamps.on_off;
+	 lampsCheck_msg = msg.u.lamps.on_off ? lampsCheck_uv_on_type : lampsCheck_uv_off_type;
 	 break;
        case WHT_LAMP:
 	 tm_ctrl1.mcp_im_ff_wht_req = msg.u.lamps.on_off;
+	 lampsCheck_msg = msg.u.lamps.on_off ? lampsCheck_wht_on_type : lampsCheck_wht_off_type;
 	 break;
        default:
 	 NTRACE_1(0, msg.uid, msg.cid, "Impossible lamp type: %d", msg.type);
@@ -946,11 +1015,12 @@ tLamps(void)
        * Wait a few seconds and see if the lights did what they were told
        */
       {
-	 int wait = 5;			/* how many seconds to wait */
+	 int wait = 1;			/* how many seconds to wait */
 
 	 sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "lampsCommanded", 1);
 	 
-	 if(timerSendArg(lampsCheck_type, tmr_e_add, wait*60,
+	 n_pending_retries = 20;	/* number of retries to try */
+	 if(timerSendArg(lampsCheck_msg, tmr_e_add, wait*60,
 			 msg.uid, msg.cid, msgLamps) == ERROR) {
 	    NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
 		     strerror(errno), errno);
@@ -1080,7 +1150,7 @@ broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps)
 	      sdssdc.status.i1.il13.leaf_8_open_stat,
 	      sdssdc.status.i1.il13.leaf_8_closed_stat);
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffsStatus", buff);
-      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsCommandedOn", sdssdc.status.o1.ol14.ff_screen_open_pmt);
+      sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "ffsCommandedOpen", sdssdc.status.o1.ol14.ff_screen_open_pmt);
       sprintf(buff, "%d%d", !!(which_ffs & 0x1), !!(which_ffs & 0x2));
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "ffsSelected", buff);
    }

@@ -14,7 +14,16 @@ typedef struct {
       FFSCheckMoved_type,		/* check that FFS moved correctly */
 
       lamps_type,			/* turn lamps on/off */
-      lampsCheck_type,			/* check that lamps obeyed us */
+      lampsCheck_ff_on_type,		/* check that FF lamps obeyed us */
+      lampsCheck_ff_off_type,
+      lampsCheck_ne_on_type,		/* check that Ne lamps obeyed us */
+      lampsCheck_ne_off_type,
+      lampsCheck_hgcd_on_type,		/* check that HgCd lamps obeyed us */
+      lampsCheck_hgcd_off_type,
+      lampsCheck_uv_on_type,		/* check that UV lamps obeyed us */
+      lampsCheck_uv_off_type,
+      lampsCheck_wht_on_type,		/* check that WHT lamps obeyed us */
+      lampsCheck_wht_off_type,
 
       latchCrossed_type,		/* we crossed a fiducial */
       ms_on_az_type,			/* process an MS.ON command for AZ */

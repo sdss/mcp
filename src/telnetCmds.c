@@ -407,6 +407,8 @@ cpsWorkTask(int fd,			/* as returned by accept() */
    (void)give_semCmdPort(0);
 
    if (ublock->protocol == NEW_PROTOCOL) {
+      sprintf(ublock->buff, "User %s:%d, TID -1", ublock->uname, ublock->pid);
+      sendStatusMsg_S(uid, 0, INFORMATION_CODE, 1, "userId", ublock->buff);
       sendStatusMsg_FD(uid, 0, FINISHED_CODE, 0, fd);
    }
    close(fd);
