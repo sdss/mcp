@@ -26,7 +26,6 @@
 
 #define MAX_QUEUED_CONNECTIONS 3	/* max. number of queued connections
 					   to allow */
-#define MSG_SIZE 800			/* maximum size of message to read */
 #define SERVER_PRIORITY 100		/* priority for server task */
 #define SERVER_STACKSIZE 10000		/* stack size for server task */
 /*

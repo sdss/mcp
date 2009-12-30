@@ -440,7 +440,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    char *(*addr)(int, unsigned long, char *); /* function pointer */
    char *ans;
    char *args;				/* arguments for this command */
-   char cmd_copy[256 + 1];		/* modifiable copy of cmd */
+   char cmd_copy[MSG_SIZE];		/* modifiable copy of cmd */
    char *cmd_str = cmd_copy;		/* pointer to command; or NULL */
    static int iack_counter = -1;	/* control too many rebootedMsg
 					   messages; wait before the first */

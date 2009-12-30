@@ -1,6 +1,8 @@
 #ifndef __CMD_H__
 #define __CMD_H__			/* do only once */
 
+#define MSG_SIZE 800			/* maximum size of message to read */
+
 enum {
     OLD_PROTOCOL=0,                     /* The old connection protocol, as used by mcpMenu */
     OLD_TCC_PROTOCOL=1,                 /* The old connection protocol, as used by the TCC */
