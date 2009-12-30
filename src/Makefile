@@ -58,6 +58,7 @@ make :
 # include file dependencies.
 #
 data_collection.o : $(PLC_DIR)/include/data_collection.h
+dictionary.o : dictionaryData.c
 #
 # All line below START_DEPEND are machine generated; Do Not Edit
 #

@@ -1,7 +1,7 @@
 /*
  * Machine generated using buildKeyDict
  *
- * Fri Apr 10 14:20:52 MDT 2009
+ * Wed Dec 30 20:46:03 TAI 2009
  */
    struct {
       const char *name;
@@ -14,6 +14,7 @@
        {"NeLamp", array, 0, ""},
        {"NeLampCommandedOn", boolean, 0, ""},
        {"UVLampCommandedOn", boolean, 0, ""},
+       {"ab_status", array, 0, ""},
        {"altFiducialVersion", string, 0, ""},
        {"altMaxAccLimit", floating, 0, ""},
        {"altMaxAccRequested", floating, 1, ""},
@@ -21,7 +22,7 @@
        {"altMaxVelRequested", floating, 0, ""},
        {"altMsOn", boolean, 0, ""},
        {"altPidCoeffs", array, 0, ""},
-       {"altWindscreenTouched", array, 0, ""},
+       {"altWindscreenTouched", string, 0, ""},
        {"azFiducialVersion", string, 0, ""},
        {"azMaxAccLimit", floating, 0, ""},
        {"azMaxAccRequested", floating, 1, ""},
@@ -29,7 +30,7 @@
        {"azMaxVelRequested", floating, 0, ""},
        {"azMsOn", boolean, 0, ""},
        {"azPidCoeffs", array, 0, ""},
-       {"azWindscreenTouched", array, 0, ""},
+       {"azWindscreenTouched", string, 0, ""},
        {"badAxis", novalue, 0, ""},
        {"badCharacter", integer, 0, ""},
        {"badCommand", string, 0, ""},
@@ -37,6 +38,7 @@
        {"badUserId", novalue, 0, ""},
        {"command", string, 0, ""},
        {"commandIn", string, 0, ""},
+       {"commandTooLong", integer, 0, ""},
        {"controlLamps", novalue, 0, ""},
        {"cwAbort", integer, 0, ""},
        {"cwPositions", array, 0, ""},
@@ -45,7 +47,7 @@
        {"ffLampCommandedOn", boolean, 0, ""},
        {"ffsCloseFailed", boolean, 0, ""},
        {"ffsCommanded", boolean, 0, ""},
-       {"ffsCommandedOn", boolean, 0, ""},
+       {"ffsCommandedOpen", boolean, 0, ""},
        {"ffsMoved", boolean, 0, ""},
        {"ffsOpenFailed", boolean, 0, ""},
        {"ffsSelected", array, 0, ""},
@@ -56,6 +58,7 @@
        {"instrumentNumConsistent", boolean, 0, ""},
        {"instrumentNumValues", array, 0, ""},
        {"lampsCommanded", boolean, 0, ""},
+       {"lavaLamp", integer, 0, ""},
        {"mcpVersion", string, 0, ""},
        {"minEncoderMismatch", array, 0, ""},
        {"msOnMaxCorrection", array, 0, ""},
