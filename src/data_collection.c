@@ -379,6 +379,7 @@ void
 slc500_data_collection(unsigned long freq)
 {
    int uid = 0, cid = 0;   
+   int counter;				/* counter for how often we've been round this loop */
    int i;
    static int plc_version_id = -1;	/* plc version in data_collection.h */
    static int plc_version_mismatch = 0;	/* version_id != plc_version_id? */
@@ -398,7 +399,7 @@ slc500_data_collection(unsigned long freq)
    semSLCDC = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
    slc_freq=freq;
    
-   for(;;) {
+   for(counter = 0;; ++counter) {
       if(semTake(semSLCDC, WAIT_FOREVER) == ERROR) {
 	 NTRACE(0, uid, cid, "couldn't take semSLCDC semahore.");
 	 break;
@@ -614,6 +615,13 @@ slc500_data_collection(unsigned long freq)
 	    
 	    plc_version_mismatch++;
 	 }
+      }
+      /*
+       * Broadcast any keywords that have changed
+       */
+      {
+	 int include_cw = (counter%10 == 0);
+	 do_info_cmd(0, 0, include_cw);
       }
    }
 }

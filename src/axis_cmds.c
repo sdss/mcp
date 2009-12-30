@@ -887,6 +887,17 @@ get_miscstatus(char *status,
 }
 
 /*****************************************************************************/
+void
+do_info_cmd(int uid, unsigned long cid, int include_cw) {
+   broadcast_ffs_lamp_status(uid, cid, 1, 1);
+   broadcast_inst_status(uid, cid);
+   broadcast_fiducial_status(uid, cid);
+   if (include_cw) {			/* special cased as their values are analogue and fluctuate */
+      broadcast_cw_status(uid, cid);
+   }
+   broadcast_slit_status(uid, cid);
+   broadcast_ipsdss(uid, cid);
+}
 
 char *
 info_cmd(int uid, unsigned long cid, char *cmd)
@@ -898,12 +909,7 @@ info_cmd(int uid, unsigned long cid, char *cmd)
 
    clearKeywordCache();
 
-   broadcast_ffs_lamp_status(uid, cid, 1, 1);
-   broadcast_inst_status(uid, cid);
-   broadcast_fiducial_status(uid, cid);
-   broadcast_cw_status(uid, cid);
-   broadcast_slit_status(uid, cid);
-   broadcast_ipsdss(uid, cid);
+   do_info_cmd(uid, cid, 1);
 
    semGive(semStatusCmd);
    

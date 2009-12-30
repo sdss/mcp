@@ -75,6 +75,9 @@ void sendStatusMsgUrgent_S(int uid, unsigned long cid, MSG_CODE code, int broadc
 /*
  * Routines to broadcast status information
  */
+void do_info_cmd(int uid, unsigned long cid,
+                 int include_cw); /* the worker that calls all the broadcast_* routines */
+
 void broadcast_fiducial_status(int uid, unsigned long cid);
 void broadcast_inst_status(int uid, unsigned long cid);
 void broadcast_ffs_lamp_status(int uid, unsigned long cid, int petals, int lamps);
