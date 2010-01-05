@@ -19,5 +19,7 @@ long getSemTaskId(SEM_ID sem);
 long phCrcCalc(long crc, const char *buff, int n);
 
 void get_uid_cid_from_tmr_msg(const MCP_MSG *msg, int *uid, unsigned long *cid);
+STATUS timerSendArgWithUidCid(int msg_type, int cmd, int tick_cnt,
+                              int uid, unsigned long cid, MSG_Q_ID return_q);
 
 #endif

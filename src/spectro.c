@@ -741,8 +741,8 @@ tFFS(void)
  *   FFSCheckMoved_type  A request from us to check that the screens moved
  */
       if(msg.type == FFS_type) {
-	 (void)timerSendArg(FFSCheckMoved_type, tmr_e_abort_ns,
-			    0, msg.uid, msg.cid, 0);
+	 (void)timerSendArgWithUidCid(FFSCheckMoved_type, tmr_e_abort_ns,
+				      0, msg.uid, msg.cid, 0);
       } else if(msg.type == FFSCheckMoved_type) {
 	 int i;
 	 int move_ok = 1;		/* did move complete OK? */
@@ -825,7 +825,7 @@ tFFS(void)
 /*
  * And schedule the check
  */
-      if(timerSendArg(msg_type, tmr_e_add, wait*60, msg.uid, msg.cid, msgFFS) == ERROR) {
+      if(timerSendArgWithUidCid(msg_type, tmr_e_add, wait*60, msg.uid, msg.cid, msgFFS) == ERROR) {
 	 NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
 		   strerror(errno), errno);
       }
@@ -928,8 +928,8 @@ tLamps(void)
 	 } else {
 	    int wait = 2;			/* how many more seconds to wait */
 	    
-	    if(timerSendArg(msg.type, tmr_e_add, wait*60,
-			    uid, cid, msgLamps) == ERROR) {
+	    if(timerSendArgWithUidCid(msg.type, tmr_e_add, wait*60,
+				      uid, cid, msgLamps) == ERROR) {
 	       NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
 			strerror(errno), errno);
 	    }
@@ -1031,8 +1031,8 @@ tLamps(void)
 	 sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "lampsCommanded", 1);
 	 
 	 n_pending_retries = 20;	/* number of retries to try */
-	 if(timerSendArg(lampsCheck_msg, tmr_e_add, wait*60,
-			 msg.uid, msg.cid, msgLamps) == ERROR) {
+	 if(timerSendArgWithUidCid(lampsCheck_msg, tmr_e_add, wait*60,
+				   msg.uid, msg.cid, msgLamps) == ERROR) {
 	    NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
 		     strerror(errno), errno);
 	 }

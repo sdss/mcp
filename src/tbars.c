@@ -53,10 +53,9 @@ tBars(void)
 	 uid = msg.uid;
 	 cid = msg.cid;
 
-	 (void)timerSendArg(TbarsLatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0); /* abort any pending
-										      confimations */
-	 (void)timerSendArg(TbarsUnlatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0); /* abort any pending
-											confimations */
+	 /* abort any pending confimations */
+	 (void)timerSendArgWithUidCid(TbarsLatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0); 
+	 (void)timerSendArgWithUidCid(TbarsUnlatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0);
 	 
 	 latch_tbars = (msg.type == TbarsLatch_type) ? 1 : 0;
 	 break;
@@ -137,8 +136,8 @@ tBars(void)
       NTRACE_1(1, uid, cid, "Waiting %ds for tbar latches to move", wait);
 
       msg.type = latch_tbars ? TbarsLatchCheck_type : TbarsUnlatchCheck_type;
-      if(timerSendArg(msg.type, tmr_e_add,
-		      wait*60, uid, cid, msgTbars) == ERROR) {
+      if(timerSendArgWithUidCid(msg.type, tmr_e_add,
+				wait*60, uid, cid, msgTbars) == ERROR) {
 	 NTRACE_2(0, uid, cid, "Failed to send message to timer task: %s (%d)",
 		  strerror(errno), errno);
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");

@@ -532,12 +532,35 @@ phCrcCalc(long crc,			/* initial value of CRC (e.g. 0) */
  * We just got a timer message, not a proper MCP_MSG, so unpack uid/cid for us.
  *
  * We assume that the timer was sent with e.g.
- *   timerSendArg(MSG_TYPE, tmr_e_add, TIME, msg.uid, msg.cid, QUEUE)
+ *   timerSendArgWithUidCid(MSG_TYPE, tmr_e_add, TIME, msg.uid, msg.cid, QUEUE)
  */
+#define MID_SCALE_FACTOR 100		/* amount to scale the msg.type in constructing the mid */
+
 void
 get_uid_cid_from_tmr_msg(const MCP_MSG *msg, int *uid, unsigned long *cid)
 {
    struct s_tmr_msg_fmt *tmsg = (struct s_tmr_msg_fmt *)msg;
-   *uid = tmsg->u.tmr.mid;
+   *uid = tmsg->u.tmr.mid/MID_SCALE_FACTOR;
    *cid = tmsg->u.tmr.arg;
 }
+
+/*
+ * A wrapper for timerSendArg that properly encodes the uid/cid.  You should ALWAYS call this, and never
+ * call the raw timerSendArg
+ *
+ * This routine packs msg_type/uid into the timerSendArg mid. We need to do this
+ * (despite the fact that the MSG_TYPE is also passed to timerSendArg) because
+ * tmr_e_abort_ns looks at the mid and thread ID to determine which messages to
+ * abort, and we only want to abort messages of the given msg.type
+ */
+STATUS
+timerSendArgWithUidCid(int msg_type,	/* type of message */
+		       int cmd,		/* the command, e.g. tmr_e_add */
+		       int tick_cnt,	/* delay in ticks */
+		       int uid,		/* UID */
+		       unsigned long cid, /* CID */
+		       MSG_Q_ID return_q) /* queue to push msg onto, if requested by cmd */
+{
+   return timerSendArg(msg_type, cmd, tick_cnt, abs(msg_type) + MID_SCALE_FACTOR*uid, cid, return_q);
+}
+

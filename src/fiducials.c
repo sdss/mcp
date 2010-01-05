@@ -1376,15 +1376,15 @@ set_ms_on(int uid, unsigned long cid,
  */
    switch (axis) {
     case AZIMUTH:
-      (void)timerSendArg(-ms_off_az_type, tmr_e_abort_ns, 0, uid, cid, 0);
+      (void)timerSendArgWithUidCid(-ms_off_az_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_az_type;
       break;
     case ALTITUDE:
-      (void)timerSendArg(-ms_off_alt_type, tmr_e_abort_ns, 0, uid, cid, 0);
+      (void)timerSendArgWithUidCid(-ms_off_alt_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_alt_type;
       break;
     case INSTRUMENT:
-      (void)timerSendArg(-ms_off_inst_type, tmr_e_abort_ns, 0, uid, cid, 0);
+      (void)timerSendArgWithUidCid(-ms_off_inst_type, tmr_e_abort_ns, 0, uid, cid, 0);
       msg.type = ms_on_inst_type;
       break;
    }
@@ -1421,7 +1421,7 @@ set_ms_off(int uid, unsigned long cid,
  */
    NTRACE(6, uid, cid, "Aborting old MS.OFFs");
 
-   (void)timerSendArg(-msg.type, tmr_e_abort_ns, 0, uid, cid, 0);
+   (void)timerSendArgWithUidCid(-msg.type, tmr_e_abort_ns, 0, uid, cid, 0);
    taskDelay(1);			/* give the timerTask a chance */
 /*
  * actually set (or schedule) MS.OFF
@@ -1438,7 +1438,7 @@ set_ms_off(int uid, unsigned long cid,
     } else {				/* wait a while and send MS.OFF */
       NTRACE_2(1, uid, cid, "Sending msg to tTimerTask/msgLatched: type %d delay %d ticks",
 	       msg.type, (int)(delay*60));
-      if(timerSendArg(-msg.type, tmr_e_add, delay*60, uid, cid, msgLatched) == ERROR) {
+      if(timerSendArgWithUidCid(-msg.type, tmr_e_add, delay*60, uid, cid, msgLatched) == ERROR) {
 	 NTRACE_2(0, uid, cid, "Failed to send ms_off message to timer task: %s (%d)",
 		  strerror(errno), errno);
 	 return(-1);
