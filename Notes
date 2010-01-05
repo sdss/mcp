@@ -4,3 +4,112 @@ sdssmake
 env MCP_DIR=/linuxp/prd/mcp/rhl sdssmake install
 
 sdssmake && env MCP_DIR=/linuxp/prd/mcp/rhl sdssmake install && bin/resetCrate
+
+See also bin/gdb
+
+Craig writes:
+==== To debug a task on sdssmcp from vxworks.apo.nmsu.edu
+
+setup vxworks v5_5la -q mv162
+
+# We run the WTX registry on this machine, but it gets connected to by
+the crate.
+export WIND_REGISTRY=10.25.1.14
+export LM_LICENSE_FILE=27027@localhost
+
+# Setup the wtx registry daemon (uses $WIND_REGISTRY):
+wtxregd -V -d >& /tmp/wtxreg.log &
+
+# Setup the flexlm tunnels. 50651 is variable, I fear. See below for
+how to find out the right one.
+ssh -N -L 27027:flm1.fnal.gov:27027 -L 50651:flm1.fnal.gov:50651 hub25m &
+
+# Connect to the target node -- this requires flexlm and $LM_LICENSE_FILE
+# This is where the second tunnelled port is used.
+# You need to reference the kernel image file. The "-s" synchronizes
+the symbol tables between the hosts.
+#
+unknown:cloomis/ tgtsvr -s -V sdssmcp -m 16777216 -c
+/home_hub25m/cloomis/vxWorks &
+tgtsvr.ex (sdssmcp@unknown): Wed Apr  1 22:52:11 2009
+   Checking License ...OK
+   Connecting to target agent... succeeded.
+   Attaching C++ interface... succeeded.
+   Attaching a.out OMF reader for MC680X0 CPU family... succeeded.
+   symbol synchronization: Giving "10.25.1.14" as registry address to
+the target
+   Added target_modules         to target-server.....done
+
+# You should wait for that last line before launching gdb -- that
+indicates that the symbol tables are being synchronized.
+
+# If the second LM port does not get tunnelled, figure it out by
+running tgtsvr under truss as follows:
+# [ Dunno where it is finding that fnal address. I don't think we care. ]
+#
+vxworks:cloomis/ truss -tconnect -vconnect tgtsvr  -V sdssmcp -m
+16777216 -c $HOME/vxWorks.st.debug
+tgtsvr.ex (sdssmcp@unknown): Wed Apr  1 20:52:28 2009
+   Checking License ...connect(4, 0x000E266C, 16, 1)
+ Err#128 ENETUNREACH
+       AF_INET  name = 131.225.68.25  port = 27027
+connect(4, 0x000E266C, 16, 1)                   = 0
+       AF_INET  name = 127.0.0.1  port = 27027
+connect(4, 0x000E266C, 16, 1)                   Err#128 ENETUNREACH
+       AF_INET  name = 131.225.68.25  port = 50651
+connect(4, 0x000E266C, 16, 1)                   = 0
+       AF_INET  name = 127.0.0.1  port = 50651
+ [ .... ]
+
+
+# OK, now run gdbm68k:
+unknown:cloomis/ cd /home_hub25m/rhl/mcp
+unknown:mcp/ gdbm68k
+GNU gdb 5.3
+
+(gdb) target wtx sdssmcp
+Connecting to target server...
+
+Connected to sdssmcp@unknown
+Attached to target server sdssmcp@unknown, CPU is MC68040.
+Looking for all loaded modules:
+       /home_hub25m/cloomis/vxWorks: (no debugging symbols found)...ok
+       mcp-new/mcpnew.out: ok
+       ab/dhp.out: ok
+       ip/systran/dac128v.out: ok
+       ip/acromag/ip480.out: ok
+       util/dscTrace.o: ok
+       vx_tools/lib/vxt.mv162.o: vx_tools/lib/vxt.mv162.o: No such
+file or directory.
+       util/utiltim.out: ok
+       murmur_client_vx/lib/muruser.m68040.o:
+murmur_client_vx/lib/muruser.m68040.o: No such file or directory.
+       ip/systran/did48.out: ok
+       util/ntp.o: ok
+       util/tasks.o: ok
+       util/timer.o: ok
+       ip/mv162IndPackInit.o: ok
+       ip/systran/dio316.out: ok
+       vx_tools/objects/dvx_var_dvx.mv162.o:
+vx_tools/objects/dvx_var_dvx.mv162.o: No such file or directory.
+       ip/systran/adc128f1.out: ok
+Done.
+   # The following address from USER.ID
+(gdb) attach 0xb27df4
+Attaching to task 0xb27df4.
+0x00039dec in noSemQPutEvt ()
+(gdb) b ping_cmd
+Breakpoint 1 at 0xc8c2c4: file as2.c, line 336.
+(gdb) c
+
+  # And yes, it is easy to blow up...
+
+^C
+Program received signal SIGINT, Interrupt.
+0x00039dec in noSemQPutEvt ()
+(gdb)
+Segmentation Fault
+unknown:mcp/
+
+  # I haven't worked on getting the kernel symbol table loaded.
+  
