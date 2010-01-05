@@ -27,7 +27,7 @@
 #define MAX_QUEUED_CONNECTIONS 3	/* max. number of queued connections
 					   to allow */
 #define SERVER_PRIORITY 100		/* priority for server task */
-#define SERVER_STACKSIZE 10000		/* stack size for server task */
+#define SERVER_STACKSIZE 20000		/* stack size for server task */
 /*
  * Global so that they are visible from the vxWorks shell
  */
