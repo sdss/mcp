@@ -33,6 +33,7 @@
  */
 SEM_ID semCmdPort = NULL;		/* semaphore to control permission
 					   to axis motions etc. */
+SEM_ID semNewUID = NULL;		/* semaphore to control setting the user's UIDs */
 
 char semCmdPortOwner[56] = "";		/* name of owner of semCmdPort */
 int semUid = -1;                        /* The uid that has the semaphore; only unique within a task */
@@ -260,6 +261,8 @@ user_id_cmd(int uid, unsigned long cid, char *cmd)
 /*
  * The task that does the work of reading commands and executing them
  */
+void retireUid(int uid);
+
 void
 cpsWorkTask(int fd,			/* as returned by accept() */
 	    struct sockaddr_in *client, /* the client's socket address */
@@ -410,18 +413,108 @@ cpsWorkTask(int fd,			/* as returned by accept() */
       sendStatusMsg_S(uid, 0, INFORMATION_CODE, 1, "userId", ublock->buff);
       sendStatusMsg_FD(uid, 0, FINISHED_CODE, 0, fd);
    }
+   retireUid(uid);
    close(fd);
 
    return;
 }
-
+/*
+ * These port numbers are set in etc/mcp.login
+ */
 int oldServerPort = -1;			/* the port we've always connected to (e.g. mcpMenu) */
 int newServerPort = -1;			/* the new port that the SDSS-III hub connects to  */
-static int uid = INTERNAL_UID + 1;	/* User IDs for connections
-					   0: spontaneous
-					   1: TCC
-					   2: internal recursive calls (== INTERNAL_UID)
-					*/
+
+/*
+ * Return a new UID, guaranteed to be unique
+ */
+static int uidsInUse[MAX_CONNECTIONS];	/* all the UIDs that we know about */
+/*
+ * Return a unique new ID.  We increment up to MAX_CONNECTIONS then start again near 0
+ */
+int newUid(void)
+{
+   int i;
+   static int uid = -1;				/* our new UID */
+
+   if (semTake(semNewUID, 10*60) == ERROR) {
+      sendStatusMsgUrgent_S(0, 0, FATAL_CODE, 1, "text", "Unable to take semNewUID");
+      return -1;
+   }
+   
+   if (uid < 0) {
+      /* User IDs for connections
+	 0: spontaneous
+	 1: TCC
+	 2: internal recursive calls (== INTERNAL_UID)
+      */
+      for (i = 0; i <= INTERNAL_UID; ++i) {
+	 uidsInUse[i] = 1;
+      }
+      for (; i < MAX_CONNECTIONS; ++i) {
+	 uidsInUse[i] = 0;
+      }
+
+      uid = INTERNAL_UID;		/* last allocated uid */
+   }
+   /*
+    * Look for an unused UID
+    */
+   if (++uid == MAX_CONNECTIONS) {
+      uid = INTERNAL_UID;
+   }
+
+   for (; uid < MAX_CONNECTIONS; ++uid) {
+      if (!uidsInUse[uid]) {
+	 uidsInUse[uid] = 1;
+	 printf("Returning UID == %d\n", uid);
+	 semGive(semNewUID);
+
+	 return uid;
+      }
+   }
+   semGive(semNewUID);
+
+   sendStatusMsgUrgent_S(0, 0, FATAL_CODE, 1, "text", "All UIDs are in use");
+
+   return -1;
+}
+
+/*
+ * Make uid available for reuse
+ */
+void
+retireUid(int uid)
+{
+   assert(uid >= 0 && uid < MAX_CONNECTIONS);
+   if (!uidsInUse[uid]) {
+      sendStatusMsg_I(0, 0, INFORMATION_CODE, 1, "invalidRetireUid", uid);
+      
+   }
+   printf("Retiring UID == %d\n", uid);
+   uidsInUse[uid] = 0;
+}
+
+void
+showUids(int max)			/* maximum number of UIDs to show */
+{
+   int i;
+   int nactive = 0;
+
+   if (max <= 0) {
+      max = MAX_CONNECTIONS;
+   }
+
+   printf("UID InUse?\n");
+   for (i = 0; i !=  MAX_CONNECTIONS; ++i) {
+      if (i < max) {
+	 printf("%-3d %d\n", i, uidsInUse[i]);
+      }
+
+      nactive += uidsInUse[i];
+   }
+   printf("%d active connections\n");
+}
+
 /*
  * Return the next cid for internal calls (i.e. uid == INTERNAL_UID)
  */
@@ -508,9 +601,18 @@ cmdPortServer(int port)			/* port to bind to */
       define_cmd("USER_ID",  user_id_cmd,    -2, 0, 0, 0, "Tell the MCP who you are");
    }
 /*
+ * Create a semaphore to control access to getting a new UID
+ */
+   if(semNewUID == NULL) {
+      if((semNewUID = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE)) == NULL){
+	 fprintf(stderr,"Creating semNewUID semaphore: %s", strerror(errno));
+      }
+   }
+/*
  * Loop, waiting for connection requests
  */
    for(;;) {
+      int uid;
       if((newFd = accept(sock, (struct sockaddr *)&client, &sockaddr_size))
 								       == -1) {
 	 fprintf(stderr,"Accepting connection on port %d: %s",
@@ -519,8 +621,15 @@ cmdPortServer(int port)			/* port to bind to */
 	 return(-1);
       }
 
+      uid = newUid();
+      if (uid < 0) {			/* none available */
+	 close(newFd);
+	 close(sock);
+	 continue;
+      }
+
       if(taskSpawn("tTelnetCmd", SERVER_PRIORITY, VX_FP_TASK, SERVER_STACKSIZE,
-		   (FUNCPTR)cpsWorkTask, newFd, (int)&client, ++uid,
+		   (FUNCPTR)cpsWorkTask, newFd, (int)&client, uid,
 		   (port == newServerPort ? NEW_PROTOCOL : OLD_PROTOCOL),
 		   0, 0, 0, 0, 0, 0) == ERROR) {
 	 fprintf(stderr,"Spawning task to service connection on port %d: %s",

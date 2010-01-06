@@ -9,6 +9,7 @@ enum {
     NEW_PROTOCOL=2                      /* The new connection protocol, as used by the SDSS-III hub */
 };
 
+#define MAX_CONNECTIONS 100		/* maximum number of connections (actually max number of active UIDs)*/
 #define INTERNAL_UID 2                  /* UID for internal (recursive) calls */
 int nextInternalCid(void);
 /*
