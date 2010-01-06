@@ -15,6 +15,7 @@
 #include "vmechip2.h"
 #include "mcpUtils.h"
 #include "dscTrace.h"
+#include "cmd.h"
 #include "as2.h"
 
 #define SRAM_BASE_ADRS		0xFFE00000L
@@ -540,8 +541,8 @@ void
 get_uid_cid_from_tmr_msg(const MCP_MSG *msg, int *uid, unsigned long *cid)
 {
    struct s_tmr_msg_fmt *tmsg = (struct s_tmr_msg_fmt *)msg;
-   *uid = tmsg->u.tmr.mid/MID_SCALE_FACTOR;
-   *cid = tmsg->u.tmr.arg;
+   *uid = tmsg->u.tmr.arg%MAX_CONNECTIONS;
+   *cid = tmsg->u.tmr.arg/MAX_CONNECTIONS;
 }
 
 /*
@@ -561,6 +562,6 @@ timerSendArgWithUidCid(int msg_type,	/* type of message */
 		       unsigned long cid, /* CID */
 		       MSG_Q_ID return_q) /* queue to push msg onto, if requested by cmd */
 {
-   return timerSendArg(msg_type, cmd, tick_cnt, abs(msg_type) + MID_SCALE_FACTOR*uid, cid, return_q);
+   return timerSendArg(msg_type, cmd, tick_cnt, abs(msg_type), uid + MAX_CONNECTIONS*cid, return_q);
 }
 
