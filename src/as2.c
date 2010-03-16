@@ -13,6 +13,7 @@
 #include "mcpMsgQ.h"
 #include "as2.h"
 #include "cmd.h"
+#include "mcpUtils.h"
 
 /*****************************************************************************/
 /*
@@ -774,9 +775,9 @@ void
 tReaper(void)
 {
    MCP_MSG msg;
-   int uid = 0, cid = 0;
    
    for(;;) {
+     int ret;
      int uid; 
      unsigned long cid;
      char valBuf[100];
@@ -788,7 +789,7 @@ tReaper(void)
      get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
 
      sprintf(valBuf, "reaped msg_type=%d", msg.type);
-     sendStatusMsg_S(uid, cid, FATAL_CODE, "text", valBuf);
+     sendStatusMsg_S(uid, cid, FATAL_CODE, 1, "text", valBuf);
    }
 }
 
