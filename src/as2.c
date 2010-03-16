@@ -30,6 +30,11 @@ typedef struct {
    int tid;				/* uid's TaskID */
 } USER_FD;
 
+/* 
+ * a queue which aborted cmd messages should get sent to so that they can be failed out.
+ */
+MSG_Q_ID msgReaper = NULL;
+
 /********************************************************************************/
 
 SYMTAB_ID keySymTbl = NULL;		/* our symbol table for keys that we've already sent */
@@ -761,6 +766,32 @@ tHeartbeat(void)
    }
 }
 
+/*********************************************************************************/
+/*
+ * The reaper task, used to fail any ns_e_aborted cmds.
+ */
+void
+tReaper(void)
+{
+   MCP_MSG msg;
+   int uid = 0, cid = 0;
+   
+   for(;;) {
+     int uid; 
+     unsigned long cid;
+     char valBuf[100];
+
+     ret = msgQReceive(msgReaper, (char *)&msg, sizeof(msg), WAIT_FOREVER);
+     assert(ret != ERROR);
+
+     NTRACE(1, msg.uid, msg.cid, "read msg on msgReaper");
+     get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
+
+     sprintf(valBuf, "reaped msg_type=%d", msg.type);
+     sendStatusMsg_S(uid, cid, FATAL_CODE, "text", valBuf);
+   }
+}
+
 /*
  * Initialise the task that handles status messages for the hub
  */
@@ -784,6 +815,14 @@ as2Init(void)
        * The heartbeat task
        */
       ret = taskSpawn("tHeartbeat",200,0,10000,(FUNCPTR)tHeartbeat,
+		      0,0,0,0,0,0,0,0,0,0);
+      assert(ret != ERROR);
+      /*
+       * The cmd reaper task and queue
+       */
+      msgReaper = msgQCreate(200, sizeof(MCP_STATUS_MSG), MSG_Q_FIFO);
+      assert(msgReaper != NULL);
+      ret = taskSpawn("tReaper",200,0,10000,(FUNCPTR)tReaper,
 		      0,0,0,0,0,0,0,0,0,0);
       assert(ret != ERROR);
    }

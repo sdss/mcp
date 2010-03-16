@@ -198,5 +198,9 @@ extern MSG_Q_ID msgCmdLog;
  * tStatus task
  */
 extern MSG_Q_ID msgStatus;
+/*
+ * tReaper task
+ */
+extern MSG_Q_ID msgReaper;
 
 #endif
