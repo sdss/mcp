@@ -363,7 +363,6 @@ genFidStatusKey(char *axisName, int uid, unsigned long cid,
 	  poserrTicks);
 
   /* Are there thresholds we could match against to turn the messages into warnings? */
-  fprintf(stderr, "statusKey: %s=%s.\n", nameBuf, valBuf);
   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, nameBuf, valBuf);
 }
 
@@ -379,7 +378,6 @@ genBadFidStatusKey(char *axisName, int uid, unsigned long cid,
   sprintf(valBuf, "%d, %0.2f",
 	  fidIdx, fidPos);
 
-  /* Are there thresholds we could match against to turn the messages into warnings? */
   sendStatusMsg_A(uid, cid, WARNING_CODE, 1, nameBuf, valBuf);
 }
 
