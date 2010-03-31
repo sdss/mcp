@@ -39,6 +39,7 @@ if ($C + $python == 0) {
 	       "badUid" => 1,	# not compiled in
 	       "key" => 1,	# a variable used to hold e.g. azMaxAccLimit
 	       "inCommand" => 1, # debugging keyword in priority 'd' output;  ignored
+	       "nameBuf" => 1, # a variable used to generate per-axis key names.
 	       );
 
 
@@ -52,6 +53,7 @@ if ($C + $python == 0) {
 	     "MsOn" => "boolean",
 	     "PidCoeffs" => "array",
              "FiducialCrossing" => "array",
+             "BadFiducialCrossing" => "array",
 	     );
 
 foreach $akey (keys(%axisKeys)) {

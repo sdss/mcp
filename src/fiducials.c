@@ -363,7 +363,24 @@ genFidStatusKey(char *axisName, int uid, unsigned long cid,
 	  poserrTicks);
 
   /* Are there thresholds we could match against to turn the messages into warnings? */
+  fprintf(stderr, "statusKey: %s=%s.\n", nameBuf, valBuf);
   sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, nameBuf, valBuf);
+}
+
+void
+genBadFidStatusKey(char *axisName, int uid, unsigned long cid,
+		   int fidIdx, double fidPos)
+{
+  char nameBuf[30];
+  char valBuf[100];
+
+  /* We use the sendStatusMsg_A call, so format all of the arguments into a single string. */
+  sprintf(nameBuf, "%sBadFiducial", axisName);
+  sprintf(valBuf, "%d, %0.2f",
+	  fidIdx, fidPos);
+
+  /* Are there thresholds we could match against to turn the messages into warnings? */
+  sendStatusMsg_A(uid, cid, WARNING_CODE, 1, nameBuf, valBuf);
 }
 
 /*****************************************************************************/
@@ -955,6 +972,10 @@ tLatch(const char *name)
 			       vel, 0.0, 0, 0);
 	    
 	    if(fididx < 0 || fididx >= N_AZ_FIDUCIALS) {
+	      genBadFidStatusKey("az", uid, cid, 
+				 fididx, latchpos[latchidx].pos[1]);
+			       
+
 	       NTRACE_2(0, uid, cid, "Invalid azimuth fiducial %d, pos = %g",
 			fididx, latchpos[latchidx].pos[1]);
 	    } else {
@@ -971,8 +992,8 @@ tLatch(const char *name)
 		  az_fiducial[fididx].markvalid = TRUE;
 	       }
 	       fiducial[AZIMUTH].seen_fiducial = TRUE;
-	       
-	       genFidStatusKey("Az", uid, cid, 
+
+	       genFidStatusKey("az", uid, cid, 
 			       fididx,
 			       az_fiducial[fididx].mark[1]/ticks_per_degree[AZIMUTH],
 			       az_fiducial[fididx].last[1],
@@ -1018,6 +1039,9 @@ tLatch(const char *name)
 	 fididx = remap_fiducials(ALTITUDE, fididx);
 			
 	 if(fididx < 0 || fididx >= N_ALT_FIDUCIALS) {
+	    genBadFidStatusKey("alt", uid, cid, 
+			       fididx, (read_clinometer() + 0.5));
+			       
 	    NTRACE_2(0, uid, cid, "Invalid altitude fiducial %d, clino = %d",
 		     fididx, (int)(read_clinometer() + 0.5));
 	 } else {
@@ -1039,8 +1063,8 @@ tLatch(const char *name)
 	       alt_fiducial[fididx].markvalid = TRUE;
 	    }
 	    fiducial[ALTITUDE].seen_fiducial = TRUE;
-	    
-	    genFidStatusKey("Alt", uid, cid, 
+
+	    genFidStatusKey("alt", uid, cid, 
 			    fididx,
 			    alt_fiducial[fididx].mark[1]/ticks_per_degree[ALTITUDE],
 			    alt_fiducial[fididx].last[1],
@@ -1093,6 +1117,9 @@ tLatch(const char *name)
 	 fididx = remap_fiducials(INSTRUMENT, fididx);
 
 	 if(fididx < 0) {
+	    genBadFidStatusKey("rot", uid, cid, 
+			       fididx,
+			       (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 	    NTRACE_1(0, uid, cid, "Failed to identify rotator fiducial at %.2f",
 		     (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 	    
@@ -1152,12 +1179,16 @@ tLatch(const char *name)
       
 	 if(fididx > 0) {
 	    if(!pos_is_mark) {
-	       NTRACE_1(4, uid, cid, "Intermediate rot fiducial %.2f deg",
-			(latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
+	      char buf[10];
+	      
+	      sprintf(buf, "%0.2f", (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
+	      sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "rotIntermediateFiducial", buf);
+	      NTRACE_1(4, uid, cid, "Intermediate rot fiducial %.2f deg",
+		       (latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 	    } else {
 	       static char pos[20];	/* won't appear properly in TRACE log*/
 
-	       genFidStatusKey("Rot", uid, cid, 
+	       genFidStatusKey("rot", uid, cid, 
 			       fididx,
 			       (rot_fiducial[fididx].mark[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT],
 			       rot_fiducial[fididx].last[1],

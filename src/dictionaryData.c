@@ -1,7 +1,7 @@
 /*
  * Machine generated using buildKeyDict
  *
- * Wed Dec 30 20:46:03 TAI 2009
+ * Wed Mar 31 10:34:12 MST 2010
  */
    struct {
       const char *name;
@@ -15,6 +15,8 @@
        {"NeLampCommandedOn", boolean, 0, ""},
        {"UVLampCommandedOn", boolean, 0, ""},
        {"ab_status", array, 0, ""},
+       {"altBadFiducialCrossing", array, 0, ""},
+       {"altFiducialCrossing", array, 0, ""},
        {"altFiducialVersion", string, 0, ""},
        {"altMaxAccLimit", floating, 0, ""},
        {"altMaxAccRequested", floating, 1, ""},
@@ -23,6 +25,8 @@
        {"altMsOn", boolean, 0, ""},
        {"altPidCoeffs", array, 0, ""},
        {"altWindscreenTouched", string, 0, ""},
+       {"azBadFiducialCrossing", array, 0, ""},
+       {"azFiducialCrossing", array, 0, ""},
        {"azFiducialVersion", string, 0, ""},
        {"azMaxAccLimit", floating, 0, ""},
        {"azMaxAccRequested", floating, 1, ""},
@@ -57,6 +61,7 @@
        {"instrumentNum", integer, 0, ""},
        {"instrumentNumConsistent", boolean, 0, ""},
        {"instrumentNumValues", array, 0, ""},
+       {"invalidRetireUid", integer, 0, ""},
        {"lampsCommanded", boolean, 0, ""},
        {"lavaLamp", integer, 0, ""},
        {"mcpVersion", string, 0, ""},
@@ -66,8 +71,11 @@
        {"needSemaphore", novalue, 0, ""},
        {"plcVersion", integer, 0, ""},
        {"plcVersions", array, 0, ""},
+       {"rotBadFiducialCrossing", array, 0, ""},
        {"rotBadFiducialDelta", integer, 0, ""},
+       {"rotFiducialCrossing", array, 0, ""},
        {"rotFiducialVersion", string, 0, ""},
+       {"rotIntermediateFiducial", array, 0, ""},
        {"rotMaxAccLimit", floating, 0, ""},
        {"rotMaxAccRequested", floating, 1, ""},
        {"rotMaxVelLimit", floating, 0, ""},
@@ -81,6 +89,7 @@
        {"tbarCommanded", boolean, 0, ""},
        {"text", string, 1, ""},
        {"userId", string, 1, ""},
+       {"version", string, 0, ""},
        {"whtLampCommandedOn", boolean, 0, ""},
        {"yourUserNum", integer, 0, ""},
        {NULL, 0, 0, NULL}
