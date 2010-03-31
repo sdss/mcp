@@ -337,9 +337,34 @@ broadcast_fiducial_status(int uid, unsigned long cid)
    
    /* PLC version, per the PLC */
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "plcVersion", sdssdc.status.b3.w1.version_id);
+
+   /* Send two version strings. The first only for backward compatability. */
    sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "mcpVersion", getCvsTagname());
+   sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "version", getCvsTagname());
 }
 
+/****************************************************************/
+/*
+ * Generate a fiducial crossing status message.
+ */
+void
+genFidStatusKey(char *axisName, int uid, unsigned long cid,
+		int fidIdx, double fidPos,
+		long lastTicks, long errTicks, long poserrTicks)
+{
+  char nameBuf[30];
+  char valBuf[100];
+
+  /* We use the sendStatusMsg_A call, so format all of the arguments into a single string. */
+  sprintf(nameBuf, "%sFiducialCrossing", axisName);
+  sprintf(valBuf, "%d, %0.2f, %ld, %ld",
+	  fidIdx, fidPos,
+	  lastTicks ? errTicks : 99999,
+	  poserrTicks);
+
+  /* Are there thresholds we could match against to turn the messages into warnings? */
+  sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, nameBuf, valBuf);
+}
 
 /*****************************************************************************/
 /*
@@ -947,6 +972,13 @@ tLatch(const char *name)
 	       }
 	       fiducial[AZIMUTH].seen_fiducial = TRUE;
 	       
+	       genFidStatusKey("Az", uid, cid, 
+			       fididx,
+			       az_fiducial[fididx].mark[1]/ticks_per_degree[AZIMUTH],
+			       az_fiducial[fididx].last[1],
+			       az_fiducial[fididx].err[1],
+			       az_fiducial[fididx].poserr[1]);
+
 	       NTRACE_1(4, uid, cid, "az fiducial %.2f deg",
 			az_fiducial[fididx].mark[1]/ticks_per_degree[AZIMUTH]);
 	       if(az_fiducial[fididx].last[1] == 0) {
@@ -1008,6 +1040,13 @@ tLatch(const char *name)
 	    }
 	    fiducial[ALTITUDE].seen_fiducial = TRUE;
 	    
+	    genFidStatusKey("Alt", uid, cid, 
+			    fididx,
+			    alt_fiducial[fididx].mark[1]/ticks_per_degree[ALTITUDE],
+			    alt_fiducial[fididx].last[1],
+			    alt_fiducial[fididx].err[1],
+			    alt_fiducial[fididx].poserr[1]);
+
 	    NTRACE_1(4, uid, cid, "alt fiducial %.2f deg",
 		     alt_fiducial[fididx].mark[1]/ticks_per_degree[ALTITUDE]);
 	    if(alt_fiducial[fididx].last[1] == 0) {
@@ -1117,6 +1156,13 @@ tLatch(const char *name)
 			(latchpos[latchidx].pos[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT]);
 	    } else {
 	       static char pos[20];	/* won't appear properly in TRACE log*/
+
+	       genFidStatusKey("Rot", uid, cid, 
+			       fididx,
+			       (rot_fiducial[fididx].mark[1] - ROT_FID_BIAS)/ticks_per_degree[INSTRUMENT],
+			       rot_fiducial[fididx].last[1],
+			       rot_fiducial[fididx].err[1],
+			       rot_fiducial[fididx].poserr[1]);
 
 	       sprintf(pos, "%.2f",
 		  (rot_fiducial[fididx].mark[1] -
