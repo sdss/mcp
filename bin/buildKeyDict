@@ -51,6 +51,7 @@ if ($C + $python == 0) {
 	     "MaxVelRequested" => "floating",
 	     "MsOn" => "boolean",
 	     "PidCoeffs" => "array",
+             "FiducialCrossing" => "array",
 	     );
 
 foreach $akey (keys(%axisKeys)) {
