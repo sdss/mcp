@@ -785,11 +785,16 @@ tReaper(void)
      ret = msgQReceive(msgReaper, (char *)&msg, sizeof(msg), WAIT_FOREVER);
      assert(ret != ERROR);
 
-     NTRACE(1, msg.uid, msg.cid, "read msg on msgReaper");
+     NTRACE(1, 0, 0, "read msg on msgReaper");
      get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
 
-     sprintf(valBuf, "reaped msg_type=%d", msg.type);
-     sendStatusMsg_S(uid, cid, FATAL_CODE, 1, "text", valBuf);
+     if (uid == 0 && cid == 0) {
+       sprintf(valBuf, "NOT reaping msg_type=%d with ids=(%d,%ld)", msg.type, uid, cid);
+       sendStatusMsg_S(uid, cid, WARNING_CODE, 1, "text", valBuf);
+     } else {
+       sprintf(valBuf, "reaped msg_type=%d with ids=(%d,%ld)", msg.type, uid, cid);
+       sendStatusMsg_S(uid, cid, FATAL_CODE, 1, "text", valBuf);
+     }
    }
 }
 
