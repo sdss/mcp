@@ -741,13 +741,23 @@ tFFS(void)
  *   FFSCheckMoved_type  A request from us to check that the screens moved
  */
       if(msg.type == FFS_type) {
-	 (void)timerSendArgWithUidCid(FFSCheckMoved_type, tmr_e_abort_ns,
-				      0, msg.uid, msg.cid, 0);
+	/* Supersede any unfinished moved commands. There should not be any FFS_type commands earlier
+	   in the queue, but there could be active FFSCheckMoved commands. */
+	(void)timerSendArgWithUidCid(FFSCheckMoved_type, tmr_e_abort,
+				     0, msg.uid, msg.cid, 0);
       } else if(msg.type == FFSCheckMoved_type) {
 	 int i;
 	 int move_ok = 1;		/* did move complete OK? */
 
 	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
+
+	 /* Check whether we have been superseded and need to commit suicide. 
+	    Perhaps we finished, perhaps not. */
+	 if (msg.u.tmr.sts == tmr_e_abort) {
+	   fprintf(stderr, "superseding %d command (%d,%ld)\n", msg.type, uid, cid);
+	   sendStatusMsg_S(uid, cid, FATAL_CODE, 1, "command", "ffs_move superseded");
+	   continue;
+	 }
 
 	 for(i = 1; i <= 2; i++) {
 	    if(FFS_vals[i] == FFS_OPEN) {
@@ -939,6 +949,11 @@ tLamps(void)
       }
 
       assert(msg.type == lamps_type);
+
+      /* Cancel/fail any unfinished lamp commands.
+       * THIS DOES NOT WORK: we need the lamps.type to be in the .type
+      timerSendArg(msg.type, tmr_e_tid_abort, 0, abs(msg.type), 0, msgReaper);
+       */
 
       b10_l0 = -1;
       switch (msg.u.lamps.type) {
