@@ -944,16 +944,11 @@ tLamps(void)
 			strerror(errno), errno);
 	    }
 	 }
-	 
+
 	 continue;
       }
 
       assert(msg.type == lamps_type);
-
-      /* Cancel/fail any unfinished lamp commands.
-       * THIS DOES NOT WORK: we need the lamps.type to be in the .type
-      timerSendArg(msg.type, tmr_e_tid_abort, 0, abs(msg.type), 0, msgReaper);
-       */
 
       b10_l0 = -1;
       switch (msg.u.lamps.type) {
