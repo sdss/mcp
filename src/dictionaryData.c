@@ -62,7 +62,7 @@
        {"instrumentNumConsistent", boolean, 0, ""},
        {"instrumentNumValues", array, 0, ""},
        {"invalidRetireUid", integer, 0, ""},
-       {"lampsCommanded", boolean, 0, ""},
+       {"lampsCommanded", boolean, 1, ""},
        {"lavaLamp", integer, 0, ""},
        {"mcpVersion", string, 0, ""},
        {"minEncoderMismatch", array, 0, ""},
