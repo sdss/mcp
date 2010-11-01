@@ -211,12 +211,12 @@ KeysDictionary('mcp', (1,1),
 # A type string for an enum that can be looked up name
 #
 %enumTypes = (
-	      "cwStatus" => 'Enum("LU", "L.", ".U", "..", desc=("Invalid", "Lower Limit", "Upper Limit", "valid")',
-	      "ffsSelected" => 'Enum("00", "01", "10", "11", descr=("None", "Half1", "Half2", "All")',
-	      "ffsStatus" => 'Enum("00", "01", "10", "11")*8, descr=("?", "Closed", "Open", "Invalid")',
+	      "cwStatus" => 'Enum("LU", "L.", ".U", "..", labelHelp=("Invalid", "Lower Limit", "Upper Limit", "valid")',
+	      "ffsSelected" => 'Enum("00", "01", "10", "11", labelHelp=("None", "Half1", "Half2", "All")',
+	      "ffsStatus" => 'Enum("00", "01", "10", "11")*8, labelHelp=("?", "Closed", "Open", "Invalid")',
 	      "instrumentNum" => 'Int(invalid=-1)',
-	      "sp1Slithead" => 'Enum("00", "01", "10", "11", descr=("Indeterminate", "Open", "Closed", "Invalid")), Bool("0", "1", help="Latch extended"), Bool("0", "1", help="Slithead in place")',
-	      "sp2Slithead" => 'Enum("00", "01", "10", "11", descr=("Indeterminate", "Open", "Closed", "Invalid")), Bool("0", "1", help="Latch extended"), Bool("0", "1", help="Slithead in place")',
+	      "sp1Slithead" => 'Enum("00", "01", "10", "11", labelHelp=("Indeterminate", "Open", "Closed", "Invalid")), Bool("0", "1", help="Latch extended"), Bool("0", "1", help="Slithead in place")',
+	      "sp2Slithead" => 'Enum("00", "01", "10", "11", labelHelp=("Indeterminate", "Open", "Closed", "Invalid")), Bool("0", "1", help="Latch extended"), Bool("0", "1", help="Slithead in place")',
 	      );
 #
 # An array to be looked up by name;  returns dimension and type
