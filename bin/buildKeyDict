@@ -32,6 +32,8 @@ if ($C + $python == 0) {
 
 %keywordTypes = ();
 
+$keywordTypes{"trace"} = "string"; # doesn't appear literally in the source
+
 # Keys to ignore
 
 %ignoreKeys = (
@@ -41,7 +43,6 @@ if ($C + $python == 0) {
 	       "inCommand" => 1, # debugging keyword in priority 'd' output;  ignored
 	       "nameBuf" => 1, # a variable used to generate per-axis key names.
 	       );
-
 
 # Keys that don't appear literally in the source code as they are defined for each axis
 
