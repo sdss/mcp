@@ -202,7 +202,9 @@ broadcast_inst_status(int uid, unsigned long cid)
 {
    int inconsistent = 0;
    int inst_id = instrument_id(NULL, &inconsistent);
+#if 0					/* imager is no-longer used */
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "saddleIsMounted", saddle_is_mounted());
+#endif
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
 
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "instrumentNumConsistent", !inconsistent);
