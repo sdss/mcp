@@ -2167,7 +2167,7 @@ axisMotionInit(void)
 
    coeff[DF_P] = 135;
    coeff[DF_I] = 4;
-   coeff[DF_D] = 600;
+   coeff[DF_D] = 550;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
    coeff[DF_I_LIMIT] = 32767;
@@ -2189,9 +2189,9 @@ axisMotionInit(void)
    coeff[DF_FRICT_FF] = 0;
    set_filter(2*ALTITUDE, (P_INT)coeff);
    
-   coeff[DF_P] = 90;
-   coeff[DF_I] = 4;
-   coeff[DF_D] = 180;
+   coeff[DF_P] = 50;
+   coeff[DF_I] = 5;
+   coeff[DF_D] = 160;
    coeff[DF_ACCEL_FF] = 0;
    coeff[DF_VEL_FF] = 0;
    coeff[DF_I_LIMIT] = 32767;

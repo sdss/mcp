@@ -66,6 +66,7 @@ instrument_id(int *instrument_in_place,	/* if any bits are set there's something
       instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_15;
       instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_16;
       instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_17;
+      instrument_in_place_plc[i++] = sdssdc.status.b3.w7.cartridge_18;
       ECAM = i;
       instrument_in_place_plc[i++] = sdssdc.status.b3.w1.eng_cam_in_place;
       IMAGER = i;
