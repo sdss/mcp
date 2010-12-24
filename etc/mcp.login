@@ -11,22 +11,22 @@ eiDebug = 0xfc
 #
 _tzname = "GMT"
 #
+hostAdd "hub25m-p.apo.nmsu.edu", "10.25.1.1"
 hostAdd "sdsshost2.apo.nmsu.edu", "10.25.1.3"
 hostAdd "tai-time.apo.nmsu.edu", "10.25.1.13"
 hostAdd "utc-time.apo.nmsu.edu", "10.25.1.3"
 #
-nfsMount("sdsshost2.apo.nmsu.edu", "/linuxp", "/linuxp")
-nfsMount("sdsshost2.apo.nmsu.edu", "/p", "/p")
-nfsMount("sdsshost2.apo.nmsu.edu", "/mcptpm", "/mcptpm")
+nfsMount("hub25m-p.apo.nmsu.edu", "/home/vxworks", "/home/vxworks")
+nfsMount("hub25m-p.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
-# Add user vxworks (pid 10003, gid 3532) to group products
+# Add user vxworks (pid 602, gid 602)
 #
-au_p = malloc(4); *au_p = 4525		/* group products */
-nfsAuthUnixSet "sdsshost2.apo.nmsu.edu", 10003, 3532, 1, au_p
+au_p = malloc(4); *au_p = 602		/* group vxworks */
+nfsAuthUnixSet "hub25m-p.apo.nmsu.edu", 602, 602, 1, au_p
 #
 # Go to the version root
 #
-cd "/linuxp/prd/mcpbase"
+cd "/mcpbase"
 #
 # Remove MCP main RAM Slave Map that is defined in the vxWorks image.
 #
@@ -149,11 +149,11 @@ dhpd (10,0xe000,"chasb")
 # Load slalib for the sake of the MJD.  We now use our copy as this
 # version doesn't appear to be reentrant
 #
-# ld < /linuxp/prd/tpmbase/bin/mv162/slaLib
+# ld < /tpmbase/bin/mv162/slaLib
 #
 # Load NTP code
 #
-#ld < /linuxp/prd/astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
+#ld < /astrobase/node/sdssid1/ntpvx/usrTime/usrLoad.mv167.o
 ld < util/ntp.o
 #
 # Load the MCP itself
@@ -235,17 +235,17 @@ VME162_IP_Memory_Enable (0xfff58000,3,0x72000000)
 # Load fiducials tables
 #
 # AZIMUTH = 0
-read_fiducials "/linuxp/prd/mcpbase/fiducial-tables/az.dat", 0
+read_fiducials "/mcpbase/fiducial-tables/az.dat", 0
 set_max_fiducial_correction 0, 600
 set_min_encoder_mismatch_error 0, 1000
 #
 # ALTITUDE = 1
-read_fiducials "/linuxp/prd/mcpbase/fiducial-tables/alt.dat", 1
+read_fiducials "/mcpbase/fiducial-tables/alt.dat", 1
 set_max_fiducial_correction 1, 600
 set_min_encoder_mismatch_error 1, 1000
 #
 # INSTRUMENT = 2 (== rotator)
-read_fiducials "/linuxp/prd/mcpbase/fiducial-tables/rot.dat", 2
+read_fiducials "/mcpbase/fiducial-tables/rot.dat", 2
 set_max_fiducial_correction 2, 600
 set_min_encoder_mismatch_error 2, 1000
 #

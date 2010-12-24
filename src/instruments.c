@@ -44,7 +44,7 @@ instrument_id(int *instrument_in_place,	/* if any bits are set there's something
                     sdssdc.status.i1.il8.pri_latch3_opn);
    
    {
-      #define NINST 20
+      #define NINST 21
       int ECAM, IMAGER;			/* index for engineering camera and imager */
       int instrument_in_place_plc[NINST];
       int i = 0;
