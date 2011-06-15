@@ -17,6 +17,8 @@ hostAdd "tai-time.apo.nmsu.edu", "10.25.1.13"
 hostAdd "utc-time.apo.nmsu.edu", "10.25.1.3"
 #
 nfsMount("hub25m-p.apo.nmsu.edu", "/home/vxworks", "/home/vxworks")
+nfsMount("hub25m-p.apo.nmsu.edu", "/home/sdss3/products", "/home/sdss3/products")
+nfsMount("hub25m-p.apo.nmsu.edu", "/linuxp/prd", "/linuxp/prd")
 nfsMount("hub25m-p.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
 # Add user vxworks (pid 602, gid 602)
@@ -26,7 +28,7 @@ nfsAuthUnixSet "hub25m-p.apo.nmsu.edu", 602, 602, 1, au_p
 #
 # Go to the version root
 #
-cd "/mcpbase"
+cd "/home/vxworks/mcpbase"
 #
 # Remove MCP main RAM Slave Map that is defined in the vxWorks image.
 #
