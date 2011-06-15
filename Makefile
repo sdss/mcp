@@ -61,10 +61,10 @@ tags :
 	@for d in $(DIRS); do \
 		if [ $$d != "bin" -a $$d != "etc" -a $$d != "ups" ]; then \
 			echo $$d; \
-			etags --append -a -t -o TAGS $$d/*.[ch]; \
+			etags --append -a -o TAGS $$d/*.[ch]; \
 		fi; \
 	done
-	etags --append -a -t -o TAGS etc/mcp.login
+	etags --append -a -o TAGS etc/mcp.login
 
 
 make :
