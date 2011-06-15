@@ -10,18 +10,18 @@ Group:
   Qualifiers=""
   Flavor=Linux+2.4-2.3.2
   Qualifiers=""
-
+  Flavor=Linux64
+  Qualifiers=""
 
 Common:
    Action=setup
       proddir()
       setupenv()
       setupRequired("sdsstools")
-      setupOptional("-f Linux+2.4 plc")
-      setupRequired("-f VxWorks -q mv162 murmur_client_vx")
-      setupRequired("-f VxWorks+5.5 -q mv162 -j vx_tools")
-      setupRequired("-f SunOS+5 -q mv162 vxworks v5_5la")
-      setupRequired("-f ${UPS_PROD_FLAVOR} mcp_fiducials")
+      setupRequired("plc")
+      setupRequired("murmur_client_vx")
+      setupRequired("vx_tools")
+      setupRequired("mcp_fiducials")
       pathPrepend(PATH, ${UPS_PROD_DIR}/bin)
 End:
 
