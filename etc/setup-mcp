@@ -13,7 +13,6 @@ if [ ! -d etc ]; then
     echo "" >&2
 fi
 setup -f Linux+2.4-2.3.2 mcp -r $(command pwd)
-setup plc -f Linux+2.4
 
 if [ ! -f $MCP_DIR/bin/sdssmake ]; then
     echo "I don't see bin/sdssmake --- are you sourcing me in the mcp directory?"
@@ -21,12 +20,18 @@ else
     type sdssmake
 fi
 
-setup vxworks v5_5la -q mv162
+setup -f Linux+2.4 plc
+setup -f SunOS+5 vxworks v5_5la -q mv162
 setup -f VxWorks+5.5 -q mv162 -j vx_tools vCPL
-setup -f VxWorks -q mv162 murmur_client_vx
+setup -f VxWorks -q mv162 murmur_client_vx v1_20
 setup gtools
 
+# This is !!!!! WRONG !!!!! -- CPL
+#  We want to be sourcing the ups/setups.sh file, but I can't recollect how that is called.
+export VX_DSC_DIR=/linuxp/prd/vx_dsc/v5_2f0
+
 export VX_VW_BASE=$VXWORKS_DIR
+
 #
 # set some variables for gdb
 #
