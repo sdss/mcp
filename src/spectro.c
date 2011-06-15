@@ -992,7 +992,11 @@ tLamps(void)
 	 printf("R Err=%04x\r\n",err);
       }
 
-      swab((char *)&ctrl[0], (char *)&tm_ctrl0, sizeof(tm_ctrl0));
+      if(b10_l0) {
+	swab((char *)&ctrl[0], (char *)&tm_ctrl0, sizeof(tm_ctrl0));
+      } else {
+	swab((char *)&ctrl[0], (char *)&tm_ctrl1, sizeof(tm_ctrl1));
+      }
       
       switch (msg.u.lamps.type) {
        case FF_LAMP:
