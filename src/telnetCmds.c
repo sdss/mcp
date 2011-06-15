@@ -512,7 +512,7 @@ showUids(int max)			/* maximum number of UIDs to show */
 
       nactive += uidsInUse[i];
    }
-   printf("%d active connections\n");
+   printf("%d active connections\n", nactive);
 }
 
 /*
