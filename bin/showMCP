@@ -7,7 +7,7 @@
 # From iop, the "mcpVersion" command will tell you which version is
 # actually running; this information is also available from the MCP Menu
 #
-$base="/home/vxworks/mcpbase";
+$base="/p/mcpbase";
 
 if (-d $base) {
 	$dir = readlink("$base/etc");
