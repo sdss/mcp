@@ -3,6 +3,12 @@ SHELL = /bin/sh
 DIRS = ab bin doc etc fiducial-tables ip mei-src src ups util
 
 all :
+	@if [ "$(VX_VW_BASE)" = "" ]; then \
+		echo ""; \
+		echo "You need to have source'd etc/setup-mcp to build mcp." >&2; \
+		echo ""; \
+		exit 1; \
+	fi
 	@for d in $(DIRS); do \
 		echo $$d; \
 		(cd $$d; $(MAKE) $(MFLAGS) all ); \
