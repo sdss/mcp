@@ -60,7 +60,7 @@ install :
 		(mkdir $(MCP_DIR)/$$d; cd $$d; \
 			echo In $$d; $(MAKE) $(MFLAGS) install ); \
 	done
-	@chmod -R g+w $(MCP_DIR)
+	@find $(MCP_DIR) | xargs -n 10 chmod g+w
 
 tags :
 	@rm -f TAGS
