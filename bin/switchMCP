@@ -1,73 +1,68 @@
 #!/usr/bin/env bash
 
-#DEBUG=0
-#set -x
+UPS_SHELL=sh;  export UPS_SHELL
 
-if [ $# != 4 ] ; then
-    echo "Usage: switchMCP <mcp_version> <mcp_fiducials_version> <murmur_client_vx_version> <vx_tools_version>" >&2
+if [ X$MCP_DIR = X"" ]; then
+    echo 'Please set the MCP version with the setup command' >2
     exit 1
 fi
 
-if [ `whoami` != "vxworks" ]; then
-    echo "Run this script as the vxworks user." >&2
+if [ ! -d $MCP_DIR ]; then
+    echo "Directory $MCP_DIR doesn't exist" >2
     exit 1
 fi
-
-MCP_DIR=../mcp/$1
-MCP_FIDUCIALS_DIR=../mcp_fiducials/$2
-MCPBASE_DIR=$HOME/mcpbase
-
-MURMUR_CLIENT_VX_DIR=../murmur_client_vx/$3
-VX_TOOLS_DIR=../vx_tools/$4
-
 umask 002
 
-if [ ! -d $MCPBASE_DIR ]; then
-    echo "Directory $MCPBASE_DIR doesn't exist" >&2
+if [ -d /linuxp/mcpbase ]; then
+    cd /linuxp/mcpbase
+elif [ -d /p/mcpbase ]; then
+    cd /p/mcpbase
+else
+    echo "I cannot find mcpbase" >&2
     exit 1
 fi
 
-# Go to the mcpbase dir
+# COPY the etc dir, because the loader can only see a little bit of the filesystem
+if [ -L etc ]; then 
+	rm etc
+elif [ -d etc ]; then
+    rm -f etc/*
+    rmdir etc 
+fi
+mkdir etc
+cp -pr $MCP_DIR/etc/* etc/
 
-cd $MCPBASE_DIR
-
-# Make the links for the MCP package directories
-
-for dir in ab bin doc etc ip src mei-src util; do
-    [ -L $dir ] && rm $dir
-
-    if [ $dir = fiducial-tables -a -d "$MCP_FIDUCIALS_DIR" ]; then
-	ln -s $MCP_FIDUCIALS_DIR $dir
-    elif [ -d $MCP_DIR/$dir ]; then
-        ln -s $MCP_DIR/$dir $dir
+#
+# Make the links for the MCP directories
+#
+for d in ab bin doc fiducial-tables ip src mei-src params util; do
+    if [ -L $d ]; then 
+	rm $d
     fi
-    [ $DEBUG ] && ls -l $dir
+
+    if [ $d = fiducial-tables -a -d "$MCP_FIDUCIALS_DIR" ]; then
+	ln -s $MCP_FIDUCIALS_DIR $d
+    elif [ -d $MCP_DIR/$d ]; then
+	ln -s $MCP_DIR/$d $d
+    fi
 done
-
-# And for other required packages
-
-for dir in MURMUR_CLIENT_VX VX_TOOLS; do
-    ldir=`echo $dir | tr '[A-Z]' '[a-z]'`
-    if [ X`eval echo \$''${dir}_DIR` = X"" ]; then
-	"Please install $ldir and try again" >&2
+#
+# And for required products
+#
+for d in MURMUR_CLIENT_VX VX_TOOLS; do
+    ld=`echo $d | tr '[A-Z]' '[a-z]'`
+    if [ X`eval echo \$''${d}_DIR` = X"" ]; then
+	echo "Please setup $ld and try again" >&2
 	exit 1
     fi
 
-    [ -L $ldir ] && rm $ldir
+    if [ -L $ld ]; then 
+	rm $ld
+    fi
 
-    eval ln -s \$''${dir}_DIR $ldir
-    [ $DEBUG ] && ls -l $ldir
+    eval ln -s \$''${d}_DIR ./$ld
 done
 
-# And for fiducial tables
+./bin/showMCP
 
-ldir=fiducial-tables
-[ -L $ldir ] && rm $ldir
-[ -d "$MCP_FIDUCIALS_DIR" ] && ln -s $MCP_FIDUCIALS_DIR $ldir
-[ $DEBUG ] && ls -l $ldir
-
-# Finally show the new MCP version
-
-$MCP_DIR/bin/showMCP
-
-exit 0
+exit $code
