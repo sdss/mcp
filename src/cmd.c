@@ -336,7 +336,7 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
    msgCmdLog = msgQCreate(40, sizeof(MCP_CMD_MSG), MSG_Q_FIFO);
    assert(msgCmdLog != NULL);
    
-   ret = taskSpawn("tCmdLog",90,VX_FP_TASK,10000,(FUNCPTR)tCmdLog,
+   ret = taskSpawn("tCmdLog",90,VX_FP_TASK,20000,(FUNCPTR)tCmdLog,
 		   0,0,0,0,0,0,0,0,0,0);
    assert(ret != ERROR);   
 /*
