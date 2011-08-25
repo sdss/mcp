@@ -1,7 +1,7 @@
 /*
  * Machine generated using buildKeyDict
  *
- * Wed Mar 31 10:34:12 MST 2010
+ * Thu Aug 25 15:42:10 MDT 2011
  */
    struct {
       const char *name;
@@ -25,6 +25,7 @@
        {"altMsOn", boolean, 0, ""},
        {"altPidCoeffs", array, 0, ""},
        {"altWindscreenTouched", string, 0, ""},
+       {"apogeeGang", integer, 0, ""},
        {"azBadFiducialCrossing", array, 0, ""},
        {"azFiducialCrossing", array, 0, ""},
        {"azFiducialVersion", string, 0, ""},
@@ -62,8 +63,9 @@
        {"instrumentNumConsistent", boolean, 0, ""},
        {"instrumentNumValues", array, 0, ""},
        {"invalidRetireUid", integer, 0, ""},
-       {"lampsCommanded", boolean, 1, ""},
+       {"lampsCommanded", boolean, 0, ""},
        {"lavaLamp", integer, 0, ""},
+       {"marvelsGang", integer, 0, ""},
        {"mcpVersion", string, 0, ""},
        {"minEncoderMismatch", array, 0, ""},
        {"msOnMaxCorrection", array, 0, ""},
@@ -88,6 +90,7 @@
        {"sp2Slithead", array, 0, ""},
        {"tbarCommanded", boolean, 0, ""},
        {"text", string, 1, ""},
+       {"trace", string, 1, ""},
        {"userId", string, 1, ""},
        {"version", string, 0, ""},
        {"whtLampCommandedOn", boolean, 0, ""},
