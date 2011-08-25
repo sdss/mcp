@@ -22,7 +22,7 @@ instrument_id(int *instrument_in_place,	/* if any bits are set there's something
 {
    int uid = 0, cid = 0;
    int inconsistent = 0;		   /* are the switches consistend? Innocent until proven guilty */
-   int inst_id;				   /* The loaded instrument */
+   int inst_id = -1;		           /* The loaded instrument */
    static int notify = -1;		   /* should I notify user of bad ID? */
    int notify_rate = 60;		   /* how often should I notify? */
    int pri_latch_opn;			   /* the primary latches are open */
@@ -196,6 +196,51 @@ saddle_is_mounted(void)
 
 /*****************************************************************************/
 /*
+ * Report the position of the APOGEE gang connector.
+ */
+static int apogee_gang_position(void)
+{
+  int gangPosition = -1;
+
+  if(semTake(semSDSSDC, 100) == ERROR) {
+      return(-1);			/* unknown */
+   }
+  
+  /* 0 0 UNKNOWN
+     0 1 CART
+     1 0 CAL BOX
+     1 1 SPARSE CALS
+   */
+  gangPosition = ((sdssdc.status.i1.il0.apogee_gc_at_stow_sw << 1) |
+                  sdssdc.status.i1.il0.apogee_gc_at_cart_sw);
+
+  semGive(semSDSSDC);
+
+  return(gangPosition);
+}
+
+/*****************************************************************************/
+/*
+ * Report the position of the MARVELS gang connector.
+ */
+static int marvels_gang_position(void)
+{
+  int gangPosition = -1;
+
+  if(semTake(semSDSSDC, 100) == ERROR) {
+      return(-1);			/* unknown */
+   }
+  
+  gangPosition = ((sdssdc.status.i1.il0.marvel_gc_at_stow_sw << 1) |
+                  sdssdc.status.i1.il0.marvel_gc_at_cart_sw);
+
+  semGive(semSDSSDC);
+
+  return(gangPosition);
+}
+
+/*****************************************************************************/
+/*
  * Report the status of instruments.
  */
 void
@@ -203,6 +248,9 @@ broadcast_inst_status(int uid, unsigned long cid)
 {
    int inconsistent = 0;
    int inst_id = instrument_id(NULL, &inconsistent);
+   int apogee_gang = apogee_gang_position();
+   int marvels_gang = marvels_gang_position();
+
 #if 0					/* imager is no-longer used */
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "saddleIsMounted", saddle_is_mounted());
 #endif
@@ -210,6 +258,9 @@ broadcast_inst_status(int uid, unsigned long cid)
 
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "instrumentNumConsistent", !inconsistent);
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "instrumentNum", inst_id);
+
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "apogeeGang", apogee_gang);
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "marvelsGang", marvels_gang);
 }
 
 int
