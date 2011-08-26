@@ -1,9 +1,31 @@
+As of 2011-08 or so, the mcp needs to developed using the old Fermi UPS system, because of the
+cross-compiler support, but should be installed into the new EUPS tree. The idea is that only
+developers need to even know about Fermi UPS, and that _all_ operations product setup is done with
+eups. So:
+
+  a. compile and install the mcp on vxworks.apo
+  b. do all svn and eups work on hub25m.apo.
+  c. the current PLC must be visible in both worlds. The current mcp_fiducials must be visible on 
+
+I (CPL) recommend the following details:  
+  - in hub25m:/home/vxworks/devel, make your working directory tree and checkout the mcp source. e.g. 'mkdir -p cloomis/mcp', etc.
+  - on vxworks.apo, cd to that working dir, which will visible in /home_hub25m/vxworks/devel/
+  - setup and use the build environment with:
+   
 cd mcp
 . etc/setup-mcp
-sdssmake
-env MCP_DIR=/linuxp/prd/mcp/rhl sdssmake install
+sdssmake -deb
 
-sdssmake && env MCP_DIR=/linuxp/prd/mcp/rhl sdssmake install && bin/resetCrate
+  - install into the main hub25m/sdss3 eups tree with, say:
+
+env MCP_DIR=/home_hub25m/sdss3/products/Linux64/mcp/v6_6_9 sdssmake -deb install
+
+  - on hub25m, 'eups declare -r /home/sdss3/products/Linux64/mcp/v6_6_9'
+  - on hub25m, you can then 'setup mcp v6_6_9' and 'switchMCP'. And 'resetCrate' if you want to.
+
+TODO:
+  Move the relevant FUPS products onto vxworks.apo, thus removing the last dependancy on sdsshost2.
+  Neaten up the shared fups/eups products.  
 
 See also bin/gdb
 
