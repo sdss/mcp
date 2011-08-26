@@ -211,8 +211,8 @@ static int apogee_gang_position(void)
      1 0 CAL BOX
      1 1 SPARSE CALS
    */
-  gangPosition = ((sdssdc.status.i1.il0.apogee_gc_at_stow_sw << 1) |
-                  sdssdc.status.i1.il0.apogee_gc_at_cart_sw);
+  gangPosition = ((!sdssdc.status.i1.il0.apogee_gc_at_stow_sw << 1) |
+                  !sdssdc.status.i1.il0.apogee_gc_at_cart_sw);
 
   semGive(semSDSSDC);
 
@@ -231,8 +231,8 @@ static int marvels_gang_position(void)
       return(-1);			/* unknown */
    }
   
-  gangPosition = ((sdssdc.status.i1.il0.marvel_gc_at_stow_sw << 1) |
-                  sdssdc.status.i1.il0.marvel_gc_at_cart_sw);
+  gangPosition = ((!sdssdc.status.i1.il0.marvel_gc_at_stow_sw << 1) |
+                  !sdssdc.status.i1.il0.marvel_gc_at_cart_sw);
 
   semGive(semSDSSDC);
 
