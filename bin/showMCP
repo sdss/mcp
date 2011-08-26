@@ -7,14 +7,13 @@
 # From iop, the "mcpVersion" command will tell you which version is
 # actually running; this information is also available from the MCP Menu
 #
-$base="/p/mcpbase";
+$dir= readlink("/p/mcpbase/src");
 
-if (-d $base) {
-	$dir = readlink("$base/etc");
-	$dir =~ s|/etc$||;
-	$dir =~ s|^.*/mcp/||;
-    
-	print "$dir\n";
+if (-d $dir) {
+    $dir =~ s|/src$||;
+    $dir =~ s|^.*/mcp/||;
 
-	exit;
+    print "$dir\n";
+
+    exit;
 }
