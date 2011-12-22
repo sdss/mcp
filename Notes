@@ -5,7 +5,7 @@ eups. So:
 
   a. compile and install the mcp on vxworks.apo
   b. do all svn and eups work on hub25m.apo.
-  c. the current PLC must be visible in both worlds. The current mcp_fiducials must be visible on 
+  c. the current PLC must be visible in both worlds. The current mcp_fiducials must be visible on eups, and some version visible on fups.
 
 I (CPL) recommend the following details:  
   - in hub25m:/home/vxworks/devel, make your working directory tree and checkout the mcp source. e.g. 'mkdir -p cloomis/mcp', etc.
