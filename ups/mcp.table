@@ -4,13 +4,7 @@ Product=mcp
 #*************************************************
 
 Group:
-  Flavor=IRIX+6
-  Qualifiers=""
-  Flavor=SunOS+5
-  Qualifiers=""
   Flavor=SunOS
-  Qualifiers=""
-  Flavor=Linux+2.4-2.3.2
   Qualifiers=""
   Flavor=Linux64
   Qualifiers=""

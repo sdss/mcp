@@ -13,15 +13,16 @@ sdssmake -deb
 
 env MCP_DIR=/home/sdss3/products/Linux64/mcp/v6_6_9 sdssmake -deb install
 
-  - [on hub25m,] 'eups declare -r /home/sdss3/products/Linux64/mcp/v6_6_9'
-  - [on hub25m,] you can then 'setup mcp v6_6_9' and 'switchMCP'. And 'resetCrate' if you want to.
+  - eups declare -r /home/sdss3/products/Linux64/mcp/v6_6_9
+  - you can then 'setup mcp v6_6_9' and 'switchMCP'. And 'resetCrate' if you want to.
 
-  Beware of flavors....
+  Beware of flavors... doing the declare and setup might be safer on hub25m
+  I made Linux64 be a fallback flavor for SunOS, so the setup actually does work.
 
 TODO:
-  . switchMCP might need some path changes to be run from vxworks 
-  . we might be able to move setupMCP (back) into the table file now.
+  . we might be able to move etc/setup-mcp (back) into the table file now.
   . the flavors are a bit odd.
+
 
 Craig writes:
 ==== To debug a task on sdssmcp from vxworks.apo.nmsu.edu
@@ -29,7 +30,7 @@ Craig writes:
 setup vxworks v5_5la -q mv162
 
 # We run the WTX registry on this machine, but it gets connected to by
-the crate.
+the crate. The vxworks table file sets up the environment for a tunnel:
 export WIND_REGISTRY=10.25.1.14
 export LM_LICENSE_FILE=27027@localhost
 
