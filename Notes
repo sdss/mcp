@@ -1,21 +1,27 @@
-As of 2011-12-22 or so, the mcp can (only) be built at APO on the vxworks machine, using products in the eups
+As of 2011-12-22 or so, the mcp can (only) be built at APO on the vxworks Solaris machine, using products in the eups
 tree on hub25m.
 
 I (CPL) recommend the following details:  
   - in hub25m:/home/vxworks/devel, make your working directory tree and checkout the mcp source. e.g. 'mkdir -p cloomis/mcp', etc.
-  - on vxworks.apo, cd to that working dir, which will visible in /home_hub25m/vxworks/devel/
+  - on vxworks.apo, cd to that working dir, which will visible in /home/vxworks/devel/
   - setup and use the build environment with:
    
-cd mcp
 . etc/setup-mcp
 sdssmake -deb
 
-  - install into the main hub25m/sdss3 eups tree with, say:
+  - install into the main hub25m eups tree with, say:
 
 env MCP_DIR=/home/sdss3/products/Linux64/mcp/v6_6_9 sdssmake -deb install
 
   - [on hub25m,] 'eups declare -r /home/sdss3/products/Linux64/mcp/v6_6_9'
   - [on hub25m,] you can then 'setup mcp v6_6_9' and 'switchMCP'. And 'resetCrate' if you want to.
+
+  Beware of flavors....
+
+TODO:
+  . switchMCP might need some path changes to be run from vxworks 
+  . we might be able to move setupMCP (back) into the table file now.
+  . the flavors are a bit odd.
 
 Craig writes:
 ==== To debug a task on sdssmcp from vxworks.apo.nmsu.edu
