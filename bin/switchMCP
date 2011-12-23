@@ -13,10 +13,8 @@ if [ ! -d $MCP_DIR ]; then
 fi
 umask 002
 
-if [ -d /linuxp/mcpbase ]; then
-    cd /linuxp/mcpbase
-elif [ -d /p/mcpbase ]; then
-    cd /p/mcpbase
+if [ -d /home/vxworks/mcpbase ]; then
+    cd /home/vxworks/mcpbase
 else
     echo "I cannot find mcpbase" >&2
     exit 1
