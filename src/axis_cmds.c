@@ -2036,6 +2036,132 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
 
 /*****************************************************************************/
 /*
+ * Here are the axis PID coefficients, arranged into NPID_BLOCK each of which
+ * has the values for AZIMUTH, ALTITUDE, and INSTRUMENT in that order
+ */
+typedef short PID_COEFFS[COEFFICIENTS];
+
+#define NPID_BLOCK 2
+PID_COEFFS  pid_coeffs[NPID_BLOCK][3] = {
+   {					/* Block 0 */
+      {					/*   AZIMUTH */
+	 135,				/*     DF_P */
+	 4,				/*     DF_I */
+	 550,				/*     DF_D */
+	 0,				/*     DF_ACCEL_FF */
+	 0,				/*     DF_VEL_FF */
+	 32767,				/*     DF_I_LIMIT */
+	 0,				/*     DF_OFFSET */
+	 18000,				/*     DF_DAC_LIMIT */
+	 -4,				/*     1/16; DF_SHIFT */
+	 0				/*     DF_FRICT_FF */
+      },
+      {					/*   ALTITUDE */
+	 120,				/*     DF_P */
+	 4,				/*     DF_I */
+	 600,				/*     DF_D */
+	 0,				/*     DF_ACCEL_FF */
+	 0,				/*     DF_VEL_FF */
+	 32767,				/*     DF_I_LIMITv */
+	 0,				/*     DF_OFFSET */
+	 10000,				/*     DF_DAC_LIMIT */
+	 -4,				/*     1/16; DF_SHIFT */
+	 0				/*     DF_FRICT_FF */
+      },
+      {					/*   INSTRUMENT */
+	 50,				/*     DF_P */
+	 5,				/*     DF_I */
+	 160,				/*     DF_D */
+	 0,				/*     DF_ACCEL_FF */
+	 0,				/*     DF_VEL_FF */
+	 32767,				/*     DF_I_LIMIT */
+	 0,				/*     DF_OFFSET */
+	 12000,				/*     DF_DAC_LIMIT */
+	 -5,				/*     1/32; DF_SHIFT */
+	 0				/*     DF_FRICT_FF */
+      },
+   },
+   {					/* Block 1 */
+      {					/*   AZIMUTH */
+	 135,				/*     DF_P */
+	 4,				/*     DF_I */
+	 550,				/*     DF_D */
+	 0,				/*     DF_ACCEL_FF */
+	 0,				/*     DF_VEL_FF */
+	 32767,				/*     DF_I_LIMIT */
+	 0,				/*     DF_OFFSET */
+	 18000,				/*     DF_DAC_LIMIT */
+	 -4,				/*     1/16; DF_SHIFT */
+	 0				/*     DF_FRICT_FF */
+      },
+      {					/*   ALTITUDE */
+	 120,				/*     DF_P */
+	 4,				/*     DF_I */
+	 599,				/*     DF_D.  N.b. differs by 1 from block 0 for debugging */
+	 0,				/*     DF_ACCEL_FF */
+	 0,				/*     DF_VEL_FF */
+	 32767,				/*     DF_I_LIMITv */
+	 0,				/*     DF_OFFSET */
+	 10000,				/*     DF_DAC_LIMIT */
+	 -4,				/*     1/16; DF_SHIFT */
+	 0				/*     DF_FRICT_FF */
+      },
+      {					/*   INSTRUMENT */
+	 50,				/*     DF_P */
+	 5,				/*     DF_I */
+	 160,				/*     DF_D */
+	 0,				/*     DF_ACCEL_FF */
+	 0,				/*     DF_VEL_FF */
+	 32767,				/*     DF_I_LIMIT */
+	 0,				/*     DF_OFFSET */
+	 12000,				/*     DF_DAC_LIMIT */
+	 -5,				/*     1/32; DF_SHIFT */
+	 0				/*     DF_FRICT_FF */
+      }
+   }
+};
+
+void
+select_pid_block(int uid,			/* user id */
+		 unsigned long cid,	/* command id */
+		 PID_COEFFS coeffs[3])	/* desired coefficients for all three axes */
+{
+/*
+ * Set filter coefficients for the axes.  Note that it is essential that we
+ * provide values for all of the coefficients.
+ */
+   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
+      NTRACE_1(0, uid, cid, "Failed to take semMEI: %s", strerror(errno));
+      taskSuspend(0);
+   }
+
+   set_filter(2*AZIMUTH, (P_INT)coeffs[AZIMUTH]);
+   set_filter(2*ALTITUDE, (P_INT)coeffs[ALTITUDE]);
+   set_filter(2*INSTRUMENT, (P_INT)coeffs[INSTRUMENT]);
+
+   semGive(semMEI);
+}
+
+char *
+select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
+{
+   int block = -1;
+
+   if (sscanf(cmd,"%d", &block) != 1 || block < 0 || block >= NPID_BLOCK) {
+      sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badBlock", block);
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "switch_pid_block");
+      return "ERR: ILLEGAL PID BLOCK SELECTION";
+   }
+
+   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "pid_coeffs_block", block);
+   
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "switch_pid_block");
+
+   return "";
+}
+
+/*****************************************************************************/
+/*
  * General initialization of MEI board...called from startup script.
  *
  * 
@@ -2054,7 +2180,6 @@ axisMotionInit(void)
    int uid = 0, cid = 0;
    short action;
    char buffer[MAX_ERROR_LEN] ;
-   short coeff[COEFFICIENTS];		/* coefficients for PID loops */
    int err;
    int i;
    double limit;
@@ -2156,52 +2281,8 @@ axisMotionInit(void)
 
    VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
    init_io(2,IO_INPUT);
-/*
- * Set filter coefficients for the axes.  Note that it is essential that we
- * provide values for all of the coefficients.
- */
-   while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_1(0, uid, cid, "Failed to take semMEI: %s", strerror(errno));
-      taskSuspend(0);
-   }
 
-   coeff[DF_P] = 135;
-   coeff[DF_I] = 4;
-   coeff[DF_D] = 550;
-   coeff[DF_ACCEL_FF] = 0;
-   coeff[DF_VEL_FF] = 0;
-   coeff[DF_I_LIMIT] = 32767;
-   coeff[DF_OFFSET] = 0;
-   coeff[DF_DAC_LIMIT] = 18000;
-   coeff[DF_SHIFT] = -4;		/* 1/16 */
-   coeff[DF_FRICT_FF] = 0;
-   set_filter(2*AZIMUTH, (P_INT)coeff);
-
-   coeff[DF_P] = 120;
-   coeff[DF_I] = 4;
-   coeff[DF_D] = 600;
-   coeff[DF_ACCEL_FF] = 0;
-   coeff[DF_VEL_FF] = 0;
-   coeff[DF_I_LIMIT] = 32767;
-   coeff[DF_OFFSET] = 0;
-   coeff[DF_DAC_LIMIT] = 10000;
-   coeff[DF_SHIFT] = -4;		/* 1/16 */
-   coeff[DF_FRICT_FF] = 0;
-   set_filter(2*ALTITUDE, (P_INT)coeff);
-   
-   coeff[DF_P] = 50;
-   coeff[DF_I] = 5;
-   coeff[DF_D] = 160;
-   coeff[DF_ACCEL_FF] = 0;
-   coeff[DF_VEL_FF] = 0;
-   coeff[DF_I_LIMIT] = 32767;
-   coeff[DF_OFFSET] = 0;
-   coeff[DF_DAC_LIMIT] = 12000;
-   coeff[DF_SHIFT] = -5;		/* 1/32 */
-   coeff[DF_FRICT_FF] = 0;
-   set_filter(2*INSTRUMENT, (P_INT)coeff);
-
-   semGive(semMEI);
+   select_pid_block(uid, cid, pid_coeffs[0]); /* use the first block of coefficients */
 /*
  * Check that we can cast axis_stat[] to long and do bit manipulations
  */
@@ -2281,6 +2362,9 @@ axisMotionInit(void)
 	      "Get the filter (PID etc.) coefficients for the current axis");
    define_cmd("GET_FILTER_COEFF", get_filter_coeffs_cmd, 0, 0, 0, 0,
 	      "Alias for GET.FILTER.COEFFS");
+
+   define_cmd("SELECT_PID_BLOCK",     select_pid_block_cmd,     1, 1, 0, 1,
+	      "Select which set of PID coefficients should be active");
    
    return 0;
 }
