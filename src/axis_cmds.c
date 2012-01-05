@@ -2124,8 +2124,10 @@ PID_COEFFS  pid_coeffs[NPID_BLOCK][3] = {
 void
 select_pid_block(int uid,		/* user id */
 		 unsigned long cid,	/* command id */
+		 int axis,		/* desired axis */
 		 int block)		/* desired block of coefficients */
 {
+   assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
    assert(block >= 0 && block < NPID_BLOCK);
 /*
  * Set filter coefficients for the axes.  Note that it is essential that we
@@ -2136,9 +2138,7 @@ select_pid_block(int uid,		/* user id */
       taskSuspend(0);
    }
 
-   set_filter(2*AZIMUTH, (P_INT)pid_coeffs[block][AZIMUTH]);
-   set_filter(2*ALTITUDE, (P_INT)pid_coeffs[block][ALTITUDE]);
-   set_filter(2*INSTRUMENT, (P_INT)pid_coeffs[block][INSTRUMENT]);
+   set_filter(2*axis, (P_INT)pid_coeffs[block][axis]);
 
    semGive(semMEI);
 }
@@ -2147,6 +2147,13 @@ char *
 select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
 {
    int block = -1;
+   const int axis = ublock->axis_select;
+   
+   if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
+      sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "select_pid_block");
+      sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "select_pid_block");
+      return "ERR: ILLEGAL DEVICE SELECTION";
+   }
 
    if (sscanf(cmd,"%d", &block) != 1 || block < 0 || block >= NPID_BLOCK) {
       sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badBlock", block);
@@ -2154,11 +2161,11 @@ select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
       return "ERR: ILLEGAL PID BLOCK SELECTION";
    }
 
-   select_pid_block(uid, cid, block);
+   select_pid_block(uid, cid, axis, block);
 
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "pid_coeffs_block", block);
    
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "switch_pid_block");
+   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "select_pid_block");
 
    return "";
 }
@@ -2285,7 +2292,12 @@ axisMotionInit(void)
    VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
    init_io(2,IO_INPUT);
 
-   select_pid_block(uid, cid, 0);	/* use the first block of coefficients */
+   {
+      int block = 0;			/* use the first block of coefficients */
+      select_pid_block(uid, cid, AZIMUTH, block);
+      select_pid_block(uid, cid, ALTITUDE, block);
+      select_pid_block(uid, cid, INSTRUMENT, block);
+   }
 /*
  * Check that we can cast axis_stat[] to long and do bit manipulations
  */
