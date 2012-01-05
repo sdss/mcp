@@ -2122,10 +2122,11 @@ PID_COEFFS  pid_coeffs[NPID_BLOCK][3] = {
 };
 
 void
-select_pid_block(int uid,			/* user id */
+select_pid_block(int uid,		/* user id */
 		 unsigned long cid,	/* command id */
-		 PID_COEFFS coeffs[3])	/* desired coefficients for all three axes */
+		 int block)		/* desired block of coefficients */
 {
+   assert(block >= 0 && block < NPID_BLOCK);
 /*
  * Set filter coefficients for the axes.  Note that it is essential that we
  * provide values for all of the coefficients.
@@ -2135,9 +2136,9 @@ select_pid_block(int uid,			/* user id */
       taskSuspend(0);
    }
 
-   set_filter(2*AZIMUTH, (P_INT)coeffs[AZIMUTH]);
-   set_filter(2*ALTITUDE, (P_INT)coeffs[ALTITUDE]);
-   set_filter(2*INSTRUMENT, (P_INT)coeffs[INSTRUMENT]);
+   set_filter(2*AZIMUTH, (P_INT)pid_coeffs[block][AZIMUTH]);
+   set_filter(2*ALTITUDE, (P_INT)pid_coeffs[block][ALTITUDE]);
+   set_filter(2*INSTRUMENT, (P_INT)pid_coeffs[block][INSTRUMENT]);
 
    semGive(semMEI);
 }
@@ -2152,6 +2153,8 @@ select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "switch_pid_block");
       return "ERR: ILLEGAL PID BLOCK SELECTION";
    }
+
+   select_pid_block(uid, cid, block);
 
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "pid_coeffs_block", block);
    
@@ -2282,7 +2285,7 @@ axisMotionInit(void)
    VME2_pre_scaler(0xE0);  /* 256-freq, defaults to 33 MHz, but sys is 32MHz */
    init_io(2,IO_INPUT);
 
-   select_pid_block(uid, cid, pid_coeffs[0]); /* use the first block of coefficients */
+   select_pid_block(uid, cid, 0);	/* use the first block of coefficients */
 /*
  * Check that we can cast axis_stat[] to long and do bit manipulations
  */
@@ -2363,7 +2366,7 @@ axisMotionInit(void)
    define_cmd("GET_FILTER_COEFF", get_filter_coeffs_cmd, 0, 0, 0, 0,
 	      "Alias for GET.FILTER.COEFFS");
 
-   define_cmd("SELECT_PID_BLOCK",     select_pid_block_cmd,     1, 1, 0, 1,
+   define_cmd("SELECT_PID_BLOCK", select_pid_block_cmd,     1, 1, 0, 1,
 	      "Select which set of PID coefficients should be active");
    
    return 0;
