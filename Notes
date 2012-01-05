@@ -9,6 +9,11 @@ I (CPL) recommend the following details:
 . etc/setup-mcp
 sdssmake -deb
 
+  - to boot off your live copy (on /home/vxworks)
+    setup -r .
+    switchMCP
+    resetCrate
+
   - install into the main hub25m eups tree with, say:
 
 env MCP_DIR=/home/sdss3/products/Linux64/mcp/v6_6_9 sdssmake -deb install
