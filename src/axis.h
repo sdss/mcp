@@ -103,6 +103,11 @@ char *ms_off_cmd(int uid, unsigned long cid, char *cmd);
    };
 #endif
 
+void select_pid_block(int uid,           /* user id */
+                      unsigned long cid, /* command id */
+                      int axis,          /* desired axis */
+                      int block); /* desired block of coefficients */
+
 void set_rot_state(int state);
 #if SWITCH_PID_COEFFS
 void set_rot_coeffs(int state, int index, short val);
