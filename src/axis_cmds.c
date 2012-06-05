@@ -504,6 +504,9 @@ init_cmd(int uid, unsigned long cid, char *cmd)
       taskSuspend(0);
    }
  
+   /* configure the axis PID coefficients for the slewing/non-tracking state. */
+   select_pid_block(uid, cid, axis, 0);
+
    axis_stat[axis][0] = axis_stat[axis][1];
 /*
  * Clear some bits after checking their current status
