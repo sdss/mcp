@@ -2044,6 +2044,10 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
  */
 typedef short PID_COEFFS[COEFFICIENTS];
 
+/* We maintain two sets of coefficients: one (0) for tracking, and one (1) for slewing. 
+   The code run by the INIT and MS.ON commands selects the slewing block, and MS.OFF selects 
+   the tracking block
+*/
 #define NPID_BLOCK 2
 PID_COEFFS  pid_coeffs[NPID_BLOCK][3] = {
    {					/* Block 0 */
@@ -2100,7 +2104,7 @@ PID_COEFFS  pid_coeffs[NPID_BLOCK][3] = {
       {					/*   ALTITUDE */
 	 120,				/*     DF_P */
 	 4,				/*     DF_I */
-	 599,				/*     DF_D.  N.b. differs by 1 from block 0 for debugging */
+	 600,				/*     DF_D */
 	 0,				/*     DF_ACCEL_FF */
 	 0,				/*     DF_VEL_FF */
 	 32767,				/*     DF_I_LIMITv */
@@ -2111,7 +2115,7 @@ PID_COEFFS  pid_coeffs[NPID_BLOCK][3] = {
       },
       {					/*   INSTRUMENT */
 	 50,				/*     DF_P */
-	 5,				/*     DF_I */
+	 4,				/*     DF_I */
 	 160,				/*     DF_D */
 	 0,				/*     DF_ACCEL_FF */
 	 0,				/*     DF_VEL_FF */

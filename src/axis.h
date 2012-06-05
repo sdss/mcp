@@ -103,6 +103,9 @@ char *ms_off_cmd(int uid, unsigned long cid, char *cmd);
    };
 #endif
 
+#define PID_COEFFS_TRACKING     0
+#define PID_COEFFS_SLEWING      1
+
 void select_pid_block(int uid,           /* user id */
                       unsigned long cid, /* command id */
                       int axis,          /* desired axis */
