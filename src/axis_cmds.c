@@ -482,6 +482,12 @@ init_cmd(int uid, unsigned long cid, char *cmd)
       set_axis_scale(axis, fiducial[axis].scale[ROT_ENCODER]);
       break;
    }
+
+/*
+ * Set the axis coefficients for slewing. 
+ */
+   select_pid_block(uid, cid, axis, PID_COEFFS_SLEWING);
+
 /*
  * Clear the status of the bump switches
  */

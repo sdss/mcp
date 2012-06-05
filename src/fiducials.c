@@ -802,6 +802,7 @@ tLatch(const char *name)
 	 
 	 OTRACE(3, "%s MS.ON", axis_name(axis), "");
 	 fiducial[axis].ms_on = 1;
+         select_pid_coeffs(uid, cid, axis, PID_COEFFS_SLEWING);
 
 	 {
 	    char key[20];
@@ -833,6 +834,7 @@ tLatch(const char *name)
       
 	 OTRACE(3, "%s MS.OFF", axis_name(axis), "");
 	 fiducial[axis].ms_on = 0;
+         select_pid_coeffs(uid, cid, axis, PID_COEFFS_TRACKING);
 
 	 {
 	    char key[20];
