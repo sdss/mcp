@@ -510,9 +510,6 @@ init_cmd(int uid, unsigned long cid, char *cmd)
       taskSuspend(0);
    }
  
-   /* configure the axis PID coefficients for the slewing/non-tracking state. */
-   select_pid_block(uid, cid, axis, PID_COEFFS_SLEWING);
-
    axis_stat[axis][0] = axis_stat[axis][1];
 /*
  * Clear some bits after checking their current status
@@ -2142,6 +2139,7 @@ select_pid_block(int uid,		/* user id */
 {
    assert(axis == AZIMUTH || axis == ALTITUDE || axis == INSTRUMENT);
    assert(block >= 0 && block < NPID_BLOCK);
+
 /*
  * Set filter coefficients for the axes.  Note that it is essential that we
  * provide values for all of the coefficients.
@@ -2154,6 +2152,7 @@ select_pid_block(int uid,		/* user id */
    set_filter(2*axis, (P_INT)pid_coeffs[block][axis]);
 
    semGive(semMEI);
+   NTRACE_2(1, uid, cid, "set PID coeffs. axis=%d, block=%d", axis, block);
 }
 
 char *
@@ -2306,7 +2305,7 @@ axisMotionInit(void)
    init_io(2,IO_INPUT);
 
    {
-      int block = 0;			/* use the first block of coefficients */
+      int block = PID_COEFFS_SLEWING;
       select_pid_block(uid, cid, AZIMUTH, block);
       select_pid_block(uid, cid, ALTITUDE, block);
       select_pid_block(uid, cid, INSTRUMENT, block);
