@@ -1620,6 +1620,9 @@ mcp_amp_reset(int axis)
       return(-1);
    }
 
+   /* Per Dan Long, this is the mcpMenu command to use for setting slewing coeffs. */
+   select_pid_block(uid, cid, axis, PID_COEFFS_SLEWING);
+
    if(axis == INSTRUMENT) {
       amp_reset(2*axis);
    } else {
