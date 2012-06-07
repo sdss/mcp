@@ -777,78 +777,84 @@ tLatch(const char *name)
       relatch = 0;			/* re-enable latches? */
       switch (msg.type) {
        case latchCrossed_type:
-	 dio316int_bit = msg.u.latchCrossed.dio316int_bit;
-	 relatch = 1;
-	 NTRACE_2(8, uid, cid, "read latchCrossed on msgLatched, delay = %ldus 0x%x",
-		  timer_read(2) - msg.u.latchCrossed.time, dio316int_bit);
-	 break;
-       case ms_on_az_type:		/* by symmetry with MS.OFF */
+        dio316int_bit = msg.u.latchCrossed.dio316int_bit;
+        relatch = 1;
+        NTRACE_2(8, uid, cid, "read latchCrossed on msgLatched, delay = %ldus 0x%x",
+                 timer_read(2) - msg.u.latchCrossed.time, dio316int_bit);
+        break;
+       case ms_on_az_type:      /* by symmetry with MS.OFF */
        case ms_on_alt_type:
        case ms_on_inst_type:
-	 if(semTake(semLatch, 60) == ERROR) {
-	    NTRACE(0, uid, cid, "ERR: ms_on cannot take semLatch");
-	    continue;
-	 }
+        if(semTake(semLatch, 60) == ERROR) {
+          NTRACE(0, uid, cid, "ERR: ms_on cannot take semLatch");
+          continue;
+        }
 
-	 switch (msg.type) {
-	  case ms_on_az_type:   axis = AZIMUTH; break;
-	  case ms_on_alt_type:  axis = ALTITUDE; break;
-	  case ms_on_inst_type: axis = INSTRUMENT; break;
-	  default:
-	    NTRACE_1(0, uid, cid, "Impossible message type %d; aborting", msg.type);
-	    semGive(semLatch);
-	    abort(); break;
-	 }
-	 
-	 OTRACE(3, "%s MS.ON", axis_name(axis), "");
-	 fiducial[axis].ms_on = 1;
-         select_pid_coeffs(uid, cid, axis, PID_COEFFS_SLEWING);
+        switch (msg.type) {
+        case ms_on_az_type:   axis = AZIMUTH; break;
+        case ms_on_alt_type:  axis = ALTITUDE; break;
+        case ms_on_inst_type: axis = INSTRUMENT; break;
+        default:
+         NTRACE_1(0, uid, cid, "Impossible message type %d; aborting", msg.type);
+         semGive(semLatch);
+         abort(); break;
+        }
+     
+        OTRACE(3, "%s MS.ON", axis_name(axis), "");
+        fiducial[axis].ms_on = 1;
 
-	 {
-	    char key[20];
-	    sprintf(key, "%sMsOn", axis_abbrev(axis));
-	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
-	 }
-	 
-	 maybe_reset_axis_pos(axis, NULL, 0);
-	 
-	 semGive(semLatch);
+        {
+          char key[20];
+          sprintf(key, "%sMsOn", axis_abbrev(axis));
+          sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
+        }
+     
+        maybe_reset_axis_pos(axis, NULL, 0);
+     
+        semGive(semLatch);
 
-	 write_fiducial_log("MS_ON", axis, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
-	 continue;
-       case ms_off_az_type:		/* an MS.OFF command; maybe sent by */
-       case ms_off_alt_type:		/* timerTask hence the various types */
-       case ms_off_inst_type:
-	 ret = semTake(semLatch, WAIT_FOREVER);
-	 assert(ret != ERROR);
-	 
-	 switch (msg.type) {
-	  case ms_off_az_type:   axis = AZIMUTH; break;
-	  case ms_off_alt_type:  axis = ALTITUDE; break;
-	  case ms_off_inst_type: axis = INSTRUMENT; break;
-	  default:
-	    NTRACE_1(0, uid, cid, "Impossible message type %d; aborting", msg.type);
-	    semGive(semLatch);
-	    abort(); break;
-	 }
-      
-	 OTRACE(3, "%s MS.OFF", axis_name(axis), "");
-	 fiducial[axis].ms_on = 0;
-         select_pid_coeffs(uid, cid, axis, PID_COEFFS_TRACKING);
+        /* Call out to axis_cmds.c to set the PID coefficients. Takes semMEI, so I'm 
+         * putting this outside the semLatch grab. */
+        select_pid_block(uid, cid, axis, PID_COEFFS_SLEWING);
 
-	 {
-	    char key[20];
-	    sprintf(key, "%sMsOn", axis_abbrev(axis));
-	    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
-	 }
-	 
-	 semGive(semLatch);
-	 
-	 write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
-	 continue;
+        write_fiducial_log("MS_ON", axis, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
+        continue;
+      case ms_off_az_type:      /* an MS.OFF command; maybe sent by */
+      case ms_off_alt_type:     /* timerTask hence the various types */
+      case ms_off_inst_type:
+       ret = semTake(semLatch, WAIT_FOREVER);
+       assert(ret != ERROR);
+     
+       switch (msg.type) {
+       case ms_off_az_type:   axis = AZIMUTH; break;
+       case ms_off_alt_type:  axis = ALTITUDE; break;
+       case ms_off_inst_type: axis = INSTRUMENT; break;
        default:
-	 NTRACE_1(0, uid, cid, "Impossible message type on msgLatched: %d", msg.type);
-	 continue;	 
+        NTRACE_1(0, uid, cid, "Impossible message type %d; aborting", msg.type);
+        semGive(semLatch);
+        abort(); break;
+       }
+      
+       OTRACE(3, "%s MS.OFF", axis_name(axis), "");
+       fiducial[axis].ms_on = 0;
+        
+       {
+         char key[20];
+         sprintf(key, "%sMsOn", axis_abbrev(axis));
+         sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, key, fiducial[axis].ms_on);
+       }
+        
+       semGive(semLatch);
+       
+       /* Call out to axis_cmds.c to set the PID coefficients. Takes semMEI, so I'm 
+        * putting this outside the semLatch grab. */
+       select_pid_block(uid, cid, axis, PID_COEFFS_TRACKING);
+        
+       write_fiducial_log("MS_OFF", axis, 0, 0, 0, 0, 0,  0.0, 0.0, 0, 0);
+       continue;
+      default:
+       NTRACE_1(0, uid, cid, "Impossible message type on msgLatched: %d", msg.type);
+       continue;     
       }
 /*
  * Time to read the latches and do the work
