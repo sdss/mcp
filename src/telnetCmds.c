@@ -83,13 +83,13 @@ give_semCmdPort(int force)		/* force the giving? */
 
    if(force) {
       if((ret = semMGiveForce(semCmdPort)) != ERROR) {
-	 semCmdPortOwner[0] = '\0';
-	 semUid = -1;
+         strcpy(semCmdPortOwner,"None");
+         semUid = -1;
       }
    } else {
       if((ret = semGive(semCmdPort)) != ERROR) {
-	 semCmdPortOwner[0] = '\0';
-	 semUid = -1;
+         strcpy(semCmdPortOwner,"None");
+         semUid = -1;
       }
    }
    
@@ -192,8 +192,8 @@ sem_show_cmd(int uid, unsigned long cid, char *cmd)
 {
    int full;
    if(sscanf(cmd, "SEM_SHOW %d", &full) == 1 && full) {
-      if(*semCmdPortOwner != '\0') {
-	 printf("Owner: %s\n", semCmdPortOwner);
+      if(strcmp(semCmdPortOwner,"None") != 0) {
+         printf("Owner: %s\n", semCmdPortOwner);
       }
       semShow(semCmdPort, 1);
    }
@@ -587,7 +587,7 @@ cmdPortServer(int port)			/* port to bind to */
       if((semCmdPort = semMCreate(SEM_Q_PRIORITY|SEM_INVERSION_SAFE)) == NULL){
 	 fprintf(stderr,"Creating semCmdPort semaphore: %s", strerror(errno));
       }
-      *semCmdPortOwner = '\0';
+      strcpy(semCmdPortOwner,"None");
       semUid = -1;
 
       /*
