@@ -143,30 +143,33 @@ broadcast_ipsdss(int uid,	   /* user ID */
    struct AB_SLC500 *ab = &sdssdc.status;
    /*
     * Fillout the bitfield that gives us position-dependent booleans that the interlocks use
+    *
+    * N.b. This is a bit of a fake --- the PLC really calculates these internally so we have
+    * to do it ourselves somewhere.  It's better here (in the mcp) than in the tcl interlocks
+    * display logic.  If the PLC is changed, you may have to change some of these
     */
-   I10_L0 plcBools;
    const double alt_position = convert_clinometer(ab->i4.alt_position);
 
-   *(int *)&plcBools = 0x0;
-   plcBools.alt_position_lt_90_15 = (alt_position < 90.15) ? 1 : 0;
-   plcBools.alt_position_gt_89_75 = (alt_position > 89.75) ? 1 : 0;
-   plcBools.alt_position_lt_90_2 =  (alt_position < 90.2)  ? 1 : 0;
-   plcBools.alt_position_lt_90_29 = (alt_position < 90.29) ? 1 : 0;
-   plcBools.alt_position_lt_91_0 =  (alt_position < 91.0)  ? 1 : 0;
-   plcBools.alt_position_gt_89_8 =  (alt_position > 89.8)  ? 1 : 0;
-   plcBools.alt_position_gt_0_50 =  (alt_position > 0.50)  ? 1 : 0;
-   plcBools.alt_position_gt_19_5 =  (alt_position > 19.5)  ? 1 : 0;
-   plcBools.alt_position_gt_0_8 =   (alt_position > 0.8)   ? 1 : 0;
-   plcBools.alt_position_lt_18_5 =  (alt_position < 18.5)  ? 1 : 0;
-   plcBools.alt_position_gt_15_0 =  (alt_position > 15.0)  ? 1 : 0;
-   plcBools.alt_position_gt_15_5 =  (alt_position > 15.5)  ? 1 : 0;
-   plcBools.alt_position_gt_83_5 =  (alt_position > 83.5)  ? 1 : 0;
-   plcBools.alt_pos_lt_0_2 =        (alt_position < 0.2)   ? 1 : 0;
-   plcBools.alt_pos_gt_neg_2 =      (alt_position > -0.2)  ? 1 : 0;
+   *(int *)&ab->i10.il0 = 0x0;
+   ab->i10.il0.alt_position_lt_90_15 = (alt_position < 90.15) ? 1 : 0;
+   ab->i10.il0.alt_position_gt_89_75 = (alt_position > 89.75) ? 1 : 0;
+   ab->i10.il0.alt_position_lt_90_2 =  (alt_position < 90.2)  ? 1 : 0;
+   ab->i10.il0.alt_position_lt_90_29 = (alt_position < 90.29) ? 1 : 0;
+   ab->i10.il0.alt_position_lt_91_0 =  (alt_position < 91.0)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_89_8 =  (alt_position > 89.8)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_0_50 =  (alt_position > 0.50)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_19_5 =  (alt_position > 19.5)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_0_8 =   (alt_position > 0.8)   ? 1 : 0;
+   ab->i10.il0.alt_position_lt_18_5 =  (alt_position < 18.5)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_15_0 =  (alt_position > 15.0)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_15_5 =  (alt_position > 15.5)  ? 1 : 0;
+   ab->i10.il0.alt_position_gt_83_5 =  (alt_position > 83.5)  ? 1 : 0;
+   ab->i10.il0.alt_pos_lt_0_2 =        (alt_position < 0.2)   ? 1 : 0;
+   ab->i10.il0.alt_pos_gt_neg_2 =      (alt_position > -0.2)  ? 1 : 0;
 
-   plcBools.umbilical_dn = (ab->i4.umbilical_dist < 480) ? 1 : 0;
-   plcBools.lift_force_gt_f_cartridge_mount =  (ab->i4.inst_lift_force > 1400)  ? 1 : 0;
-   plcBools.lift_height_gt_h_cartridge_mount = (ab->i4.inst_lift_dist >= 21.95) ? 1 : 0;
+   ab->i10.il0.umbilical_dn = (ab->i4.umbilical_dist < 480) ? 1 : 0;
+   ab->i10.il0.lift_force_gt_f_cartridge_mount =  (ab->i4.inst_lift_force > 1400)  ? 1 : 0;
+   ab->i10.il0.lift_height_gt_h_cartridge_mount = (ab->i4.inst_lift_dist >= 21.95) ? 1 : 0;
    /*
     * Send out the desired fields
     */
@@ -201,7 +204,7 @@ broadcast_ipsdss(int uid,	   /* user ID */
    sendStatusMsg_X(uid, cid, INFORMATION_CODE, 1, "ab_I7_L0", *(int *)&ab->i7.il0);
    sendStatusMsg_X(uid, cid, INFORMATION_CODE, 1, "ab_I8_L0", *(int *)&ab->i8.il0);
    sendStatusMsg_X(uid, cid, INFORMATION_CODE, 1, "ab_I9_L0", *(int *)&ab->i9.il0);
-   sendStatusMsg_X(uid, cid, INFORMATION_CODE, 1, "ab_I10_L0", *(int *)&plcBools);
+   sendStatusMsg_X(uid, cid, INFORMATION_CODE, 1, "ab_I10_L0", *(int *)&ab->i10.il0);
    /* ab_O1_L0 is unused */
    sendStatusMsg_X(uid, cid, INFORMATION_CODE, 1, "ab_O1_L1", *(int *)&ab->o1.ol1);
    /* ab_O1_L[2-4] are all spares */

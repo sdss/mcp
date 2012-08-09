@@ -553,10 +553,12 @@ slc500_data_collection(unsigned long freq)
 
       semGive(semMEIUPD);
 
+      broadcast_ipsdss(uid, cid);	/* N.b. sets the ab->i10.il0 bits for ipsdss_send;
+					   the broadcast_ipsdss call *must* come first */
+
       if(BCAST_Enable) {
 	 ipsdss_send((char *)&sdssdc, sizeof(struct SDSS_FRAME));
       }
-      broadcast_ipsdss(uid, cid);
       
       semGive(semSDSSDC);
 /*
