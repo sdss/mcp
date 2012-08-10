@@ -1,8 +1,13 @@
-As of 2011-12-22 or so, the mcp can (only) be built at APO on the vxworks Solaris machine, using products in the eups
-tree on hub25m.
+As of 2011-12-22 or so, the mcp can (only) be built at APO on the
+vxworks Solaris machine, using products in the eups tree on hub25m.
+The mcp does not use sdss3install and has its own sdssmake, because
+it uses a cross-complier.
 
 I (CPL) recommend the following details:  
-  - in hub25m:/home/vxworks/devel, make your working directory tree and checkout the mcp source. e.g. 'mkdir -p cloomis/mcp', etc.
+  - in hub25m:/home/vxworks/devel, make your working directory tree, e.g.:
+      mkdir -p cloomis/mcp
+    and checkout the mcp source, e.g.:
+      svn co URL/ops/mcp/trunk cloomis/mcp
   - on vxworks.apo, cd to that working dir, which will visible in /home/vxworks/devel/
   - setup and use the build environment with:
    
@@ -16,10 +21,10 @@ sdssmake -deb
 
   - install into the main hub25m eups tree with, say:
 
-env MCP_DIR=/home/sdss3/products/Linux64/mcp/v6_6_9 sdssmake -deb install
+env MCP_DIR=/home/sdss3/products/Linux64/mcp/VERSION sdssmake -deb install
 
-  - eups declare -r /home/sdss3/products/Linux64/mcp/v6_6_9
-  - you can then 'setup mcp v6_6_9' and 'switchMCP'. And 'resetCrate' if you want to.
+  - eups declare -r /home/sdss3/products/Linux64/mcp/VERSION
+  - you can then 'setup mcp VERSION' and 'switchMCP'. And 'resetCrate' if you want to.
 
   Beware of flavors... doing the declare and setup might be safer on hub25m
   I made Linux64 be a fallback flavor for SunOS, so the setup actually does work.
