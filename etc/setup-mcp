@@ -3,6 +3,7 @@
 # You should source, not execute, this file
 # 
     
+setup -f Linux64 plc
 setup sdsstools
 
 if [ ! -d etc ]; then
@@ -17,7 +18,6 @@ else
     type sdssmake
 fi
 
-setup -f Linux64 plc
 setup vxworks v5_5la+mv162
 setup -f VxWorks vx_tools vCPL
 setup -f VxWorks murmur_client_vx v1_20
