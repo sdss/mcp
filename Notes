@@ -10,21 +10,22 @@ I (CPL) recommend the following details:
       svn co URL/ops/mcp/trunk cloomis/mcp
   - on vxworks.apo, cd to that working dir, which will visible in /home/vxworks/devel/
   - setup and use the build environment with:
-   
-. etc/setup-mcp
-sdssmake -deb
+      . etc/setup-mcp
+      sdssmake -deb
 
   - to boot off your live copy (on /home/vxworks)
-    setup -r .
-    switchMCP
-    resetCrate
+      setup -r .
+      switchMCP
+      resetCrate
 
-  - install into the main hub25m eups tree with, say:
+  - install into the main hub25m eups tree (from vxworks) with, say :
 
-env MCP_DIR=/home/sdss3/products/Linux64/mcp/VERSION sdssmake -deb install
+env MCP_DIR=/home/sdss3/products/Linux64/mcp/$VERSION sdssmake -deb install
 
-  - eups declare -r /home/sdss3/products/Linux64/mcp/VERSION
-  - you can then 'setup mcp VERSION' and 'switchMCP'. And 'resetCrate' if you want to.
+  - eups declare -r /home/sdss3/products/Linux64/mcp/$VERSION
+  - you can then 'setup mcp $VERSION' and 'switchMCP'. And 'resetCrate' if you want to.
+  - To make it the current version (only when you know it is safe!):
+      eups declare -c mcp $VERSION
 
   Beware of flavors... doing the declare and setup might be safer on hub25m
   I made Linux64 be a fallback flavor for SunOS, so the setup actually does work.
