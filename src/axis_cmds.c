@@ -1437,7 +1437,7 @@ mcp_move_va(int axis,			/* the axis to move */
 	 max_velocity_requested[axis] = vel;
       }
 	 
-      vel = (vel > 0) ? sf*max_velocity[axis] : -sf*max_velocity[axis]*sf;
+      vel = (vel > 0) ? sf*max_velocity[axis] : -sf*max_velocity[axis];
    }
    if(fabs(acc) > sf*max_acceleration[axis]) {
       printf("AXIS %d: MAX ACC %f exceeded; limit %f\n",
@@ -2365,10 +2365,11 @@ axisMotionInit(void)
 	      "Return current axis's maximum permitted acceleration");
    define_cmd("MC_MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1,
 	      "Return current axis's maximum permitted velocity");
-   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, "");
+   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, 
+              "Go to a POSITION (in sky coordinates) with an optional VELOCITY and ACCELERATION (in telescope ticks)");
    define_cmd("SET_MONITOR",   set_monitor_cmd,   1, 1, 0, 1, "");
    define_cmd("SET_POS_VA",    goto_pos_va_cmd,   3, 1, 1, 1,
-	      "Go to a POSITION with specified VELOCITY and ACCELERATION");
+	      "Go to a POSITION with specified VELOCITY and ACCELERATION (in telescope ticks)");
    define_cmd("SET_POSITION",  set_pos_cmd, 	  1, 1, 0, 1, "");
    define_cmd("SET_VELOCITY",  set_vel_cmd, 	  1, 1, 0, 1, "");
    define_cmd("STATS",         stats_cmd, 	  0, 0, 0, 1, "");
