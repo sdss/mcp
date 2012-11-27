@@ -8,7 +8,7 @@ I (CPL) recommend the following details:
       mkdir -p cloomis/mcp
     and checkout the mcp source, e.g.:
       svn co URL/ops/mcp/trunk cloomis/mcp
-  - on vxworks.apo, cd to that working dir, which will visible in /home/vxworks/devel/
+  - ssh to vxworks (as yourself), cd to that working dir, which will visible in /home/vxworks/devel/
   - setup and use the build environment with:
       . etc/setup-mcp
       sdssmake -deb
@@ -17,10 +17,11 @@ I (CPL) recommend the following details:
       setup -r .
       switchMCP
       resetCrate
+  - to get theu hub to connect to the new MCP, run (from STUI):
+      hub startNubs mcp
 
   - install into the main hub25m eups tree (from vxworks) with, say :
-
-env MCP_DIR=/home/sdss3/products/Linux64/mcp/$VERSION sdssmake -deb install
+      env MCP_DIR=/home/sdss3/products/Linux64/mcp/$VERSION sdssmake -deb install
 
   - eups declare -r /home/sdss3/products/Linux64/mcp/$VERSION
   - you can then 'setup mcp $VERSION' and 'switchMCP'. And 'resetCrate' if you want to.
