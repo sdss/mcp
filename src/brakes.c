@@ -238,7 +238,7 @@ tBrakesInit(void)
 /*
  * Spawn the task that controls the brakes
  */
-   taskSpawn("tBrakes", 90, 0, 2000,
+   taskSpawn("tBrakes", 90, 0, 4000,
 	     (FUNCPTR)tBrakes,
 	     0,0,0,0,0,0,0,0,0,0);
 /*
