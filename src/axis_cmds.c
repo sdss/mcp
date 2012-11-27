@@ -713,9 +713,9 @@ status_cmd(int uid, unsigned long cid, char *cmd)
    pos /= axis_ticks_deg(axis);
    vel /= axis_ticks_deg(axis);
 
-   OTRACE(8, "taking semMEIUPD", 0, 0);
+   NTRACE(8, uid, cid, "taking semMEIUPD");
    if (semTake(semMEIUPD, 60) == ERROR) { 
-      OTRACE(5, "status_cmd: semMEIUPD : %d", errno, 0);
+      NTRACE_1(5, uid, cid, "status_cmd: semMEIUPD : %d", errno);
       sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
 
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "status");
@@ -1267,7 +1267,8 @@ ip_shutdown(int type)
 void
 amp_reset(int mei_axis)
 {
-   OTRACE(3, "Resetting amp for axis %s: %d", axis_name(mei_axis/2), mei_axis);
+   /* TBD: jkp: don't have a uid/cid now; could get it passed up from mcp_amp_reset */
+   NTRACE_2(0, 0, 0, "Resetting amp for axis %s: %d", axis_name(mei_axis/2), mei_axis);
    
    DIO316_Write_Port(cw_DIO316, AMP_RESET, 1<<mei_axis);
    taskDelay (2);
@@ -2366,10 +2367,10 @@ axisMotionInit(void)
    define_cmd("MC_MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1,
 	      "Return current axis's maximum permitted velocity");
    define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, 
-              "Go to a POSITION (in sky coordinates) with an optional VELOCITY and ACCELERATION (in telescope ticks)");
+              "Go to a POSITION (in sky coordinates) with an optional VELOCITY (in telescope ticks) and TIME");
    define_cmd("SET_MONITOR",   set_monitor_cmd,   1, 1, 0, 1, "");
    define_cmd("SET_POS_VA",    goto_pos_va_cmd,   3, 1, 1, 1,
-	      "Go to a POSITION with specified VELOCITY and ACCELERATION (in telescope ticks)");
+	      "Go to a POSITION with specified VELOCITY and ACCELERATION (all in telescope ticks)");
    define_cmd("SET_POSITION",  set_pos_cmd, 	  1, 1, 0, 1, "");
    define_cmd("SET_VELOCITY",  set_vel_cmd, 	  1, 1, 0, 1, "");
    define_cmd("STATS",         stats_cmd, 	  0, 0, 0, 1, "");

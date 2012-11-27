@@ -1678,14 +1678,14 @@ mcp_move(int uid, unsigned long cid,
  * send MS.OFF to stop updating of axis position from fiducials
  */
    if(nparam == 0 && set_ms_off(uid, cid, axis, 0) < 0) {
-      NTRACE(0, uid, cid, "move_cmd: failed to set MS.OFF");
+      NTRACE(0, uid, cid, "mcp_move: failed to set MS.OFF");
       return(-1);
    }
 /*
  * Proceed with the MOVE
  */
    if(sdss_get_time() < 0) {
-      NTRACE(0, uid, cid, "mcp_move(): bad time");
+      NTRACE(0, uid, cid, "mcp_move: bad time");
       return(-1);
    }
    
@@ -1696,19 +1696,18 @@ mcp_move(int uid, unsigned long cid,
       NTRACE_2(0, uid, cid, "Cannot allocate frame: (%d) %s", errno, strerror(errno));
       return(-1);
    }
-   
-#if 1					/* XXX */
-   NTRACE_2(0, uid, cid, "%s, nparam = %d", axis_name(axis), nparam);
+
+   /* Log this. We may not have any other way to see what parameters were passed. */
+   NTRACE_2(1, uid, cid, "mcp_move: %s, nparam = %d", axis_name(axis), nparam);
    if(nparam > 0) {
-      NTRACE_2(0, uid, cid, "MOVE p0 %f", params[0], 0);
+      NTRACE_2(1, uid, cid, "mcp_move: MOVE p0 %f", params[0], 0);
       if(nparam > 1) {
-	 NTRACE_2(0, uid, cid, "MOVE p1 %f", params[1], 0);
-	 if(nparam > 2) {
-	    NTRACE_2(0, uid, cid, "MOVE p2 %f", params[2], 0);
-	 }
+        NTRACE_2(1, uid, cid, "mcp_move: MOVE p1 %f", params[1], 0);
+        if(nparam > 2) {
+          NTRACE_2(1, uid, cid, "mcp_move: MOVE p2 %f", params[2], 0);
+        }
       }
    }
-#endif
 
    switch (nparam) {
     case -1:
