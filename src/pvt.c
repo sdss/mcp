@@ -1698,13 +1698,13 @@ mcp_move(int uid, unsigned long cid,
    }
    
 #if 1					/* XXX */
-   OTRACE(7, "%s, nparam = %d", axis_name(axis), nparam);
+   NTRACE_2(0, uid, cid, "%s, nparam = %d", axis_name(axis), nparam);
    if(nparam > 0) {
-      OTRACE(7, "MOVE p0 %f", params[0], 0);
+      NTRACE_2(0, uid, cid, "MOVE p0 %f", params[0], 0);
       if(nparam > 1) {
-	 OTRACE(7, "MOVE p1 %f", params[1], 0);
+	 NTRACE_2(0, uid, cid, "MOVE p1 %f", params[1], 0);
 	 if(nparam > 2) {
-	    OTRACE(7, "MOVE p2 %f", params[2], 0);
+	    NTRACE_2(0, uid, cid, "MOVE p2 %f", params[2], 0);
 	 }
       }
    }
@@ -1741,7 +1741,7 @@ mcp_move(int uid, unsigned long cid,
 
       tm_get_position(2*axis,&pos);
       frame->end_time =
-	sdss_get_time()+ abs((pos/ticks_per_degree[axis] - position)/velocity);
+         sdss_get_time()+ abs((pos/ticks_per_degree[axis] - position)/velocity);
       frame->end_time = fmod(frame->end_time, ONE_DAY);
 
       break;
@@ -1751,17 +1751,17 @@ mcp_move(int uid, unsigned long cid,
       frame->end_time = params[2];
 
       if(sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
-	 if(frame != NULL) free(frame);
-	 OTRACE(0, "MOVE CMD: requested time=%f", frame->end_time, 0);
-	 OTRACE(0, "            current time=%f", sdss_get_time(), 0);
-	 traceMode(traceModeGet() & ~0x1); /* XXX */
-	 return(-1);
+        if(frame != NULL) free(frame);
+        NTRACE_1(0, uid, cid, "MOVE CMD: requested time=%f", frame->end_time);
+        NTRACE_1(0, uid, cid, "            current time=%f", sdss_get_time());
+        traceMode(traceModeGet() & ~0x1); /* XXX */
+        return(-1);
       }
       
       if(drift_break[axis]) {
-	 if(DRIFT_verbose) {
-            printf("DRIFT pvt %f %f %f\n", position,velocity,frame->end_time);
-	 }
+        if(DRIFT_verbose) {
+          printf("DRIFT pvt %f %f %f\n", position,velocity,frame->end_time);
+      }
 	 
 	 taskLock();
 	 tm_get_position(2*axis, &pos);
@@ -1790,7 +1790,7 @@ mcp_move(int uid, unsigned long cid,
    frame->position = position;
 
    if(fabs(velocity) > max_velocity[axis]) {
-      OTRACE(2, "Move: Max vel. for %s exceeded: %ld/1000",
+      NTRACE_2(0, uid, cid, "Move: Max vel. for %s exceeded: %ld/1000",
 	    axis_name(axis), (long)(1e3*velocity));
 
       {
@@ -1838,8 +1838,8 @@ mcp_move(int uid, unsigned long cid,
 	 frame->position -= offset[axis][i][1].position;
 	 frame->velocity -= offset[axis][i][1].velocity;
 
-	 OTRACE(5, "Offsetting %s", axis_name(axis), 0);
-	 OTRACE(5, "     pos = %d, vel = %d",
+     NTRACE_1(0, uid, cid, "Offsetting %s", axis_name(axis));
+	 NTRACE_2(0, uid, cid, "     pos = %d, vel = %d",
 		sdssdc.tccmove[axis].position,
 		sdssdc.tccmove[axis].velocity);
 	 
