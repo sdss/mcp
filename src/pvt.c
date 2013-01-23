@@ -1700,11 +1700,11 @@ mcp_move(int uid, unsigned long cid,
    /* Log this. We may not have any other way to see what parameters were passed. */
    NTRACE_2(1, uid, cid, "mcp_move: %s, nparam = %d", axis_name(axis), nparam);
    if(nparam > 0) {
-      NTRACE_2(1, uid, cid, "mcp_move: MOVE p0 %f", params[0], 0);
+      NTRACE_1(1, uid, cid, "mcp_move: MOVE p0 %f", params[0]);
       if(nparam > 1) {
-        NTRACE_2(1, uid, cid, "mcp_move: MOVE p1 %f", params[1], 0);
+        NTRACE_1(1, uid, cid, "mcp_move: MOVE p1 %f", params[1]);
         if(nparam > 2) {
-          NTRACE_2(1, uid, cid, "mcp_move: MOVE p2 %f", params[2], 0);
+           NTRACE_1(1, uid, cid, "mcp_move: MOVE p2 %f", params[2]);
         }
       }
    }
@@ -1742,7 +1742,6 @@ mcp_move(int uid, unsigned long cid,
       frame->end_time =
          sdss_get_time()+ abs((pos/ticks_per_degree[axis] - position)/velocity);
       frame->end_time = fmod(frame->end_time, ONE_DAY);
-
       break;
     case 3:
       position = params[0];
@@ -1814,6 +1813,13 @@ mcp_move(int uid, unsigned long cid,
 
       semGive(semSDSSDC);
    }
+
+#if 0 /*debugging*/
+   NTRACE_2(0,uid,cid,"%s MOVE pos=%f",axis_name(axis),frame->position);
+   NTRACE_2(0,uid,cid,"%s MOVE vel=%f",axis_name(axis),frame->velocity);
+   NTRACE_2(0,uid,cid,"%s MOVE endtime=%f",axis_name(axis),frame->end_time);
+   NTRACE_2(0,uid,cid,"%s MOVE delta_t=%f",axis_name(axis),frame->end_time-sdss_get_time());
+#endif
 
 #if 0					/* XXX */
    printf("%s MOVE %f %f %f  %10.4f\n", axis_name(axis),

@@ -1418,7 +1418,13 @@ mcp_move_va(int axis,			/* the axis to move */
    }
    
    sem_controller_run(2*axis);
-   
+
+#if 0 /*debugging*/
+   NTRACE_2(1,uid,cid,"mcp_move_va: %s pos=%ld",axis_name(axis),pos);
+   NTRACE_2(1,uid,cid,"mcp_move_va: %s vel=%ld",axis_name(axis),vel);
+   NTRACE_2(1,uid,cid,"mcp_move_va: %s acc=%ld",axis_name(axis),acc);
+#endif 
+
 #if SWITCH_PID_COEFFS
    if(axis == INSTRUMENT) {
       while(coeffs_state_cts(2*axis, vel) == TRUE) {
@@ -1823,6 +1829,12 @@ goto_pos_va_cmd(int uid, unsigned long cid, char *cmd)
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "goto_pos_va");
       return("ERR: malformed command argument");
    }
+
+#if 0 /* debugging */
+   NTRACE_1(1,uid,cid,"goto_pos_va_cmd: pos=%f",pos);
+   NTRACE_1(1,uid,cid,"goto_pos_va_cmd: vel=%f",vel);
+   NTRACE_1(1,uid,cid,"goto_pos_va_cmd: acc=%f",acc);
+#endif
    
    mcp_move_va(ublock->axis_select, pos, vel, acc);
 
