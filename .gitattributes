@@ -29,6 +29,7 @@ bin/sdssmake -text
 bin/showMCP -text
 bin/switchMCP -text
 /branches -text
+doc/DSP_C_Pgm_Ref_revB.pdf -text
 doc/Makefile -text
 doc/www/cmds.html -text
 doc/www/index.html -text
