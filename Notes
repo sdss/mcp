@@ -13,6 +13,16 @@ I (CPL) recommend the following details:
       . etc/setup-mcp
       sdssmake -deb
 
+  - It is strongly recommended that you have a terminal attached to
+    the mcp telnet port during the reboot:
+      telnet t-g-sdss-2 3700
+  - 3700 is the console port for humans, it is never used by anything else.
+  - To soft-reset the MCP, send a CTRL-X from the terminal
+  - telnet to port 2000 on that machine to get into the Xyplex Terminal Server.
+    From there, you can "logout port 17" to drop someone, if they are
+    hogging the above port. Warning: if you leave yourself logged in
+    to port 2000, there's no way to force you off without a reboot!
+
   - to boot off your live copy (on /home/vxworks)
       setup -r .
       switchMCP
@@ -20,10 +30,18 @@ I (CPL) recommend the following details:
   - to get theu hub to connect to the new MCP, run (from STUI):
       hub startNubs mcp
 
-  - install into the main hub25m eups tree (from vxworks) with, say :
+  - in mcpMenu, you will see a "rebooted" message in red. Clicking it
+    will iack the mcp. Equivalently, "mcp iack" will do the same thing.
+    This doesn't change anything, just acknowledge that a person has seen
+    the reboot.
+
+  - Once you've tested the trunk version, tag it with the usual:
+      svn copy TRUNK TAG
+  - install the new tag into the main hub25m eups tree (from vxworks):
       env MCP_DIR=/home/sdss3/products/Linux64/mcp/$VERSION sdssmake -deb install
 
-  - eups declare -r /home/sdss3/products/Linux64/mcp/$VERSION
+  - Declare this version (from vxworks):
+      eups declare -r /home/sdss3/products/Linux64/mcp/$VERSION
   - you can then 'setup mcp $VERSION' and 'switchMCP'. And 'resetCrate' if you want to.
   - To make it the current version (only when you know it is safe!):
       eups declare -c mcp $VERSION
