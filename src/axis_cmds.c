@@ -2363,7 +2363,7 @@ axisMotionInit(void)
    define_cmd("BUMP_CLEAR",    bump_clear_cmd,    0, 1, 0, 1, "");
    define_cmd("DRIFT",         drift_cmd, 	  0, 1, 1, 1, "");
    define_cmd("GOTO_POS_VA",   goto_pos_va_cmd,   3, 1, 1, 1,
-	      "Go to a POSITION with specified VELOCITY and ACCELERATION");
+	      "Go to a POSITION with specified VELOCITY and ACCELERATION (all in telescope ticks)");
    define_cmd("HALT",          hold_cmd, 	  0, 1, 0, 1, "");
    define_cmd("HOLD",          hold_cmd, 	  0, 1, 0, 1, "");
    define_cmd("ID",            id_cmd, 		  0, 0, 0, 1, "");
@@ -2379,7 +2379,7 @@ axisMotionInit(void)
    define_cmd("MC_MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1,
 	      "Return current axis's maximum permitted velocity");
    define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, 
-              "Go to a POSITION (in sky coordinates) with an optional VELOCITY (in telescope ticks) and TIME");
+              "Go to a POSITION (degrees) with an optional VELOCITY (degrees/sec) and TIME (seconds since start of UTC day)");
    define_cmd("SET_MONITOR",   set_monitor_cmd,   1, 1, 0, 1, "");
    define_cmd("SET_POS_VA",    goto_pos_va_cmd,   3, 1, 1, 1,
 	      "Go to a POSITION with specified VELOCITY and ACCELERATION (all in telescope ticks)");
