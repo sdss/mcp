@@ -214,12 +214,12 @@ static int apogee_gang_position(void)
    * 16 at sparse port in podium
    * 32 at 1m port in podium
    */
-  gangPosition = ((sdssdc.status.B3_L7.apogee_gc_unplugged) |
-                  (sdssdc.status.B3_L7.apogee_gc_at_cart << 1) |
-                  (sdssdc.status.B3_L7.apogee_gc_at_stow << 2) |
-                  (sdssdc.status.B3_L7.apogee_gc_at_dense << 3) |
-                  (sdssdc.status.B3_L7.apogee_gc_at_sparse << 4) |
-                  (sdssdc.status.B3_L7.apogee_gc_at_1m << 5));
+  gangPosition = ((sdssdc.status.b3.w7.apogee_gc_unplugged) |
+                  (sdssdc.status.b3.w7.apogee_gc_at_cart << 1) |
+                  (sdssdc.status.b3.w7.apogee_gc_at_stow << 2) |
+                  (sdssdc.status.b3.w7.apogee_gc_at_dense << 3) |
+                  (sdssdc.status.b3.w7.apogee_gc_at_sparse << 4) |
+                  (sdssdc.status.b3.w7.apogee_gc_at_1m << 5));
 
   semGive(semSDSSDC);
 
