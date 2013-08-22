@@ -705,34 +705,6 @@ ping_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
     return "";
 }
 
-/************************************************************************************************************/
-/*
- * Report the lavaLamp's status
- */
-int lava_lamp_on = 0;			/* is lava lamp on? */
-
-char *
-lava_on_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
-{
-   lava_lamp_on = 1;
-
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_on");
-
-   return "";
-}
-
-char *
-lava_off_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
-{
-   lava_lamp_on = 0;
-
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
-   sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "lava_off");
-
-   return "";
-}
-
 /*****************************************************************************/
 /*
  * Commands to allow an iop server to pass information through the hub to the alertsActor
@@ -836,9 +808,5 @@ as2Init(void)
  * define spectro commands to the command interpreter
  */
    define_cmd("PING",          ping_cmd, 	  0, 0, 0, 0, "Ping the MCP");
-   define_cmd("LAVA_LAMP_ON",  lava_on_cmd,       0, 0, 0, 0, "Set the lava lamp status ON");
-   define_cmd("LAVA_LAMP_OFF", lava_off_cmd,      0, 0, 0, 0, "Set the lava lamp status OFF");
-   define_cmd("LAVA_ON",       lava_on_cmd,       0, 0, 0, 0, "Set the lava lamp status ON");
-   define_cmd("LAVA_OFF",      lava_off_cmd,      0, 0, 0, 0, "Set the lava lamp status OFF");
    define_cmd("IM_CAMCHECK",   im_camCheck_cmd,   1, 0, 0, 0, "Pass on any problems detected in the imager");
 }

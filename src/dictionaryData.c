@@ -64,8 +64,6 @@
        {"instrumentNumValues", array, 0, ""},
        {"invalidRetireUid", integer, 0, ""},
        {"lampsCommanded", boolean, 0, ""},
-       {"lavaLamp", integer, 0, ""},
-       {"marvelsGang", integer, 0, ""},
        {"mcpVersion", string, 0, ""},
        {"minEncoderMismatch", array, 0, ""},
        {"msOnMaxCorrection", array, 0, ""},

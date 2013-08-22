@@ -206,33 +206,20 @@ static int apogee_gang_position(void)
       return(-1);			/* unknown */
    }
   
-  /* 0 0 UNKNOWN
-     0 1 CART
-     1 0 CAL BOX
-     1 1 SPARSE CALS
+  /* 0 unknown
+   * 1 unplugged
+   * 2 at cart
+   * 4 any port in podium (always set if any of next 3 are set)
+   * 8 at dense port in podium
+   * 16 at sparse port in podium
+   * 32 at 1m port in podium
    */
-  gangPosition = ((!sdssdc.status.i1.il0.apogee_gc_at_stow_sw << 1) |
-                  !sdssdc.status.i1.il0.apogee_gc_at_cart_sw);
-
-  semGive(semSDSSDC);
-
-  return(gangPosition);
-}
-
-/*****************************************************************************/
-/*
- * Report the position of the MARVELS gang connector.
- */
-static int marvels_gang_position(void)
-{
-  int gangPosition = -1;
-
-  if(semTake(semSDSSDC, 100) == ERROR) {
-      return(-1);			/* unknown */
-   }
-  
-  gangPosition = ((!sdssdc.status.i1.il0.marvel_gc_at_stow_sw << 1) |
-                  !sdssdc.status.i1.il0.marvel_gc_at_cart_sw);
+  gangPosition = ((sdssdc.status.b3.l7.apogee_gc_unplugged) |
+                  (sdssdc.status.b3.l7.apogee_gc_at_cart << 1) |
+                  (sdssdc.status.b3.l7.apogee_gc_at_stow << 2) |
+                  (sdssdc.status.b3.l7.apogee_gc_at_dense << 3) |
+                  (sdssdc.status.b3.l7.apogee_gc_at_sparse << 4) |
+                  (sdssdc.status.b3.l7.apogee_gc_at_1m << 5));
 
   semGive(semSDSSDC);
 
@@ -249,18 +236,15 @@ broadcast_inst_status(int uid, unsigned long cid)
    int inconsistent = 0;
    int inst_id = instrument_id(NULL, &inconsistent);
    int apogee_gang = apogee_gang_position();
-   int marvels_gang = marvels_gang_position();
 
 #if 0					/* imager is no-longer used */
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "saddleIsMounted", saddle_is_mounted());
 #endif
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "lavaLamp", lava_lamp_on);
 
    sendStatusMsg_B(uid, cid, INFORMATION_CODE, 1, "instrumentNumConsistent", !inconsistent);
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "instrumentNum", inst_id);
 
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "apogeeGang", apogee_gang);
-   sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "marvelsGang", marvels_gang);
 }
 
 int
