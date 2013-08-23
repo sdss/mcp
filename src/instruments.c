@@ -210,9 +210,9 @@ static int apogee_gang_position(void)
    * 1 unplugged
    * 2 at cart
    * 4 any port in podium (always set if any of next 3 are set)
-   * 8 at dense port in podium
-   * 16 at sparse port in podium
-   * 32 at 1m port in podium
+   * 8+4 at dense port in podium
+   * 16+4 at sparse port in podium
+   * 32+4 at 1m port in podium
    */
   gangPosition = ((sdssdc.status.b3.w7.apogee_gc_unplugged) |
                   (sdssdc.status.b3.w7.apogee_gc_at_cart << 1) |
