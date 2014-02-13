@@ -1697,6 +1697,8 @@ mcp_move(int uid, unsigned long cid,
       return(-1);
    }
 
+   /* Debugging: this produces a *lot* of chatter while tracking. */
+#if 0
    /* Log this. We may not have any other way to see what parameters were passed. */
    NTRACE_2(1, uid, cid, "mcp_move: %s, nparam = %d", axis_name(axis), nparam);
    if(nparam > 0) {
@@ -1708,7 +1710,8 @@ mcp_move(int uid, unsigned long cid,
         }
       }
    }
-
+#endif
+   
    switch (nparam) {
     case -1:
     case 0:
