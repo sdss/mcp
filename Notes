@@ -8,7 +8,8 @@ I (CPL) recommend the following details:
       mkdir -p cloomis/mcp
     and checkout the mcp source, e.g.:
       svn co URL/ops/mcp/trunk cloomis/mcp
-  - ssh to vxworks (as yourself), cd to that working dir, which will visible in /home/vxworks/devel/
+  - ssh to vxworks (as yourself), cd to that working dir, which will visible
+    in /home/vxworks/devel/
   - setup and use the build environment with:
       . etc/setup-mcp
       sdssmake -deb
@@ -27,9 +28,9 @@ I (CPL) recommend the following details:
       setup -r .
       switchMCP
       resetCrate
-  - to get theu hub to connect to the new MCP, run (from STUI):
+ 
+  - to get the hub to connect to the new MCP, run (from STUI):
       hub startNubs mcp
-
   - in mcpMenu, you will see a "rebooted" message in red. Clicking it
     will iack the mcp. Equivalently, "mcp iack" will do the same thing.
     This doesn't change anything, just acknowledge that a person has seen
