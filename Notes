@@ -5,7 +5,7 @@ it uses a cross-complier.
 
 I (CPL) recommend the following details:  
   - in hub25m:/home/vxworks/devel, make your working directory tree, e.g.:
-      mkdir -p cloomis/mcp
+      mkdir -p parejkoj/mcp
     and checkout the mcp source, e.g.:
       svn co URL/ops/mcp/trunk cloomis/mcp
   - ssh to vxworks (as yourself), cd to that working dir, which will visible
@@ -24,6 +24,11 @@ I (CPL) recommend the following details:
     hogging the above port. Warning: if you leave yourself logged in
     to port 2000, there's no way to force you off without a reboot!
 
+  - ssh to vxworks (as yourself), cd to that working dir, which will visible in /home/vxworks/devel/
+  - setup and use the build environment with:
+      . etc/setup-mcp
+      sdssmake -deb
+
   - to boot off your live copy (on /home/vxworks)
       setup -r .
       switchMCP
@@ -33,13 +38,22 @@ I (CPL) recommend the following details:
       hub startNubs mcp
   - in mcpMenu, you will see a "rebooted" message in red. Clicking it
     will iack the mcp. Equivalently, "mcp iack" will do the same thing.
-    This doesn't change anything, just acknowledge that a person has seen
+    This doesn't change anything, just acknowledges that a person has seen
     the reboot.
 
-  - Once you've tested the trunk version, tag it with the usual:
+  - Once you've tested the trunk version, tag it with the usual (on hub25m):
       svn copy TRUNK TAG
-  - install the new tag into the main hub25m eups tree (from vxworks):
-      env MCP_DIR=/home/sdss3/products/Linux64/mcp/$VERSION sdssmake -deb install
+  - Export the new tag (on hub25m):
+      cd /home/vxworks/devel/parejkoj/
+      svn export svn+ssh://sdss3svn@sdss3.org/repo/apo/mcp/tags/TAG
+  - install the new tag into the main hub25m eups tree (from vxworks,
+    in your devel directory):
+      # The first two are because of something related to 32/64bit
+      # cross-compiling/cross-mounting between hub25m and vxworks.
+      # Without them, you'll get confusing makefile errors.
+      PATH=$PWD:$PATH
+      ln -s $GTOOLS_DIR/bin/gmake make
+      env MCP_DIR=/home/sdss3/products/Linux64/mcp/TAG sdssmake -deb install
 
   - Declare this version (from vxworks):
       eups declare -r /home/sdss3/products/Linux64/mcp/$VERSION
