@@ -69,6 +69,34 @@ TODO:
   . the flavors are a bit odd.
 
 
+John writes (from Robert on the phone):
+====
+Directory translations:
+ab: Alan Bradley (for interlocks)
+ip: Industry Pack board (DIO316/DID48)
+mei-src: motion controller boards
+
+When we build the mcp, we build and install all of the above.
+
+The labels for the ultimate cause display in the interlocks windows comes from
+the C comments in data_collection.h in the plc product.
+
+Code that should be left in the MCP, were it to be cleaned up:
+ * talking to the MEI, fiducials
+ * computing PVTs
+ * GPS pulse for the MEI
+We could remove (if we're going to fiddle with things anyway):
+ * lamps
+ * FFS
+
+Could we port the MCP to a newer version of vxworks?
+ * Licensing is a significant question.
+ * The MCP should probably complie without trouble on a new version.
+
+The TPM used to share the MCP backplane. The MCP doesn't need any of it.
+====
+
+
 Craig writes:
 ==== To debug a task on sdssmcp from vxworks.apo.nmsu.edu
 
