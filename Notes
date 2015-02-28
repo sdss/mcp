@@ -18,7 +18,7 @@ I (CPL) recommend the following details:
     the mcp telnet port during the reboot:
       telnet t-g-sdss-2 3700
   - 3700 is the console port for humans, it is never used by anything else.
-  - To soft-reset the MCP, send a CTRL-X from the terminal
+  - NOTE: this doesn't work: To soft-reset the MCP, send a CTRL-X from the terminal
   - telnet to port 2000 on that machine to get into the Xyplex Terminal Server.
     From there, you can "logout port 17" to drop someone, if they are
     hogging the above port. Warning: if you leave yourself logged in
