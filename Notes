@@ -69,6 +69,23 @@ TODO:
   . the flavors are a bit odd.
 
 
+Various potentially useful vxworks commands
+====
+i : info on currently running tasks.
+tt ADDRESS : traceback of memory address.
+help
+netHelp
+inetstatShow
+checkStack
+l
+lkup
+
+CPL Note: vxworks speaks some 'vi' keys. So ESC-k to go up in history, etc.
+Crude but helpful.
+
+====
+
+
 John writes (from Robert on the phone):
 ====
 Directory translations:
