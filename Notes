@@ -15,13 +15,13 @@ and the following environment variables need to be defined:
 
 In addition there are dependencies upon the SDSS products:
 
-	murmr_client_dir
-	murmur_client_vx
+	murmr_client
 	plc
 	vx_tools
+	vx_vw_base
 
-You must either set them up with EUPS or define these environment variables
-to point to them:
+You must either set them up with EUPS/modules or define these
+environment variables to point to them:
 
 	MCP_DIR
 	MURMR_CLIENT_DIR
@@ -30,7 +30,7 @@ to point to them:
 	VX_TOOLS_DIR
 	VX_VW_BASE
 
-All these are defined in the vxworks@sdss-vxworks:.bash_profile script.
+All the above are defined in the vxworks@sdss-vxworks:.bash_profile script.
 I also included "setup actorcore" for good measure, but found no evidence
 that it was required.
 
