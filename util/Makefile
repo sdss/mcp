@@ -3,7 +3,8 @@
 
 CPU = MC68040
 
-VW = $(VXWORKS_DIR)/target/
+#VW = $(VXWORKS_DIR)/target/
+VW = $(VX_DSC_DIR)/
 VWINC		= $(VW)h/
 CONFIG		= $(VW)/config/mv162/
 VWSYSINC	= $(VWINC)drv/
@@ -31,13 +32,15 @@ INCLUDEFLAGS	= -I. -I$(VWINC) -I$(CONFIG) -I$(VWSYSINC) \
                         -I$(MURMUR_CLIENT_VX_DIR)/include
 DEBUGFLAG	=
 CFLAGS		= -g -ansi -pipe -Wall $(DEBUGFLAG) $(INCLUDEFLAGS) \
-		  -DCPU=MC68040 -m68040 $(FEATURES)
+		  -DCPU=MC68040 $(FEATURES)
+#		  -DCPU=MC68040 -m68040 $(FEATURES)
 LFLAGS = -r
 
 
 ## actions
 
-all default : $(LIBFILE) utiltim.out $(EXTRA_OBJS)
+#all default : $(LIBFILE) utiltim.out $(EXTRA_OBJS)
+all default : $(LIBFILE) $(EXTRA_OBJS)
 
 $(LIBFILE) utiltim.out : $(OBJECTS)
 	$(RM) $(LIBFILE)

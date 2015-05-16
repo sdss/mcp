@@ -1,4 +1,6 @@
-#if !defined(AXIS_H)
+#if defined(AXIS_H)
+#warning "AXIS_H previously defined"
+#else
 #define AXIS_H
 
 #define ALLOW_AMP_UPDATE 1		/* allow *_amp_ok() to update? */

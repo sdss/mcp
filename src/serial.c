@@ -21,6 +21,8 @@
 #include "serial.h"
 #include "cmd.h"
 #include "dscTrace.h"
+#include "data_collection.h"
+#include "frame.h"
 #include "axis.h"
 #include "mcpUtils.h"
 #include "as2.h"

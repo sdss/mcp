@@ -5,9 +5,10 @@
 #include <semLib.h>
 #include <taskLib.h>
 #include "dscTrace.h"
+#include "data_collection.h"
+#include "frame.h"
 #include "axis.h"
 #include "abdh.h"
-#include "data_collection.h"
 #include "mcpMsgQ.h"
 #include "cmd.h"
 #include "as2.h"

@@ -5,6 +5,7 @@
 #include "instruments.h"
 #include "abdh.h"
 #include "data_collection.h"
+#include "frame.h"
 #include "axis.h"
 #include "tm.h"
 #include "dscTrace.h"

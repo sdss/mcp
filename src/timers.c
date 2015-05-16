@@ -16,6 +16,7 @@
 #include "mcpTimers.h"
 #include "dscTrace.h"
 #include "data_collection.h"
+#include "frame.h"
 #include "axis.h"
 #include "mcpMsgQ.h"
 #include "cmd.h"

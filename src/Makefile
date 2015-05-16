@@ -17,11 +17,14 @@ H3 = $(VWH)rpc/
 H4 = $(VWH)68k/
 H5 = $(VWH)private/
 
+CC = cc68k
+LINK = ld68k
+
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) -I$(MEIDSP) -I$(DESTDIR) \
 	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) -I$(UTIL) \
 	-I$(VX_TOOLS_DIR)/include -I$(MURMUR_CLIENT_VX_DIR)/include -I$(PLC_DIR)/include
 
-CFLAGS = $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__
+CFLAGS = $(SDSS_CFLAGS) -DCPU=$(CPU) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__ -DVXWORKS
 
 OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
@@ -42,7 +45,7 @@ all : mcpnew.out
 #
 mcpnew.out : $(OBJS) $(LIBRARIES)
 	$(CC) $(CFLAGS) $(INCLUDES) -c tagname.c
-	$(LD) -o mcpnew.out $(OBJS) $(MEIDSP)llfirm.o \
+	$(LINK) -o mcpnew.out $(OBJS) $(MEIDSP)llfirm.o \
 	$(LIBRARIES)
 
 install : all

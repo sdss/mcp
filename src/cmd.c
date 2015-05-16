@@ -27,6 +27,7 @@
 #include <inetLib.h>
 #include <symLib.h>
 #include <sysSymTbl.h>
+#include "data_collection.h"	 /* Needed for AXIS_STAT structure */
 #include "in.h"
 #include "gendefs.h"
 #include "frame.h"

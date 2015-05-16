@@ -18,10 +18,10 @@ else
     type sdssmake
 fi
 
-setup vxworks v5_5la+mv162
-setup -f VxWorks vx_tools vCPL
-setup -f VxWorks murmur_client_vx v1_20
-setup gtools
+#setup vxworks v5_5la+mv162
+#setup -f VxWorks vx_tools vCPL
+#setup -f VxWorks murmur_client_vx v1_20
+#setup gtools
 
 # Odd one: vx_dsc is (only?) used for its include files. But those are just older versions of the ones in the vxworks product.
 export VX_DSC_DIR="$VXWORKS_DIR/target"

@@ -110,7 +110,7 @@ b=0x01faa302
 			    else logMsg( "(throttle) utimer: %10u %s"msg_str"\n"\
                                         ,(int)*trace_.traceClk\
                                         ,(int)traceLvlStr[tlvl]\
-                                        ,(int)p1, (int)p2, 0 ,0 );\
+                                        ,(int)p1, (int)p2, 0, 0 );\
                         }\
                         else\
                         {   if (!trace_usrUseLogMsg)\
@@ -139,7 +139,7 @@ b=0x01faa302
 				    ,(int)(__cnt-trace_limPerTimPeriod)\
 				    ,(int)*trace_.traceClk\
                                     ,(int)traceLvlStr[tlvl]\
-                                    ,(int)p1,(int)p2, 0 );\
+                                    ,(int)p1, (int)p2, 0 );\
 			__cnt = 0;\
 			trc_usr_t1 = traceTS;\
 		    }\

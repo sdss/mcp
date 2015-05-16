@@ -28,6 +28,7 @@
 #include "data_collection.h"
 #include "abdh.h"
 #include "instruments.h"
+#include "frame.h"
 #include "axis.h"
 #include "dscTrace.h"
 #include "acromag.h"

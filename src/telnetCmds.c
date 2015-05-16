@@ -18,6 +18,8 @@
 #include <telnetLib.h>
 #include <usrLib.h>
 #include "pcdsp.h"
+#include "data_collection.h"
+#include "frame.h"
 #include "axis.h"
 #include "cmd.h"
 #include "dscTrace.h"
