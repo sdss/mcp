@@ -1,3 +1,42 @@
+As of 2015-04-26, the mcp code was modified to be build with the Linux
+edition of Tornado 2.2 and the cc68k cross compiler from SLAC.
+As part of the modification, the code was also modified to build with
+GNU make.  To build the VxWorks executable, simply type "make" in the
+trunk top directory.
+
+THE PATH environment variable needs to have:
+
+	export PATH=$PATH:/opt/Tornado2.2/host/x86-linux/bin:.
+
+and the following environment variables need to be defined:
+
+	export VX_DSC_DIR=/opt/Tornado2.2/target
+	export VXWORKS_DIR=/opt/Tornado2.2/host/resource
+
+In addition there are dependencies upon the SDSS products:
+
+	murmr_client_dir
+	murmur_client_vx
+	plc
+	vx_tools
+
+You must either set them up with EUPS or define these environment variables
+to point to them:
+
+	MCP_DIR
+	MURMR_CLIENT_DIR
+	MURMUR_CLIENT_VX_DIR=$MURMR_CLIENT_DIR
+	PLC_DIR
+	VX_TOOLS_DIR
+	VX_VW_BASE
+
+All these are defined in the vxworks@sdss-vxworks:.bash_profile script.
+I also included "setup actorcore" for good measure, but found no evidence
+that it was required.
+
+-JB
+------------------------------------------------------------------
+
 As of 2011-12-22 or so, the mcp can (only) be built at APO on the
 vxworks Solaris machine, using products in the eups tree on hub25m.
 The mcp does not use sdss3install and has its own sdssmake, because
