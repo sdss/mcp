@@ -11,20 +11,20 @@ eiDebug = 0xfc
 #
 _tzname = "GMT"
 #
-hostAdd "hub25m-p.apo.nmsu.edu", "10.25.1.1"
-hostAdd "sdsshost2.apo.nmsu.edu", "10.25.1.3"
-hostAdd "tai-time.apo.nmsu.edu", "10.25.1.13"
-hostAdd "utc-time.apo.nmsu.edu", "10.25.1.3"
+hostAdd "sdss-hub.apo.nmsu.edu", "10.25.1.1"
+hostAdd "sdss-host2.apo.nmsu.edu", "10.25.1.26"
+hostAdd "tai-time.apo.nmsu.edu", "10.25.1.1"
+hostAdd "utc-time.apo.nmsu.edu", "10.25.1.1"
 #
-nfsMount("hub25m-p.apo.nmsu.edu", "/home/vxworks", "/home/vxworks")
-nfsMount("hub25m-p.apo.nmsu.edu", "/home/sdss3/products", "/home/sdss3/products")
-nfsMount("hub25m-p.apo.nmsu.edu", "/linuxp/prd", "/linuxp/prd")
-nfsMount("hub25m-p.apo.nmsu.edu", "/mcptpm", "/mcptpm")
+nfsMount("sdss-hub.apo.nmsu.edu", "/home/vxworks", "/home/vxworks")
+nfsMount("sdss-hub.apo.nmsu.edu", "/home/sdss4/products", "/home/sdss4/products")
+nfsMount("sdss-hub.apo.nmsu.edu", "/linuxp/prd", "/linuxp/prd")
+nfsMount("sdss-hub.apo.nmsu.edu", "/mcptpm", "/mcptpm")
 #
 # Add user vxworks (pid 602, gid 602)
 #
 au_p = malloc(4); *au_p = 602		/* group vxworks */
-nfsAuthUnixSet "hub25m-p.apo.nmsu.edu", 602, 602, 1, au_p
+nfsAuthUnixSet "sdss-hub.apo.nmsu.edu", 602, 602, 1, au_p
 #
 # Go to the version root
 #
@@ -89,7 +89,7 @@ traceOn 1, 31,31		/* trace task switches */
 #
 mur_set_proc_name "MCP"
 
-taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdsshost2.apo.nmsu.edu"
+taskSpawn "tMurServerAdd", 100, 0, 10000, mur_server_add, "sdss-host2.apo.nmsu.edu"
 taskSpawn "tMurServerRetry", 100, 0, 10000, mur_server_retry, 30
 taskSpawn "tMurRouter", 70, 0, 20000, mur_route_start, 200
 
