@@ -45,7 +45,7 @@ all : mcpnew.out
 #
 mcpnew.out : $(OBJS) $(LIBRARIES)
 	$(CC) $(CFLAGS) $(INCLUDES) -c tagname.c
-	$(LINK) -o mcpnew.out $(OBJS) $(MEIDSP)llfirm.o \
+	$(LINK) -r -o mcpnew.out $(OBJS) $(MEIDSP)llfirm.o \
 	$(LIBRARIES)
 
 install : all
