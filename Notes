@@ -1,3 +1,9 @@
+2017-05-22 - JSG: New, up to date, installation instructions can be found
+in https://trac.sdss.org/wiki/Software/FFS#BuildinganewMCPversion. Those
+should condense and supersede all the instructions below.
+
+-------
+
 As of 2015-04-26, the mcp code was modified to be build with the Linux
 edition of Tornado 2.2 and the cc68k cross compiler from SLAC.
 As part of the modification, the code was also modified to build with
@@ -42,7 +48,7 @@ vxworks Solaris machine, using products in the eups tree on hub25m.
 The mcp does not use sdss3install and has its own sdssmake, because
 it uses a cross-complier.
 
-I (CPL) recommend the following details:  
+I (CPL) recommend the following details:
   - in hub25m:/home/vxworks/devel, make your working directory tree, e.g.:
       mkdir -p parejkoj/mcp
     and checkout the mcp source, e.g.:
@@ -72,7 +78,7 @@ I (CPL) recommend the following details:
       setup -r .
       switchMCP
       resetCrate
- 
+
   - to get the hub to connect to the new MCP, run (from STUI):
       hub startNubs mcp
   - in mcpMenu, you will see a "rebooted" message in red. Clicking it
@@ -258,4 +264,3 @@ Segmentation Fault
 unknown:mcp/
 
   # I haven't worked on getting the kernel symbol table loaded.
-  
