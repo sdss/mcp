@@ -24,7 +24,7 @@ INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) -I$(MEIDSP) -I$(DESTDIR) \
 	-I$(IP) -I$(SYSTRAN) -I$(AB) -I$(ACROMAG) -I$(UTIL) \
 	-I$(VX_TOOLS_DIR)/include -I$(MURMUR_CLIENT_VX_DIR)/include -I$(PLC_DIR)/include
 
-CFLAGS = $(SDSS_CFLAGS) -DCPU=$(CPU) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__ -DVXWORKS
+CFLAGS = $(SDSS_CFLAGS) -DCPU=$(CPU) -O -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__ -DVXWORKS
 
 OBJS =cmd.o axis_cmds.o pvt.o counter_weight.o serial.o util.o \
 instrument_lift.o telescope_motion.o ipcast.o ipsym.o data_collection.o \
@@ -33,7 +33,7 @@ tagname.o brakes.o as2.o dictionary.o
 
 LIBRARIES = $(MEIDSP)/medvxw40.a
 
-.SUFFIXES: .o .c .asm .s                                
+.SUFFIXES: .o .c .asm .s
 
 #$(CC) $(SDSS_CFLAGS) -DMEI_VW -DMEI_MC680X0_CPU -D__USE_GETC__ $(INCLUDES) -c $*.c
 .c.o:
