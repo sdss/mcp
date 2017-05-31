@@ -15,7 +15,7 @@ INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5) \
 	-I$(MURMUR_CLIENT_VX_DIR)/include
 
 CC = cc68k
-CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
+CFLAGS = -ansi -O -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
 -DMEI_MC680X0_CPU -D__USE_GETC__
 
 DIRS = acromag systran
@@ -23,12 +23,12 @@ DIRS = acromag systran
 OBJS =mv162IndPackInit.o ipOctalSerial.o
 
 
-.SUFFIXES: .o .c .asm .s                                
+.SUFFIXES: .o .c .asm .s
 
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $*.c
 
-all dg: $(OBJS) 
+all dg: $(OBJS)
 	@for d in $(DIRS); do \
 		echo $$d; \
 		(cd $$d; $(MAKE) $(MFLAGS) all ); \
