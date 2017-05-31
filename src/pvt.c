@@ -396,7 +396,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    lframe = fframe;
    if(lframe->nxt == NULL) {
       // OTRACE(3, "CALC FRAME: next frame required to finish", 0, 0);
-      NTRACE(3, "CALC FRAME: next frame required to finish");
+      NTRACE(0,uid,cid, "CALC FRAME: next frame required to finish");
       return ERROR;
    }
 
