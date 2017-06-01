@@ -105,7 +105,7 @@ char _ccs_buff[80];
 int _ccsuid = 0;
 unsigned long _ccscid = 0;
 void sendCCSBuff(){
-    sendStatusMsg_S(0,_ccsuid,_ccscid, DEBUG_CODE, 1, "ccstrace", _ccs_buff);
+    sendStatusMsg_S(_ccsuid,_ccscid, DEBUG_CODE, 1, "ccstrace", _ccs_buff);
 }
 
 /*=========================================================================
