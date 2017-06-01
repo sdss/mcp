@@ -398,7 +398,8 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
    lframe = fframe;
    if(lframe->nxt == NULL) {
-      OTRACE(3, "CALC FRAME: next frame required to finish", 0, 0);
+      sprintf(_ccs_buff, "CALC FRAME: next frame required to finish");
+      sendCCSBuff();
       return ERROR;
    }
 
@@ -428,8 +429,9 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
    if(fabs(a[axis][i]) > max_acceleration[axis]) {
       long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-      OTRACE(2, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
+      sprintf(_ccs_buff, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
 	    axis_name(axis), acc);
+      sendCCSBuff();
 
       {
 	 char key[20];
@@ -446,9 +448,9 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    }
 
    if(fabs(v[axis][i]) > max_velocity[axis]) {
-      OTRACE(2, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
+      sprintf(_ccs_buff, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
 	    axis_name(axis), (long)(1e3*v[axis][i]));
-
+      sendCCSBuff();
       {
 	 char key[20];
 	 sprintf(key, "%sMaxVelRequested", axis_abbrev(axis));
@@ -460,7 +462,8 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    }
 
    if(i + 1 > MAX_CALC) {
-      OTRACE(0, "calc_frames has problems (B) %d\n",i + 1, 0);
+      sprintf(_ccs_buff, "calc_frames has problems (B) %d\n",i + 1);
+      sendCCSBuff();
    }
 /*
  * Do we need to fixup those velocities/accelerations and write debugging info?
@@ -468,18 +471,26 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    if(bad_pvt) {
       int ii;
 
-      OTRACE(3, "Bad PVT: dt = %g", dt, 0);
-      OTRACE(3, "Bad PVT: dx = %g", dx, 0);
-      OTRACE(3, "Bad PVT: dv = %g", dv, 0);
-      OTRACE(3, "Bad PVT: ai = %g", ai, 0);
-      OTRACE(3, "Bad PVT: j = %g", j, 0);
+      sprintf(_ccs_buff, "Bad PVT: dt = %g", dt);
+      sendCCSBuff();
+      sprintf(_ccs_buff, "Bad PVT: dx = %g", dx);
+      sendCCSBuff();
+      sprintf(_ccs_buff, "Bad PVT: dv = %g", dv);
+      sendCCSBuff();
+      sprintf(_ccs_buff, "Bad PVT: ai = %g", ai);
+      sendCCSBuff();
+      sprintf(_ccs_buff, "Bad PVT: j = %g", j);
+      sendCCSBuff();
 
       for(ii = 0; ii <= i; ii++) {
-	 OTRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
-	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
+	 sprintf(_ccs_buff, "Bad PVT: p = %g", p[axis][ii]);
+     sendCCSBuff();
+	 sprintf(_ccs_buff, "Bad PVT: v = %g", v[axis][ii]);
+     sendCCSBuff();
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-	    OTRACE(3, "Bad PVT: a = %g", acc, 0);
+	    sprintf(_ccs_buff, "Bad PVT: a = %g", acc);
+        sendCCSBuff();
 	 }
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
@@ -618,8 +629,9 @@ addoffset(int axis,int cnt)
 
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	 OTRACE(2, "addoffset: Max accl. for %s exceeded: %ld/1000",
+	 sprintf(_ccs_buff, "addoffset: Max accl. for %s exceeded: %ld/1000",
 	       axis_name(axis), acc);
+     sendCCSBuff();
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
@@ -635,8 +647,9 @@ addoffset(int axis,int cnt)
       }
 
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "addoffset: Max vel. for %s exceeded: %ld/1000",
+	 sprintf(_ccs_buff, "addoffset: Max vel. for %s exceeded: %ld/1000",
 	       axis_name(axis), (long)(1e3*v[axis][i]));
+     sendCCSBuff();
 
 	 {
 	    char key[20];
@@ -654,17 +667,24 @@ addoffset(int axis,int cnt)
    if(bad_pvt) {
       int ii;
 
-      OTRACE(3, "Bad PVT: jioff = %g", jioff[axis][0], 0);
+      sprintf(_ccs_buff, "Bad PVT: jioff = %g", jioff[axis][0]);
+      sendCCSBuff();
       for(ii = 0; ii < cnt; ii++) {
-	 OTRACE(3, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii], 0);
-	 OTRACE(3, "Bad PVT:         poff = %g", poff[axis][ii], 0);
-	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii], 0);
-	 OTRACE(3, "Bad PVT:         voff = %g", voff[axis][ii], 0);
+	 sprintf(_ccs_buff, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii]);
+     sendCCSBuff();
+	 sprintf(_ccs_buff, "Bad PVT:         poff = %g", poff[axis][ii]);
+     sendCCSBuff();
+	 sprintf(_ccs_buff, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii]);
+     sendCCSBuff();
+	 sprintf(_ccs_buff, "Bad PVT:         voff = %g", voff[axis][ii]);
+     sendCCSBuff();
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-	    OTRACE(3, "Bad PVT: a = %g", acc - aoff[axis][ii], 0);
+	    sprintf(_ccs_buff, "Bad PVT: a = %g", acc - aoff[axis][ii]);
+        sendCCSBuff();
 	 }
-	 OTRACE(3, "Bad PVT:         aoff = %g", aoff[axis][ii], 0);
+	 sprintf(_ccs_buff, "Bad PVT:         aoff = %g", aoff[axis][ii]);
+     sendCCSBuff();
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
 	    v[axis][ii] = (v[axis][ii] > 0) ?
@@ -811,8 +831,9 @@ load_frames(int axis,			/* which axis */
 		axis, a[axis][i], max_acceleration[axis]);
 	 {
 	    long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	    OTRACE(2, "Max accl. for %s exceeded: %ld/1000",
+	    sprintf(_ccs_buff, "Max accl. for %s exceeded: %ld/1000",
 		  axis_name(axis), acc);
+        sendCCSBuff();
 	 }
 
 	 {
@@ -830,8 +851,9 @@ load_frames(int axis,			/* which axis */
       }
 
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "load_frames: Max vel. for %s exceeded: %ld/1000",
+	 sprintf(_ccs_buff, "load_frames: Max vel. for %s exceeded: %ld/1000",
 	       axis_name(axis), (long)(1e3*v[axis][i]));
+     sendCCSBuff();
 
 	 {
 	    char key[20];
@@ -1203,22 +1225,26 @@ tm_TCC(int axis)
       get_velocity(2*axis, &velocity);
       semGive(semMEI);
 
-      OTRACE(8, "Check Params for repositioning %s", aname, 0);
+      sprintf(_ccs_buff, "Check Params for repositioning %s", aname);
+      sendCCSBuff();
 
       if(fabs(velocity) < 1e-8 &&
 	 fabs(frame->position*ticks_per_degree[axis] - position) >
 						  0.01*ticks_per_degree[axis]) {
 	 while((lcnt = tm_frames_to_execute(axis)) > 1) {
-	    OTRACE(8, "Frames left for %s: %d", aname, lcnt);
+	    sprintf(_ccs_buff, "Frames left for %s: %d", aname, lcnt);
+        sendCCSBuff();
 	    taskDelay(1);
 	 }
 	 tm_start_move(2*axis, frame->position*ticks_per_degree[axis],
 		       max_velocity[axis]/2*ticks_per_degree[axis],
 		       max_acceleration[axis]/2*ticks_per_degree[axis]);
 
-	 OTRACE(3, "Repositioning %s by TCC cmd", aname, 0);
-	 OTRACE(3, "    from pos=%ld to pos=%ld",
+	 sprintf(_ccs_buff, "Repositioning %s by TCC cmd", aname);
+     sendCCSBuff();
+	 sprintf(_ccs_buff, "    from pos=%ld to pos=%ld",
 		(long)position, (long)(frame->position*ticks_per_degree[axis]));
+     sendCCSBuff();
 
 	 while((fabs(frame->position*ticks_per_degree[axis] - position) >
 						 0.01*ticks_per_degree[axis])) {
@@ -1239,9 +1265,11 @@ tm_TCC(int axis)
 	       break;
 	    }
 
-	    OTRACE(8, "repositioning to %ld", (long)position, 0);
+	    sprintf(_ccs_buff, "repositioning to %ld", (long)position);
+        sendCCSBuff():
 	 }
-	 OTRACE(3, "Done repositioning %s to %ld", aname, (long)position);
+	 sprintf(_ccs_buff, "Done repositioning %s to %ld", aname, (long)position);
+     sendCCSBuff();
       } else {
 #if 0
 	 printf("nonzero vel=%f\n", velocity);
@@ -1254,18 +1282,21 @@ tm_TCC(int axis)
 	    sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
 	 frame = frame->nxt;
 	 axis_queue[axis].active = frame;
-	 OTRACE(0, "%s frame deleted due to expiration time", aname, 0);
+	 sprintf(_ccs_buff, "%s frame deleted due to expiration time", aname);
+     sendCCSBuff();
       }
 
       if(frame == NULL) {
-	 OTRACE(3, "%s restart no frames to process", aname, 0);
+	 sprintf(_ccs_buff, "%s restart no frames to process", aname, 0);
+     sendCCSBuff();
 	 continue;
       }
 
       start_frame(axis, frame->end_time);
       while(frame->nxt == NULL &&
 	    sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
-	 OTRACE(8, "%s waiting for second frame", aname, 0);
+	 sprintf(_ccs_buff, "%s waiting for second frame", aname);
+    sendCCSBuff();
 	 taskDelay (3);
       }
 
@@ -1274,17 +1305,20 @@ tm_TCC(int axis)
 				   !frame_break[axis] && !drift_break[axis])) {
 
 	 if(frame == NULL) {
-	    OTRACE(0, "%s frame == NULL", axis_name(axis), 0);
+	    sprintf(_ccs_buff, "%s frame == NULL", axis_name(axis));
+        sendCCSBuff();
 	    traceMode(traceModeGet() & ~0x1);
 	    taskSuspend(0);
 	 }
 
 	 frame_cnt = get_frame_cnt(axis, frame);
 
-	 OTRACE(8, "%s frame_cnt=%d", aname, frame_cnt);
+	 sprintf(_ccs_buff, "%s frame_cnt=%d", aname, frame_cnt);
+     sendCCSBuff();
 	 frame_idx = 0;
 	 while(frame_cnt > 0) {
-	    OTRACE(8, "%s loop: frame_cnt=%d", aname, frame_cnt);
+	    sprintf(_ccs_buff, "%s loop: frame_cnt=%d", aname, frame_cnt);
+        sendCCSBuff();
 
 	    while((cnt = calc_frames(axis, frame, frame_idx)) == ERROR &&
 		  tm_frames_to_execute(axis) > 4) {
@@ -1292,8 +1326,9 @@ tm_TCC(int axis)
 	    }
 
 	    if(cnt == ERROR) {
-	       OTRACE(5, "No frames; setting frame_break for %s",
-		     axis_name(axis), 0);
+	       sprintf(_ccs_buff, "No frames; setting frame_break for %s",
+		     axis_name(axis));
+           sendCCSBuff();
 #if 0
 	       printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
 		      frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
@@ -1305,7 +1340,8 @@ tm_TCC(int axis)
 	    }
 
 	    for(i = 0; i < OFF_MAX; i++) {
-	       OTRACE(8, "%s offset queue i=%d", aname, i);
+	       sprintf(_ccs_buff, "%s offset queue i=%d", aname, i);
+           sendCCSBuff();
 	       clroffset(axis,cnt);
 
 	       if(offset_queue_end[axis][i] != NULL) {
@@ -1314,7 +1350,8 @@ tm_TCC(int axis)
 		  offset_idx[axis][i] += cnt;
 
 		  if(offset_idx[axis][i]/20.0 > offset[axis][i][1].end_time) {
-		     OTRACE(8, "%s shutdown offset", aname, 0);
+		     sprintf(_ccs_buff, "%s shutdown offset", aname);
+             sendCCSBuff();
 		     frmoff = frame;
 
 		     taskLock();
@@ -1346,8 +1383,9 @@ tm_TCC(int axis)
 	    frame_cnt -= cnt;
 
 	    if(drift_break[axis] || frame_break[axis]) {
-	       OTRACE(8, "%s %s_break", aname,
+	       sprintf(_ccs_buff, "%s %s_break", aname,
 		      (frame_break[axis] ? "frame" : "drift"));
+           sendCCSBuff();
 
 	       axis_queue[axis].active = NULL;
 	       frame_cnt = 0;
@@ -1357,8 +1395,9 @@ tm_TCC(int axis)
 	    idx = 0;
 	    while(cnt > 0) {
 	       if(drift_break[axis] || frame_break[axis]) {
-		  OTRACE(8, "%s %s_break 2", aname,
+		  sprintf(_ccs_buff, "%s %s_break 2", aname,
 			(frame_break[axis] ? "frame" : "drift"));
+          sendCCSBuff();
 
 		  axis_queue[axis].active = NULL;
 		  frame_cnt = 0;
@@ -1367,16 +1406,19 @@ tm_TCC(int axis)
 	       }
 
 	       if(cnt <= 0) {		/* replaces weird Charlie if */
-		  OTRACE(0, "cnt == %d <= 0", cnt, 0); /* XXXX */
+		  sprintf(_ccs_buff, "cnt == %d <= 0", cnt); /* XXXX */
+           sendCCSBuff();
 		  traceMode(traceModeGet() & ~0x1);
 		  taskSuspend(0);
 	       }
-	       OTRACE(8, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
+	       sprintf(_ccs_buff, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
+           sendCCSBuff();
 	       load_frames(axis, idx, min(cnt, 5));
 
 	       if(idx == MAX_CALC - 5 && cnt == 5) {
-		  OTRACE(1, "Last frame in buffer: p=%f",
-			 p[axis][MAX_CALC - 1], 0);
+		  sprintf(_ccs_buff, "Last frame in buffer: p=%f",
+			 p[axis][MAX_CALC - 1]);
+          sendCCSBuff();
 	       }
 
 	       while(tm_frames_to_execute(axis) > 10) {
@@ -1407,13 +1449,17 @@ tm_TCC(int axis)
 
       lcnt = tm_frames_to_execute(axis);
       if(frame_break[axis]) {
-	 OTRACE(3, "%s frame_break: frames left=%d", aname, lcnt);
+	 sprintf(_ccs_buff, "%s frame_break: frames left=%d", aname, lcnt);
+     sendCCSBuff();
       } else if(drift_break[axis]) {
-	 OTRACE(3, "%s drift_break: frames left=%d", aname, lcnt);
+	 sprintf(_ccs_buff, "%s drift_break: frames left=%d", aname, lcnt);
+     sendCCSBuff();
       } else if(frame->nxt == NULL) {
-	 OTRACE(3, "%s no next frame: frames left=%d", aname, lcnt);
+	 sprintf(_ccs_buff, "%s no next frame: frames left=%d", aname, lcnt);
+     sendCCSBuff();
       } else {
-	 OTRACE(3, "%s no active frame: frames left=%d", aname, lcnt);
+	 sprintf(_ccs_buff, "%s no active frame: frames left=%d", aname, lcnt);
+     sendCCSBuff();
       }
 
       taskLock();
