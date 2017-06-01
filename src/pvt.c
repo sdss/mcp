@@ -376,7 +376,6 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    if((int)(i + start) != (int)((dt - time_off[axis])*FLTFRMHZ) ||
 						    t == dt - time_off[axis]) {
       if(i > MAX_CALC - 1) {
-	 // OTRACE(0, "calc_frames has problems (A) %d\n",i, 0);
         NTRACE_1(1,uid, cid, "calc_frames has problems (A) %d\n",i);
       }
 
