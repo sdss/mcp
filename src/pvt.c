@@ -198,7 +198,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
    /* problem............................*/
    if(iframe->nxt == NULL) {
-      NTRACE(0, uid, cid, "Initial frame has NULL ->nxt pointer");
+      NTRACE(1, uid, cid, "Initial frame has NULL ->nxt pointer");
       return ERROR;
    }
 
@@ -236,7 +236,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-     NTRACE_2(0,0,0, "calc_frames: Max accl. for %s exceeded: %ld/1000",
+     NTRACE_2(1,0,0, "calc_frames: Max accl. for %s exceeded: %ld/1000",
            axis_name(axis), acc);
 
 	 {
@@ -270,7 +270,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
       if(fabs(v[axis][i]) > max_velocity[axis]) {
 
-     NTRACE_2(0,uid, cid, "calc_frames: Max vel. for %s exceeded: %ld/1000",
+     NTRACE_2(1,uid, cid, "calc_frames: Max vel. for %s exceeded: %ld/1000",
            axis_name(axis), (long)(1e3*v[axis][i]));
 
 	 {
@@ -377,7 +377,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 						    t == dt - time_off[axis]) {
       if(i > MAX_CALC - 1) {
 	 // OTRACE(0, "calc_frames has problems (A) %d\n",i, 0);
-        NTRACE_1(0,uid, cid, "calc_frames has problems (A) %d\n",i);
+        NTRACE_1(1,uid, cid, "calc_frames has problems (A) %d\n",i);
       }
 
       return i;
@@ -391,7 +391,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
    lframe = fframe;
    if(lframe->nxt == NULL) {
-      NTRACE(0,uid,cid, "CALC FRAME: next frame required to finish");
+      NTRACE(1,uid,cid, "CALC FRAME: next frame required to finish");
       return ERROR;
    }
 
@@ -421,7 +421,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
    if(fabs(a[axis][i]) > max_acceleration[axis]) {
       long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-      NTRACE_2(0,uid, cid, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
+      NTRACE_2(1,uid, cid, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
         axis_name(axis), acc);
 
       {
@@ -439,7 +439,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    }
 
    if(fabs(v[axis][i]) > max_velocity[axis]) {
-      NTRACE_2(0,uid, cid, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
+      NTRACE_2(1,uid, cid, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
         axis_name(axis), (long)(1e3*v[axis][i]));
 
       {
@@ -453,25 +453,25 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    }
 
    if(i + 1 > MAX_CALC) {
-     NTRACE_1(0,uid, cid, "calc_frames has problems (B) %d\n",i + 1);
+     NTRACE_1(1,uid, cid, "calc_frames has problems (B) %d\n",i + 1);
    }
 /*
  * Do we need to fixup those velocities/accelerations and write debugging info?
  */
    if(bad_pvt) {
       int ii;
-      NTRACE_1(0,uid, cid, "Bad PVT: dt = %g", dt);
-      NTRACE_1(0,uid, cid, "Bad PVT: dx = %g", dx);
-      NTRACE_1(0,uid, cid, "Bad PVT: dv = %g", dv);
-      NTRACE_1(0,uid, cid, "Bad PVT: ai = %g", ai);
-      NTRACE_1(0,uid, cid, "Bad PVT: j = %g", j);
+      NTRACE_1(1,uid, cid, "Bad PVT: dt = %g", dt);
+      NTRACE_1(1,uid, cid, "Bad PVT: dx = %g", dx);
+      NTRACE_1(1,uid, cid, "Bad PVT: dv = %g", dv);
+      NTRACE_1(1,uid, cid, "Bad PVT: ai = %g", ai);
+      NTRACE_1(1,uid, cid, "Bad PVT: j = %g", j);
 
       for(ii = 0; ii <= i; ii++) {
-     NTRACE_1(0,uid, cid, "Bad PVT: p = %g", p[axis][ii]);
-     NTRACE_1(0,uid, cid, "Bad PVT: v = %g", v[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT: p = %g", p[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT: v = %g", v[axis][ii]);
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-        NTRACE_1(0,uid, cid, "Bad PVT: a = %g", acc);
+        NTRACE_1(1,uid, cid, "Bad PVT: a = %g", acc);
 	 }
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
@@ -610,7 +610,7 @@ addoffset(int axis,int cnt)
 
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-     NTRACE_2(0,0,0, "addoffset: Max accl. for %s exceeded: %ld/1000",
+     NTRACE_2(1,0,0, "addoffset: Max accl. for %s exceeded: %ld/1000",
            axis_name(axis), acc);
 	 {
 	    char key[20];
@@ -627,7 +627,7 @@ addoffset(int axis,int cnt)
       }
 
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-     NTRACE_2(0,0,0, "addoffset: Max vel. for %s exceeded: %ld/1000",
+     NTRACE_2(1,0,0, "addoffset: Max vel. for %s exceeded: %ld/1000",
            axis_name(axis), (long)(1e3*v[axis][i]));
 
 	 {
@@ -646,17 +646,17 @@ addoffset(int axis,int cnt)
    if(bad_pvt) {
       int ii;
 
-      NTRACE_1(0,uid, cid, "Bad PVT: jioff = %g", jioff[axis][0]);
+      NTRACE_1(1,uid, cid, "Bad PVT: jioff = %g", jioff[axis][0]);
       for(ii = 0; ii < cnt; ii++) {
-     NTRACE_1(0,uid, cid, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii]);
-     NTRACE_1(0,uid, cid, "Bad PVT:         poff = %g", poff[axis][ii]);
-     NTRACE_1(0,uid, cid, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii]);
-     NTRACE_1(0,uid, cid, "Bad PVT:         voff = %g", voff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT:         poff = %g", poff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT:         voff = %g", voff[axis][ii]);
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-        NTRACE_1(0,uid, cid, "Bad PVT: a = %g", acc - aoff[axis][ii]);
+        NTRACE_1(1,uid, cid, "Bad PVT: a = %g", acc - aoff[axis][ii]);
 	 }
-	 NTRACE_1(0,uid, cid, "Bad PVT:         aoff = %g", aoff[axis][ii]);
+	 NTRACE_1(1,uid, cid, "Bad PVT:         aoff = %g", aoff[axis][ii]);
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
 	    v[axis][ii] = (v[axis][ii] > 0) ?
@@ -705,7 +705,7 @@ start_frame(int axis, double t)
 
    taskDelay(5);
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "start_frame: Failed to get semMEI: %s (%d)",
+      NTRACE_2(1, uid, cid, "start_frame: Failed to get semMEI: %s (%d)",
 	       strerror(errno), errno);
       taskSuspend(0);
    }
@@ -788,7 +788,7 @@ load_frames(int axis,			/* which axis */
    }
 
    if(idx + cnt > MAX_CALC) {
-      NTRACE_1(0, uid, cid, "Buffer overrun in load_frames: %d", idx + cnt);
+      NTRACE_1(1, uid, cid, "Buffer overrun in load_frames: %d", idx + cnt);
       cnt = MAX_CALC - idx;
    }
 
@@ -803,7 +803,7 @@ load_frames(int axis,			/* which axis */
 		axis, a[axis][i], max_acceleration[axis]);
 	 {
 	    long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-        NTRACE_2(0,uid, cid, "Max accl. for %s exceeded: %ld/1000",
+        NTRACE_2(1,uid, cid, "Max accl. for %s exceeded: %ld/1000",
           axis_name(axis), acc);
 	 }
 
@@ -822,7 +822,7 @@ load_frames(int axis,			/* which axis */
       }
 
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-     NTRACE_2(0,uid, cid, "load_frames: Max vel. for %s exceeded: %ld/1000",
+     NTRACE_2(1,uid, cid, "load_frames: Max vel. for %s exceeded: %ld/1000",
            axis_name(axis), (long)(1e3*v[axis][i]));
 
 	 {
@@ -838,7 +838,7 @@ load_frames(int axis,			/* which axis */
 #endif
 
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "load_frames: failed to get semMEI: %s (%d)",
+	 NTRACE_2(1, uid, cid, "load_frames: failed to get semMEI: %s (%d)",
 		  strerror(errno), errno);
 	 taskSuspend(0);
       }
@@ -905,7 +905,7 @@ stop_frame(int axis,
    int uid = 0, cid = 0;
 
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "stop_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "stop_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
@@ -914,7 +914,7 @@ stop_frame(int axis,
 
    for(;;) {
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "stop_frame failed to take semMEI for %s: %s",
+	 NTRACE_2(1, uid, cid, "stop_frame failed to take semMEI for %s: %s",
 		  axis_name(axis), strerror(errno));
 	 taskSuspend(0);
       }
@@ -964,7 +964,7 @@ stp_frame(int axis,
    double velocity;
 
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "stp_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "stp_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
@@ -990,7 +990,7 @@ stp_frame(int axis,
 
    for(;;) {
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "stp_frame failed to take semMEI for %s: %s",
+	 NTRACE_2(1, uid, cid, "stp_frame failed to take semMEI for %s: %s",
 		  axis_name(axis), strerror(errno));
 	 taskSuspend(0);
       }
@@ -1037,7 +1037,7 @@ drift_frame(int axis,
    }
 
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "drift_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "drift_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
@@ -1069,7 +1069,7 @@ end_frame(int axis, int ind)
    const double sf = ticks_per_degree[axis];
 
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "end_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "end_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
@@ -1186,7 +1186,7 @@ tm_TCC(int axis)
  * reposition if necessary, and if we aren't already moving
  */
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "tm_TCC: failed to take semMEI: %s (%d)",
+	 NTRACE_2(1, uid, cid, "tm_TCC: failed to take semMEI: %s (%d)",
 		  strerror(errno), errno);
 	 taskSuspend(0);
       }
@@ -1195,21 +1195,21 @@ tm_TCC(int axis)
       get_velocity(2*axis, &velocity);
       semGive(semMEI);
 
-      NTRACE_1(0,uid, cid, "Check Params for repositioning %s", aname);
+      NTRACE_1(1,uid, cid, "Check Params for repositioning %s", aname);
 
       if(fabs(velocity) < 1e-8 &&
 	 fabs(frame->position*ticks_per_degree[axis] - position) >
 						  0.01*ticks_per_degree[axis]) {
 	 while((lcnt = tm_frames_to_execute(axis)) > 1) {
-        NTRACE_2(0,uid, cid, "Frames left for %s: %d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "Frames left for %s: %d", aname, lcnt);
 	    taskDelay(1);
 	 }
 	 tm_start_move(2*axis, frame->position*ticks_per_degree[axis],
 		       max_velocity[axis]/2*ticks_per_degree[axis],
 		       max_acceleration[axis]/2*ticks_per_degree[axis]);
 
-     NTRACE_1(0,uid, cid, "Repositioning %s by TCC cmd", aname);
-     NTRACE_2(0,uid, cid, "    from pos=%ld to pos=%ld",
+     NTRACE_1(1,uid, cid, "Repositioning %s by TCC cmd", aname);
+     NTRACE_2(1,uid, cid, "    from pos=%ld to pos=%ld",
         (long)position, (long)(frame->position*ticks_per_degree[axis]));
 
 	 while((fabs(frame->position*ticks_per_degree[axis] - position) >
@@ -1217,7 +1217,7 @@ tm_TCC(int axis)
 	    taskDelay(10);
 
 	    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	       NTRACE_2(0, uid, cid, "tm_TCC: failed to retake semMEI: %s (%d)",
+	       NTRACE_2(1, uid, cid, "tm_TCC: failed to retake semMEI: %s (%d)",
 			strerror(errno), errno);
 	       taskSuspend(0);
 	    }
@@ -1231,9 +1231,9 @@ tm_TCC(int axis)
 	       break;
 	    }
 
-        NTRACE_1(0,uid, cid, "repositioning to %ld", (long)position);
+        NTRACE_1(1,uid, cid, "repositioning to %ld", (long)position);
 	 }
-     NTRACE_2(0,uid, cid, "Done repositioning %s to %ld", aname, (long)position);
+     NTRACE_2(1,uid, cid, "Done repositioning %s to %ld", aname, (long)position);
       } else {
 #if 0
 	 printf("nonzero vel=%f\n", velocity);
@@ -1246,18 +1246,18 @@ tm_TCC(int axis)
 	    sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
 	 frame = frame->nxt;
 	 axis_queue[axis].active = frame;
-     NTRACE_1(0,uid, cid, "%s frame deleted due to expiration time", aname);
+     NTRACE_1(1,uid, cid, "%s frame deleted due to expiration time", aname);
       }
 
       if(frame == NULL) {
-        NTRACE_1(0,uid, cid, "%s restart no frames to process", aname);
+        NTRACE_1(1,uid, cid, "%s restart no frames to process", aname);
 	 continue;
       }
 
       start_frame(axis, frame->end_time);
       while(frame->nxt == NULL &&
 	    sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
-        NTRACE_1(0,uid, cid, "%s waiting for second frame", aname);
+        NTRACE_1(1,uid, cid, "%s waiting for second frame", aname);
 	 taskDelay (3);
       }
 
@@ -1266,17 +1266,17 @@ tm_TCC(int axis)
 				   !frame_break[axis] && !drift_break[axis])) {
 
 	 if(frame == NULL) {
-        NTRACE_1(0,uid, cid, "%s frame == NULL", axis_name(axis));
+        NTRACE_1(1,uid, cid, "%s frame == NULL", axis_name(axis));
 	    traceMode(traceModeGet() & ~0x1);
 	    taskSuspend(0);
 	 }
 
 	 frame_cnt = get_frame_cnt(axis, frame);
 
-     NTRACE_2(0,uid, cid, "%s frame_cnt=%d", aname, frame_cnt);
+     NTRACE_2(1,uid, cid, "%s frame_cnt=%d", aname, frame_cnt);
 	 frame_idx = 0;
 	 while(frame_cnt > 0) {
-        NTRACE_2(0,uid, cid, "%s loop: frame_cnt=%d", aname, frame_cnt);
+        NTRACE_2(1,uid, cid, "%s loop: frame_cnt=%d", aname, frame_cnt);
 
 	    while((cnt = calc_frames(axis, frame, frame_idx)) == ERROR &&
 		  tm_frames_to_execute(axis) > 4) {
@@ -1284,7 +1284,7 @@ tm_TCC(int axis)
 	    }
 
 	    if(cnt == ERROR) {
-           NTRACE_1(0,uid, cid, "No frames; setting frame_break for %s",
+           NTRACE_1(1,uid, cid, "No frames; setting frame_break for %s",
              axis_name(axis));
 #if 0
 	       printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
@@ -1297,7 +1297,7 @@ tm_TCC(int axis)
 	    }
 
 	    for(i = 0; i < OFF_MAX; i++) {
-            NTRACE_2(0,uid, cid, "%s offset queue i=%d", aname, i);
+            NTRACE_2(1,uid, cid, "%s offset queue i=%d", aname, i);
 	       clroffset(axis,cnt);
 
 	       if(offset_queue_end[axis][i] != NULL) {
@@ -1306,7 +1306,7 @@ tm_TCC(int axis)
 		  offset_idx[axis][i] += cnt;
 
 		  if(offset_idx[axis][i]/20.0 > offset[axis][i][1].end_time) {
-            NTRACE_1(0,uid, cid, "%s shutdown offset", aname);
+            NTRACE_1(1,uid, cid, "%s shutdown offset", aname);
 		     frmoff = frame;
 
 		     taskLock();
@@ -1338,7 +1338,7 @@ tm_TCC(int axis)
 	    frame_cnt -= cnt;
 
 	    if(drift_break[axis] || frame_break[axis]) {
-           NTRACE_2(0,uid, cid, "%s %s_break", aname,
+           NTRACE_2(1,uid, cid, "%s %s_break", aname,
               (frame_break[axis] ? "frame" : "drift"));
 
 	       axis_queue[axis].active = NULL;
@@ -1349,7 +1349,7 @@ tm_TCC(int axis)
 	    idx = 0;
 	    while(cnt > 0) {
 	       if(drift_break[axis] || frame_break[axis]) {
-          NTRACE_2(0,uid, cid, "%s %s_break 2", aname,
+          NTRACE_2(1,uid, cid, "%s %s_break 2", aname,
             (frame_break[axis] ? "frame" : "drift"));
 
 		  axis_queue[axis].active = NULL;
@@ -1359,15 +1359,15 @@ tm_TCC(int axis)
 	       }
 
 	       if(cnt <= 0) {		/* replaces weird Charlie if */
-           NTRACE_1(0,uid, cid, "cnt == %d <= 0", cnt); /* XXXX */
+           NTRACE_1(1,uid, cid, "cnt == %d <= 0", cnt); /* XXXX */
 		  traceMode(traceModeGet() & ~0x1);
 		  taskSuspend(0);
 	       }
-           NTRACE_2(0,uid, cid, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
+           NTRACE_2(1,uid, cid, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
 	       load_frames(axis, idx, min(cnt, 5));
 
 	       if(idx == MAX_CALC - 5 && cnt == 5) {
-          NTRACE_1(0,uid, cid, "Last frame in buffer: p=%f",
+          NTRACE_1(1,uid, cid, "Last frame in buffer: p=%f",
              p[axis][MAX_CALC - 1]);
 	       }
 
@@ -1399,13 +1399,13 @@ tm_TCC(int axis)
 
       lcnt = tm_frames_to_execute(axis);
       if(frame_break[axis]) {
-        NTRACE_2(0,uid, cid, "%s frame_break: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s frame_break: frames left=%d", aname, lcnt);
       } else if(drift_break[axis]) {
-        NTRACE_2(0,uid, cid, "%s drift_break: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s drift_break: frames left=%d", aname, lcnt);
       } else if(frame->nxt == NULL) {
-        NTRACE_2(0,uid, cid, "%s no next frame: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s no next frame: frames left=%d", aname, lcnt);
       } else {
-        NTRACE_2(0,uid, cid, "%s no active frame: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s no active frame: frames left=%d", aname, lcnt);
       }
 
       taskLock();
@@ -1600,7 +1600,7 @@ mcp_drift(int uid, unsigned long cid,
  * Get the MEI semaphore and proceed
  */
    if(semTake(semMEI,60) == ERROR) {
-      NTRACE_2(0, uid, cid, "drift_cmd: failed to get semMEI: %s (%d)",
+      NTRACE_2(1, uid, cid, "drift_cmd: failed to get semMEI: %s (%d)",
 	    strerror(errno), errno);
       return(-1);
    }
@@ -1611,7 +1611,7 @@ mcp_drift(int uid, unsigned long cid,
 
    taskDelay(3);
    if(semTake(semMEI, 60) == ERROR) {
-      NTRACE_2(0, uid, cid, "drift_cmd: failed to retake semMEI: %s (%d)",
+      NTRACE_2(1, uid, cid, "drift_cmd: failed to retake semMEI: %s (%d)",
 	    strerror(errno), errno);
       return(-1);
    }
@@ -1623,7 +1623,7 @@ mcp_drift(int uid, unsigned long cid,
    semGive(semMEI);
 
    if(*t < 0) {
-      NTRACE_1(0, uid, cid, "drift_cmd: bad time %g", *t);
+      NTRACE_1(1, uid, cid, "drift_cmd: bad time %g", *t);
       return(-1);
    }
 
@@ -1695,7 +1695,7 @@ mcp_move(int uid, unsigned long cid,
 
    frame = (struct FRAME *)malloc(sizeof(struct FRAME));
    if(frame == NULL) {
-      NTRACE_2(0, uid, cid, "Cannot allocate frame: (%d) %s", errno, strerror(errno));
+      NTRACE_2(1, uid, cid, "Cannot allocate frame: (%d) %s", errno, strerror(errno));
       return(-1);
    }
 
@@ -1755,8 +1755,8 @@ mcp_move(int uid, unsigned long cid,
 
       if(sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
         if(frame != NULL) free(frame);
-        NTRACE_1(0, uid, cid, "MOVE CMD: requested time=%f", frame->end_time);
-        NTRACE_1(0, uid, cid, "            current time=%f", sdss_get_time());
+        NTRACE_1(1, uid, cid, "MOVE CMD: requested time=%f", frame->end_time);
+        NTRACE_1(1, uid, cid, "            current time=%f", sdss_get_time());
         traceMode(traceModeGet() & ~0x1); /* XXX */
         return(-1);
       }
@@ -1793,7 +1793,7 @@ mcp_move(int uid, unsigned long cid,
    frame->position = position;
 
    if(fabs(velocity) > max_velocity[axis]) {
-      NTRACE_2(0, uid, cid, "Move: Max vel. for %s exceeded: %ld/1000",
+      NTRACE_2(1, uid, cid, "Move: Max vel. for %s exceeded: %ld/1000",
 	    axis_name(axis), (long)(1e3*velocity));
 
       {
@@ -1820,10 +1820,10 @@ mcp_move(int uid, unsigned long cid,
    }
 
 #if 0 /*debugging*/
-   NTRACE_2(0,uid,cid,"%s MOVE pos=%f",axis_name(axis),frame->position);
-   NTRACE_2(0,uid,cid,"%s MOVE vel=%f",axis_name(axis),frame->velocity);
-   NTRACE_2(0,uid,cid,"%s MOVE endtime=%f",axis_name(axis),frame->end_time);
-   NTRACE_2(0,uid,cid,"%s MOVE delta_t=%f",axis_name(axis),frame->end_time-sdss_get_time());
+   NTRACE_2(1,uid,cid,"%s MOVE pos=%f",axis_name(axis),frame->position);
+   NTRACE_2(1,uid,cid,"%s MOVE vel=%f",axis_name(axis),frame->velocity);
+   NTRACE_2(1,uid,cid,"%s MOVE endtime=%f",axis_name(axis),frame->end_time);
+   NTRACE_2(1,uid,cid,"%s MOVE delta_t=%f",axis_name(axis),frame->end_time-sdss_get_time());
 #endif
 
 #if 0					/* XXX */
@@ -1848,8 +1848,8 @@ mcp_move(int uid, unsigned long cid,
 	 frame->position -= offset[axis][i][1].position;
 	 frame->velocity -= offset[axis][i][1].velocity;
 
-     NTRACE_1(0, uid, cid, "Offsetting %s", axis_name(axis));
-	 NTRACE_2(0, uid, cid, "     pos = %d, vel = %d",
+     NTRACE_1(1, uid, cid, "Offsetting %s", axis_name(axis));
+	 NTRACE_2(1, uid, cid, "     pos = %d, vel = %d",
 		sdssdc.tccmove[axis].position,
 		sdssdc.tccmove[axis].velocity);
 
