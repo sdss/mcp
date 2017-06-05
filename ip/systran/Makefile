@@ -12,10 +12,10 @@ H5 = $(VWH)private/
 
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5)
 CC = cc68k
-CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
+CFLAGS = -ansi -O -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS -DMEI_VW \
 -DMEI_MC680X0_CPU -D__USE_GETC__
 
-LINK = ld68k                       
+LINK = ld68k
 LFLAGS = -r -M
 
 OBJS =dio316dc.o  dio316ie.o  dio316ri.o  dio316rr.o  dio316wr.o \

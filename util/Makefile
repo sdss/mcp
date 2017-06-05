@@ -31,7 +31,7 @@ INCLUDEFLAGS	= -I. -I$(VWINC) -I$(CONFIG) -I$(VWSYSINC) \
 			-I$(VX_TOOLS_DIR)/include \
                         -I$(MURMUR_CLIENT_VX_DIR)/include
 DEBUGFLAG	=
-CFLAGS		= -g -ansi -pipe -Wall $(DEBUGFLAG) $(INCLUDEFLAGS) \
+CFLAGS		= -ansi -pipe -Wall -O $(DEBUGFLAG) $(INCLUDEFLAGS) \
 		  -DCPU=MC68040 $(FEATURES)
 #		  -DCPU=MC68040 -m68040 $(FEATURES)
 LFLAGS = -r

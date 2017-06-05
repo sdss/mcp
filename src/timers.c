@@ -63,7 +63,7 @@ sdss_get_time(void)
    unsigned long micro_sec;
    const long SDSStime0 = SDSStime;	/* initial value of SDSStime */
    long SDSSnow;			/* current value of SDSStime */
-   
+
 #if 0
    micro_sec = (unsigned long)(1.0312733648*timer_read (1));
 #else
@@ -153,7 +153,7 @@ setSDSStimeFromNTP(int quiet)
 /*
  * Find how many seconds it is after midnight TAI, and set SDSStime accordingly
  */
-   
+
    while (tries-- > 0 && ret != OK) {
      /* Give ourselves the largest good window by syncing to the next 1PPS tick. */
      semTake(ppsSem, NO_WAIT);	/* semClear is not declared, the sillies. */
@@ -169,7 +169,7 @@ setSDSStimeFromNTP(int quiet)
      /* I know, that 1.0 timeout should be < 1.0, but there's a bug in sntpcLib */
      ret = setTimeFromNTP(taiServer, 1.0, 0, 0, &tai);
      if (ret != OK) {
-       logMsg("failed to get time from %s: %s\n", 
+       logMsg("failed to get time from %s: %s\n",
 	      (int)taiServer, (int)strerror(errno),0,0,0,0);
        taskUnlock();
        continue;
@@ -191,13 +191,13 @@ setSDSStimeFromNTP(int quiet)
    }
 
    if (ret == ERROR) {
-     logMsg("failed to get time from %s: %s\n", 
+     logMsg("failed to get time from %s: %s\n",
 	    (int)taiServer, (int)strerror(errno),0,0,0,0);
      NTRACE_2(0, uid, cid, "failed to get time from %s: %s", taiServer, strerror(errno));
      return -1;
    }
 
-   axis_stat[AZIMUTH][1].clock_not_set = 
+   axis_stat[AZIMUTH][1].clock_not_set =
      axis_stat[ALTITUDE][1].clock_not_set =
      axis_stat[INSTRUMENT][1].clock_not_set = 0;
 
@@ -262,7 +262,7 @@ time_cmd(int uid, unsigned long cid, char *cmd)
 	  t->tm_mon+1, t->tm_mday, t->tm_year+1900, sdss_get_time());
 
   sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "time");
-  
+
   return(ublock->buff);
 }
 
@@ -292,11 +292,11 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    STATUS stat;
    int i;
    struct IPACK ip;
-   
+
    Industry_Pack (addr,SYSTRAN_DIO316,&ip);
-   for(i = 0; i < MAX_SLOTS; i++) { 
+   for(i = 0; i < MAX_SLOTS; i++) {
       if (ip.adr[i]!=NULL) {
-	 OTRACE(30, "Found at %d, %p", i, ip.adr[i]);
+	 /* OTRACE(30, "Found at %d, %p", i, ip.adr[i]); */
 	 tm_DIO316=DIO316Init((struct DIO316 *)ip.adr[i], vecnum);
 	 break;
       }
@@ -305,7 +305,7 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
       NTRACE_1(0, uid, cid, "****Missing DIO316 at %p****", addr);
       return ERROR;
    }
-   
+
    DIO316_Init=TRUE;
    DIO316_Read_Reg(tm_DIO316,0xA,&vecnum);
    DIO316_Interrupt_Enable_Control (tm_DIO316,0,DIO316_INT_DIS);
@@ -318,12 +318,12 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    stat = intConnect (INUM_TO_IVEC(vecnum),
 		      (VOIDFUNCPTR)DIO316_interrupt, DIO316_TYPE);
    assert(stat == OK);
-   OTRACE(30, "DIO316 vector = %d, interrupt address = %p\n",
-	  vecnum, DIO316_interrupt);
+   /* OTRACE(30, "DIO316 vector = %d, interrupt address = %p\n",
+	  vecnum, DIO316_interrupt); */
    rebootHookAdd((FUNCPTR)axis_DIO316_shutdown);
 
 #if 0
-   DIO316_Interrupt_Configuration(tm_DIO316,0,DIO316_INT_HIGH_LVL);           
+   DIO316_Interrupt_Configuration(tm_DIO316,0,DIO316_INT_HIGH_LVL);
    DIO316_Interrupt_Enable_Control(tm_DIO316,0,DIO316_INT_ENA);
 #endif
    DIO316_Interrupt_Configuration(tm_DIO316,1,
@@ -335,10 +335,10 @@ DIO316_initialize(unsigned char *addr, unsigned short vecnum)
    DIO316_Interrupt_Enable_Control(tm_DIO316,3,DIO316_INT_ENA);
    DIO316_OE_Control(tm_DIO316,3,DIO316_OE_ENA);
    DIO316_OE_Control(tm_DIO316,2,DIO316_OE_ENA);
-   
+
    IP_Interrupt_Enable(&ip,DIO316_IRQ);
    sysIntEnable(DIO316_IRQ);
-   
+
   return 0;
 }
 
@@ -461,11 +461,11 @@ DID48_interrupt(int type)
       semGive(ppsSem);
 
       if(SDSStime < 0) {		/* we haven't set time yet */
-	 axis_stat[AZIMUTH][0].clock_not_set = 
+	 axis_stat[AZIMUTH][0].clock_not_set =
 	   axis_stat[ALTITUDE][0].clock_not_set =
 	   axis_stat[INSTRUMENT][0].clock_not_set = 1;
-	    
-	 axis_stat[AZIMUTH][1].clock_not_set = 
+
+	 axis_stat[AZIMUTH][1].clock_not_set =
 	   axis_stat[ALTITUDE][1].clock_not_set =
 	   axis_stat[INSTRUMENT][1].clock_not_set = 1;
 
@@ -474,7 +474,7 @@ DID48_interrupt(int type)
 
 	 /* Keep the task from spinning. Clears interrupts? */
 	 DID48_Write_Reg (tm_DID48,4,0x20);
-	 
+
 	 return;
       }
       SDSS_cnt++;
@@ -492,17 +492,17 @@ DID48_interrupt(int type)
       } else if(NIST_sec > 1000000 + dt) {
 	 if(SDSS_cnt > 1) {		/* not just the first partial second */
 	    TRACE0(0, "Lost GPS? NIST_sec = %d", NIST_sec, 0);
-	    
-	    axis_stat[AZIMUTH][0].clock_loss_signal = 
+
+	    axis_stat[AZIMUTH][0].clock_loss_signal =
 	      axis_stat[ALTITUDE][0].clock_loss_signal =
 		axis_stat[INSTRUMENT][0].clock_loss_signal = 1;
-	    
-	    axis_stat[AZIMUTH][1].clock_loss_signal = 
+
+	    axis_stat[AZIMUTH][1].clock_loss_signal =
 	      axis_stat[ALTITUDE][1].clock_loss_signal =
 		axis_stat[INSTRUMENT][1].clock_loss_signal = 1;
 	 }
       } else {
-	 axis_stat[AZIMUTH][1].clock_loss_signal = 
+	 axis_stat[AZIMUTH][1].clock_loss_signal =
 	   axis_stat[ALTITUDE][1].clock_loss_signal =
 	     axis_stat[INSTRUMENT][1].clock_loss_signal = 0;
       }
@@ -533,11 +533,11 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    STATUS stat;
    int i;
    struct IPACK ip;
-   
+
    Industry_Pack (addr,SYSTRAN_DID48,&ip);
    for(i = 0; i < MAX_SLOTS; i++) {
       if(ip.adr[i] != NULL) {
-	 OTRACE(30, "Found at %d, %p", i, ip.adr[i]);
+	 /* OTRACE(30, "Found at %d, %p", i, ip.adr[i]); */
 	 tm_DID48 = DID48Init((struct DID48 *)ip.adr[i], vecnum);
 	 break;
       }
@@ -547,7 +547,7 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
       NTRACE_1(0, uid, cid, "****Missing DID48 at %p****", addr);
       return ERROR;
    }
-   
+
    ppsSem = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
 
    DID48_Init = TRUE;
@@ -555,17 +555,17 @@ DID48_initialize(unsigned char *addr, unsigned short vecnum)
    DID48_Read_Reg(tm_DID48,0x6,&vecnum);
    if (vecnum==0) vecnum = DID48_VECTOR;
 #endif
-   
+
    stat = intConnect(INUM_TO_IVEC(vecnum),
 		     (VOIDFUNCPTR)DID48_interrupt, DID48_TYPE);
    assert(stat == OK);
-   OTRACE(30, "DID48 vector = %d, interrupt address = %p",
-	  vecnum, DID48_interrupt);
-   
+   /* OTRACE(30, "DID48 vector = %d, interrupt address = %p",
+	  vecnum, DID48_interrupt); */
+
    rebootHookAdd((FUNCPTR)axis_DID48_shutdown);
-   
+
    IP_Interrupt_Enable(&ip, DID48_IRQ);
-   sysIntEnable(DID48_IRQ);                                
+   sysIntEnable(DID48_IRQ);
    DID48_Write_Reg (tm_DID48,3,0x3); /* disable debounce for all byte lanes */
    DID48_Interrupt_Enable_Control(tm_DID48,5,DID48_INT_ENA);
 

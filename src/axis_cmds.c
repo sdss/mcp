@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
-#include "vxWorks.h"                            
+#include "vxWorks.h"
 #include "wdLib.h"
 #include "semLib.h"
 #include "sigLib.h"
@@ -145,7 +145,7 @@ axis_ticks_deg(int axis)
  */
 /* static */ int axis_encoder_error[2*NAXIS] = { 0, 0, 0, 0, 0, 0 };
 
-int 
+int
 get_axis_encoder_error(int axis,	/* the axis in question */
 		       int encoder)	/* which encoder? 1 or 2 */
 {
@@ -198,7 +198,7 @@ get_position_corr(int mei_axis,		/* 2*(desired axis) */
       NTRACE_2(0, uid, cid, "get_position_corr: %s %s", axis_name(mei_axis/2), _error_msg(ret));
       return(ret);
    }
-   
+
    *position += axis_encoder_error[mei_axis]; /* undo correction */
 
    return(ret);
@@ -210,7 +210,7 @@ get_latched_position_corr(int mei_axis,	/* 2*(desired axis) */
 {
    int uid = 0, cid = 0;
    int ret = get_latched_position(mei_axis, position);
-   
+
    if(ret != DSP_OK) {
       NTRACE_2(0, uid, cid, "%s get_latched_position failed: %s",
 	       axis_name(mei_axis/2), _error_msg(dsp_error));
@@ -258,7 +258,7 @@ start_move_corr(int mei_axis,
       r_move(10, pos, vel, acc);
       ret = start_move(mei_axis, pos, vel, acc); /* do move */
    }
-   
+
    if(ret != DSP_OK) {
       NTRACE_2(0, uid, cid, "%s start_move failed: %s",
 	       axis_name(mei_axis/2), _error_msg(dsp_error));
@@ -280,9 +280,9 @@ frame_m_xvajt_corr(PFRAME frame,	/* frame for MEI */
 {
    int uid = 0, cid = 0;
    int ret;
-   
+
    x -= axis_encoder_error[mei_axis];	/* apply correction */
-   
+
    ret = frame_m(frame, cmd_str, mei_axis, x, v, a, j, t,
 		 FUPD_ACCEL|FUPD_VELOCITY|FUPD_POSITION|FUPD_JERK|FTRG_TIME,
 		 new_frame);
@@ -299,7 +299,7 @@ dsp_set_last_command_corr(PDSP pdsp,
 			  double final)
 {
    final -= axis_encoder_error[mei_axis]; /* apply correction */
-   
+
    return(dsp_set_last_command(pdsp, mei_axis, final));
 }
 
@@ -316,19 +316,19 @@ char *
 id_cmd(int uid, unsigned long cid, char *cmd)
 {
    const int axis = ublock->axis_select;
-   
+
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "id");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-   
+
    sprintf(ublock->buff,
 	   "%d %s %s\r\n%s\r\nDSP Firmware: V%f R%d S%d, Option=%d, Axes=%d",
 	   axis, axis_name(axis),__DATE__, getCvsTagname(),
 	   dsp_version()/1600., dsp_version()&0xF, (dsp_option()>>12)&0x7,
 	   (dsp_option() & 0xFFF), dsp_axes());
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "id");
 
    return(ublock->buff);
@@ -347,7 +347,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
    const int axis = ublock->axis_select;
    int i;
    int state;
-   
+
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "init");
@@ -359,7 +359,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
    if(set_ms_off(uid, cid, axis, 0) < 0) {
       NTRACE(0, uid, cid, "init failed to set MS.OFF");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "init");
-      
+
       return "ERR: failed to set MS.OFF";
    }
 /*
@@ -368,12 +368,12 @@ init_cmd(int uid, unsigned long cid, char *cmd)
  */
    state = tm_axis_state(2*axis);
 
-   if(state > NEW_FRAME) {		/* not NOEVENT, running, or NEW_FRAME*/ 
+   if(state > NEW_FRAME) {		/* not NOEVENT, running, or NEW_FRAME*/
       NTRACE_2(1, uid, cid, "INIT axis %s: not running: %s",
 	       axis_name(axis), axis_state_str(2*axis));
       tm_sem_controller_idle(2*axis);
    }
-   
+
    tm_reset_integrator(2*axis);
    enable_pvt(axis);
 /*
@@ -450,7 +450,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "init");
       } else {
 	 long correction[3];		/* how much to correct encoder posns */
-      
+
 	 correction[0] = 0;		/* unused */
 	 correction[1] = get_axis_encoder_error(axis, 1);
 	 correction[2] = get_axis_encoder_error(axis, 2);
@@ -463,7 +463,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
 	    NTRACE_2(3, uid, cid,"Adjusting %s's encoder 2 by %ld",
 		     axis_name(axis), correction[2]);
 	 }
-	    
+
 	 if(tm_adjust_position(axis, correction) < 0) {
 	    NTRACE_1(0, uid, cid ,"Failed to adjust encoder for axis %s", axis_name(axis));
 	 }
@@ -484,7 +484,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
    }
 
 /*
- * Set the axis coefficients for slewing. 
+ * Set the axis coefficients for slewing.
  */
    select_pid_block(uid, cid, axis, PID_COEFFS_SLEWING);
 
@@ -509,7 +509,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
 	       errno, strerror(errno));
       taskSuspend(0);
    }
- 
+
    axis_stat[axis][0] = axis_stat[axis][1];
 /*
  * Clear some bits after checking their current status
@@ -521,7 +521,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
 	 axis_stat[axis][0].semCmdPort_taken = 0;
       }
    }
-   
+
    if(axis_stat[axis][0].amp_bad) {
       int amp_ok;
       switch (axis) {
@@ -536,7 +536,7 @@ init_cmd(int uid, unsigned long cid, char *cmd)
       sdssdc.axis_state[axis] = axis_state(2*axis);
       axis_stat[axis][0].out_closed_loop =
 				(sdssdc.axis_state[axis] <= NEW_FRAME) ? 0 : 1;
-      
+
       semGive(semMEI);
    }
 
@@ -580,7 +580,7 @@ mc_maxacc_cmd(int uid, unsigned long cid, char *cmd)
       sprintf(key, "%sMaxAccLimit", axis_abbrev(axis));
       sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, max_acceleration[axis]);
    }
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "mc_maxacc");
    return ublock->buff;
 }
@@ -690,7 +690,7 @@ status_cmd(int uid, unsigned long cid, char *cmd)
    if(sdss_time < 0) {
       sdss_time += 1.0;
    }
-   
+
    if(semTake(semMEI,60) == ERROR) {
       NTRACE_2(0, uid, cid, "status_cmd: failed to get semMEI: %d %s",
 	       errno, strerror(errno));
@@ -707,14 +707,14 @@ status_cmd(int uid, unsigned long cid, char *cmd)
    if((ret = get_velocity(2*axis, &vel)) != DSP_OK) {
       NTRACE_2(0, uid, cid, "STATUS get_velocity: %s %s", axis_name(axis), _error_msg(ret));
    }
-   
+
    semGive(semMEI);
 
    pos /= axis_ticks_deg(axis);
    vel /= axis_ticks_deg(axis);
 
    NTRACE(8, uid, cid, "taking semMEIUPD");
-   if (semTake(semMEIUPD, 60) == ERROR) { 
+   if (semTake(semMEIUPD, 60) == ERROR) {
       NTRACE_1(5, uid, cid, "status_cmd: semMEIUPD : %d", errno);
       sprintf(ublock->buff, "ERR: semMEIUPD : %s", strerror(errno));
 
@@ -722,10 +722,10 @@ status_cmd(int uid, unsigned long cid, char *cmd)
 
       return(ublock->buff);
    }
-   
+
    sprintf(ublock->buff, "%f %f %f %ld %f", pos, vel, sdss_time,
 	   (*(long *)&axis_stat[axis][0] & ~STATUS_MASK), 0.0);
-   
+
    axis_stat[axis][0] = axis_stat[axis][1];
    *(long *)&axis_stat[axis][1] &= STATUS_MASK;
 
@@ -755,7 +755,7 @@ status_long_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    int i;
    long status = *(long *)&axis_stat[ublock->axis_select][0];
-   
+
    printf (" STATUS.LONG command fired\r\n");
    for(i = 0;i < 32; i++) {
       ublock->buff[i]= (status & (1 << (31 - i))) ? '1' : '0';
@@ -763,7 +763,7 @@ status_long_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
    ublock->buff[i] = '\0';
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "status_long");
-   
+
    return(ublock->buff);
 }
 
@@ -840,10 +840,6 @@ axis_status_cmd(int uid, unsigned long cid, char *cmd)
    }
 
    if(semTake(semStatusCmd, 2) == ERROR) {
-#if 0
-      OTRACE(3, "axis_status_cmd failed to take semStatusCmd: %s",
-	     strerror(errno), 0);
-#endif
       sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "axis_status");
       return("ERR: Cannot take semStatusCmd");
    }
@@ -853,7 +849,7 @@ axis_status_cmd(int uid, unsigned long cid, char *cmd)
    semGive(semStatusCmd);
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "axis_status");
-   
+
    return(ublock->buff);
 }
 
@@ -874,7 +870,7 @@ get_miscstatus(char *status,
       !strcmp(fiducialVersion[0], fiducialVersion[2])) {
     fidver = fiducialVersion[0];
   } else {
-    sprintf(errorBuf, "%s|%s|%s", 
+    sprintf(errorBuf, "%s|%s|%s",
 	    fiducialVersion[0], fiducialVersion[1], fiducialVersion[2]);
     fidver = errorBuf;
   }
@@ -885,7 +881,7 @@ get_miscstatus(char *status,
 	  iacked,
 	  sdssdc.status.b3.w1.version_id, /* PLC version, per the PLC */
 	  fidver);
-  
+
   len = strlen(status);
   assert(len < size);
 
@@ -918,7 +914,7 @@ info_cmd(int uid, unsigned long cid, char *cmd)
    do_info_cmd(uid, cid, 1);
 
    semGive(semStatusCmd);
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "info");
 
    return "";
@@ -933,10 +929,6 @@ char *
 system_status_cmd(int uid, unsigned long cid, char *cmd)
 {
    if(semTake(semStatusCmd, 2) == ERROR) {
-#if 0
-      OTRACE(3, "system_status_cmd failed to take semStatusCmd: %s",
-	     strerror(errno), 0);
-#endif
       sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "system_status");
       return("ERR: Cannot take semStatusCmd");
    }
@@ -998,7 +990,7 @@ set_status(int axis,			/* axis, or NOINST for system status */
 	 abort();
 	 break;				/* NOTREACHED */
       }
-      
+
       sprintf(buff,
 	      "%f %d %d  %ld %ld %d %ld  %d %d %ld  %d %d 0x%lx  %.4f",
 	      ticks_per_degree[axis], monitor_on[axis], axis_state(2*axis),
@@ -1008,8 +1000,8 @@ set_status(int axis,			/* axis, or NOINST for system status */
 	      check_stop_in(0), brake_is_on, *(long *)&axis_stat[axis][0],
 	      read_clinometer());
    }
-   
-   OTRACE(8, "set_status: checking buff[end]: %d", buff[size - 1], 0);
+
+   /* OTRACE(8, "set_status: checking buff[end]: %d", buff[size - 1], 0); */
    if(buff[size - 1] != '\a') {		/* check for overflow */
       NTRACE(0, uid, cid, "set_status: overwrote buffer marker");
       taskSuspend(0);
@@ -1041,20 +1033,20 @@ abstatus_cmd(int uid, unsigned long cid, char *cmd)
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "abstatus");
       return("ERR: missing arguments");
    }
-   
+
    if(len > 20) {
       NTRACE_1(0, uid, cid, "AB.STATUS: bad len %d", len);
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "abstatus");
       return("ERR: bad length");
    }
-   
+
    dt = (short *)&sdssdc.status;
    dt += off;
 
    for(i = idx = 0;i < len; i++, dt++) {
       idx += sprintf(&ublock->buff[idx],"%s0x%04x", (idx==0 ? "" : " "), *dt);
    }
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "abstatus");
 
    return(ublock->buff);
@@ -1075,7 +1067,7 @@ abstatus_cmd(int uid, unsigned long cid, char *cmd)
 ** DESCRIPTION:
 **	Modify the instrument rotators coeffs as a function of velocity.
 **	Supporting routines for the specification of the state machine which
-**	provides hysterisis to prevent undue switching.  This was used and 
+**	provides hysterisis to prevent undue switching.  This was used and
 **	tested, but is deprecated by reducing the sampling frequency of the
 **	rotator and thus increasing the gain of the system.  I want to maintain
 **	these functions.
@@ -1133,7 +1125,7 @@ void
 print_rot_coeffs(void)
 {
    int i;
-  
+
    printf ("State %d Active\n",axis_coeffs_state[4]);
    for (i=0;i<sizeof(rot_coeffs)/sizeof(struct SW_COEFFS);i++) {
       printf ("rot_coeffs state %d: uplimit=%d, dnlimit=%d\n",
@@ -1178,7 +1170,7 @@ coeffs_state_cts(int mei_axis,
 {
    int state;
    struct SW_COEFFS *coeff;
-   
+
    state = axis_coeffs_state[mei_axis];
    if(state == -1) return FALSE;
 
@@ -1187,7 +1179,7 @@ coeffs_state_cts(int mei_axis,
 #if 0
    printf ("\r\nAXIS %d: state=%d coeff=%p",mei_axis,state,coeff);
 #endif
-   
+
    if(coeff->uplimit_cts > 0 && abs(cts) > coeff->uplimit_cts) {
 #if 0
       printf ("UP cts=%d, uplimit=%d",cts,coeff->uplimit_cts);
@@ -1269,7 +1261,7 @@ amp_reset(int mei_axis)
 {
    /* TBD: jkp: don't have a uid/cid now; could get it passed up from mcp_amp_reset */
    NTRACE_2(0, 0, 0, "Resetting amp for axis %s: %d", axis_name(mei_axis/2), mei_axis);
-   
+
    DIO316_Write_Port(cw_DIO316, AMP_RESET, 1<<mei_axis);
    taskDelay (2);
    DIO316_Write_Port(cw_DIO316, AMP_RESET, 0);
@@ -1329,7 +1321,7 @@ void
 print_max(void)
 {
    int i;
-   
+
    for(i = 0; i < NAXIS; i++) {
       printf("%-10s: MAX ACC limit %f deg/sec^2 maximum requested %f\n",
 	     axis_name(i), max_acceleration[i], max_acceleration_requested[i]);
@@ -1386,7 +1378,7 @@ mcp_set_pos(int axis,			/* the axis to set */
 
    tm_set_position(2*axis, pos);
    tm_set_position(2*axis + 1, pos);
-   
+
    return 0;
 }
 
@@ -1402,7 +1394,7 @@ mcp_move_va(int axis,			/* the axis to move */
    int uid = 0, cid = 0;
    int ret;				/* return code from MEI */
    double sf;				/* scale factor for axis */
-   
+
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       NTRACE_1(0, uid, cid, "mcp_move_va: illegal axis %d", axis);
 
@@ -1416,20 +1408,20 @@ mcp_move_va(int axis,			/* the axis to move */
 
       return(-1);
    }
-   
+
    sem_controller_run(2*axis);
 
 #if 0 /*debugging*/
    NTRACE_2(1,uid,cid,"mcp_move_va: %s pos=%ld",axis_name(axis),pos);
    NTRACE_2(1,uid,cid,"mcp_move_va: %s vel=%ld",axis_name(axis),vel);
    NTRACE_2(1,uid,cid,"mcp_move_va: %s acc=%ld",axis_name(axis),acc);
-#endif 
+#endif
 
 #if SWITCH_PID_COEFFS
    if(axis == INSTRUMENT) {
       while(coeffs_state_cts(2*axis, vel) == TRUE) {
 	 continue;
-      }	     
+      }
    }
 #endif
 /*
@@ -1439,11 +1431,11 @@ mcp_move_va(int axis,			/* the axis to move */
       printf("AXIS %d: MAX VEL %f exceeded; limit %f\n",
 	     axis, vel/sf, max_velocity[axis]);
       NTRACE_2(2, uid, cid, "Max vel. for %s exceeded: %ld", axis_name(axis), vel);
-      
+
       if(fabs(vel) > fabs(max_velocity_requested[axis])) {
 	 max_velocity_requested[axis] = vel;
       }
-	 
+
       vel = (vel > 0) ? sf*max_velocity[axis] : -sf*max_velocity[axis];
    }
    if(fabs(acc) > sf*max_acceleration[axis]) {
@@ -1472,7 +1464,7 @@ mcp_move_va(int axis,			/* the axis to move */
       }
    }
    semGive(semMEI);
-   
+
    return(0);
 }
 
@@ -1503,7 +1495,7 @@ mcp_set_vel(int axis,			/* the axis to set */
 	       strerror(errno), errno);
       return(-1);
    }
-	 
+
 #if SWITCH_PID_COEFFS
    if(axis == INSTRUMENT) {
       while(coeffs_state_cts(2*axis, vel) == TRUE) {
@@ -1512,7 +1504,7 @@ mcp_set_vel(int axis,			/* the axis to set */
    }
 #endif
    set_velocity (2*axis, vel);
-   semGive (semMEI); 
+   semGive (semMEI);
 
    return 0;
 }
@@ -1539,13 +1531,13 @@ mcp_hold(int axis)			/* desired axis */
       NTRACE_2(0, uid, cid, "mcp_hold: %s: couldn't take semMEI: %d", axis_name(axis), errno);
       return(-1);
    }
-   
+
    if(get_velocity(2*axis, &vel) != DSP_OK) {
       NTRACE_2(0, uid, cid, "Holding axis %s: failed to read velocity: %d",
 	       axis_name(axis), errno);
       vel = 0;
    }
-   
+
 #if 1
    set_stop(2*axis);
    {
@@ -1565,7 +1557,7 @@ mcp_hold(int axis)			/* desired axis */
       }
    }
    clear_status(2*axis);
-   
+
    if(dsp_error != DSP_OK) {
       NTRACE_2(0, uid, cid, "failed to stop %s : %d", axis_name(axis), dsp_error);
    }
@@ -1580,7 +1572,7 @@ mcp_hold(int axis)			/* desired axis */
       vel -= (vel > 0) ? 5000 : -5000;
       NTRACE_1(5, uid, cid, "Velocity = %g", vel);
       set_velocity(2*axis, vel);
-      
+
 #if SWITCH_PID_COEFFS
       if(axis == INSTRUMENT) {
 	 while(coeffs_state_cts(2*axis, vel) == TRUE) {
@@ -1588,10 +1580,10 @@ mcp_hold(int axis)			/* desired axis */
 	 }
       }
 #endif
-      
+
       taskDelay (15);
    }
-   
+
    vel = 0;
    set_velocity(2*axis, vel);
 
@@ -1607,7 +1599,7 @@ mcp_hold(int axis)			/* desired axis */
 #endif
    NTRACE_1(5, uid, cid, "Velocity = %g", vel);
 #endif
-   
+
    semGive (semMEI);
 
    return(0);
@@ -1665,7 +1657,7 @@ mcp_stop_axis(int axis)
 
    sem_controller_idle(2*axis);
    reset_integrator(2*axis);
-   
+
    semGive (semMEI);
 
    return(0);
@@ -1701,7 +1693,7 @@ drift_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
 #endif
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "drift");
-   
+
    return(ublock->buff);
 }
 
@@ -1711,7 +1703,7 @@ move_cmd(int uid, unsigned long cid, char *cmd)
    const int axis = ublock->axis_select;
    double params[3];
    int cnt;
-   
+
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "move");
@@ -1725,7 +1717,7 @@ move_cmd(int uid, unsigned long cid, char *cmd)
    }
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "move");
-   
+
    return("");
 }
 
@@ -1735,7 +1727,7 @@ plus_move_cmd(int uid, unsigned long cid, char *cmd)
    const int axis = ublock->axis_select;
    double params[3];
    int cnt;
-   
+
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "badAxis");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "plus_move");
@@ -1835,11 +1827,11 @@ goto_pos_va_cmd(int uid, unsigned long cid, char *cmd)
    NTRACE_1(1,uid,cid,"goto_pos_va_cmd: vel=%f",vel);
    NTRACE_1(1,uid,cid,"goto_pos_va_cmd: acc=%f",acc);
 #endif
-   
+
    mcp_move_va(ublock->axis_select, pos, vel, acc);
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "goto_pos_va");
-   
+
    return("");
 }
 
@@ -1899,16 +1891,16 @@ restore_pos(void)
    struct SDSS_FRAME *save;
    struct TM_M68K *restore;
    int i;
-   
+
    save = (struct SDSS_FRAME *)(SHARE_MEMORY + 2);
    for(i = 0; i < NAXIS; i++) {
       restore = (struct TM_M68K *)&save->axis[i];
-      
+
       fprintf(stderr, "Restoring encoder position for %s: %ld\n",
 	      axis_name(i), restore->actual_position);
       NTRACE_2(3, uid, cid, "Restoring encoder position for %s: %ld",
 	       axis_name(i), restore->actual_position);
-      
+
       tm_set_position(2*i, restore->actual_position);
       tm_set_position(2*i + 1,restore->actual_position2);
    }
@@ -2032,7 +2024,7 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
    semTake(semMEI,WAIT_FOREVER);
    get_filter(2*axis, (P_INT)coeff);
    semGive(semMEI);
-   
+
    {
       char key[20];
       sprintf(key, "%sPidCoeffs", axis_abbrev(axis));
@@ -2041,7 +2033,7 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
       for(i = 0;i < COEFFICIENTS; i++) {
 	 idx += sprintf(&ublock->buff[idx],(i == 0 ? "%d" : ", %d"), coeff[i]);
       }
-      
+
       sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, key, ublock->buff);
    }
 
@@ -2052,7 +2044,7 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
    }
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "get_filter_coeffs");
-   
+
    return(ublock->buff);
 }
 
@@ -2063,8 +2055,8 @@ get_filter_coeffs_cmd(int uid, unsigned long cid, char *cmd)
  */
 typedef short PID_COEFFS[COEFFICIENTS];
 
-/* We maintain two sets of coefficients: one (0) for tracking, and one (1) for slewing. 
-   The code run by the INIT and MS.ON commands selects the slewing block, and MS.OFF selects 
+/* We maintain two sets of coefficients: one (0) for tracking, and one (1) for slewing.
+   The code run by the INIT and MS.ON commands selects the slewing block, and MS.OFF selects
    the tracking block
 */
 #define NPID_BLOCK 2
@@ -2176,7 +2168,7 @@ select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
 {
    int block = -1;
    const int axis = ublock->axis_select;
-   
+
    if(axis != AZIMUTH && axis != ALTITUDE && axis != INSTRUMENT) {
       sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "select_pid_block");
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "select_pid_block");
@@ -2192,7 +2184,7 @@ select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
    select_pid_block(uid, cid, axis, block);
 
    sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "pid_coeffs_block", block);
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "select_pid_block");
 
    return "";
@@ -2202,7 +2194,7 @@ select_pid_block_cmd(int uid, unsigned long cid, char *cmd)
 /*
  * General initialization of MEI board...called from startup script.
  *
- * 
+ *
  * Initialize queue data structures.
  *
  * Setup semaphores
@@ -2249,7 +2241,7 @@ axisMotionInit(void)
 	 NTRACE(0, uid, cid, "axisMotionInit: no memory for queue");
 	 return(ERROR);
       }
-      
+
       axis_queue[i].end = axis_queue[i].top;
       axis_queue[i].active = NULL;
       axis_queue[i].cnt = 1;
@@ -2270,7 +2262,7 @@ axisMotionInit(void)
    } else {
       printf("dsp_init Passed!\n");
    }
-   
+
    err = dsp_reset();
    if(err) {
       error_msg(err, buffer) ;	/* convert an error code to a human message */
@@ -2281,10 +2273,10 @@ axisMotionInit(void)
    } else {
       printf("dsp_reset Passed!\n");
    }
-   
+
    set_sample_rate(160);
    NTRACE_1(3, uid, cid, "Sample Rate=%d", dsp_sample_rate());
-   
+
    for(mei_axis = 0; mei_axis < dsp_axes(); mei_axis++) {
       NTRACE_1(3, uid, cid, "Initialising AXIS %d", mei_axis);
 
@@ -2293,18 +2285,18 @@ axisMotionInit(void)
       set_stop_rate(mei_axis, (double)SDSS_STOP_RATE);
       get_stop_rate(mei_axis, &rate);
       NTRACE_1(3, uid, cid, "set stop rate = %f", rate);
-      
+
       get_e_stop_rate(mei_axis, &rate);
       NTRACE_1(3, uid, cid, "old e_stop rate=%f", rate);
       set_e_stop_rate(mei_axis, (double)SDSS_E_STOP_RATE);
       get_e_stop_rate(mei_axis, &rate);
       NTRACE_1(3, uid, cid, "set e_stop rate=%f", rate);
-      
+
       get_error_limit(mei_axis, &limit, &action);
       NTRACE_2(3, uid, cid, "old error limit=%ld, action=%d", (long)limit, action);
 #if 0
       set_error_limit(mei_axis, 24000, NO_EVENT);
-#else 
+#else
       set_error_limit(mei_axis, 24000, ABORT_EVENT);
 #endif
       get_error_limit(mei_axis, &limit, &action);
@@ -2378,7 +2370,7 @@ axisMotionInit(void)
 	      "Return current axis's maximum permitted acceleration");
    define_cmd("MC_MAXVEL",     mc_maxvel_cmd,     0, 0, 0, 1,
 	      "Return current axis's maximum permitted velocity");
-   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1, 
+   define_cmd("MOVE",          move_cmd, 	 -1, 1, 1, 1,
               "Go to a POSITION (degrees) with an optional VELOCITY (degrees/sec) and TIME (seconds since start of UTC day)");
    define_cmd("SET_MONITOR",   set_monitor_cmd,   1, 1, 0, 1, "");
    define_cmd("SET_POS_VA",    goto_pos_va_cmd,   3, 1, 1, 1,
@@ -2409,6 +2401,6 @@ axisMotionInit(void)
 
    define_cmd("SELECT_PID_BLOCK", select_pid_block_cmd,     1, 1, 0, 1,
 	      "Select which set of PID coefficients should be active");
-   
+
    return 0;
 }

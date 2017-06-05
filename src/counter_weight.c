@@ -59,7 +59,7 @@ broadcast_cw_status(int uid, unsigned long cid)
    }
 
    (void)get_cwstatus(buff, sizeof(buff));
-   
+
    semGive(semMEIUPD);
 
    sscanf(buff, "CW %d %s %d %s %d %s %d %s",
@@ -80,7 +80,7 @@ tMoveCW(void)
 {
    MCP_MSG msg;				/* message to read */
    int status;
-   
+
    for(;;) {
 /*
  * Wait for a message asking us to do something
@@ -88,18 +88,18 @@ tMoveCW(void)
       status = msgQReceive(msgMoveCW, (char*)&msg, sizeof(msg), WAIT_FOREVER);
       assert(status != ERROR);
 
-      OTRACE(6, "tMoveCW: received message %d", msg.type, 0);
-      
+      /* OTRACE(6, "tMoveCW: received message %d", msg.type, 0); */
+
       assert(msg.type == moveCW_type);
-      
+
       if(semTake(semMoveCWBusy, 0) != OK) { /* task is busy */
 	 NTRACE(0, msg.uid, msg.cid, "moveCW task is already already busy");
 	 return;
       }
-      
+
       set_counterweight(msg.uid, msg.cid,
 			msg.u.moveCW.inst, msg.u.moveCW.cw, msg.u.moveCW.cwpos);
-      
+
       semGive(semMoveCWBusy);
    }
 }
@@ -127,7 +127,7 @@ mcp_cw_abort(int uid, unsigned long cid)
 		      NO_WAIT, MSG_PRI_NORMAL);
       assert(status == OK);
    }
-   
+
    cw_abort();
 
    return(0);
@@ -171,7 +171,7 @@ mcp_set_cw(int uid, unsigned long cid,
       if(errstr != NULL) {
 	 *errstr = "ERR: Altitude Brake NOT Engaged";
       }
-      
+
       return(-1);
    } else {
 /*
@@ -186,18 +186,18 @@ mcp_set_cw(int uid, unsigned long cid,
 	 if(errstr != NULL) {
 	    *errstr = "ERR: CW or CWP task still active...be patient";
 	 }
-	 
+
 	 return(-1);			/* CW or CWP task still active */
 	 ;
       }
-      
+
       msg.type = moveCW_type;
       msg.u.moveCW.inst = inst;
       msg.u.moveCW.cw = cw;
       msg.u.moveCW.cwpos = cwpos;
       msg.uid = uid;
       msg.cid = cid;
-      
+
       status = msgQSend(msgMoveCW, (char *)&msg, sizeof(msg),
 		      NO_WAIT, MSG_PRI_NORMAL);
       assert(status == OK);
@@ -213,11 +213,11 @@ mcp_set_cw(int uid, unsigned long cid,
 /**************************************************************************
 **
 ** ABSTRACT:
-	Balance the telescope utilizing the four counter weights.  The 
+	Balance the telescope utilizing the four counter weights.  The
 control is by moving a motor through an DAC to a position decoded by an
-absolute encoded (similar to a potentiometer) which is read back through 
+absolute encoded (similar to a potentiometer) which is read back through
 an ADC.  The motor is slowed as it approaches the known balance point of the
-axis and stopped upon arrival. The telescope is then finely balanced by 
+axis and stopped upon arrival. The telescope is then finely balanced by
 monitoring the motor currents of the motion controls.
 Hardware Requirements:
 	2 DO bits to select the CW (0-3)
@@ -232,7 +232,7 @@ DIO316 3*16
 	3 output
 		CW_SELECT
 			bit 0-1 pin 32-31
-		CW_DIRECTION		
+		CW_DIRECTION
 			bit 2   pin 30
 		CW_POWER
 			bit 4   pin 28
@@ -243,7 +243,7 @@ DIO316 3*16
 			bit 0   pin 40
 			bit 0-3 interruptable   pin 40-37
 		CW_INTERLOCK
-			bit 4	pin 36	
+			bit 4	pin 36
 		CW_LCLRMT
 			bit 5   pin 35
 	5 input
@@ -276,8 +276,8 @@ ADC128F1
 */
 /*
   Brake is applied: If positive direction, go below stop limit (i.e. 0) but
-not less than moving limit.  If negative direction, go above stop limit but 
-not greater than moving limit.    
+not less than moving limit.  If negative direction, go above stop limit but
+not greater than moving limit.
 Negative Moving Limit      0     Stop Limit      Positive Moving Limit
 ---------|-----------------|---------|---------------------|--------------------
           Positive Brake............. Negative Brake.......
@@ -424,20 +424,20 @@ balance_initialize(unsigned char *addr,
    int uid = 0, cid = 0;
    int i;
    unsigned short val;
-   STATUS status;                               
+   STATUS status;
    struct IPACK ip;
 /*
  * Initialize the ADC
  */
    Industry_Pack(addr, SYSTRAN_ADC128F1, &ip);
-   
+
    for(i = 0; i < MAX_SLOTS; i++) {
       if(ip.adr[i] != NULL) {
 	 cw_ADC128F1 = ADC128F1Init((struct ADC128F1 *)ip.adr[i]);
 	 break;
       }
    }
-   
+
    if(i >= MAX_SLOTS) {
       NTRACE_1(0, uid, cid, "****Missing ADC128F1 at %p****", addr);
       return ERROR;
@@ -453,7 +453,7 @@ balance_initialize(unsigned char *addr,
 	break;
      }
   }
-  
+
   if(i >= MAX_SLOTS) {
      NTRACE_1(0, uid, cid, "****Missing DAC128V at %p****", addr);
      return ERROR;
@@ -477,7 +477,7 @@ balance_initialize(unsigned char *addr,
 	 break;
       }
    }
-   
+
    if(i >= MAX_SLOTS) {
       NTRACE_1(0, uid, cid, "****Missing DIO316 at %p****", addr);
       return ERROR;
@@ -490,7 +490,7 @@ balance_initialize(unsigned char *addr,
 		      DIO316_TYPE);
    NTRACE_2(5, uid, cid, "CW vector = %d, result = 0x%8x", vecnum, status);
    rebootHookAdd((FUNCPTR)cw_DIO316_shutdown);
-   
+
    IP_Interrupt_Enable(&ip, DIO316_IRQ);
    DIO316_OE_Control(cw_DIO316, 3, DIO316_OE_ENA);
    DIO316_Interrupt_Configuration(cw_DIO316, 0, DIO316_INT_FALL_EDGE);
@@ -506,7 +506,7 @@ balance_initialize(unsigned char *addr,
  * zero the DAC - there is a 2048 offset on the 12 bit DAC
  */
    DAC128V_Write_Reg(cw_DAC128V, CW_MOTOR, 0x800);
-   
+
    return 0;
 }
 
@@ -516,7 +516,7 @@ balance_initialize(unsigned char *addr,
 ** ROUTINE: balance
 **
 ** DESCRIPTION:
-**      Balances one counter-weight according to its data structure for the 
+**      Balances one counter-weight according to its data structure for the
 **	instrument.
 **      This enables a log file 'cwp.log' to track the motion by redirecting
 **	all std out and error to the file.
@@ -553,7 +553,7 @@ balance(int cw,				/* counter weight to move */
       cw0 = 0; cw1 = NUMBER_CW - 1;
    } else {
       cw0 = cw1 = cw;
-   } 
+   }
 
    for(cw = cw0; cw <= cw1; cw++) {
       if(CW_verbose) printf("\r\nBALANCE CW %d: for instrument %d",
@@ -562,7 +562,7 @@ balance(int cw,				/* counter weight to move */
  * set mux for specified counter-weight
  */
       cw_select(cw);
-      
+
       NTRACE_2(5, uid, cid, "balance cw = %d inst = %d", cw, inst);
 /*
  * iterate until good or exceed stop count
@@ -570,7 +570,7 @@ balance(int cw,				/* counter weight to move */
       DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
       cw_power_on();
       CW_limit_abort = FALSE;
-      
+
       for(CW_next = i = 0; !CW_next && i < cw_inst[inst].stop_count; i++) {
 	 ADC128F1_Read_Reg(cw_ADC128F1,cw,(unsigned short *)&pos);
 	 if((pos & 0x800) == 0x800) {
@@ -579,9 +579,9 @@ balance(int cw,				/* counter weight to move */
 	    pos &= 0xFFF;
 	 }
 	 delta = abs(pos - cw_inst[inst].pos_setting[cw]);
-	 
+
 	 NTRACE_2(5, uid, cid, "balance i = %d delta = %d", i, delta);
-	 
+
 	 last_error = delta;
 	 cw_inst[inst].pos_current[cw] = pos;
 	 cw_inst[inst].pos_error[cw] = delta;
@@ -594,19 +594,19 @@ balance(int cw,				/* counter weight to move */
 	 while(delta > cw_inst[inst].stop_pos_error) {
 	    NTRACE_2(6, uid, cid, "balance delta = %d, cw_inst[inst].stop_pos_error = %d",
 		  delta, cw_inst[inst].stop_pos_error);
-	    
+
 	    taskDelay(60/cw_inst[inst].updates_per_sec);
-	    
+
 	    if(msgQReceive(msgMoveCWAbort, (char*)&msg, sizeof(msg), NO_WAIT)
 								    != ERROR) {
 	       assert(msg.type == moveCWAbort_type);
-	       OTRACE(0, "Counterweight %d motion abort", cw + 1, 0);
+	       /* OTRACE(0, "Counterweight %d motion abort", cw + 1, 0); */
 	       sendStatusMsg_I(msg.uid, msg.cid, INFORMATION_CODE, 1, "cwAbort", cw + 1);
 
 	       cw_abort();
 	       return;
 	    }
-	 
+
 	    if(CW_limit_abort) {
 	       NTRACE_1(2, uid, cid, "Counterweight %d: limit abort", cw + 1);
 	       cw_status();
@@ -615,13 +615,13 @@ balance(int cw,				/* counter weight to move */
 
 	       break;
 	    }
-	    
+
 	    cnt++;
 	    if(cnt%(cw_inst[inst].updates_per_sec*6) == 0) {
 	       if(delta > last_error - 4) {
 		  NTRACE_1(2, uid, cid, "Not Closing in on position for CW %d; aborting", cw + 1);
 		  cw_status();
-		  
+
 		  CW_next = 1;
 		  break;
 	       }
@@ -634,7 +634,7 @@ balance(int cw,				/* counter weight to move */
  */
 	    DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, (unsigned short *)&vel);
 	    vel -= 0x800;
-	    
+
 	    if(cnt > 1 && delta < cw_inst[inst].start_decel_position) {
 /*
  * decelerate & coast to position
@@ -655,7 +655,7 @@ balance(int cw,				/* counter weight to move */
 	       if(vel == 0) {
 		  break;
 	       }
-	       
+
 	       if(abs(vel) >= cw_inst[inst].stop_velocity) {
 		  if (CW_verbose) printf ("\r\n DECEL: ");
 	       } else {			/* coast with stop velocity */
@@ -665,7 +665,7 @@ balance(int cw,				/* counter weight to move */
 		     vel = -cw_inst[inst].stop_velocity;
 		  }
 		  if(CW_verbose) printf ("\r\n STOP VEL: ");
-	       }    
+	       }
 	    } else {
 /*
  * accelerate to velocity
@@ -675,7 +675,7 @@ balance(int cw,				/* counter weight to move */
 	       } else {
 		  vel -= cw_inst[inst].accel;
 	       }
-	       
+
 	       if(abs(vel) <= cw_inst[inst].velocity) {
 		  if (CW_verbose) printf ("\r\n ACCEL: ");
 	       } else {			/* maintain velocity */
@@ -685,7 +685,7 @@ balance(int cw,				/* counter weight to move */
 		     vel = -cw_inst[inst].velocity;
 		  }
 		  if (CW_verbose) printf ("\r\n ACCEL VEL: ");
-	       }    
+	       }
 	    }
 
 	    vel += 0x800;
@@ -699,16 +699,16 @@ balance(int cw,				/* counter weight to move */
 	    } else {
 	       pos &= 0xFFF;
 	    }
-	    
+
 	    delta = abs(pos - cw_inst[inst].pos_setting[cw]);
 	    cw_inst[inst].pos_current[cw] = pos;
 	    cw_inst[inst].pos_error[cw] = delta;
-	    
+
 	    last_direction = direction;
 	    direction = (pos < cw_inst[inst].pos_setting[cw]) ?
 						 POS_DIRECTION : NEG_DIRECTION;
 	    if(direction != last_direction) break;
-	    
+
 	    if(CW_verbose) {
 	       printf("vel=%x,pos=%x,delta=%x,direction=%d",
 		      vel - 0x800, pos, delta, direction);
@@ -726,13 +726,13 @@ balance(int cw,				/* counter weight to move */
       if(i == cw_inst[inst].stop_count) {
 	 NTRACE_2(2, uid, cid, "CW %d exceeded stop_count %d", cw + 1, cw_inst[inst].stop_count);
       }
-      
+
       NTRACE_1(5, uid, cid, "CW %d done", cw + 1);
    }
 
    cw_brake_on();
    cw_power_off();
-   
+
    if (CW_verbose) {
       printf ("\r\n STOP: ");
       printf ("\r\n .................time=%d secs\r\n",
@@ -751,13 +751,13 @@ set_counterweight(int uid, unsigned long cid,
 {
    int i;
    short parray[4];			/* positions for all counterweights */
-   
+
    for(i = 0; i < NUMBER_CW; i++) {
       parray[i] = (cw == ALL_CW || i == cw) ? pos : 0;
    }
 
    cw_set_positionv(uid, cid, inst, parray);
-   
+
    balance(cw, inst);
 }
 
@@ -843,11 +843,11 @@ cw_calc(struct CW_LOOP *cw)
       cw->stop_velocity=val;		/* stop velocity in units for DAC */
   }
 
-  stop_guess = 
+  stop_guess =
     (((cw->velocity-cw->stop_velocity)/cw->decel)+1)/(float)cw->updates_per_sec*
                ((cw->vel_rpm/2.)/60.)*
                INCHES_PER_RPM*POS_PER_INCH;
-  if (stop_guess>cw->start_decel_position) 
+  if (stop_guess>cw->start_decel_position)
   {
     printf ("\r\nstart_decel_position increased to estimate 0x%x from 0x%x",
               stop_guess, cw->start_decel_position);
@@ -886,7 +886,7 @@ void cw_DIO316_interrupt(int type)
    unsigned char int_bit[4];
    short vel;
    int cw;
-   
+
    DIO316ReadISR (cw_DIO316,&int_bit[0]);
    DAC128V_Read_Reg(cw_DAC128V,CW_MOTOR, (unsigned short *)&vel);
    vel-=0x800;
@@ -904,10 +904,10 @@ void cw_DIO316_interrupt(int type)
 	cw_abort();
 	CW_limit_abort=TRUE;
      }
-   
+
    DIO316ClearISR (cw_DIO316);
 
-   OTRACE(16, "cw_DIO316_interrupt CW = %d", cw, 0);
+   /* OTRACE(16, "cw_DIO316_interrupt CW = %d", cw, 0); */
 }
 
 /*=========================================================================
@@ -975,14 +975,14 @@ cw_brake_on(void)
    if(cw_DAC128V == -1) {
       return ERROR;
    }
-   
+
    DAC128V_Read_Reg(cw_DAC128V, CW_MOTOR, (unsigned short *)&vel);
    if(vel >= 0) {
       DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800);
    } else {
       DAC128V_Write_Reg(cw_DAC128V,CW_MOTOR,0x800+STOP_LIM);
    }
-   
+
    return 0;
 }
 
@@ -1093,18 +1093,18 @@ cw_status(void)
 {
    unsigned char val;
    int i;
-   
+
    if(cw_DIO316 == -1) {
       return;
    }
-   
+
    DIO316_Read_Port(cw_DIO316,CW_LCLRMT,&val);
    if(val & CW_LOCAL) {
       printf ("\r\nLOCAL:  ");
    } else {
       printf ("\r\nREMOTE:  ");
    }
-   
+
    DIO316_Read_Port(cw_DIO316, CW_SELECT, &val);
    printf("CW %d Selected, ", (val & 0x3) + 1);
 
@@ -1146,7 +1146,7 @@ cw_status(void)
 int
 cw_abort(void)
 {
-    if (cw_brake_on()==0) 
+    if (cw_brake_on()==0)
       if (cw_power_off()==0) return 0;
     return ERROR;
 }
@@ -1183,7 +1183,7 @@ kbd_input(void)
 **	    cw_motor		rpm specified
 **
 ** DESCRIPTION:
-**	Diagnostic to drive the counter-weight motor similar to the routine 
+**	Diagnostic to drive the counter-weight motor similar to the routine
 **	called to move the counter-weight.
 **
 ** RETURN VALUES:
@@ -1234,7 +1234,7 @@ cw_motor(int cw, double vel_rpm)
 ** ROUTINE: cw_list
 **
 ** DESCRIPTION:
-**	Diagnostic to list the corresponding instrument's counter-weight 
+**	Diagnostic to list the corresponding instrument's counter-weight
 **	parameters.
 **
 ** RETURN VALUES:
@@ -1347,7 +1347,7 @@ cw_set_positionv(int uid, unsigned long cid,
 		     p[i], i + 1);
 	    return;
 	 }
-	 
+
 	 cw_inst[inst].pos_setting[i] = (short)(p[i]*2.048);
 	 cw_inst[inst].pos_current[i] = 0;
 	 cw_inst[inst].pos_error[i] = 0;
@@ -1392,7 +1392,7 @@ cw_get_inst(char *cmd)
 	return(inst);
      }
   }
-  
+
   return ERROR;
 }
 
@@ -1429,7 +1429,7 @@ cw_data_collection(void)
   if(cw_ADC128F1 != -1) {
      for(ii = 0; ii < NUMBER_CW; ii++) {
 	ADC128F1_Read_Reg(cw_ADC128F1,ii,&adc);
-	
+
 	if(semTake(semSDSSDC, 60) == ERROR) {
 	   NTRACE_1(2, uid, cid, "cw_data_collection failed to take semSDSSDC: %s", strerror(errno));
 	} else {
@@ -1438,7 +1438,7 @@ cw_data_collection(void)
 	   } else {
 	      sdssdc.weight[ii].pos = adc & 0xFFF;
 	   }
-	   
+
 	   semGive(semSDSSDC);
 	}
      }
@@ -1601,7 +1601,7 @@ cw_set_const(int inst,
 ** ROUTINE: cw_set_params
 **
 ** DESCRIPTION:
-**	Set the instruments acceleration, deceleration, velocity, and stop 
+**	Set the instruments acceleration, deceleration, velocity, and stop
 **	velocity values.  Always recalculates the instrument for these changes.
 **
 ** RETURN VALUES:
@@ -1670,7 +1670,7 @@ cw_set_position(int inst, double p1, double p2, double p3, double p4)
 **	    read_all_ADC
 **
 ** DESCRIPTION:
-**      Diagnositc functions to read ADCs in raw counts and volts a 
+**      Diagnositc functions to read ADCs in raw counts and volts a
 **	specified number of times in succession.
 **
 ** RETURN VALUES:
@@ -1736,7 +1736,7 @@ get_cwstatus(char *cwstatus_ans,
    int idx;
    int limidx;
    static const char *limitstatus[]={"LU", "L.", ".U", ".."};
-   
+
    idx = sprintf(cwstatus_ans,"CW   ");
    for(i = 0; i < 4; i++) {
       adc = sdssdc.weight[i].pos;
@@ -1769,12 +1769,12 @@ get_cwstatus(char *cwstatus_ans,
 ** DESCRIPTION:
 **	CWMOV - Move specified counter-weight to specified position in units
 **	of volts*100.
-**	CWINST - Move all counter-weights to the instruments specified 
+**	CWINST - Move all counter-weights to the instruments specified
 **	positions.
 **	CWPOS - Move all four counter-weights to specified position in units
 **	of volts*100.
 **	CWABORT - Abort any counter-weight motion provided by spawned tasks.
-**	CWSTATUS - Return status of counter_weights including position and 
+**	CWSTATUS - Return status of counter_weights including position and
 **	limit status.
 **
 ** RETURN VALUES:
@@ -1825,7 +1825,7 @@ cwinst_cmd(int uid, unsigned long cid, char *cmd)
 {
    char *ans = "";
    int inst;
-   
+
    while(*cmd == ' ') cmd++;
    if((inst = cw_get_inst(cmd)) == ERROR) {
       sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", "malformed command arguments");
@@ -1840,7 +1840,7 @@ cwinst_cmd(int uid, unsigned long cid, char *cmd)
       } else {
 	 sendStatusMsg_S(uid, cid, INFORMATION_CODE, 1, "text", ans);
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "cw_inst");
-	 
+
 	 if (ublock->protocol == NEW_PROTOCOL) {
 	    ans = "";			/* we've already reported this */
 	 }
@@ -1899,7 +1899,7 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
 {
    int uid = 0, cid = 0;
    int i, j;
-   
+
    if(msgMoveCW != NULL) {
       return;
    }
@@ -1909,7 +1909,7 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
 
    msgMoveCWAbort = msgQCreate(40, sizeof(MCP_MSG), MSG_Q_FIFO);
    assert(msgMoveCWAbort != NULL);
-   
+
    semMoveCWBusy = semBCreate(SEM_Q_PRIORITY, SEM_FULL);
    assert(semMoveCWBusy != NULL);
 /*
@@ -1925,7 +1925,7 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
       for(j = 0; j < NUMBER_CW; j++) {
 	 cw_inst[i].pos_current[j] = cw_inst[i].pos_error[j] = 0;
       }
-    
+
       cw_inst[i].updates_per_sec = 10;
       cw_inst[i].accel_rpm = 12000.;	/* user specified acceleration */
       cw_inst[i].vel_rpm = 500.;	/* user specified velocity */
@@ -1934,7 +1934,7 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
       cw_inst[i].start_decel_position = 58;/* position error to begin decel. */
       cw_inst[i].stop_pos_error = 2;	/* stop position error allowed */
       cw_inst[i].stop_count = 8;	/* stop polarity swing counts allowed*/
-      
+
       cw_calc(&cw_inst[i]);
    }
 /*
@@ -1946,7 +1946,7 @@ tMoveCWInit(unsigned char *addr,	/* address of ADC */
    define_cmd("CW_STATUS", cwstatus_cmd, 0, 0, 0, 1, "");
 /*
  * Spawn the task that does the work
- */   
+ */
    if(taskSpawn("tMoveCW", 60, VX_FP_TASK, 10000,
 		(FUNCPTR)tMoveCW, 0,0,0,0,0,0,0,0,0,0) == ERROR) {
       NTRACE_2(0, uid, cid, "Failed to spawn tMoveCW: %s (%d)", strerror(errno), errno);
@@ -1965,9 +1965,9 @@ tMoveCWFini(void)
 
    msgQDelete(msgMoveCWAbort);
    msgMoveCWAbort = NULL;
-   
+
    semDelete(semMoveCWBusy);
    semMoveCWBusy = NULL;
-   
+
    taskDelete(taskIdFigure("tMoveCW"));
 }

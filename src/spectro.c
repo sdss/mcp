@@ -47,15 +47,15 @@ tAlgnClmp(void)
    int err;
    unsigned short ctrl[2];
    MCP_MSG msg;				/* message to pass around */
-   int ret;				/* return code */   
-   B10_L0 tm_ctrl;   
+   int ret;				/* return code */
+   B10_L0 tm_ctrl;
 
    for(;;) {
       ret = msgQReceive(msgAlignClamp, (char *)&msg, sizeof(msg),
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      OTRACE(8, "read msg on msgAlignClamp", 0, 0);
+      /* OTRACE(8, "read msg on msgAlignClamp", 0, 0); */
 /*
  * What sort of message?
  *   alignClamp_type        A request from the outside world to move clamp
@@ -71,30 +71,30 @@ tAlgnClmp(void)
 	 if(sdssdc.status.i9.il0.clamp_en_stat == 1) { /* success */
 	    continue;
 	 } else {			/* Failure; turn off and disengage */
-	    OTRACE(0, "Alignment clamp did NOT engage..."
-		  "turning off and disengaging", 0, 0);
+	    /* OTRACE(0, "Alignment clamp did NOT engage..."
+		  "turning off and disengaging", 0, 0); */
 	    engage = 0;
 	 }
 	 break;
        default:
-	 OTRACE(0, "Impossible message type on msgAlignClamp: %d", msg.type, 0);
-	 continue;	 
+	 /* OTRACE(0, "Impossible message type on msgAlignClamp: %d", msg.type, 0); */
+	 continue;
       }
 /*
  * Time to do the work
  */
       if(semTake(semSLC,60) == ERROR) {
-	 OTRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno);
+	 /* OTRACE(0, "Unable to take semaphore: %s (%d)", strerror(errno), errno); */
 	 continue;
       }
-      
+
       err = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(err) {
 	 semGive(semSLC);
-	 OTRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0);
+	 /* OTRACE(0, "tAlgnClmp: error reading slc: 0x%04x", err, 0); */
 	 continue;
       }
-      
+
       swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
 
       if(engage) {
@@ -104,24 +104,24 @@ tAlgnClmp(void)
 	 tm_ctrl.mcp_clamp_engage_cmd = 0;
 	 tm_ctrl.mcp_clamp_disen_cmd = 1;
       }
-      
+
       swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
       err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive(semSLC);
-   
+
       if(err) {
-	 OTRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0);
+	 /* OTRACE(0, "tAlgnClmp: error writing slc: 0x%04x", err, 0); */
 	 continue;
       }
-      
+
       if(engage) {			/* wait, then see if we succeeded */
 	 int wait = 15;			/* how many seconds to wait */
-	 OTRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0);
-	 
+	 /* OTRACE(1, "Waiting %ds for alignment clamp to engage", wait, 0); */
+
 	 if(timerSend(alignClampCheck_type, tmr_e_add,
 		      wait*60, alignClampCheck_type, msgAlignClamp) == ERROR) {
-	    OTRACE(0, "Failed to send message to timer task: %s (%d)",
-		  strerror(errno), errno);
+	    /* OTRACE(0, "Failed to send message to timer task: %s (%d)",
+		  strerror(errno), errno); */
 	 }
       }
    }
@@ -132,7 +132,7 @@ alignment_clamp_set(int uid, unsigned long cid, int engage)
 {
    MCP_MSG msg;				/* message to send */
    int ret;				/* return code */
-   
+
    msg.type = alignClamp_type;
    msg.u.alignClamp.op = engage ? ENGAGE : DISENGAGE;
 
@@ -162,7 +162,7 @@ clampon_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    alignment_clamp_set(uid, cid, 1);
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "clampOn");
-   
+
    return "";
 }
 
@@ -172,7 +172,7 @@ clampoff_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
    alignment_clamp_set(uid, cid, 0);
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "clampOff");
-   
+
    return "";
 }
 #endif
@@ -202,9 +202,9 @@ tSpecDoor(void)
       spec = msg.u.specDoor.spec;
       uid = msg.uid;
       cid = msg.cid;
-      
+
       if(spec != SPECTROGRAPH1 && spec != SPECTROGRAPH2) {
-	 OTRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0);
+	 /* OTRACE(0, "tSpecDoor illegal choice of spectrograph %d", spec, 0); */
 	 sendStatusMsg_I(uid, cid, INFORMATION_CODE, 1, "badSpectrograph", spec);
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoorOperation");
 	 continue;
@@ -259,7 +259,7 @@ tSpecDoor(void)
 	 NTRACE_2(0, msg.uid, msg.cid, "tSpecDoor: SP%d illegal op %d", spec+1, msg.u.specDoor.op);
 	 break;
       }
-      
+
       swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
       err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
 
@@ -290,7 +290,7 @@ mcp_specdoor_clear(int uid,
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoor_clear");
       return(-1);
    }
-   
+
    msg.type = specDoor_type;
    msg.u.specDoor.spec = spec;
    msg.u.specDoor.op = CLEAR;
@@ -317,7 +317,7 @@ mcp_specdoor_open(int uid,
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoor_open");
       return(-1);
    }
-   
+
    msg.type = specDoor_type;
    msg.u.specDoor.spec = spec;
    msg.u.specDoor.op = OPEN;
@@ -344,7 +344,7 @@ mcp_specdoor_close(int uid,
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "specdoor_close");
       return(-1);
    }
-   
+
    msg.type = specDoor_type;
    msg.u.specDoor.spec = spec;
    msg.u.specDoor.op = CLOSE;
@@ -375,12 +375,12 @@ mcp_specdoor_close(int uid,
 **=========================================================================
 */
 int
-tm_slithead(short val) 
+tm_slithead(short val)
 {
    int err;
    unsigned short ctrl[2];
-   B10_L0 tm_ctrl;   
-             
+   B10_L0 tm_ctrl;
+
    if(semTake (semSLC,60) == ERROR) {
       printf("tm_slithead: unable to take semaphore: %s", strerror(errno));
       NTRACE_1(0, 0, 0, "Unable to take semaphore: %d", errno);
@@ -409,7 +409,7 @@ tm_slithead(short val)
       tm_ctrl.mcp_slit_latch1_cmd = 0;
       break;
    }
-   
+
    swab ((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
    err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
    semGive (semSLC);
@@ -453,7 +453,7 @@ tm_slit_status()
       return err;
    }
    swab((char *)&ctrl[0],(char *)&tm_ctrl, sizeof(tm_ctrl));
-   
+
   printf (" read ctrl = 0x%04lx\r\n", *(unsigned long *)&ctrl);
   printf ("\r\n mcp_slit_dr1_opn_cmd=%d, mcp_slit_dr1_cls_cmd=%d",
      tm_ctrl.mcp_slit_dr1_opn_cmd,tm_ctrl.mcp_slit_dr1_cls_cmd);
@@ -493,7 +493,7 @@ mcp_slithead_latch_open(int spec)
       sendStatusMsg_I(0, 0, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
-   
+
    tm_slithead_unlatch(spec);
 
    return(0);
@@ -506,7 +506,7 @@ mcp_slithead_latch_close(int spec)
       sendStatusMsg_I(0, 0, INFORMATION_CODE, 1, "badSpectrograph", spec);
       return(-1);
    }
-   
+
    tm_slithead_latch(spec);
 
    return(0);
@@ -529,7 +529,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
    unsigned short ctrl[sizeof(b10)/2];
    int err;
    int val1, val2;			/* operations for screen[12] */
-             
+
    NTRACE_2(3, 0, 0, "Setting FFS: %d %d", val, enab);
 /*
  * What do they want us to do?
@@ -577,7 +577,7 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
       return err;
    }
    swab((char *)ctrl, (char *)&b10, sizeof(b10));
-      
+
    if(which_ffs & 0x1) {
       if(val1 >= 0) {
 	 b10.w0.mcp_ff_scrn_opn_cmd = val1;
@@ -594,8 +594,8 @@ set_mcp_ffs_bits(int val,		/* value of mcp_ff_scrn_opn_cmd */
 
    swab ((char *)&b10, (char *)ctrl, sizeof(b10));
    err = slc_write_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
-      
-   if(err) { 
+
+   if(err) {
       semGive (semSLC);
       NTRACE_1(0, uid, cid, "set_mcp_ffs_bits: error writing slc: 0x%04x", err);
       return err;
@@ -626,7 +626,7 @@ ffs_open_status(int which,
    int uid = 0, cid = 0;
    int nopen;				/* number of open petals */
    int nopen1 =				/* first 4 petals */
-     (sdssdc.status.i1.il13.leaf_1_open_stat ? 1 : 0) + 
+     (sdssdc.status.i1.il13.leaf_1_open_stat ? 1 : 0) +
        (sdssdc.status.i1.il13.leaf_2_open_stat ? 1 : 0) +
 	 (sdssdc.status.i1.il13.leaf_3_open_stat ? 1 : 0) +
 	   (sdssdc.status.i1.il13.leaf_4_open_stat ? 1 : 0);
@@ -668,11 +668,11 @@ ffs_open_status(int which,
 int
 ffs_close_status(int which,
 		int silent)
-{   
+{
    int uid = 0, cid = 0;
    int nclosed;
    int nclosed1 =
-     (sdssdc.status.i1.il13.leaf_1_closed_stat ? 1 : 0) + 
+     (sdssdc.status.i1.il13.leaf_1_closed_stat ? 1 : 0) +
        (sdssdc.status.i1.il13.leaf_2_closed_stat ? 1 : 0) +
 	 (sdssdc.status.i1.il13.leaf_3_closed_stat ? 1 : 0) +
 	   (sdssdc.status.i1.il13.leaf_4_closed_stat ? 1 : 0);
@@ -681,7 +681,7 @@ ffs_close_status(int which,
        (sdssdc.status.i1.il13.leaf_6_closed_stat ? 1 : 0) +
 	 (sdssdc.status.i1.il13.leaf_7_closed_stat ? 1 : 0) +
 	   (sdssdc.status.i1.il13.leaf_8_closed_stat ? 1 : 0);
-   
+
    if(which == 0x3) {			/* all petals */
       nclosed = nclosed1 + nclosed2;
       if(nclosed >= 6) {
@@ -733,7 +733,7 @@ tFFS(void)
 
       uid = msg.uid;
       cid = msg.cid;
-      
+
       NTRACE(8, uid, cid, "read msg on msgFFS");
 /*
  * What sort of message?
@@ -751,7 +751,7 @@ tFFS(void)
 
 	 get_uid_cid_from_tmr_msg(&msg, &uid, &cid);
 
-	 /* Check whether we have been superseded and need to commit suicide. 
+	 /* Check whether we have been superseded and need to commit suicide.
 	    Perhaps we finished, perhaps not. */
 	 if (msg.u.tmr.sts == tmr_e_abort) {
 	   fprintf(stderr, "superseding %d command (%d,%ld)\n", msg.type, uid, cid);
@@ -779,9 +779,9 @@ tFFS(void)
 	    }
 	 }
 
-	 if(move_ok) {
+	 /* if(move_ok) {
 	    OTRACE(1, "Flat field screen moved OK", 0, 0);
-	 }
+	 } */
 
 	 broadcast_ffs_lamp_status(uid, cid, 1, 0);
 	 sendStatusMsg_S(uid, cid, (move_ok ? FINISHED_CODE : FATAL_CODE), 1, "command", "ffs_move");
@@ -829,9 +829,9 @@ tFFS(void)
       if(set_mcp_ffs_bits(msg.u.FFS.op, 1) != 0) {
 	 continue;
       }
-      
+
       sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "ffsCommanded", 1);
-      OTRACE(1, "Waiting %ds for flat field screen to move", wait, 0);
+      /* OTRACE(1, "Waiting %ds for flat field screen to move", wait, 0); */
 /*
  * And schedule the check
  */
@@ -852,7 +852,7 @@ lamp_command_completed(int uid, unsigned long cid,
    ) {
    int status;				/* lamp status */
    int finished;			/* has command finished? */
-   
+
    switch (type) {
     case lampsCheck_ff_on_type:
     case lampsCheck_ff_off_type:
@@ -872,7 +872,7 @@ lamp_command_completed(int uid, unsigned long cid,
     case lampsCheck_hgcd_off_type:
       status = sdssdc.status.i1.il13.hgcd_1_stat + sdssdc.status.i1.il13.hgcd_2_stat +
 	 sdssdc.status.i1.il13.hgcd_3_stat + sdssdc.status.i1.il13.hgcd_4_stat;
-      
+
       finished = (type == lampsCheck_hgcd_on_type && status == 4) || (type == lampsCheck_hgcd_off_type && status == 0);
       break;
     case lampsCheck_uv_on_type:
@@ -896,7 +896,7 @@ lamp_command_completed(int uid, unsigned long cid,
       abort();
    }
 
-   broadcast_ffs_lamp_status(uid, cid, 0, 1);	 
+   broadcast_ffs_lamp_status(uid, cid, 0, 1);
 
    if (finished) {
       return 1;
@@ -937,7 +937,7 @@ tLamps(void)
 	    sendStatusMsg_N(uid, cid, FINISHED_CODE, 1, "controlLamps");
 	 } else {
 	    int wait = 2;			/* how many more seconds to wait */
-	    
+
 	    if(timerSendArgWithUidCid(msg.type, tmr_e_add, wait*60,
 				      uid, cid, msgLamps) == ERROR) {
 	       NTRACE_2(0, msg.uid, msg.cid, "Failed to send message to timer task: %s (%d)",
@@ -986,7 +986,7 @@ tLamps(void)
       } else {
 	 err = slc_read_blok(1, 10, BIT_FILE, 2, &ctrl[0], sizeof(tm_ctrl1)/2);
       }
-      
+
       if(err) {
 	 semGive(semSLC);
 	 printf("R Err=%04x\r\n",err);
@@ -997,7 +997,7 @@ tLamps(void)
       } else {
 	swab((char *)&ctrl[0], (char *)&tm_ctrl1, sizeof(tm_ctrl1));
       }
-      
+
       switch (msg.u.lamps.type) {
        case FF_LAMP:
 	 tm_ctrl0.mcp_ff_lamp_on_cmd = msg.u.lamps.on_off;
@@ -1023,7 +1023,7 @@ tLamps(void)
 	 NTRACE_1(0, msg.uid, msg.cid, "Impossible lamp type: %d", msg.type);
 	 break;
       }
-      
+
       if(b10_l0) {
 	 swab ((char *)&tm_ctrl0, (char *)&ctrl[0], sizeof(tm_ctrl0));
 	 err = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0],sizeof(tm_ctrl0)/2);
@@ -1032,7 +1032,7 @@ tLamps(void)
 	 err = slc_write_blok(1, 10, BIT_FILE, 2, &ctrl[0],sizeof(tm_ctrl1)/2);
       }
       semGive (semSLC);
-      
+
       if(err) {
 	 printf("W Err=%04x\r\n",err);
       }
@@ -1043,7 +1043,7 @@ tLamps(void)
 	 int wait = 1;			/* how many seconds to wait */
 
 	 sendStatusMsg_B(msg.uid, msg.cid, INFORMATION_CODE, 1, "lampsCommanded", 1);
-	 
+
 	 n_pending_retries = 20;	/* number of retries to try */
 	 if(timerSendArgWithUidCid(lampsCheck_msg, tmr_e_add, wait*60,
 				   msg.uid, msg.cid, msgLamps) == ERROR) {
@@ -1073,7 +1073,7 @@ get_slitstatus(char *slitstatus_ans,
 	  sdssdc.status.i1.il9.slit_head_door2_cls,
 	  sdssdc.status.i1.il9.slit_head_latch2_ext,
 	  sdssdc.status.i1.il9.slit_head_2_in_place);
-  
+
   len = strlen(slitstatus_ans);
   assert(len < size);
 
@@ -1140,8 +1140,8 @@ get_ffstatus(char *ffstatus_ans,
      printf("RHL len = %d size = %d\n", len, size);
   }
   assert(len < size);
-  
-  return(len);	
+
+  return(len);
 }
 
 /*****************************************************************************/
@@ -1225,7 +1225,7 @@ ffstatus_cmd(int uid, unsigned long cid, char *cmd)			/* NOTUSED */
     */
    ublock->buff[0] = '\0';
    (void)get_ffstatus(ublock->buff, UBLOCK_SIZE);
-   
+
    return(ublock->buff);
 }
 
@@ -1274,7 +1274,7 @@ ffsselect_cmd(int uid, unsigned long cid, char *cmd)
 	 which = atoi(&cmd[2]);
       }
    }
-   
+
    if(which < 0 || which > 3) {
       NTRACE_1(0, uid, cid, "Invalid FFS.SELECT argument: %s", cmd);
       return("Invalid FFS.SELECT argument");
@@ -1508,7 +1508,7 @@ broadcast_slit_status(int uid, unsigned long cid)
 	   sdssdc.status.i1.il9.slit_head_latch1_ext,
 	   sdssdc.status.i1.il9.slit_head_1_in_place);
    sendStatusMsg_A(uid, cid, INFORMATION_CODE, 1, "sp1Slithead", buff);
-   
+
    sprintf(buff, "%d%d, %d, %d",
 	  sdssdc.status.i1.il9.slit_head_door2_opn,
 	  sdssdc.status.i1.il9.slit_head_door2_cls,
@@ -1526,7 +1526,7 @@ slitstatus_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
    broadcast_slit_status(uid, cid);
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "slitstatus");
-   
+
    return(ublock->buff);
 }
 
@@ -1540,7 +1540,7 @@ slitdoor_clear_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_clear");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "slitdoor_clear");
    return "";
 }
@@ -1554,9 +1554,9 @@ slitdoor_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
    if(mcp_specdoor_open(uid, cid, ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-   
+
    broadcast_slit_status(uid, cid);
-   
+
    return "";
 }
 
@@ -1569,7 +1569,7 @@ slitdoor_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
    if(mcp_specdoor_close(uid, cid, ublock->spectrograph_select) < 0) {
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-   
+
    broadcast_slit_status(uid, cid);
 
    return "";
@@ -1585,7 +1585,7 @@ slithead_latch_close_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-   
+
    return "";
 }
 
@@ -1599,7 +1599,7 @@ slithead_latch_open_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "slitdoor_close");
       return "ERR: ILLEGAL DEVICE SELECTION";
    }
-   
+
    return "";
 }
 

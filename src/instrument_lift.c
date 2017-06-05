@@ -1,4 +1,4 @@
-#include "vxWorks.h"                            
+#include "vxWorks.h"
 #include "stdio.h"
 #include "sysLib.h"
 #include "taskLib.h"
@@ -53,7 +53,7 @@ static void
 il_enable_motion_status(void)
 {
    unsigned char val;
-   
+
    DIO316_Read_Port(il_DIO316,IL_ENABLE,&val);
 }
 
@@ -61,7 +61,7 @@ static void
 il_disable_motion(void)
 {
    unsigned char val;
-   
+
    DIO316_Read_Port (il_DIO316, IL_ENABLE, &val);
    DIO316_Write_Port (il_DIO316, IL_ENABLE, val & IL_DISABLED);
    /*	il_motion_up (0);*/
@@ -72,13 +72,13 @@ int
 shutdown_wd(int type)
 {
   printf("WD IP480 shutdown: 3 Interrupts\r\n");
-  
+
   SetInterruptEnable(&sbrd, IL_WD, IntDisable);
   SetInterruptEnable(&sbrd, TM_WD, IntDisable);
   SetInterruptEnable(&sbrd, CW_WD, IntDisable);
 
   taskDelay(30);
-  
+
   return 0;
 }
 
@@ -89,7 +89,7 @@ wd_isr(struct conf_blk *cblk)
 {
    int i,j;
    UWORD i_stat;
-   
+
    i_stat = inpw((UWORD *)(cblk->brd_ptr + InterruptPending));
    if(cblk->num_chan == 2) {		/* check if it's a 2 or 6 channel bo */
       i_stat &= 0x0300;			/* and clear the unused upper bits */
@@ -103,7 +103,7 @@ wd_isr(struct conf_blk *cblk)
       cblk->event_status |= (BYTE)(i_stat >> 8);   /* update event */
 
         /* service the hardware */
-      OTRACE(16, "IP480 ABORT fired %d, istat=%d", wdog++, i_stat);
+      /* OTRACE(16, "IP480 ABORT fired %d, istat=%d", wdog++, i_stat); */
         /* check each bit for an interrupt pending state */
       for(i = 0; i < j; i++) {		/* check each c */
 	 if(i_stat & (1 << (i + 8))) {	/* build interr */
@@ -123,7 +123,7 @@ setup_wd(char *addr,
 	 int irq)
 {
    sbrd.brd_ptr=(BYTE *)addr;
-   
+
    SetInterruptVector(&sbrd,vec);
    attach_ihandler(0,sbrd.m_InterruptVector,0,(FUNCPTR)wd_isr,
 		   (struct handler_data *)&sbrd);
@@ -145,7 +145,7 @@ il_setup_wd(void)
    SetWatchdogLoad(&sbrd,IL_WD,WDIntLd);
    SetOutputPolarity(&sbrd,IL_WD,OutPolHi);
    ConfigureCounterTimer(&sbrd,IL_WD);
-   
+
   return 0;
 }
 
@@ -153,7 +153,7 @@ void
 il_data_collection(void)
 {
    unsigned short adc;
-   
+
    if(il_ADC128F1 != -1) {
       ADC128F1_Read_Reg(il_ADC128F1,IL_POSITION,&adc);
       if((adc&0x800) == 0x800) {
@@ -161,9 +161,9 @@ il_data_collection(void)
       } else {
 	 sdssdc.inst.pos = adc & 0xFFF;
       }
-      
+
       ADC128F1_Read_Reg(il_ADC128F1,IL_STRAIN_GAGE,&adc);
-      
+
       if((adc&0x800) == 0x800) {
 	 sdssdc.inst.strain_gage = adc | 0xF000;
       } else {
@@ -178,12 +178,12 @@ il_data_collection(void)
 ** ROUTINE: lift_initialize
 **
 ** DESCRIPTION:
-**      Initialize the hardware utilized for the instrument lift.  Shares 
+**      Initialize the hardware utilized for the instrument lift.  Shares
 **	resources with the counter-weight system.  Checks to see if already
 **	initialized by cw and then uses the same handle if TRUE.
 **
 ** RETURN VALUES:
-**	
+**
 **
 ** CALLS TO:
 **	Industry_Pack
@@ -299,7 +299,7 @@ int lift_initialize(unsigned char *addr)
     free (ip);
     return ERROR;
   }
-    
+
   free (ip);
   il_disable_motion();
 

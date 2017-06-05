@@ -17,7 +17,7 @@ H5 = $(VWH)private/
 INCLUDES = -I$(H1) -I$(H2) -I$(H3) -I$(H4) -I$(H5)
 CC = cc68k
 
-CFLAGS = -g -ansi -O2 -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS $(INCLUDES)
+CFLAGS = -ansi -O -pipe -fvolatile -m68040 -DCPU=$(CPU) -DVXWORKS $(INCLUDES)
 
 LINK = ld68k
 LFLAGS = -r -M

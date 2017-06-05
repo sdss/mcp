@@ -37,7 +37,7 @@ tBars(void)
    int latch_status;			/* latched status from ABs */
    int latch_tbars;			/* should we latch the tbars? */
    MCP_MSG msg;				/* message to pass around */
-   int ret;				/* return code */   
+   int ret;				/* return code */
    int unlatch_status;			/* unlatched status from ABs */
    int wait = 60;			/* how many seconds to wait */
 
@@ -46,7 +46,7 @@ tBars(void)
 			WAIT_FOREVER);
       assert(ret != ERROR);
 
-      OTRACE(8, "read msg on msgTbars", 0, 0);
+      /* OTRACE(8, "read msg on msgTbars", 0, 0); */
 
       switch (msg.type) {
        case TbarsLatch_type:
@@ -55,9 +55,9 @@ tBars(void)
 	 cid = msg.cid;
 
 	 /* abort any pending confimations */
-	 (void)timerSendArgWithUidCid(TbarsLatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0); 
+	 (void)timerSendArgWithUidCid(TbarsLatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0);
 	 (void)timerSendArgWithUidCid(TbarsUnlatchCheck_type, tmr_e_abort_ns, 0, uid, cid, 0);
-	 
+
 	 latch_tbars = (msg.type == TbarsLatch_type) ? 1 : 0;
 	 break;
        case TbarsLatchCheck_type:
@@ -72,7 +72,7 @@ tBars(void)
 	 } else {
 	    latch_tbars = 0;
 	 }
-	 
+
 	 if(latch_status && unlatch_status) {
 	    NTRACE(0, uid, cid, "Imager T-bars are both latched and unlatched");
 	 } else if(!latch_status && !unlatch_status) {
@@ -85,7 +85,7 @@ tBars(void)
 			(latch_tbars ? "latched" : "unlatched"));
 	    }
 	 }
-	 
+
 	 latch_tbars = -1;		/* set both to 0 */
 	 break;
        default:
@@ -100,7 +100,7 @@ tBars(void)
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
-      
+
       err = slc_read_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
       if(err) {
 	 semGive(semSLC);
@@ -109,18 +109,18 @@ tBars(void)
 	 continue;
       }
       swab((char *)ctrl, (char *)&b10, sizeof(b10));
-      
+
       if(latch_tbars < 0) {
 	 b10.w1.mcp_t_bar_xport = b10.w1.mcp_t_bar_tel = 0;
       } else {
 	 b10.w1.mcp_t_bar_xport = latch_tbars;
 	 b10.w1.mcp_t_bar_tel = !latch_tbars;
       }
-      
+
       swab ((char *)&b10, (char *)ctrl, sizeof(b10));
       err = slc_write_blok(1, 10, BIT_FILE, 0, ctrl, sizeof(b10)/2);
       semGive (semSLC);
-      
+
       if(err) {
 	 NTRACE_1(0, uid, cid, "tBars: error writing slc: 0x%04x", err);
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 0, "command", "tbar_latch");
@@ -133,7 +133,7 @@ tBars(void)
 	 sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "tbar_latch");
 	 continue;
       }
-      
+
       NTRACE_1(1, uid, cid, "Waiting %ds for tbar latches to move", wait);
 
       msg.type = latch_tbars ? TbarsLatchCheck_type : TbarsUnlatchCheck_type;
@@ -170,7 +170,7 @@ tbar_latch_cmd(int uid, unsigned long cid, char *cmd)
 
    ret = msgQSend(msgTbars, (char *)&msg, sizeof(msg), NO_WAIT, MSG_PRI_NORMAL);
    assert(ret == OK);
-   
+
    return("");
 }
 
@@ -199,6 +199,6 @@ tBarsInit(void)
  */
    define_cmd("TBAR_LATCH",    tbar_latch_cmd,    1, 1, 0, 1,
 	      "Move the tbar latches; latch if arg is true, else unlatch");
-   
+
    return 0;
 }
