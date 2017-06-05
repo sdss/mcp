@@ -20,7 +20,7 @@
 
 #define SRAM_BASE_ADRS		0xFFE00000L
 
-unsigned long VMEC2_software_interrupt_init (int interrupt, 
+unsigned long VMEC2_software_interrupt_init (int interrupt,
 	int level,
 		void ((*routine)()) );
 unsigned long VMEC2_software_interrupt_set (int interrupt);
@@ -36,7 +36,7 @@ unsigned long VMEC2_timer_read(int timer);
 unsigned long VMEC2_timer_start(int timer);
 unsigned long VMEC2_timer_stop(int timer);
 
-unsigned long VMEC2_software_interrupt_init (int interrupt, 
+unsigned long VMEC2_software_interrupt_init (int interrupt,
 		int level,
 		void ((*routine)()) )
 {
@@ -51,14 +51,14 @@ unsigned long VMEC2_software_interrupt_init (int interrupt,
 /*interrupt handler */
   printf ("\r\nSoftware Vector number=%x %lx",
 		vecno,(unsigned long)*VMECHIP2_IOCR);
-  s = intConnect(INUM_TO_IVEC(vecno), VME2_sft_int, interrupt); 
-  *VMECHIP2_ILR3 = ((unsigned long)*VMECHIP2_ILR3 & (~(0xF<<(interrupt*4)) )) | 
+  s = intConnect(INUM_TO_IVEC(vecno), VME2_sft_int, interrupt);
+  *VMECHIP2_ILR3 = ((unsigned long)*VMECHIP2_ILR3 & (~(0xF<<(interrupt*4)) )) |
 		(unsigned long)(level<<(interrupt*4));
   VMEC2_software_interrupt_clear (interrupt);
 /*enable */
-  *VMECHIP2_LBIER = (unsigned long)*VMECHIP2_LBIER | 
+  *VMECHIP2_LBIER = (unsigned long)*VMECHIP2_LBIER |
 			(unsigned long)(1<<(interrupt+8));
-  sysIntEnable (level);  
+  sysIntEnable (level);
   return 0;
 }
 unsigned long VMEC2_software_interrupt_set (int interrupt)
@@ -261,7 +261,7 @@ FILE *
 fopen_logfile(const char *file,		/* desired file */
 	      const char *fmode)	/* mode as for fopen */
 {
-   int uid = 0, cid = 0;   
+   int uid = 0, cid = 0;
    int s_errno;				/* saved errno */
    int fd;				/* file's file descriptor */
    FILE *fil;				/* the returned FILE */
@@ -290,7 +290,7 @@ fopen_logfile(const char *file,		/* desired file */
 	 return(NULL);
       }
    }
-      
+
    if(!S_ISDIR(status.st_mode)) {
       NTRACE_1(0, uid, cid, "%s isn't a directory", filename);
       return(NULL);
@@ -436,13 +436,13 @@ get_mjd(void)
    if(status) {
       static char buff[100];
       sprintf(buff, "%d %d %d", tm_year + 1900, tm_mon + 1, tm_mday);
-      OTRACE(6, "MJD: %d (%s)", status, buff);
-   
+      /* OTRACE(6, "MJD: %d (%s)", status, buff); */
+
       return(-1);
    } else {
       ldj += (tm_hour + (tm_min + tm_sec/60.0)/60.0)/24.0;
       ldj += 0.3;
-	      
+
       return((int)ldj);
    }
 }

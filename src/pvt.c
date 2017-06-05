@@ -300,8 +300,8 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	 OTRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
-		axis_name(axis), acc);
+	 /* OTRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
+		axis_name(axis), acc); */
 
 	 {
 	    char key[20];
@@ -317,8 +317,8 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       }
 
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "calc_frames: Max vel. for %s exceeded: %ld/1000",
-	       axis_name(axis), (long)(1e3*v[axis][i, 0, 0]));
+	 /* OTRACE(2, "calc_frames: Max vel. for %s exceeded: %ld/1000",
+	       axis_name(axis), (long)(1e3*v[axis][i, 0, 0])); */
 
 	 {
 	    char key[20];
@@ -336,19 +336,19 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    if(bad_pvt) {
       int ii;
 
-      OTRACE(3, "Bad PVT: time_off = %g", time_off[axis], 0);
+      /* OTRACE(3, "Bad PVT: time_off = %g", time_off[axis], 0);
       OTRACE(3, "Bad PVT: dt = %g", dt, 0);
       OTRACE(3, "Bad PVT: dx = %g", dx, 0);
       OTRACE(3, "Bad PVT: dv = %g", dv, 0);
       OTRACE(3, "Bad PVT: ai = %g", ai, 0);
-      OTRACE(3, "Bad PVT: j = %g", j, 0);
+      OTRACE(3, "Bad PVT: j = %g", j, 0); */
 
       for(ii = 0; ii < nframe; ii++) {
-	 OTRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
-	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
+	 /* OTRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
+	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii], 0); */
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-	    OTRACE(3, "Bad PVT: a = %g", acc, 0);
+	    /* OTRACE(3, "Bad PVT: a = %g", acc, 0); */
 	 }
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {

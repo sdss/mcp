@@ -1,7 +1,7 @@
 #include "copyright.h"
 
 /*
-	Command handler to parse ASCII commands and arguments and call	
+	Command handler to parse ASCII commands and arguments and call
  the appropriate routine with the argument count and a pointer to a list
  of arguments.
 	The following are the rules-of-the-road for the parser:
@@ -71,7 +71,7 @@ iack_cmd(int uid, unsigned long cid,
    iacked = 1;
 
    sendStatusMsg_B(uid, cid, FINISHED_CODE, 1, "needIack", 0);
-   
+
    return("");
 }
 
@@ -83,7 +83,7 @@ char *
 sys_reset_cmd(int uid, unsigned long cid, char *args)
 {
    int reset_crate = 0;
-   
+
    if(sscanf(args, "%d", &reset_crate) != 1) {
       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", "sys_reset");
       return("SYS_RESET: Please specify 0/1");
@@ -120,7 +120,7 @@ log_mcp_command(int type,		/* type of command */
 {
    int uid = 0, cid = 0;
    MCP_CMD_MSG msg;			/* message to send */
-     
+
    if(cmd == NULL) {			/* flush log file */
       msg.msg.type = cmdFlush_type;
 
@@ -140,14 +140,14 @@ log_mcp_command(int type,		/* type of command */
    }
 
    if(log_all_commands < 0) {		/* log no commands */
-      return;			
+      return;
    }
-   
+
    if(log_all_commands == 0 && (type == -1 || !(type & CMD_TYPE_MURMUR))) {
       return;				/* don't log this command */
    }
 /*
- * We have work to do. 
+ * We have work to do.
  */
    msg.msg.type = cmdLog_type;
    if(strlen(cmd) > UBLOCK_SIZE - 20) {
@@ -176,7 +176,7 @@ log_mcp_command(int type,		/* type of command */
 void
 tCmdLog(void)
 {
-   int uid = 0, cid = 0;   
+   int uid = 0, cid = 0;
    MCP_CMD_MSG msg;			/* message to pass around */
    static FILE *mcp_log_fd = NULL;	/* fd for logfile */
    static int nline = 0;		/* number of lines written */
@@ -186,7 +186,7 @@ tCmdLog(void)
       ret = msgQReceive(msgCmdLog, (char *)&msg, sizeof(msg), WAIT_FOREVER);
       assert(ret != ERROR);
 
-      OTRACE(8, "read msg on msgCmdLog", 0, 0);
+      /* OTRACE(8, "read msg on msgCmdLog", 0, 0); */
 
       switch (msg.msg.type) {
        case cmdFlush_type:
@@ -194,7 +194,7 @@ tCmdLog(void)
 	    fclose(mcp_log_fd); mcp_log_fd = NULL;
 	    nline = 0;
 	 }
-	 
+
 	 continue;
        case cmdLog_type:
 /*
@@ -202,11 +202,11 @@ tCmdLog(void)
  */
 	 if(mcp_log_fd == NULL) {
 	    char filename[100];
-	    
+
 	    sprintf(filename, "mcpCmdLog-%d.dat", get_mjd());
 	    if((mcp_log_fd = fopen_logfile(filename, "a")) == NULL) {
 	       NTRACE_2(0, uid, cid, "Cannot open %s: %s", filename, strerror(errno));
-	       
+
 	       continue;
 	    }
 	 }
@@ -240,9 +240,9 @@ char *
 log_flush_cmd(int uid, unsigned long cid, char *cmd)		/* NOTUSED */
 {
    log_mcp_command(0, NULL);		/* flush the logfile to disk */
-   
+
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "log_flush");
-   
+
    return("");
 }
 
@@ -256,7 +256,7 @@ log_bufsize_cmd(int uid, unsigned long cid, char *cmd)
    }
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "log_bufsize");
-   
+
    return(ublock->buff);
 }
 
@@ -269,7 +269,7 @@ log_all_cmd(int uid, unsigned long cid, char *cmd)
    log_mcp_command(0, NULL);		/* flush the logfile to disk */
 
    sendStatusMsg_S(uid, cid, FINISHED_CODE, 0, "command", "log_all");
-   
+
    return(ublock->buff);
 }
 
@@ -312,7 +312,7 @@ int
 cmdInit(const char *rebootStr)		/* the command to use until iacked */
 {
    int ret;				/* return code */
-   
+
    rebootedMsg = rebootStr;
 
    if(semCMD == NULL) {
@@ -336,10 +336,10 @@ cmdInit(const char *rebootStr)		/* the command to use until iacked */
  */
    msgCmdLog = msgQCreate(40, sizeof(MCP_CMD_MSG), MSG_Q_FIFO);
    assert(msgCmdLog != NULL);
-   
+
    ret = taskSpawn("tCmdLog",90,VX_FP_TASK,20000,(FUNCPTR)tCmdLog,
 		   0,0,0,0,0,0,0,0,0,0);
-   assert(ret != ERROR);   
+   assert(ret != ERROR);
 /*
  * log this reboot
  */
@@ -417,7 +417,7 @@ define_cmd(char *name,			/* name of command */
 
       status = symAdd(cmdSymTbl, name, (char *)addr, type, 0);
       status = symAdd(docSymTbl, name, (char *)doc, 0, 0);
-      
+
       if(status != OK) {
 	 NTRACE_2(0, uid, cid, "Failed to add %s (%d args) to symbol table", name, narg);
       }
@@ -474,12 +474,12 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
    if (ublock->protocol == OLD_TCC_PROTOCOL) {
       cid = ++ublock->cid;
    }
-   
+
    nskip = varargs = 0;
    while((tok = strtok(cmd_str, " \t")) != NULL) {
 #if 0
       int isFirst_cmd = 1;		/* is this the first command in the input command string, cmd? */
-#endif 
+#endif
 
       cmd_str = NULL;
 
@@ -487,7 +487,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
       if(*tok == '\0') {
 	 continue;
       }
-      
+
       if(varargs) {			/* unknown number of arguments */
 	 if (nskip > 0) {		/* skip all tokens */
 	    continue;
@@ -535,7 +535,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 #if 0
 	 printf("Unknown command %s %d\n", tok, strlen(tok));
 #endif
-	 
+
 	 semGive(semCMD);
 
 	 if(cmd_type != NULL) {
@@ -543,7 +543,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 }
 
 	 sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "badCommand", cmd);
-	 
+
 	 return("ERR: CMD ERROR");
       } else {
 	 if(cmd_type != NULL) {
@@ -559,8 +559,8 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	 if(ublock->pid <= 0) {
 	    lvl += 2;
 	 }
-	 
-	 OTRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok);
+
+	 /* OTRACE((lvl + 2), "PID %d: command %s", ublock->pid, tok); */
 /*
  * If we are so requested, try to take the semCmdPort semaphore
  */
@@ -572,7 +572,7 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	       sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", cmd);
 	       return("ERR: failed to take semCmdPort semaphore");
 	    }
-	    
+
 	    have_sem = have_semaphore(uid);
 	 }
 /*
@@ -582,16 +582,16 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	    semGive(semCMD);
 	    sendStatusMsg_N(uid, cid, INFORMATION_CODE, 1, "needSemaphore");
 	    sendStatusMsg_S(uid, cid, ERROR_CODE, 1, "command", cmd);
-	    
+
 	    return("ERR: I don't have the semCmdPort semaphore");
 	 }
-	 
+
 	 nskip = type & CMD_TYPE_NARG;
 	 if(type & CMD_TYPE_VARARG) {
 	    varargs = 1;
 	 }
 	 if(nskip == 0 && !varargs) {
-	    OTRACE(lvl, "Command %s:", tok, 0);
+	    /* OTRACE(lvl, "Command %s:", tok, 0); */
 	    args = "";
 	 } else {
 	    args = strtok(cmd_str, "");
@@ -599,15 +599,15 @@ cmd_handler(int have_sem,		/* we have semCmdPort */
 	       args = "";
 	    }
 	    cmd_str = args;
-	    OTRACE(lvl, "Command %s: %s", tok, cmd_str);
+	    /* OTRACE(lvl, "Command %s: %s", tok, cmd_str); */
 	 }
       }
-      
+
       ans = (*addr)(uid, cid, args);	/* actually do the work */
    }
-   
+
   semGive(semCMD);
-  
+
   return ans;
 }
 
@@ -707,7 +707,7 @@ cmdShow(char *pattern,			/* pattern to match, or NULL */
       } else {
 	 funcname = "(static)";
       }
-   
+
       printf("%-20s %-25s  %-4d %-6d %-8d %-5d %d\n", name, funcname,
 	     (type & CMD_TYPE_NARG),
 	     (type & (CMD_TYPE_VARARG) ? 1 : 0),
