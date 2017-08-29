@@ -1296,7 +1296,7 @@ tm_TCC(int axis)
 	    }
 
 	    for(i = 0; i < OFF_MAX; i++) {
-            NTRACE_2(1,uid, cid, "%s offset queue i=%d", aname, i);
+            //NTRACE_2(1,uid, cid, "%s offset queue i=%d", aname, i);
 	       clroffset(axis,cnt);
 
 	       if(offset_queue_end[axis][i] != NULL) {
@@ -1362,7 +1362,7 @@ tm_TCC(int axis)
 		  traceMode(traceModeGet() & ~0x1);
 		  taskSuspend(0);
 	       }
-           NTRACE_2(1,uid, cid, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
+           //NTRACE_2(1,uid, cid, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
 	       load_frames(axis, idx, min(cnt, 5));
 
 	       if(idx == MAX_CALC - 5 && cnt == 5) {
