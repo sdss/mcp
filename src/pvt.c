@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
-#include "vxWorks.h"                            
+#include "vxWorks.h"
 #include "wdLib.h"
 #include "semLib.h"
 #include "sigLib.h"
@@ -74,8 +74,8 @@ int drift_modify_enable = FALSE;
 #define OFF_MAX	6		/* upto OFF_MAX + 2 offsets at one time */
 struct FRAME offset[NAXIS][OFF_MAX+2][2];
 struct FRAME *offset_queue_end[NAXIS][OFF_MAX+2]={
-   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}, 
-   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}, 
+   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
    {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };
 int offset_idx[NAXIS][OFF_MAX+2]={
@@ -135,7 +135,7 @@ void
 print_diagq(void)
 {
    int i;
-   
+
    printf("i=%d\n",diagq_i);
    for(i = 0; i < diagq_siz; i++) {
       printf("%c%d: p=%f tim=%f v=%f a=%f ji=%f",
@@ -154,22 +154,22 @@ print_diagq(void)
 **	Inputs are:
 **	xi, vi, ti
 **	xf, vf, tf
-**	
+**
 **	p(t) = pi + vi (t-ti) + 1/2 ai (t-ti)^2 + 1/6 j (t-ti)^3
 **	v(t) = vi + ai (t-ti) + 1/2 j  (t-ti)^2
 **	a(t) = ai + j  (t-ti)
 **	j(t) = j
-**	
+**
 **	where ti <= t <= tf
-**	
+**
 **	dx = xf - xi
 **	dv = vf - vi
 **	dt = tf - ti
 **	v' = dx / dt
-**	
+**
 **	ai = (2/dt) * ((3 * v') - (2 * vi) - vf)
 **	j  = (6/(dt^2)) * (vi + vf - (2 * v'))
-**	
+**
 **
 ** RETURN VALUES:
 **	number of frames processed
@@ -195,13 +195,13 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    struct FRAME *lframe;
    int i;
    int nframe;				/* number of frames to calculate */
-   
+
    /* problem............................*/
    if(iframe->nxt == NULL) {
-      NTRACE(0, uid, cid, "Initial frame has NULL ->nxt pointer");
+      NTRACE(1, uid, cid, "Initial frame has NULL ->nxt pointer");
       return ERROR;
    }
-   
+
    fframe = iframe->nxt;
 
    x0 = iframe->position; x1 = fframe->position;
@@ -233,18 +233,19 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
 	 max_acceleration_requested[axis] = a[axis][i];
       }
-      
+
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	 OTRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
-	       axis_name(axis), acc);
+     NTRACE_2(1,0,0, "calc_frames: Max accl. for %s exceeded: %ld/1000",
+           axis_name(axis), acc);
+
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
 
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
 	 }
-	 
+
 	 bad_pvt++;
 
 	 a[axis][i] = (a[axis][i] < 0) ? max_acceleration[axis] :
@@ -254,7 +255,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
  */
 	 x0 = p[axis][i];
 	 v0 = v[axis][i];
-	 
+
 	 dx = x1 - x0;
 	 dv = v1 - v0;
 	 dt = sdss_delta_time(fframe->end_time, t);
@@ -266,10 +267,11 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
 	 max_velocity_requested[axis] = v[axis][i];
       }
-      
+
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "calc_frames: Max vel. for %s exceeded: %ld/1000",
-	       axis_name(axis), (long)(1e3*v[axis][i]));
+
+     NTRACE_2(1,uid, cid, "calc_frames: Max vel. for %s exceeded: %ld/1000",
+           axis_name(axis), (long)(1e3*v[axis][i]));
 
 	 {
 	    char key[20];
@@ -277,7 +279,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, v[axis][i]);
 	 }
-	 
+
 	 bad_pvt++;
       }
    }
@@ -295,16 +297,16 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
 	 max_acceleration_requested[axis] = a[axis][i];
       }
-      
+
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	 OTRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
-		axis_name(axis), acc);
-	 
+	 /* OTRACE(2, "calc_frames: Max accl. for %s exceeded: %ld/1000",
+		axis_name(axis), acc); */
+
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-	    
+
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
 	 }
 	 bad_pvt++;
@@ -313,10 +315,10 @@ calc_frames(int axis, struct FRAME *iframe, int start)
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
 	 max_velocity_requested[axis] = v[axis][i];
       }
-      
+
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "calc_frames: Max vel. for %s exceeded: %ld/1000",
-	       axis_name(axis), (long)(1e3*v[axis][i, 0, 0]));
+	 /* OTRACE(2, "calc_frames: Max vel. for %s exceeded: %ld/1000",
+	       axis_name(axis), (long)(1e3*v[axis][i, 0, 0])); */
 
 	 {
 	    char key[20];
@@ -324,7 +326,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, v[axis][i]);
 	 }
-	 
+
 	 bad_pvt++;
       }
    }
@@ -333,27 +335,27 @@ calc_frames(int axis, struct FRAME *iframe, int start)
  */
    if(bad_pvt) {
       int ii;
-      
-      OTRACE(3, "Bad PVT: time_off = %g", time_off[axis], 0);
+
+      /* OTRACE(3, "Bad PVT: time_off = %g", time_off[axis], 0);
       OTRACE(3, "Bad PVT: dt = %g", dt, 0);
       OTRACE(3, "Bad PVT: dx = %g", dx, 0);
       OTRACE(3, "Bad PVT: dv = %g", dv, 0);
       OTRACE(3, "Bad PVT: ai = %g", ai, 0);
-      OTRACE(3, "Bad PVT: j = %g", j, 0);
-      
+      OTRACE(3, "Bad PVT: j = %g", j, 0); */
+
       for(ii = 0; ii < nframe; ii++) {
-	 OTRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
-	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
+	 /* OTRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
+	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii], 0); */
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-	    OTRACE(3, "Bad PVT: a = %g", acc, 0);
+	    /* OTRACE(3, "Bad PVT: a = %g", acc, 0); */
 	 }
-	 
+
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
 	    v[axis][ii] = (v[axis][ii] > 0) ?
 	      max_velocity[axis] : -max_velocity[axis];
 	 }
-	 
+
 	 if(fabs(a[axis][ii]) > max_acceleration[axis]) {
 	    a[axis][ii] = (a[axis][ii] > 0) ?
 	      max_acceleration[axis] : -max_acceleration[axis];
@@ -374,9 +376,9 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    if((int)(i + start) != (int)((dt - time_off[axis])*FLTFRMHZ) ||
 						    t == dt - time_off[axis]) {
       if(i > MAX_CALC - 1) {
-	 OTRACE(0, "calc_frames has problems (A) %d\n",i, 0);
+        NTRACE_1(1,uid, cid, "calc_frames has problems (A) %d\n",i);
       }
-      
+
       return i;
    }
 
@@ -385,16 +387,16 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    t = 1/FLTFRMHZ - ldt;
    lt = dt;
    tim[axis][i] = 1/FLTFRMHZ;
-   
+
    lframe = fframe;
    if(lframe->nxt == NULL) {
-      OTRACE(3, "CALC FRAME: next frame required to finish", 0, 0);
+      NTRACE(1,uid,cid, "CALC FRAME: next frame required to finish");
       return ERROR;
    }
-    
+
    fframe = lframe->nxt;
    time_off[axis] = t;
-   lai = ai; 
+   lai = ai;
    lj = j;
    dx = fframe->position - lframe->position;
    dv = fframe->velocity - lframe->velocity;
@@ -403,7 +405,7 @@ calc_frames(int axis, struct FRAME *iframe, int start)
 
    ai = (2/dt)*(3*xdot - 2*lframe->velocity - fframe->velocity);
    j = (6/(dt*dt))*(lframe->velocity + fframe->velocity - 2*xdot);
-   
+
    p[axis][i] = lframe->position + lframe->velocity*t + (1/2.)*ai*(t*t) +
 							      (1/6.)*j*(t*t*t);
    v[axis][i] = lframe->velocity + ai*t + (1/2.)*j*(t*t);
@@ -415,68 +417,67 @@ calc_frames(int axis, struct FRAME *iframe, int start)
    if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
       max_acceleration_requested[axis] = a[axis][i];
    }
-   
+
    if(fabs(a[axis][i]) > max_acceleration[axis]) {
       long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-      OTRACE(2, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
-	    axis_name(axis), acc);
-   
+      NTRACE_2(1,uid, cid, "calc_frames (end): Max accl. for %s exceeded: %ld/1000",
+        axis_name(axis), acc);
+
       {
 	 char key[20];
 	 sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-	 
+
 	 sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
       }
-      
+
       bad_pvt++;
    }
 
    if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
       max_velocity_requested[axis] = v[axis][i];
    }
-   
+
    if(fabs(v[axis][i]) > max_velocity[axis]) {
-      OTRACE(2, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
-	    axis_name(axis), (long)(1e3*v[axis][i]));
-      
+      NTRACE_2(1,uid, cid, "calc_frames (end): Max vel. for %s exceeded: %ld/1000",
+        axis_name(axis), (long)(1e3*v[axis][i]));
+
       {
 	 char key[20];
 	 sprintf(key, "%sMaxVelRequested", axis_abbrev(axis));
 
 	 sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, v[axis][i]);
       }
-	 
+
       bad_pvt++;
    }
 
    if(i + 1 > MAX_CALC) {
-      OTRACE(0, "calc_frames has problems (B) %d\n",i + 1, 0);
+     NTRACE_1(1,uid, cid, "calc_frames has problems (B) %d\n",i + 1);
    }
 /*
  * Do we need to fixup those velocities/accelerations and write debugging info?
  */
    if(bad_pvt) {
       int ii;
-      
-      OTRACE(3, "Bad PVT: dt = %g", dt, 0);
-      OTRACE(3, "Bad PVT: dx = %g", dx, 0);
-      OTRACE(3, "Bad PVT: dv = %g", dv, 0);
-      OTRACE(3, "Bad PVT: ai = %g", ai, 0);
-      OTRACE(3, "Bad PVT: j = %g", j, 0);
+      NTRACE_1(1,uid, cid, "Bad PVT: dt = %g", dt);
+      NTRACE_1(1,uid, cid, "Bad PVT: dx = %g", dx);
+      NTRACE_1(1,uid, cid, "Bad PVT: dv = %g", dv);
+      NTRACE_1(1,uid, cid, "Bad PVT: ai = %g", ai);
+      NTRACE_1(1,uid, cid, "Bad PVT: j = %g", j);
 
       for(ii = 0; ii <= i; ii++) {
-	 OTRACE(3, "Bad PVT: p = %g", p[axis][ii], 0);
-	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii], 0);
+     NTRACE_1(1,uid, cid, "Bad PVT: p = %g", p[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT: v = %g", v[axis][ii]);
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-	    OTRACE(3, "Bad PVT: a = %g", acc, 0);
+        NTRACE_1(1,uid, cid, "Bad PVT: a = %g", acc);
 	 }
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
 	    v[axis][ii] = (v[axis][ii] > 0) ?
 	      max_velocity[axis] : -max_velocity[axis];
 	 }
-	 
+
 	 if(fabs(a[axis][ii]) > max_acceleration[axis]) {
 	    a[axis][ii] = (a[axis][ii] > 0) ?
 	      max_acceleration[axis] : -max_acceleration[axis];
@@ -513,7 +514,7 @@ calc_offset(int axis, struct FRAME *iframe, int start, int cnt)
    double ai,j,t;
    struct FRAME *fframe;
    int i,ii;
-  
+
    fframe = iframe->nxt;
    dx = fframe->position - iframe->position;
    dv = fframe->velocity - iframe->velocity;
@@ -525,7 +526,7 @@ calc_offset(int axis, struct FRAME *iframe, int start, int cnt)
  * neccessary if for loop not executed; calc of t
  */
    t = (start + 1)/FLTFRMHZ;		/* for end condition */
-   
+
    for(i = 0; i < (int)min(cnt, (int)(dt*FRMHZ)-start); i++) {
       t = (i + start + 1)/FLTFRMHZ;
       timoff[axis][i] = 1/FLTFRMHZ;
@@ -536,13 +537,13 @@ calc_offset(int axis, struct FRAME *iframe, int start, int cnt)
       jioff[axis][i] += j;
    }
 
-   for(ii = i; ii < cnt; ii++) {         
+   for(ii = i; ii < cnt; ii++) {
       t = (ii+start+1)/FLTFRMHZ;
       timoff[axis][ii] = 1/FLTFRMHZ;
       poff[axis][ii] += fframe->position + fframe->velocity*(t - dt);
       voff[axis][ii] += fframe->velocity;
    }
-   
+
    return i;
 }
 
@@ -563,8 +564,8 @@ int
 clroffset(int axis,int cnt)
 {
    int i;
-   
-   for(i = 0; i < cnt; i++) {         
+
+   for(i = 0; i < cnt; i++) {
       poff[axis][i] = voff[axis][i] = aoff[axis][i] = jioff[axis][i] = 0;
    }
 
@@ -605,36 +606,36 @@ addoffset(int axis,int cnt)
       if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
 	 max_acceleration_requested[axis] = a[axis][i];
       }
-      
+
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	 OTRACE(2, "addoffset: Max accl. for %s exceeded: %ld/1000",
-	       axis_name(axis), acc);
+     NTRACE_2(1,0,0, "addoffset: Max accl. for %s exceeded: %ld/1000",
+           axis_name(axis), acc);
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-	    
+
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
 	 }
-	 
+
 	 bad_pvt++;
       }
 
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
 	 max_velocity_requested[axis] = v[axis][i];
       }
-      
+
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "addoffset: Max vel. for %s exceeded: %ld/1000",
-	       axis_name(axis), (long)(1e3*v[axis][i]));
-	 
+     NTRACE_2(1,0,0, "addoffset: Max vel. for %s exceeded: %ld/1000",
+           axis_name(axis), (long)(1e3*v[axis][i]));
+
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxVelRequested", axis_abbrev(axis));
 
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, v[axis][i]);
 	 }
-	 
+
 	 bad_pvt++;
       }
    }
@@ -643,24 +644,24 @@ addoffset(int axis,int cnt)
  */
    if(bad_pvt) {
       int ii;
-      
-      OTRACE(3, "Bad PVT: jioff = %g", jioff[axis][0], 0);
+
+      NTRACE_1(1,uid, cid, "Bad PVT: jioff = %g", jioff[axis][0]);
       for(ii = 0; ii < cnt; ii++) {
-	 OTRACE(3, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii], 0);
-	 OTRACE(3, "Bad PVT:         poff = %g", poff[axis][ii], 0);
-	 OTRACE(3, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii], 0);
-	 OTRACE(3, "Bad PVT:         voff = %g", voff[axis][ii], 0);
+     NTRACE_1(1,uid, cid, "Bad PVT: p = %g", p[axis][ii] - poff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT:         poff = %g", poff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT: v = %g", v[axis][ii] - voff[axis][ii]);
+     NTRACE_1(1,uid, cid, "Bad PVT:         voff = %g", voff[axis][ii]);
 	 {
 	    double acc = a[axis][ii];	/* OTRACE has a variable `a' */
-	    OTRACE(3, "Bad PVT: a = %g", acc - aoff[axis][ii], 0);
+        NTRACE_1(1,uid, cid, "Bad PVT: a = %g", acc - aoff[axis][ii]);
 	 }
-	 OTRACE(3, "Bad PVT:         aoff = %g", aoff[axis][ii], 0);
+	 NTRACE_1(1,uid, cid, "Bad PVT:         aoff = %g", aoff[axis][ii]);
 
 	 if(fabs(v[axis][ii]) > max_velocity[axis]) {
 	    v[axis][ii] = (v[axis][ii] > 0) ?
 	      max_velocity[axis] : -max_velocity[axis];
 	 }
-	 
+
 	 if(fabs(a[axis][ii]) > max_acceleration[axis]) {
 	    a[axis][ii] = (a[axis][ii] > 0) ?
 	      max_acceleration[axis] : -max_acceleration[axis];
@@ -675,7 +676,7 @@ addoffset(int axis,int cnt)
 **=========================================================================
 **
 **	Start the frame processing after at a specified time.  The MEI
-**	controller dwells after all frames inside the MEI have been 
+**	controller dwells after all frames inside the MEI have been
 **	purged.
 **
 ** RETURN VALUES:
@@ -692,7 +693,7 @@ start_frame(int axis, double t)
 {
    int uid = 0, cid = 0;
    int lcnt;
-  
+
    time_off[axis] = 0.0;
    while ((lcnt = tm_frames_to_execute(axis)) > 1) {
 #if 0
@@ -700,21 +701,21 @@ start_frame(int axis, double t)
 #endif
       taskDelay(3);
    }
-   
+
    taskDelay(5);
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "start_frame: Failed to get semMEI: %s (%d)",
+      NTRACE_2(1, uid, cid, "start_frame: Failed to get semMEI: %s (%d)",
 	       strerror(errno), errno);
       taskSuspend(0);
    }
-   
+
    t = sdss_delta_time(t, sdss_get_time());
 #if 0
    printf("time to dwell=%f\n",t);
 #endif
    dsp_dwell(2*axis, t);
    semGive(semMEI);
-   
+
    if (FRAME_verbose) {
       printf("START axis=%d: time=%f\n", 2*axis, t);
    }
@@ -723,7 +724,7 @@ start_frame(int axis, double t)
 /*=========================================================================
 **=========================================================================
 **
-**	Retrieves the number of MEI frames between two pvts including the 
+**	Retrieves the number of MEI frames between two pvts including the
 **	left over remants of the previous pvt pair.
 **
 ** RETURN VALUES:
@@ -737,7 +738,7 @@ get_frame_cnt(int axis, struct FRAME *iframe)
    struct FRAME *fframe;
    double dt;
    int cnt;
-   
+
    fframe = iframe->nxt;
    dt = fframe->end_time - iframe->end_time;
    cnt = (dt - time_off[axis])*FLTFRMHZ;
@@ -750,7 +751,7 @@ get_frame_cnt(int axis, struct FRAME *iframe)
       printf("final cnt=%d\n",cnt);
 #endif
    }
-   
+
    return cnt;
 }
 
@@ -780,13 +781,13 @@ load_frames(int axis,			/* which axis */
    int i;
    FRAME frame;
    const double sf = ticks_per_degree[axis];
-   
+
    if(FRAME_verbose) {
       printf("\nLoad %d Frames, sf=%f\n",cnt,sf);
    }
 
    if(idx + cnt > MAX_CALC) {
-      NTRACE_1(0, uid, cid, "Buffer overrun in load_frames: %d", idx + cnt);
+      NTRACE_1(1, uid, cid, "Buffer overrun in load_frames: %d", idx + cnt);
       cnt = MAX_CALC - idx;
    }
 
@@ -795,33 +796,33 @@ load_frames(int axis,			/* which axis */
       if(fabs(a[axis][i]) > fabs(max_acceleration_requested[axis])) {
 	 max_acceleration_requested[axis] = a[axis][i];
       }
-      
+
       if(fabs(a[axis][i]) > max_acceleration[axis]) {
 	 printf("AXIS %d: MAX ACC %f exceeded; limit %f\n",
 		axis, a[axis][i], max_acceleration[axis]);
 	 {
 	    long acc = 1e3*a[axis][i];	/* OTRACE macro has a variable "a" */
-	    OTRACE(2, "Max accl. for %s exceeded: %ld/1000",
-		  axis_name(axis), acc);
+        NTRACE_2(1,uid, cid, "Max accl. for %s exceeded: %ld/1000",
+          axis_name(axis), acc);
 	 }
-	 
+
 	 {
 	    char key[20];
 	    sprintf(key, "%sMaxAccRequested", axis_abbrev(axis));
-	    
+
 	    sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, a[axis][i]);
 	 }
 	 a[axis][i] = (a[axis][i] > 0) ?
 	    max_acceleration[axis] : -max_acceleration[axis];
       }
-      
+
       if(fabs(v[axis][i]) > fabs(max_velocity_requested[axis])) {
 	 max_velocity_requested[axis] = v[axis][i];
       }
-      
+
       if(fabs(v[axis][i]) > max_velocity[axis]) {
-	 OTRACE(2, "load_frames: Max vel. for %s exceeded: %ld/1000",
-	       axis_name(axis), (long)(1e3*v[axis][i]));
+     NTRACE_2(1,uid, cid, "load_frames: Max vel. for %s exceeded: %ld/1000",
+           axis_name(axis), (long)(1e3*v[axis][i]));
 
 	 {
 	    char key[20];
@@ -834,13 +835,13 @@ load_frames(int axis,			/* which axis */
 				       max_velocity[axis] : -max_velocity[axis];
       }
 #endif
-      
+
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "load_frames: failed to get semMEI: %s (%d)",
+	 NTRACE_2(1, uid, cid, "load_frames: failed to get semMEI: %s (%d)",
 		  strerror(errno), errno);
 	 taskSuspend(0);
       }
-      
+
       taskLock();
       e = frame_m_xvajt_corr(&frame,"0l xvajt un d", 2*axis,
 			     p[axis][i]*sf,
@@ -851,11 +852,11 @@ load_frames(int axis,			/* which axis */
 			     NEW_FRAME);
       taskUnlock();
       semGive (semMEI);
-      
+
       sdssdc.pvt[axis].position = (long)(p[axis][i]*sf);
       sdssdc.pvt[axis].velocity = (long)(v[axis][i]*sf);
       sdssdc.pvt[axis].time = (long)(tim[axis][i]*1000);
-      
+
       if(DIAGQ_verbose) {
 	 if(diagq != NULL && axis == DIAGQ_verbose) {
 	    diagq[diagq_i].p = p[axis][i];
@@ -866,7 +867,7 @@ load_frames(int axis,			/* which axis */
 	    diagq_i = (diagq_i+1)%diagq_siz;
 	 }
       }
-      
+
       if(FRAME_verbose) {
 	 printf("axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f "
 		"j=%12.8f,t=%12.8f\n",
@@ -901,9 +902,9 @@ stop_frame(int axis,
 	   double sf)
 {
    int uid = 0, cid = 0;
-   
+
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "stop_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "stop_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
@@ -912,7 +913,7 @@ stop_frame(int axis,
 
    for(;;) {
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "stop_frame failed to take semMEI for %s: %s",
+	 NTRACE_2(1, uid, cid, "stop_frame failed to take semMEI for %s: %s",
 		  axis_name(axis), strerror(errno));
 	 taskSuspend(0);
       }
@@ -920,14 +921,14 @@ stop_frame(int axis,
       if(motion_done(2*axis)) {
 	 break;
       }
-      
+
       semGive(semMEI);
 
       taskDelay(3);
    }
 
    clear_status(2*axis);
-   
+
    semGive(semMEI);
 }
 
@@ -962,11 +963,11 @@ stp_frame(int axis,
    double velocity;
 
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "stp_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "stp_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
-   
+
    get_position_corr(2*axis, &position);
    get_velocity(2*axis, &velocity);
 
@@ -985,20 +986,20 @@ stp_frame(int axis,
 	       FUPD_ACCEL | FUPD_VELOCITY, 0);
 
    semGive(semMEI);
-   
+
    for(;;) {
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "stp_frame failed to take semMEI for %s: %s",
+	 NTRACE_2(1, uid, cid, "stp_frame failed to take semMEI for %s: %s",
 		  axis_name(axis), strerror(errno));
 	 taskSuspend(0);
       }
-   
+
       if(!in_motion(2*axis)) {
 	 semGive (semMEI);
 	 break;
       }
       semGive(semMEI);
-      
+
       taskDelay(3);
    }
 }
@@ -1027,26 +1028,26 @@ drift_frame(int axis,
    int e;
    FRAME frame;
    const double sf = ticks_per_degree[axis];
-   
+
    NTRACE_2(3, uid, cid, "drifting %s: v = %ld cts/sec", axis_name(axis), (long)vel);
    if (FRAME_verbose) {
       printf ("DRIFT %s: v=%12.8f\n", axis_name(axis), (double)vel);
       printf("Drift frames left=%d\n", tm_frames_to_execute(axis));
    }
-   
+
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "drift_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "drift_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
-   
+
    e = frame_m(&frame, "0l vaj un d", 2*axis,
 	       vel, 0.2*sf, (double)0.0,
 	       FUPD_ACCEL|FUPD_VELOCITY|FUPD_JERK|FTRG_VELOCITY, NEW_FRAME);
    e = frame_m(&frame, "0l va u d", 2*axis,
 	       vel, (double)0.0,
 	       FUPD_ACCEL|FUPD_VELOCITY, 0);
-   
+
    semGive (semMEI);
 }
 
@@ -1065,9 +1066,9 @@ end_frame(int axis, int ind)
    int e;
    FRAME frame;
    const double sf = ticks_per_degree[axis];
-   
+
    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-      NTRACE_2(0, uid, cid, "end_frame failed to take semMEI for %s: %s",
+      NTRACE_2(1, uid, cid, "end_frame failed to take semMEI for %s: %s",
 	       axis_name(axis), strerror(errno));
       taskSuspend(0);
    }
@@ -1082,7 +1083,7 @@ end_frame(int axis, int ind)
 
    dsp_set_last_command_corr(dspPtr, 2*axis, (double)p[axis][ind]*sf);
    semGive(semMEI);
-   
+
    if (FRAME_verbose) {
       printf("END axis=%d (%d): "
 	     "p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f, t=%12.8f\n",
@@ -1109,16 +1110,16 @@ static int
 tm_frames_to_execute(int axis)
 {
    int cnt;
-   
+
    if(semTake(semMEI,60) == ERROR) {
       printf("tm_frames_to_execute error\n");
-      return ERROR;    
+      return ERROR;
    }
-   
+
    cnt = frames_to_execute(2*axis);
    semGive(semMEI);
-   
-   return cnt;    
+
+   return cnt;
 }
 
 /*=========================================================================
@@ -1157,10 +1158,10 @@ tm_TCC(int axis)
    double position;
    double velocity;
    int idx;
-   
+
    tm_sem_controller_run(2*axis);
    printf("Axis=%s;  Ticks per degree=%f\n", aname, ticks_per_degree[axis]);
-   
+
    idx = 0;
    for(;;) {
 /*
@@ -1184,7 +1185,7 @@ tm_TCC(int axis)
  * reposition if necessary, and if we aren't already moving
  */
       while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	 NTRACE_2(0, uid, cid, "tm_TCC: failed to take semMEI: %s (%d)",
+	 NTRACE_2(1, uid, cid, "tm_TCC: failed to take semMEI: %s (%d)",
 		  strerror(errno), errno);
 	 taskSuspend(0);
       }
@@ -1192,46 +1193,46 @@ tm_TCC(int axis)
       get_position_corr(2*axis, &position);
       get_velocity(2*axis, &velocity);
       semGive(semMEI);
-      
-      OTRACE(8, "Check Params for repositioning %s", aname, 0);
+
+      NTRACE_1(1,uid, cid, "Check Params for repositioning %s", aname);
 
       if(fabs(velocity) < 1e-8 &&
 	 fabs(frame->position*ticks_per_degree[axis] - position) >
 						  0.01*ticks_per_degree[axis]) {
 	 while((lcnt = tm_frames_to_execute(axis)) > 1) {
-	    OTRACE(8, "Frames left for %s: %d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "Frames left for %s: %d", aname, lcnt);
 	    taskDelay(1);
 	 }
 	 tm_start_move(2*axis, frame->position*ticks_per_degree[axis],
 		       max_velocity[axis]/2*ticks_per_degree[axis],
 		       max_acceleration[axis]/2*ticks_per_degree[axis]);
 
-	 OTRACE(3, "Repositioning %s by TCC cmd", aname, 0);
-	 OTRACE(3, "    from pos=%ld to pos=%ld",
-		(long)position, (long)(frame->position*ticks_per_degree[axis]));
-	 
+     NTRACE_1(1,uid, cid, "Repositioning %s by TCC cmd", aname);
+     NTRACE_2(1,uid, cid, "    from pos=%ld to pos=%ld",
+        (long)position, (long)(frame->position*ticks_per_degree[axis]));
+
 	 while((fabs(frame->position*ticks_per_degree[axis] - position) >
 						 0.01*ticks_per_degree[axis])) {
 	    taskDelay(10);
 
 	    while(semTake(semMEI, WAIT_FOREVER) == ERROR) {
-	       NTRACE_2(0, uid, cid, "tm_TCC: failed to retake semMEI: %s (%d)",
+	       NTRACE_2(1, uid, cid, "tm_TCC: failed to retake semMEI: %s (%d)",
 			strerror(errno), errno);
 	       taskSuspend(0);
 	    }
-	    
+
 	    moving = in_motion(2*axis);
 	    get_position_corr(2*axis, &position);
-	    
+
 	    semGive(semMEI);
 
 	    if(!moving) {	/* not in motion */
 	       break;
 	    }
 
-	    OTRACE(8, "repositioning to %ld", (long)position, 0);
+        NTRACE_1(1,uid, cid, "repositioning to %ld", (long)position);
 	 }
-	 OTRACE(3, "Done repositioning %s to %ld", aname, (long)position);
+     NTRACE_2(1,uid, cid, "Done repositioning %s to %ld", aname, (long)position);
       } else {
 #if 0
 	 printf("nonzero vel=%f\n", velocity);
@@ -1244,18 +1245,18 @@ tm_TCC(int axis)
 	    sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
 	 frame = frame->nxt;
 	 axis_queue[axis].active = frame;
-	 OTRACE(0, "%s frame deleted due to expiration time", aname, 0);
+     NTRACE_1(1,uid, cid, "%s frame deleted due to expiration time", aname);
       }
-      
+
       if(frame == NULL) {
-	 OTRACE(3, "%s restart no frames to process", aname, 0);
+        NTRACE_1(1,uid, cid, "%s restart no frames to process", aname);
 	 continue;
       }
-      
+
       start_frame(axis, frame->end_time);
       while(frame->nxt == NULL &&
 	    sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
-	 OTRACE(8, "%s waiting for second frame", aname, 0);
+        NTRACE_1(1,uid, cid, "%s waiting for second frame", aname);
 	 taskDelay (3);
       }
 
@@ -1264,26 +1265,26 @@ tm_TCC(int axis)
 				   !frame_break[axis] && !drift_break[axis])) {
 
 	 if(frame == NULL) {
-	    OTRACE(0, "%s frame == NULL", axis_name(axis), 0);
+        NTRACE_1(1,uid, cid, "%s frame == NULL", axis_name(axis));
 	    traceMode(traceModeGet() & ~0x1);
 	    taskSuspend(0);
 	 }
 
 	 frame_cnt = get_frame_cnt(axis, frame);
-	 
-	 OTRACE(8, "%s frame_cnt=%d", aname, frame_cnt);
+
+     NTRACE_2(1,uid, cid, "%s frame_cnt=%d", aname, frame_cnt);
 	 frame_idx = 0;
 	 while(frame_cnt > 0) {
-	    OTRACE(8, "%s loop: frame_cnt=%d", aname, frame_cnt);
+        NTRACE_2(1,uid, cid, "%s loop: frame_cnt=%d", aname, frame_cnt);
 
 	    while((cnt = calc_frames(axis, frame, frame_idx)) == ERROR &&
 		  tm_frames_to_execute(axis) > 4) {
 	       taskDelay(1);
 	    }
-	       
+
 	    if(cnt == ERROR) {
-	       OTRACE(5, "No frames; setting frame_break for %s",
-		     axis_name(axis), 0);
+           NTRACE_1(1,uid, cid, "No frames; setting frame_break for %s",
+             axis_name(axis));
 #if 0
 	       printf("frame=%p, nxt=%p, nxt=%p, frame_cnt=%d\n",
 		      frame,frame->nxt,(frame->nxt)->nxt,frame_cnt);
@@ -1293,20 +1294,20 @@ tm_TCC(int axis)
 	       frame_cnt = 0;
 	       break;
 	    }
-	    
+
 	    for(i = 0; i < OFF_MAX; i++) {
-	       OTRACE(8, "%s offset queue i=%d", aname, i);
+            //NTRACE_2(1,uid, cid, "%s offset queue i=%d", aname, i);
 	       clroffset(axis,cnt);
-	       
+
 	       if(offset_queue_end[axis][i] != NULL) {
 		  calc_offset(axis,
 			      &offset[axis][i][0], offset_idx[axis][i], cnt);
 		  offset_idx[axis][i] += cnt;
-		  
+
 		  if(offset_idx[axis][i]/20.0 > offset[axis][i][1].end_time) {
-		     OTRACE(8, "%s shutdown offset", aname, 0);
+            NTRACE_1(1,uid, cid, "%s shutdown offset", aname);
 		     frmoff = frame;
-		     
+
 		     taskLock();
 		     while(frmoff != offset_queue_end[axis][i]) {
 			frmoff->position += offset[axis][i][1].position;
@@ -1318,7 +1319,7 @@ tm_TCC(int axis)
 			       offset_idx[axis][i]);
 #endif
 		     }
-		     
+
 		     frmoff->position += offset[axis][i][1].position;
 		     frmoff->velocity += offset[axis][i][1].velocity;
 #if 0
@@ -1329,27 +1330,27 @@ tm_TCC(int axis)
 		     taskUnlock();
 		  }
 	       }
-	       
+
 	       addoffset(axis, cnt);
 	    }
 	    frame_idx += cnt;
 	    frame_cnt -= cnt;
-	    
+
 	    if(drift_break[axis] || frame_break[axis]) {
-	       OTRACE(8, "%s %s_break", aname, 
-		      (frame_break[axis] ? "frame" : "drift"));
-	       
+           NTRACE_2(1,uid, cid, "%s %s_break", aname,
+              (frame_break[axis] ? "frame" : "drift"));
+
 	       axis_queue[axis].active = NULL;
 	       frame_cnt = 0;
 	       break;
 	    }
-	    
+
 	    idx = 0;
 	    while(cnt > 0) {
 	       if(drift_break[axis] || frame_break[axis]) {
-		  OTRACE(8, "%s %s_break 2", aname, 
-			(frame_break[axis] ? "frame" : "drift"));
-		  
+          NTRACE_2(1,uid, cid, "%s %s_break 2", aname,
+            (frame_break[axis] ? "frame" : "drift"));
+
 		  axis_queue[axis].active = NULL;
 		  frame_cnt = 0;
 		  cnt = 0;
@@ -1357,55 +1358,55 @@ tm_TCC(int axis)
 	       }
 
 	       if(cnt <= 0) {		/* replaces weird Charlie if */
-		  OTRACE(0, "cnt == %d <= 0", cnt, 0); /* XXXX */
+           NTRACE_1(1,uid, cid, "cnt == %d <= 0", cnt); /* XXXX */
 		  traceMode(traceModeGet() & ~0x1);
 		  taskSuspend(0);
 	       }
-	       OTRACE(8, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
+           //NTRACE_2(1,uid, cid, "load_frames idx=%d cnt = %d", idx, min(cnt, 5));
 	       load_frames(axis, idx, min(cnt, 5));
-	       
+
 	       if(idx == MAX_CALC - 5 && cnt == 5) {
-		  OTRACE(1, "Last frame in buffer: p=%f",
-			 p[axis][MAX_CALC - 1], 0);
+          NTRACE_1(1,uid, cid, "Last frame in buffer: p=%f",
+             p[axis][MAX_CALC - 1]);
 	       }
-	       
+
 	       while(tm_frames_to_execute(axis) > 10) {
 		  taskDelay(3);
 	       }
-	       
+
 	       idx += 5;
 	       cnt -= 5;
 	    }
 	 }
-	 
+
 	 if(axis_queue[axis].active == NULL) {
 	    frame = axis_queue[axis].end;
 	    break;
 	 }
-	 
+
 	 frame = frame->nxt;
 	 axis_queue[axis].active = frame;
 	 while(frame->nxt == NULL &&
 	       sdss_delta_time(frame->end_time, sdss_get_time()) > 0.02) {
 	    taskDelay (1);
 	 }
-	 
+
 	 while(frame->nxt == NULL && tm_frames_to_execute(axis) > 1) {
 	    taskDelay(1);
 	 }
       }
-      
+
       lcnt = tm_frames_to_execute(axis);
       if(frame_break[axis]) {
-	 OTRACE(3, "%s frame_break: frames left=%d", aname, lcnt);
-      } else if(drift_break[axis]) {	
-	 OTRACE(3, "%s drift_break: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s frame_break: frames left=%d", aname, lcnt);
+      } else if(drift_break[axis]) {
+        NTRACE_2(1,uid, cid, "%s drift_break: frames left=%d", aname, lcnt);
       } else if(frame->nxt == NULL) {
-	 OTRACE(3, "%s no next frame: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s no next frame: frames left=%d", aname, lcnt);
       } else {
-	 OTRACE(3, "%s no active frame: frames left=%d", aname, lcnt);
+        NTRACE_2(1,uid, cid, "%s no active frame: frames left=%d", aname, lcnt);
       }
-      
+
       taskLock();
       axis_queue[axis].active = NULL;
       frame = axis_queue[axis].end;
@@ -1414,11 +1415,11 @@ tm_TCC(int axis)
 	 offset_queue_end[axis][i]=NULL;
       }
       taskUnlock();
-      
+
       if(idx <= 0) {
 	 idx = 1;
       }
-      
+
       if(frame_break[axis]) {
 	 stp_frame(axis, stop_position[axis]);
 	 frame_break[axis] = FALSE;
@@ -1457,7 +1458,7 @@ load_frames_test(int axis, int cnt)
 {
    int i;
    const double sf = ticks_per_degree[axis];
-   
+
    printf("Load %d Frames, sf=%f\n",cnt,sf);
    for(i = 0; i < cnt; i++) {
       printf ("axis=%d (%d): p=%12.8f, v=%12.8f, a=%12.8f, j=%12.8f,t=%12.8f\n",
@@ -1528,17 +1529,17 @@ print_axis_queue(int axis)
 {
    struct FRAME *frame;
    struct FRAME_QUEUE *queue;
-   
+
    printf("List Axis Queue=%s: %p\n", axis_name(axis), &axis_queue[axis]);
    queue = &axis_queue[axis];
    for(frame = queue->top; frame != NULL; frame = frame->nxt) {
       if(frame == queue->top) printf("TOP, cnt=%d\n", queue->cnt);
       if(frame == queue->active) printf("ACTIVE\n");
       if(frame == queue->end) printf ("END\n");
-      
+
       printf("%p: position=%12.8f, velocity=%12.8f, end_time=%12.8f\n",
 	     frame, frame->position, frame->velocity, frame->end_time);
-      
+
       if(frame->nxt != NULL) {
 	 printf ("      "
 		 "deltas position=%12.8f, velocity=%12.8f, end_time=%12.8f\n",
@@ -1598,18 +1599,18 @@ mcp_drift(int uid, unsigned long cid,
  * Get the MEI semaphore and proceed
  */
    if(semTake(semMEI,60) == ERROR) {
-      NTRACE_2(0, uid, cid, "drift_cmd: failed to get semMEI: %s (%d)",
+      NTRACE_2(1, uid, cid, "drift_cmd: failed to get semMEI: %s (%d)",
 	    strerror(errno), errno);
       return(-1);
    }
-   
+
    get_velocity(axis<<1,&drift_velocity[axis]);
    semGive (semMEI);
    drift_break[axis]=TRUE;
 
    taskDelay(3);
    if(semTake(semMEI, 60) == ERROR) {
-      NTRACE_2(0, uid, cid, "drift_cmd: failed to retake semMEI: %s (%d)",
+      NTRACE_2(1, uid, cid, "drift_cmd: failed to retake semMEI: %s (%d)",
 	    strerror(errno), errno);
       return(-1);
    }
@@ -1621,7 +1622,7 @@ mcp_drift(int uid, unsigned long cid,
    semGive(semMEI);
 
    if(*t < 0) {
-      NTRACE_1(0, uid, cid, "drift_cmd: bad time %g", *t);
+      NTRACE_1(1, uid, cid, "drift_cmd: bad time %g", *t);
       return(-1);
    }
 
@@ -1663,7 +1664,7 @@ mcp_drift(int uid, unsigned long cid,
 **
 **=========================================================================
 */
-int 
+int
 mcp_move(int uid, unsigned long cid,
 	 int axis,			/* the axis to move */
 	 double *params,		/* 0-3 values: p v t */
@@ -1688,12 +1689,12 @@ mcp_move(int uid, unsigned long cid,
       NTRACE(0, uid, cid, "mcp_move: bad time");
       return(-1);
    }
-   
+
    queue = &axis_queue[axis];
-   
+
    frame = (struct FRAME *)malloc(sizeof(struct FRAME));
    if(frame == NULL) {
-      NTRACE_2(0, uid, cid, "Cannot allocate frame: (%d) %s", errno, strerror(errno));
+      NTRACE_2(1, uid, cid, "Cannot allocate frame: (%d) %s", errno, strerror(errno));
       return(-1);
    }
 
@@ -1711,7 +1712,7 @@ mcp_move(int uid, unsigned long cid,
       }
    }
 #endif
-   
+
    switch (nparam) {
     case -1:
     case 0:
@@ -1726,7 +1727,7 @@ mcp_move(int uid, unsigned long cid,
       }
 
       if(frame != NULL) free(frame);
-      
+
       tcc_may_release_semCmdPort = 1;
 
       return(0);
@@ -1753,17 +1754,17 @@ mcp_move(int uid, unsigned long cid,
 
       if(sdss_delta_time(frame->end_time, sdss_get_time()) < 0.0) {
         if(frame != NULL) free(frame);
-        NTRACE_1(0, uid, cid, "MOVE CMD: requested time=%f", frame->end_time);
-        NTRACE_1(0, uid, cid, "            current time=%f", sdss_get_time());
+        NTRACE_1(1, uid, cid, "MOVE CMD: requested time=%f", frame->end_time);
+        NTRACE_1(1, uid, cid, "            current time=%f", sdss_get_time());
         traceMode(traceModeGet() & ~0x1); /* XXX */
         return(-1);
       }
-      
+
       if(drift_break[axis]) {
         if(DRIFT_verbose) {
           printf("DRIFT pvt %f %f %f\n", position,velocity,frame->end_time);
       }
-	 
+
 	 taskLock();
 	 tm_get_position(2*axis, &pos);
 	 dt = sdss_delta_time(frame->end_time, sdss_get_time());
@@ -1778,20 +1779,20 @@ mcp_move(int uid, unsigned long cid,
 	    printf("DRIFT modified pvt %f %f %f, difference=%f, dt=%f\n",
 		   pos, velocity, frame->end_time, position - pos, dt);
 	 }
-	 
+
 	 if(drift_modify_enable) {
 	    position = pos;
 	 }
-	 
+
 	 drift_break[axis] = FALSE;
       }
       break;
    }
-   
+
    frame->position = position;
 
    if(fabs(velocity) > max_velocity[axis]) {
-      NTRACE_2(0, uid, cid, "Move: Max vel. for %s exceeded: %ld/1000",
+      NTRACE_2(1, uid, cid, "Move: Max vel. for %s exceeded: %ld/1000",
 	    axis_name(axis), (long)(1e3*velocity));
 
       {
@@ -1800,10 +1801,10 @@ mcp_move(int uid, unsigned long cid,
 
 	 sendStatusMsg_F(uid, cid, INFORMATION_CODE, 1, key, velocity);
       }
-	       
+
       velocity = (velocity > 0) ? max_velocity[axis] : -max_velocity[axis];
    }
-   
+
    frame->velocity = (double)velocity;
    frame->nxt = NULL;
 
@@ -1818,10 +1819,10 @@ mcp_move(int uid, unsigned long cid,
    }
 
 #if 0 /*debugging*/
-   NTRACE_2(0,uid,cid,"%s MOVE pos=%f",axis_name(axis),frame->position);
-   NTRACE_2(0,uid,cid,"%s MOVE vel=%f",axis_name(axis),frame->velocity);
-   NTRACE_2(0,uid,cid,"%s MOVE endtime=%f",axis_name(axis),frame->end_time);
-   NTRACE_2(0,uid,cid,"%s MOVE delta_t=%f",axis_name(axis),frame->end_time-sdss_get_time());
+   NTRACE_2(1,uid,cid,"%s MOVE pos=%f",axis_name(axis),frame->position);
+   NTRACE_2(1,uid,cid,"%s MOVE vel=%f",axis_name(axis),frame->velocity);
+   NTRACE_2(1,uid,cid,"%s MOVE endtime=%f",axis_name(axis),frame->end_time);
+   NTRACE_2(1,uid,cid,"%s MOVE delta_t=%f",axis_name(axis),frame->end_time-sdss_get_time());
 #endif
 
 #if 0					/* XXX */
@@ -1838,7 +1839,7 @@ mcp_move(int uid, unsigned long cid,
    if(queue->active == NULL) {/* end of queue, and becomes active frame */
       queue->active = frame;
    }
-   
+
    for(i = 0; i < OFF_MAX; i++) {
       if(offset_queue_end[axis][i] != NULL) {
 	 /* still correcting offset , reduce new specifications */
@@ -1846,18 +1847,18 @@ mcp_move(int uid, unsigned long cid,
 	 frame->position -= offset[axis][i][1].position;
 	 frame->velocity -= offset[axis][i][1].velocity;
 
-     NTRACE_1(0, uid, cid, "Offsetting %s", axis_name(axis));
-	 NTRACE_2(0, uid, cid, "     pos = %d, vel = %d",
+     NTRACE_1(1, uid, cid, "Offsetting %s", axis_name(axis));
+	 NTRACE_2(1, uid, cid, "     pos = %d, vel = %d",
 		sdssdc.tccmove[axis].position,
 		sdssdc.tccmove[axis].velocity);
-	 
+
 #if 0
 	 printf("reduce offset end=%p, pos=%f,idx=%d\n",frame,
 		 frame->position,offset_idx[axis][i]);
 #endif
       }
    }
-   
+
    queue->end = frame;
    queue->cnt++;
    taskUnlock();
@@ -1883,7 +1884,7 @@ mcp_move(int uid, unsigned long cid,
 **	velocity as well.
 **	+MOVE pos vel time - unimplemented and not required
 **	Builds a pvt pair and uses the same calculations to provide a bump to
-**	the existing waveform.  The bump is disabled when new pvts are 
+**	the existing waveform.  The bump is disabled when new pvts are
 **	specified.
 **
 ** RETURN VALUES:
@@ -1898,7 +1899,7 @@ mcp_move(int uid, unsigned long cid,
 **
 **=========================================================================
 */
-int 
+int
 mcp_plus_move(int axis,			/* the axis to move */
 	      double *params,		/* 0-3 values: p v t */
 	      int nparam)		/* number of valid parameters */
@@ -1911,14 +1912,14 @@ mcp_plus_move(int axis,			/* the axis to move */
    for(i = 0; i < OFF_MAX; i++) {
       if(offset_queue_end[axis][i] == NULL) break;
    }
-   
+
    if(i >= OFF_MAX) {
       NTRACE(0, uid, cid, "mcp_plus_move: offset active");
       return(-1);
    }
 
    queue = &axis_queue[axis];
-   
+
    switch (nparam) {
     case -1:
     case 0:
@@ -1930,7 +1931,7 @@ mcp_plus_move(int axis,			/* the axis to move */
       velocity = params[1];
 
       if(position == 0.0 && (nparam == 2 && velocity == 0.0)) break;
-      
+
       offset[axis][i][0].nxt = &offset[axis][i][1];
       offset[axis][i][0].position = 0;
       offset[axis][i][1].position = position;
@@ -1946,7 +1947,7 @@ mcp_plus_move(int axis,			/* the axis to move */
       } else {
 	 offset[axis][i][1].end_time = ((int)(fabs(position/0.3)*20))/20.;
       }
-      
+
       offset_idx[axis][i] = 0;
       offset_queue_end[axis][i] = queue->end;
       break;
@@ -1959,7 +1960,7 @@ mcp_plus_move(int axis,			/* the axis to move */
       return(-1);
 #if 0
       if(position == 0.0 && velocity == 0.0) break;
-      
+
       offset[axis][i][0].nxt = &offset[axis][i][1];
       offset[axis][i][0].position = 0;
       offset[axis][i][1].position = position;
@@ -1985,7 +1986,7 @@ mcp_plus_move(int axis,			/* the axis to move */
 	  offset[axis][i][1].velocity,
 	  offset[axis][i][1].end_time);
 #endif
-   
+
    if(semTake(semSDSSDC, NO_WAIT) != ERROR) {
       sdssdc.tccpmove[axis].position =
 	(long)(offset[axis][i][1].position*ticks_per_degree[axis]);
@@ -1996,6 +1997,6 @@ mcp_plus_move(int axis,			/* the axis to move */
 
       semGive(semSDSSDC);
    }
-   
+
    return(0);
 }

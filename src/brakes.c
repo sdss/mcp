@@ -71,15 +71,15 @@ tBrakes(void)
 /*
  * set the bits that control the brakes
  */
-      OTRACE(10, "Taking semSLC semaphore", 0, 0);
+      /* OTRACE(10, "Taking semSLC semaphore", 0, 0); */
       if(semTake(semSLC,60) == ERROR) {
 	 NTRACE_2(0, uid, cid, "failed to take semaphore to %s %s brake",
 	       (set_brake ? "set" : "unset"), axis_name(axis));
 	 NTRACE_2(1, uid, cid, "    %s %d", strerror(errno), errno);
 	 continue;
       }
-      
-      OTRACE(10, "Reading blok", 0, 0);
+
+      /* OTRACE(10, "Reading blok", 0, 0); */
       ret = slc_read_blok(1,10,BIT_FILE,0,&ctrl[0],sizeof(tm_ctrl)/2);
       if(ret) {
 	 NTRACE_2(0, uid, cid, "%s: error reading slc: 0x%04x", axis_name(axis), ret);
@@ -87,7 +87,7 @@ tBrakes(void)
 	 continue;
       }
       swab((char *)&ctrl[0], (char *)&tm_ctrl, sizeof(tm_ctrl));
-      
+
       if(axis == ALTITUDE) {
 	 tm_ctrl.mcp_alt_brk_en_cmd =  set_brake ? 1 : 0;
 	 tm_ctrl.mcp_alt_brk_dis_cmd = set_brake ? 0 : 1;
@@ -98,7 +98,7 @@ tBrakes(void)
 	 NTRACE_1(0, uid, cid, "Impossible instrument %d", axis);
 	 abort();
       }
-      
+
       swab((char *)&tm_ctrl, (char *)&ctrl[0], sizeof(tm_ctrl));
       ret = slc_write_blok(1, 10, BIT_FILE, 0, &ctrl[0], sizeof(tm_ctrl)/2);
       semGive(semSLC);
@@ -109,7 +109,7 @@ tBrakes(void)
 /*
  * done with setting the bits; now deal with the MEI
  */
-      OTRACE(10, "Taking semMEI semaphore", 0, 0);
+      /* OTRACE(10, "Taking semMEI semaphore", 0, 0); */
       if(semTake(semMEI, 60) == ERROR) {
 	 NTRACE_2(0, uid, cid, "failed to take semMEI: %s (%d)", strerror(errno), errno);
 	 continue;
@@ -122,7 +122,7 @@ tBrakes(void)
       } else {
 	 NTRACE_1(3, uid, cid, "Putting axis %s into closed loop", axis_name(axis));
 	 sem_controller_run(2*axis);
-	 
+
 #if SWITCH_PID_COEFFS
 	 if(axis == INSTRUMENT) {
 	    while(coeffs_state_cts(2*axis, 0) == TRUE) {
@@ -130,11 +130,11 @@ tBrakes(void)
 	    }
 	 }
 #endif
-	 
+
 	 NTRACE_1(3, uid, cid, "Stopping axis %s", axis_name(axis));
  	 v_move(2*axis, (double)0, (double)5000);
       }
-      
+
       semGive(semMEI);
    }
 }
@@ -192,7 +192,7 @@ mcp_unset_brake(int uid, unsigned long cid,
    ret = msgQSend(msgBrakes, (char *)&msg, sizeof(msg),
 		  NO_WAIT, MSG_PRI_NORMAL);
    assert(ret == OK);
-   
+
    return(0);
 }
 
@@ -207,7 +207,7 @@ char *brakeon_cmd(int uid, unsigned long cid, char *cmd)
    } else {
       sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "brake_on");
    }
-  
+
   return "";
 }
 
@@ -218,7 +218,7 @@ char *brakeoff_cmd(int uid, unsigned long cid, char *cmd)
    } else {
       sendStatusMsg_S(uid, cid, FINISHED_CODE, 1, "command", "brake_off");
    }
-   
+
    return "";
 }
 
@@ -247,6 +247,6 @@ tBrakesInit(void)
  */
    define_cmd("BRAKE_OFF",     brakeoff_cmd, 	  0, 1, 0, 1, "");
    define_cmd("BRAKE_ON",      brakeon_cmd, 	  0, 1, 0, 1, "");
-   
+
    return 0;
 }
