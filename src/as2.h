@@ -14,13 +14,11 @@
 #define NTRACE_MAX 1                    /* Highest trace level to send out as keywords */
 
 #define NTRACE(LEVEL, UID, CID, STRING) \
-    TRACE(LEVEL, STRING, 0, 0); \
     if (LEVEL <= NTRACE_MAX) { \
         sendStatusMsg_S(UID, CID, (LEVEL%2 == 0 ? INFORMATION_CODE : DEBUG_CODE), 1, "trace", STRING); \
     }
 
 #define NTRACE_1(LEVEL, UID, CID, FORMAT, VAL1) \
-    TRACE(LEVEL, FORMAT, VAL1, 0); \
     if (LEVEL <= NTRACE_MAX) { \
         char _ntrace_buff[KEY_VALUE_LEN];    \
         sprintf(_ntrace_buff, FORMAT, VAL1); \
@@ -28,7 +26,6 @@
     }
 
 #define NTRACE_2(LEVEL, UID, CID, FORMAT, VAL1, VAL2) \
-    TRACE(LEVEL, FORMAT, VAL1, VAL2); \
     if (LEVEL <= NTRACE_MAX) { \
         char _ntrace_buff[KEY_VALUE_LEN];          \
         sprintf(_ntrace_buff, FORMAT, VAL1, VAL2); \
