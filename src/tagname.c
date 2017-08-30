@@ -13,7 +13,7 @@ getCvsTagname(void)
 {
    static char stag[] = "$HeadURL$";
    static char *tag = NULL;		/* the actual tag */
-   
+
    if (tag == NULL) {
       char const *mcp_tags = "/mcp/tags/";
       char *ptr = strstr(stag, mcp_tags);
